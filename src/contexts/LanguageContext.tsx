@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 export type Language = "zh" | "en";
 
@@ -16,6 +16,10 @@ const translations = {
   "common.continue": { zh: "继续", en: "Continue" },
 
   // Nav
+  "nav.group.overview": { zh: "总览", en: "Overview" },
+  "nav.group.learn": { zh: "学习", en: "Learn" },
+  "nav.group.practice": { zh: "练习", en: "Practice" },
+  "nav.group.progress": { zh: "进度", en: "Progress" },
   "nav.dashboard": { zh: "仪表盘", en: "Dashboard" },
   "nav.aiTutor": { zh: "AI 导师", en: "AI Tutor" },
   "nav.materials": { zh: "学习资料", en: "Materials" },
@@ -25,6 +29,13 @@ const translations = {
   "nav.planner": { zh: "学习计划", en: "Planner" },
   "nav.achievements": { zh: "成就", en: "Achievements" },
   "nav.analytics": { zh: "数据分析", en: "Analytics" },
+  "nav.settings": { zh: "设置", en: "Settings" },
+
+  // Study states
+  "mastery.ready": { zh: "可以进考场了", en: "Ready" },
+  "state.mastered": { zh: "已掌握", en: "Mastered" },
+  "state.partial": { zh: "部分掌握", en: "Partial" },
+  "state.uncovered": { zh: "未覆盖", en: "Uncovered" },
 
   // Onboarding
   "onboarding.welcome": { zh: "欢迎使用 Synapse", en: "Welcome to Synapse" },
@@ -104,6 +115,10 @@ const translations = {
   "quiz.generateFromMaterials": { zh: "从资料生成", en: "Generate from Materials" },
   "quiz.generating": { zh: "AI 生成中...", en: "AI Generating..." },
   "quiz.generated": { zh: "已从学习资料自动生成", en: "Auto-generated from your materials" },
+  "quiz.exitConfirm": { zh: "确定退出测验吗？当前进度将丢失。", en: "Exit the quiz? Current progress will be lost." },
+  "quiz.verdictCorrect": { zh: "回答正确", en: "Correct" },
+  "quiz.verdictWrong": { zh: "回答错误", en: "Incorrect" },
+  "quiz.keyboardHint": { zh: "按 1–4 选择，Enter 确认，Esc 退出", en: "Press 1–4 to select, Enter to confirm, Esc to exit" },
 
   // Flashcards
   "flashcards.title": { zh: "闪卡复习", en: "Flashcard Review" },
@@ -229,6 +244,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLang(lang);
     localStorage.setItem("synapse-lang", lang);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  }, [language]);
 
   const t = useCallback((key: string, vars?: Record<string, string | number>) => {
     const entry = (translations as Record<string, Record<string, string>>)[key];

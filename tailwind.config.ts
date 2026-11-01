@@ -59,6 +59,21 @@ export default {
           DEFAULT: "hsl(var(--emerald))",
           foreground: "hsl(var(--emerald-foreground))",
         },
+        mastered: {
+          DEFAULT: "hsl(var(--mastered))",
+          tint: "hsl(var(--mastered-tint))",
+        },
+        partial: {
+          DEFAULT: "hsl(var(--partial))",
+          tint: "hsl(var(--partial-tint))",
+        },
+        "uncovered-tint": "hsl(var(--uncovered-tint))",
+        "citation-tint": "hsl(var(--citation-tint))",
+        chart: {
+          accent: "hsl(var(--chart-accent))",
+          grid: "hsl(var(--chart-grid))",
+          axis: "hsl(var(--chart-axis))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

@@ -41,6 +41,17 @@
     --emerald: 160 50% 45%;
     --emerald-foreground: 0 0% 100%;
 
+    --mastered: 160 50% 45%;
+    --mastered-tint: 152 39% 93%;
+    --partial: 20 80% 55%;
+    --partial-tint: 23 73% 94%;
+    --uncovered-tint: 220 40% 95%;
+    --citation-tint: 220 52% 95%;
+
+    --chart-accent: 175 84% 32%;
+    --chart-grid: 216 12% 90%;
+    --chart-axis: 215 14% 46%;
+
     --sidebar-background: 220 45% 96%;
     --sidebar-foreground: 220 15% 25%;
     --sidebar-primary: 220 50% 50%;
@@ -71,10 +82,43 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Outfit', system-ui, sans-serif;
+    font-family: 'Outfit', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
   }
   .font-body {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+  }
+  .page-title {
+    @apply text-2xl font-display font-bold tracking-tight;
+  }
+  .section-label {
+    @apply text-sm font-display font-semibold text-muted-foreground;
+  }
+  .reader-body {
+    font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    max-width: 70ch;
+  }
+  :where(html[lang^="zh"]) .reader-body {
+    line-height: 1.9;
+  }
+  .chat-body {
+    font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .mastery-number {
+    font-family: 'Outfit', 'PingFang SC', system-ui, sans-serif;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

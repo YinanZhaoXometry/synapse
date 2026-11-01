@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import React from "react";
 
 interface Props {
@@ -8,6 +8,10 @@ interface Props {
 }
 
 export function AnimatedSection({ children, className, delay = 0 }: Props) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) {
+    return <div className={className}>{children}</div>;
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
@@ -22,6 +26,10 @@ export function AnimatedSection({ children, className, delay = 0 }: Props) {
 }
 
 export function AnimatedCard({ children, className, delay = 0 }: Props) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) {
+    return <div className={className}>{children}</div>;
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
