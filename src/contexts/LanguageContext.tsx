@@ -29,7 +29,7 @@ const translations = {
   "nav.analytics": { zh: "数据分析", en: "Analytics" },
 
   // Onboarding
-  "onboarding.welcome": { zh: "欢迎使用 StudyFlow", en: "Welcome to StudyFlow" },
+  "onboarding.welcome": { zh: "欢迎使用 Synapse", en: "Welcome to Synapse" },
   "onboarding.subtitle": { zh: "你的 AI 智能学习助手，30秒快速设置。", en: "Your AI-powered study assistant. Set up in 30 seconds." },
   "onboarding.start": { zh: "开始使用", en: "Get Started" },
   "onboarding.chooseMode": { zh: "选择学习模式", en: "Choose Learning Mode" },
@@ -238,13 +238,13 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLang] = useState<Language>(() => {
-    const saved = localStorage.getItem("studyflow-lang");
+    const saved = localStorage.getItem("synapse-lang");
     return (saved === "en" || saved === "zh") ? saved : "zh";
   });
 
   const setLanguage = useCallback((lang: Language) => {
     setLang(lang);
-    localStorage.setItem("studyflow-lang", lang);
+    localStorage.setItem("synapse-lang", lang);
   }, []);
 
   const t = useCallback((key: string, vars?: Record<string, string | number>) => {

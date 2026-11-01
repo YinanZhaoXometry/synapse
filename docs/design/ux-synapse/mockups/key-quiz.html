@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Synapse — Quiz (runner + results)</title>
+<!--
+  Key screen: Quiz session — runner (attempt-gated, WITH free hint) + results (mastery deltas + MistakeCompareCard)
+  Regenerated 2026-11-01 (scaffold-adoption round): + HintButton (✦ 提示, free, pre-answer — scaffold QuizPage pattern);
+  wrong answers now render as MistakeCompareCard (你的答案 vs 正确答案 + AI 解析 — scaffold MistakesPage pattern);
+  restrained result header (no emoji verdict).
+  Governing spine sections:
+    EXPERIENCE.md · Component Patterns (QuizRunner, QuizResults, HintButton, MistakeCompareCard), State Patterns (answered, results, forfeit), Key Flows UJ-5 step 6, NFR-8
+    DESIGN.md · Components (QuizOptionRow, HintButton, MistakeCompareCard), Layout & Spacing (quiz = single centered column), Colors (verdict semantics)
+  Spines win on conflict.
+-->
+<style>
+  :root{
+    --primary:#406ABF; --primary-fg:#FFFFFF; --bg:#F1F3F8; --card:#FFFFFF; --fg:#20242E;
+    --muted:#6A7181; --border:#D5DAE5;
+    --mastered:#39AC86; --mastered-tint:#E6F4EE;
+    --partial:#E86E30; --partial-tint:#FBEEE6;
+    --uncovered-tint:#EDF0F7; --citation-tint:#ECF0F9; --radius:10px;
+    --destructive:#C93A3A;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#DDE1EA;font-family:'Inter','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',system-ui,sans-serif;color:var(--fg);display:flex;flex-direction:column;align-items:center;padding:28px;gap:22px;}
+  .browser{width:920px;max-width:100%;background:var(--bg);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(32,36,46,.25);border:1px solid #C9CFDC;}
+  .chrome{height:38px;background:#E6E9F1;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--border);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .url{flex:1;margin-left:12px;background:#fff;border-radius:6px;height:22px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--muted);}
+  .quiz{padding:32px 40px 38px;display:flex;flex-direction:column;gap:15px;}
+  .meta{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);}
+  .meta b{font-family:'Outfit',system-ui;font-variant-numeric:tabular-nums;color:var(--fg);font-size:13px;}
+  .esc-x{margin-left:auto;color:var(--muted);font-size:12px;}
+  .bar{height:5px;background:var(--uncovered-tint);border-radius:99px;overflow:hidden;}
+  .bar i{display:block;height:100%;width:37.5%;background:var(--primary);border-radius:99px;}
+  h2{font-family:'Outfit','PingFang SC',system-ui;font-size:19px;font-weight:700;line-height:1.5;letter-spacing:-.01em;}
+  .nodechip{font-size:11px;color:#3A4B70;background:var(--uncovered-tint);border-radius:99px;padding:3px 10px;width:fit-content;}
+  .opts{display:flex;flex-direction:column;gap:9px;}
+  .opt{display:flex;align-items:center;gap:12px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:13px 15px;font-size:13.5px;}
+  .opt .key{width:24px;height:24px;border-radius:7px;background:var(--uncovered-tint);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .opt.correct{border-color:var(--mastered);background:var(--mastered-tint);}
+  .opt.correct .key{background:var(--mastered);color:#fff;}
+  .opt.wrong{border-color:var(--destructive);background:rgba(201,58,58,.07);}
+  .opt.wrong .key{background:var(--destructive);color:#fff;}
+  .row{display:flex;align-items:center;gap:14px;margin-top:4px;}
+  .btn{border-radius:10px;padding:11px 20px;font-size:13.5px;font-weight:600;}
+  .btn.primary{background:var(--primary);color:var(--primary-fg);}
+  .hintbtn{display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:13px;font-weight:500;background:transparent;border:none;padding:11px 4px;text-decoration:none;}
+  .hintbox{display:flex;gap:8px;align-items:flex-start;background:rgba(64,106,191,.05);border:1px solid rgba(64,106,191,.2);border-radius:10px;padding:10px 13px;font-size:13px;color:rgba(32,36,46,.8);}
+  .warn{font-size:11px;color:var(--partial);background:var(--partial-tint);border-radius:8px;padding:7px 10px;margin-top:10px;display:flex;gap:6px;align-items:center;}
+  .rationale{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--mastered);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.7;}
+  .rationale .src{display:inline-flex;gap:5px;align-items:center;color:var(--primary);background:var(--citation-tint);font-size:11px;border-radius:6px;padding:2px 8px;margin-top:7px;}
+  hr{border:none;border-top:1px dashed #C4CBD8;margin:0 40px;}
+  .results{padding:28px 40px 36px;display:flex;gap:24px;align-items:flex-start;}
+  .scorecard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;width:246px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .ringwrap{position:relative;width:110px;height:110px;}
+  .ringnum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',system-ui;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .sub{font-size:12px;color:var(--muted);text-align:center;line-height:1.65;}
+  .rlist{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0;}
+  .sect{font-size:11.5px;color:var(--muted);letter-spacing:.06em;margin:4px 0 2px;}
+  .delta{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 13px;font-size:12.5px;}
+  .delta .up{color:#1F7A5C;font-family:'Outfit',system-ui;font-variant-numeric:tabular-nums;font-weight:700;margin-left:auto;white-space:nowrap;}
+  .delta .st{font-size:11px;border-radius:99px;padding:2px 9px;}
+  .st.p{background:var(--partial-tint);color:#B45318;}
+  .st.u{background:var(--uncovered-tint);color:var(--muted);}
+  .mcc{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 15px;}
+  .mcchead{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;}
+  .tag{font-size:10px;color:var(--muted);background:var(--uncovered-tint);border-radius:6px;padding:2px 8px;font-weight:600;}
+  .date{font-size:10px;color:var(--muted);}
+  .mccq{font-size:13px;font-weight:600;margin-bottom:9px;line-height:1.55;}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .ca{display:flex;gap:7px;border-radius:9px;padding:8px 10px;font-size:11.5px;line-height:1.55;}
+  .ca .lbl{font-size:9.5px;font-weight:700;display:block;margin-bottom:2px;}
+  .ca.bad{background:rgba(201,58,58,.05);border:1px solid rgba(201,58,58,.18);color:#A03030;}
+  .ca.good{background:var(--mastered-tint);border:1px solid #BFE3D4;color:#1F7A5C;}
+  .aianalysis{display:flex;gap:8px;align-items:flex-start;background:rgba(64,106,191,.05);border:1px solid rgba(64,106,191,.15);border-radius:9px;padding:9px 11px;font-size:11.5px;color:rgba(32,36,46,.8);margin-top:8px;line-height:1.6;}
+  .src2{display:inline-flex;gap:5px;align-items:center;color:var(--primary);background:var(--citation-tint);font-size:10.5px;border-radius:6px;padding:2px 8px;margin-top:8px;}
+  .actions{display:flex;gap:10px;margin-top:4px;}
+  .btn2{border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;}
+  .btn2.p{background:var(--primary);color:#fff;}
+  .btn2.g{background:var(--card);border:1px solid var(--border);}
+  .cap{font-size:12px;color:#5A6172;font-family:ui-monospace,monospace;}
+</style>
+<body>
+  <div class="browser">
+    <div class="chrome"><span class="dot" style="background:#EF6A5A"></span><span class="dot" style="background:#F2BD4E"></span><span class="dot" style="background:#61C554"></span><span class="url">synapse.app/plan/comp5241-final/quiz/8f2</span></div>
+
+    <!-- STATE A · RUNNER (Choice, revealed; free hint shown expanded) -->
+    <div class="quiz">
+      <div class="meta">
+        <b>Q 3/8</b> · Mix 模式 · 来自 3 份材料 <span class="esc-x">退出 (Esc)</span>
+      </div>
+      <div class="bar"><i></i></div>
+      <span class="nodechip">节点 · 测试策略与级别</span>
+      <h2>下列哪种测试按「执行阶段」划分，而非按「对内部结构的可见性」划分？</h2>
+      <div class="opts">
+        <div class="opt"><span class="key">A</span>黑盒测试 / 白盒测试</div>
+        <div class="opt correct"><span class="key">B</span>单元 → 集成 → 系统 → 验收<span style="margin-left:auto;color:#1F7A5C;font-weight:600;">✓ 正确</span></div>
+        <div class="opt wrong"><span class="key">C</span>回归测试 / 冒烟测试<span style="margin-left:auto;color:var(--destructive);font-weight:600;">✗ 你的选择</span></div>
+        <div class="opt"><span class="key">D</span>功能测试 / 性能测试</div>
+      </div>
+      <div class="rationale">
+        黑盒/白盒按<b>可见性</b>划分（你看不看得到内部结构）；阶段划分是单元→集成→系统→验收这条<b>生命周期轴</b>。回归与冒烟是按<b>目的</b>重用的策略，不属于阶段轴。
+        <br><span class="src">📎 Lecture 4 · 第 7 页 §12.2</span>
+      </div>
+      <div class="hintbox">
+        <span style="color:var(--primary)">✦</span>
+        <span>提示（免费 · 不扣分）：想想「阶段」是时间轴上的顺序，还是观察代码的方式？—— 答题前你随时可以再要一条提示。</span>
+      </div>
+      <div class="row">
+        <div class="btn primary">下一题 (Enter)</div>
+        <span class="hintbtn">✦ 再要一条提示</span>
+      </div>
+      <div class="warn">⚠ 直接看答案 = 放弃此题 · 已记入错题（揭示前不可见答案 — NFR-8 先回忆再看）</div>
+    </div>
+
+    <hr>
+
+    <!-- STATE B · RESULTS (restrained header + deltas + MistakeCompareCards) -->
+    <div class="results">
+      <div class="scorecard">
+        <div class="ringwrap">
+          <svg width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="46" fill="none" stroke="#EDF0F7" stroke-width="11"/>
+            <circle cx="55" cy="55" r="46" fill="none" stroke="#406ABF" stroke-width="11" stroke-linecap="round" stroke-dasharray="216 289"/>
+          </svg>
+          <div class="ringnum">6/8</div>
+        </div>
+        <div class="sub">75% 正确 · 1 题放弃<br>对照材料评分 · 每题附理由</div>
+      </div>
+      <div class="rlist">
+        <div class="sect">掌握度变化 · MASTERY DELTAS</div>
+        <div class="delta">测试策略与级别 <span class="st p">◐ 58% → 74%</span><span class="up">▲ +16</span></div>
+        <div class="delta">集成与系统测试 <span class="st p">◐ 41% → 55%</span><span class="up">▲ +14</span></div>
+        <div class="delta">设计模式应用 <span class="st u">○ 未覆盖</span><span style="margin-left:auto;color:var(--muted);font-size:11px;">本次未出题</span></div>
+        <div class="sect">错题 · MISTAKES（进错题本 · P2）</div>
+        <div class="mcc">
+          <div class="mcchead"><span class="tag">Q5 · Open · 集成与系统测试</span><span class="date">刚刚</span></div>
+          <div class="mccq">说明自底向上集成策略，及其与大爆炸集成在缺陷定位上的差异。</div>
+          <div class="cmp">
+            <div class="ca bad"><span>✗</span><div><span class="lbl">你的答案 · ◐ 半对</span>自底向上策略描述完整</div></div>
+            <div class="ca good"><span>✓</span><div><span class="lbl">正确要点</span>未对比大爆炸集成的定位难度</div></div>
+          </div>
+          <div class="aianalysis"><span style="color:var(--primary)">✦</span><span>AI 解析：策略本身描述正确；失分点在缺少「大爆炸集成出错时难以定位到模块对」这一对比结论。</span></div>
+          <span class="src2">📎 Lecture 4 · 第 7 页 §12.2</span>
+        </div>
+        <div class="mcc">
+          <div class="mcchead"><span class="tag">Q7 · Choice · 看了答案（放弃）</span><span class="date">刚刚</span></div>
+          <div class="mccq">回归测试 / 冒烟测试 按什么划分？</div>
+          <div class="cmp">
+            <div class="ca bad"><span>⚠</span><div><span class="lbl">未作答 · 揭示</span>选择「直接看答案」</div></div>
+            <div class="ca good"><span>✓</span><div><span class="lbl">正确要点</span>按使用目的重用的策略分类</div></div>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="btn2 p">再来一轮（新题 · 不重复）</div>
+          <div class="btn2 g">回到计划</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap">Quiz session — runner with free ✦提示 HintButton + forfeit warn (scaffold QuizPage pattern, NFR-8) · results with restrained score + mastery deltas + MistakeCompareCard (你的答案 vs 正确要点 + AI 解析, scaffold MistakesPage pattern) (EXPERIENCE · QuizRunner/QuizResults / UJ-5 step 6)</p>
+</body>
+</html>

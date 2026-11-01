@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Synapse — Plans Home · empty state</title>
+<!--
+  Key screen: Plans Home (front door) — EMPTY state (agent-style creation chat + Study Task path)
+  Regenerated 2026-11-01 (scaffold-adoption round): sidebar hub Calendar → Today (今日学习, FR-27);
+  example goal chips under input (FR-1 goal-selection step lands Phase 2).
+  Governing spine sections:
+    EXPERIENCE.md · Information Architecture (Plans Home row; sidebar order), Component Patterns (PlansHome, PlanCreationChat), State Patterns (No plans), Key Flows UJ-5/UJ-6
+    DESIGN.md · Brand & Style, Colors (primary = action only), Typography, Layout & Spacing
+  Spines win on conflict.
+-->
+<style>
+  :root{
+    --primary:#406ABF; --primary-fg:#FFFFFF;
+    --bg:#F1F3F8; --card:#FFFFFF; --fg:#20242E;
+    --muted:#6A7181; --border:#D5DAE5;
+    --mastered:#39AC86; --mastered-tint:#E6F4EE;
+    --partial:#E86E30; --partial-tint:#FBEEE6;
+    --uncovered-tint:#EDF0F7; --citation-tint:#ECF0F9;
+    --radius:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#DDE1EA;font-family:'Inter','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',system-ui,sans-serif;color:var(--fg);display:flex;flex-direction:column;align-items:center;padding:28px;gap:18px;}
+  .browser{width:1120px;max-width:100%;background:var(--bg);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(32,36,46,.25);border:1px solid #C9CFDC;}
+  .chrome{height:38px;background:#E6E9F1;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--border);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .url{flex:1;margin-left:12px;background:#fff;border-radius:6px;height:22px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--muted);}
+  .shell{display:flex;min-height:600px;}
+  .side{width:232px;background:#EDF0F7;border-right:1px solid var(--border);padding:18px 12px;display:flex;flex-direction:column;gap:2px;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 16px;border-bottom:1px solid var(--border);margin:-4px -4px 12px;}
+  .mark{width:34px;height:34px;border-radius:9px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;font-family:'Outfit',system-ui;}
+  .brand b{font-family:'Outfit',system-ui;font-size:17px;letter-spacing:-.01em;}
+  .nav{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:#41465277;}
+  .nav svg{width:17px;height:17px;}
+  .nav.active{background:#DDE3F0;color:#2E4E8F;font-weight:600;}
+  .nav .p2{margin-left:auto;font-size:9.5px;color:var(--muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px;background:#fff;}
+  .grp{font-size:10.5px;color:var(--muted);letter-spacing:.08em;margin:16px 10px 6px;}
+  .main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:0;}
+  .halo{width:64px;height:64px;border-radius:18px;background:var(--primary);display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 10px 24px rgba(64,106,191,.35);}
+  h1{font-family:'Outfit','PingFang SC',system-ui;font-size:26px;font-weight:700;text-align:center;letter-spacing:-.01em;}
+  .tag{color:var(--muted);font-size:13px;text-align:center;margin-top:6px;}
+  .chatbox{width:560px;max-width:100%;margin-top:26px;}
+  .bubble{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;font-size:13.5px;line-height:1.75;color:var(--fg);box-shadow:0 1px 2px rgba(32,36,46,.04);display:flex;gap:10px;}
+  .bav{width:26px;height:26px;border-radius:8px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;font-family:'Outfit',system-ui;flex-shrink:0;}
+  .bubble .chip{display:inline-flex;align-items:center;gap:5px;background:var(--citation-tint);color:var(--primary);font-size:11.5px;border-radius:6px;padding:2px 8px;margin-top:8px;}
+  .input{margin-top:14px;display:flex;gap:8px;}
+  .input input{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px 16px;font-size:14px;color:var(--fg);outline:none;}
+  .input input::placeholder{color:#9AA1B0;}
+  .input button{background:var(--primary);color:var(--primary-fg);border:none;border-radius:12px;padding:0 18px;font-size:14px;font-weight:600;}
+  .examples{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  .ex{font-size:11.5px;color:#3A4B70;background:var(--uncovered-tint);border-radius:99px;padding:4px 11px;}
+  .task{margin-top:26px;width:560px;max-width:100%;border:1.5px dashed var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.55);}
+  .task .ic{width:36px;height:36px;border-radius:9px;background:var(--uncovered-tint);display:flex;align-items:center;justify-content:center;color:#414652;}
+  .task b{font-size:13.5px;display:block;}
+  .task span{font-size:12px;color:var(--muted);}
+  .task a{margin-left:auto;color:var(--primary);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;}
+  .foot{font-size:11px;color:#8B93A3;margin-top:30px;}
+  .cap{font-size:12px;color:#5A6172;font-family:ui-monospace,monospace;}
+</style>
+<body>
+  <div class="browser">
+    <div class="chrome">
+      <span class="dot" style="background:#EF6A5A"></span><span class="dot" style="background:#F2BD4E"></span><span class="dot" style="background:#61C554"></span>
+      <span class="url">synapse.app/</span>
+    </div>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand"><div class="mark">S</div><b>Synapse</b></div>
+        <div class="nav active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+          计划 Plans
+        </div>
+        <div class="grp">回顾 · REVIEW</div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>错题本 <span class="p2">P2</span></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>今日学习 Today <span class="p2">P2</span></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>闪卡 <span class="p2">P2</span></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3m.01 4h.01"/></svg>测验记录 <span class="p2">P2</span></div>
+      </aside>
+      <main class="main">
+        <div class="halo">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M13 2 4.7 12.3a1 1 0 0 0 .8 1.7H11l-1 8 8.3-10.3a1 1 0 0 0-.8-1.7H13l1-8Z"/></svg>
+        </div>
+        <h1>想学什么？</h1>
+        <p class="tag">说个主题，我来搭计划 · Name a topic, I'll draft the plan</p>
+        <div class="chatbox">
+          <div class="bubble">
+            <div class="bav">S</div>
+            <div>
+              我是你的学习伙伴。说出目标 —— 比如「5 天后 COMP5241 期末」—— 我会先搭出知识结构，你再挂上自己的材料。<br>
+              计划是骨架，材料由你来定。<span class="chip">✦ Companion</span>
+            </div>
+          </div>
+          <div class="input">
+            <input placeholder="我想在 5 天内准备好 COMP5241 考试…">
+            <button>↵</button>
+          </div>
+          <div class="examples">
+            <span class="ex">COMP5241 期末</span>
+            <span class="ex">React 入门</span>
+            <span class="ex">操作系统面试准备</span>
+          </div>
+        </div>
+        <div class="task">
+          <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></div>
+          <div><b>只想搞懂一份文档？</b><span>Study Task — 不需要计划，直接开始 · no plan required</span></div>
+          <a href="#">新建 Study Task →</a>
+        </div>
+        <p class="foot">你的 AI 学习伙伴 · 每一次提问，都在强化一条连接</p>
+      </main>
+    </div>
+  </div>
+  <p class="cap">Plans Home · empty state — agent-style creation chat + Study Task path; sidebar hub = Today (FR-27); example goal chips (EXPERIENCE · State Patterns / UJ-5, UJ-6)</p>
+</body>
+</html>

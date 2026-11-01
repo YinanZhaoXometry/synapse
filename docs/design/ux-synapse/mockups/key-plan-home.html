@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Synapse — Plan Home (light)</title>
+<!--
+  Key screen: Plan Home (light overview) — active state with mixed node states
+  Regenerated 2026-11-01 (scaffold-adoption round): + StreakChip in header (FR-25, evidence-based);
+  actions row → 2×2 QuickActionCard grid (scaffold dashboard pattern, FR-25); sidebar Calendar → Today (FR-27);
+  FileIcon emoji on Material cards.
+  Governing spine sections:
+    EXPERIENCE.md · Component Patterns (PlanHome, QuickActionCard, StreakChip, MasteryRing, NodeRow, UploadDropzone), State Patterns (Evidence exists), Key Flows UJ-5
+    DESIGN.md · Components (MasteryRing/ProgressRing base, StreakChip, QuickActionCard, NodeRow, FileIcon), Colors (state semantics), Typography (mastery-number)
+  Spines win on conflict.
+-->
+<style>
+  :root{
+    --primary:#406ABF; --primary-fg:#FFFFFF; --bg:#F1F3F8; --card:#FFFFFF; --fg:#20242E;
+    --muted:#6A7181; --border:#D5DAE5;
+    --mastered:#39AC86; --mastered-tint:#E6F4EE;
+    --partial:#E86E30; --partial-tint:#FBEEE6;
+    --uncovered-tint:#EDF0F7; --citation-tint:#ECF0F9; --radius:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#DDE1EA;font-family:'Inter','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',system-ui,sans-serif;color:var(--fg);display:flex;flex-direction:column;align-items:center;padding:28px;gap:18px;}
+  .browser{width:1120px;max-width:100%;background:var(--bg);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(32,36,46,.25);border:1px solid #C9CFDC;}
+  .chrome{height:38px;background:#E6E9F1;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--border);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .url{flex:1;margin-left:12px;background:#fff;border-radius:6px;height:22px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--muted);}
+  .shell{display:flex;min-height:660px;}
+  .side{width:232px;background:#EDF0F7;border-right:1px solid var(--border);padding:18px 12px;}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 16px;border-bottom:1px solid var(--border);margin:-4px -4px 12px;}
+  .mark{width:34px;height:34px;border-radius:9px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;font-family:'Outfit',system-ui;}
+  .brand b{font-family:'Outfit',system-ui;font-size:17px;}
+  .nav{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:#41465277;}
+  .nav.active{background:#DDE3F0;color:#2E4E8F;font-weight:600;}
+  .main{flex:1;padding:24px 30px;overflow:hidden;}
+  .crumb{font-size:12px;color:var(--muted);margin-bottom:6px;}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  h1{font-family:'Outfit','PingFang SC',system-ui;font-size:22px;font-weight:700;letter-spacing:-.01em;}
+  .pill{background:var(--card);border:1px solid var(--border);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--muted);}
+  .pill b{color:var(--primary);font-family:'Outfit',system-ui;font-variant-numeric:tabular-nums;}
+  .streak{background:var(--partial-tint);color:var(--partial);border:none;font-weight:600;}
+  .streak b{color:var(--partial);font-family:'Outfit',system-ui;}
+  .layout{display:flex;gap:20px;align-items:flex-start;}
+  .rail{width:246px;flex-shrink:0;display:flex;flex-direction:column;gap:14px;}
+  .ringcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .ringwrap{position:relative;width:126px;height:126px;}
+  .ringnum{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ringnum b{font-family:'Outfit','PingFang SC',system-ui;font-size:29px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .ringnum span{font-size:10.5px;color:var(--muted);}
+  .ringlabel{font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+  .continue{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:10px;padding:13px 14px;}
+  .continue b{font-size:13px;display:block;margin-bottom:2px;}
+  .continue span{font-size:11.5px;color:var(--muted);}
+  .continue a{display:block;margin-top:8px;color:var(--primary);font-size:12.5px;font-weight:600;text-decoration:none;}
+  .content{flex:1;display:flex;flex-direction:column;gap:16px;min-width:0;}
+  .qa{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .qacard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 14px;display:flex;gap:11px;align-items:flex-start;}
+  .qacard:hover{box-shadow:0 4px 14px rgba(32,36,46,.08);}
+  .qic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .q1 .qic{background:rgba(64,106,191,.1);color:var(--primary);}
+  .q2 .qic{background:var(--partial-tint);color:var(--partial);}
+  .q3 .qic{background:var(--mastered-tint);color:#1F7A5C;}
+  .q4 .qic{background:var(--citation-tint);color:var(--primary);}
+  .qacard b{font-size:13px;display:block;}
+  .qacard span{font-size:11.5px;color:var(--muted);display:block;margin-top:1px;}
+  .qacard .ar{margin-left:auto;color:#9AA1B0;font-size:14px;align-self:center;}
+  .p2{font-size:9.5px;color:var(--muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px;background:#fff;margin-left:6px;}
+  .sect{font-size:12px;color:var(--muted);letter-spacing:.06em;margin-bottom:8px;}
+  .nodes{display:flex;flex-direction:column;gap:6px;}
+  .stage{font-size:11px;color:#8B93A3;font-weight:600;letter-spacing:.04em;margin:8px 0 2px;}
+  .node{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;}
+  .node .st{width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+  .node .name{flex:1;}
+  .node .pct{font-family:'Outfit',system-ui;font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;color:var(--muted);}
+  .node .ev{font-size:11px;color:var(--muted);border-left:1px solid var(--border);padding-left:10px;}
+  .n-mastered{background:var(--mastered-tint);border-color:#BFE3D4;}
+  .n-mastered .st{background:var(--mastered);color:#fff;}
+  .n-mastered .pct{color:var(--mastered);}
+  .n-partial{background:var(--partial-tint);border-color:#F3D2BD;}
+  .n-partial .st{background:var(--partial);color:#fff;}
+  .n-partial .pct{color:var(--partial);}
+  .n-uncovered .st{background:var(--uncovered-tint);color:var(--muted);}
+  .mats{display:flex;gap:10px;flex-wrap:wrap;}
+  .mat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px;width:168px;}
+  .mat b{font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mat span{font-size:11px;color:var(--muted);}
+  .mat .open{margin-top:7px;font-size:11.5px;color:var(--primary);font-weight:600;}
+  .add{border:1.5px dashed var(--border);border-radius:10px;padding:11px 13px;width:168px;font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.4);}
+  .cap{font-size:12px;color:#5A6172;font-family:ui-monospace,monospace;}
+</style>
+<body>
+  <div class="browser">
+    <div class="chrome"><span class="dot" style="background:#EF6A5A"></span><span class="dot" style="background:#F2BD4E"></span><span class="dot" style="background:#61C554"></span><span class="url">synapse.app/plan/comp5241-final</span></div>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand"><div class="mark">S</div><b>Synapse</b></div>
+        <div class="nav active"> 计划 Plans</div>
+        <div class="nav" style="opacity:.55"> 错题本 P2</div>
+        <div class="nav" style="opacity:.55"> 今日学习 Today P2</div>
+        <div class="nav" style="opacity:.55"> 闪卡 P2</div>
+        <div class="nav" style="opacity:.55"> 测验记录 P2</div>
+      </aside>
+      <main class="main">
+        <div class="crumb">计划 / COMP5241 期末</div>
+        <header>
+          <h1>COMP5241 期末</h1>
+          <span class="pill">掌握度 <b>62%</b> · 8/13 节点已验证</span>
+          <span class="pill streak">🔥 连续 <b>5</b> 天 · 有效作答</span>
+          <span class="pill" style="margin-left:auto">4 份材料</span>
+        </header>
+        <div class="layout">
+          <div class="rail">
+            <div class="ringcard">
+              <div class="ringwrap">
+                <svg width="126" height="126" viewBox="0 0 126 126">
+                  <circle cx="63" cy="63" r="53" fill="none" stroke="#EDF0F7" stroke-width="12"/>
+                  <circle cx="63" cy="63" r="53" fill="none" stroke="#406ABF" stroke-width="12" stroke-linecap="round" stroke-dasharray="206 333"/>
+                </svg>
+                <div class="ringnum"><b>62%</b><span>MASTERY</span></div>
+              </div>
+              <div class="ringlabel">还差 5 个节点的证据<br>5 nodes to readiness</div>
+            </div>
+            <div class="continue">
+              <b>继续：Lecture 4 · 集成与系统测试</b>
+              <span>上次读到第 7 页 · 昨天</span>
+              <a href="#">打开阅读器 →</a>
+            </div>
+          </div>
+          <div class="content">
+            <div class="qa">
+              <div class="qacard q1"><div class="qic">✦</div><div><b>出题测我</b><span>Mix 模式 · 来自你的材料</span></div><span class="ar">→</span></div>
+              <div class="qacard q2"><div class="qic">⚡</div><div><b>闪卡复习</b><span>5 张到期 · 翻卡验证</span></div><span class="ar">→</span></div>
+              <div class="qacard q3"><div class="qic">＋</div><div><b>上传材料</b><span>PDF / Markdown ≤ 20 MB</span></div><span class="ar">→</span></div>
+              <div class="qacard q4"><div class="qic">💬</div><div><b>问 Companion</b><span>面向全部材料的计划级对话<span class="p2">P2</span></span></div><span class="ar">→</span></div>
+            </div>
+            <div>
+              <div class="sect">知识结构 · KNOWLEDGE NODES</div>
+              <div class="nodes">
+                <div class="stage">阶段 1 · 软件过程</div>
+                <div class="node n-mastered"><span class="st">●</span><span class="name">过程模型与敏捷</span><span class="pct">100%</span><span class="ev">证据 3</span></div>
+                <div class="node n-mastered"><span class="st">●</span><span class="name">需求获取与分析</span><span class="pct">92%</span><span class="ev">证据 2</span></div>
+                <div class="stage">阶段 2 · 设计</div>
+                <div class="node n-partial"><span class="st">◐</span><span class="name">体系结构与模块化</span><span class="pct">64%</span><span class="ev">证据 2</span></div>
+                <div class="node n-uncovered"><span class="st">○</span><span class="name">设计模式应用</span><span class="pct">—</span><span class="ev">还没有证据 · 先学再测</span></div>
+                <div class="stage">阶段 3 · 测试与交付</div>
+                <div class="node n-partial"><span class="st">◐</span><span class="name">测试策略与级别</span><span class="pct">58%</span><span class="ev">证据 1</span></div>
+                <div class="node n-uncovered"><span class="st">○</span><span class="name">集成与系统测试</span><span class="pct">—</span><span class="ev">还没有证据</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="sect">材料 · MATERIALS（计划即上下文）</div>
+              <div class="mats">
+                <div class="mat"><b>📄 Lecture 3.pdf</b><span>PDF · 23 页 · 正在读</span><div class="open">在阅读器中打开</div></div>
+                <div class="mat"><b>📄 Lecture 4.pdf</b><span>PDF · 19 页 · 第 7 页</span><div class="open">继续阅读 →</div></div>
+                <div class="mat"><b>📝 总复习提纲.md</b><span>Markdown · 6 节</span><div class="open">在阅读器中打开</div></div>
+                <div class="add">＋ 拖入 PDF / Markdown</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <p class="cap">Plan Home (light) — StreakChip (evidence-based, FR-25) · QuickActionCard 2×2 (scaffold dashboard pattern) · MasteryRing 62% · mixed NodeRow states · FileIcon emoji (EXPERIENCE · UJ-5 / DESIGN · Components)</p>
+</body>
+</html>

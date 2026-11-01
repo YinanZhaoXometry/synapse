@@ -34,8 +34,8 @@ export default function AppLayout() {
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card">
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-border">
-          <img src="/favicon.png" alt="StudyFlow" className="w-8 h-8 rounded-lg" />
-          <span className="font-display font-bold text-lg tracking-tight text-foreground">StudyFlow</span>
+          <img src="/favicon.png" alt="Synapse" className="w-8 h-8 rounded-lg" />
+          <span className="font-display font-bold text-lg tracking-tight text-foreground">Synapse</span>
         </div>
 
         {/* Language Toggle */}
@@ -123,8 +123,8 @@ export default function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-2">
-            <img src="/favicon.png" alt="StudyFlow" className="w-7 h-7 rounded-lg" />
-            <span className="font-display font-bold text-base">StudyFlow</span>
+            <img src="/favicon.png" alt="Synapse" className="w-7 h-7 rounded-lg" />
+            <span className="font-display font-bold text-base">Synapse</span>
           </div>
           <div className="flex items-center gap-2">
             <button
