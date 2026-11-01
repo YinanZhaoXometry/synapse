@@ -3,16 +3,15 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, MessageSquare, BookOpen, HelpCircle, 
   Brain, NotebookPen, CalendarDays, Trophy, BarChart3, 
-  Settings, Sparkles, Zap, Globe 
+  Settings, Globe 
 } from "lucide-react";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
 const navKeys = [
   { to: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
-  { to: "/ai-tutor", icon: MessageSquare, labelKey: "nav.aiTutor", aiOnly: true },
+  { to: "/ai-tutor", icon: MessageSquare, labelKey: "nav.aiTutor" },
   { to: "/materials", icon: BookOpen, labelKey: "nav.materials" },
   { to: "/quiz", icon: HelpCircle, labelKey: "nav.quiz" },
   { to: "/flashcards", icon: Brain, labelKey: "nav.flashcards" },
@@ -23,7 +22,6 @@ const navKeys = [
 ];
 
 export default function AppLayout() {
-  const { mode, setMode, isAI } = useLearningMode();
   const { progress } = useUserProgress();
   const { t, language, setLanguage } = useLanguage();
   const location = useLocation();
@@ -49,40 +47,9 @@ export default function AppLayout() {
           </button>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="px-4 pt-2 pb-2">
-          <div className="bg-secondary rounded-lg p-1 flex">
-            <button
-              onClick={() => setMode("ai")}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all duration-200",
-                isAI 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              {t("common.aiMode")}
-            </button>
-            <button
-              onClick={() => setMode("non-ai")}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all duration-200",
-                !isAI 
-                  ? "bg-foreground text-background shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              {t("common.manualMode")}
-            </button>
-          </div>
-        </div>
-
         {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
           {navKeys.map(item => {
-            if (item.aiOnly && !isAI) return null;
             const isActive = location.pathname === item.to;
             return (
               <NavLink
@@ -145,7 +112,7 @@ export default function AppLayout() {
         {/* Mobile nav */}
         <nav className="md:hidden flex items-center justify-around border-t border-border bg-card py-2 px-1">
           {[navKeys[0], navKeys[1], navKeys[3], navKeys[4], navKeys[7]].map(item => {
-            if (!item || (item.aiOnly && !isAI)) return null;
+            if (!item) return null;
             const isActive = location.pathname === item.to;
             return (
               <NavLink

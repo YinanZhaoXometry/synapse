@@ -1,13 +1,11 @@
 import { AnimatedSection } from "@/components/shared/AnimatedSection";
 import { useUserProgress } from "@/contexts/UserProgressContext";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { TrendingUp, Clock, Target, Brain } from "lucide-react";
 
 export default function AnalyticsPage() {
   const { progress } = useUserProgress();
-  const { isAI } = useLearningMode();
   const { t, language } = useLanguage();
   const accuracy = progress.totalAnswers > 0 ? Math.round((progress.correctAnswers / progress.totalAnswers) * 100) : 0;
 
@@ -16,21 +14,21 @@ export default function AnalyticsPage() {
     : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   const weeklyData = [
-    { day: days[0], aiMinutes: 45, manualMinutes: 20 },
-    { day: days[1], aiMinutes: 60, manualMinutes: 35 },
-    { day: days[2], aiMinutes: 30, manualMinutes: 25 },
-    { day: days[3], aiMinutes: 55, manualMinutes: 40 },
-    { day: days[4], aiMinutes: 70, manualMinutes: 30 },
-    { day: days[5], aiMinutes: 40, manualMinutes: 15 },
-    { day: days[6], aiMinutes: 50, manualMinutes: 45 },
+    { day: days[0], minutes: 65 },
+    { day: days[1], minutes: 95 },
+    { day: days[2], minutes: 55 },
+    { day: days[3], minutes: 95 },
+    { day: days[4], minutes: 100 },
+    { day: days[5], minutes: 55 },
+    { day: days[6], minutes: 95 },
   ];
 
   const weeks = language === "zh" ? ["第1周", "第2周", "第3周", "第4周"] : ["Wk 1", "Wk 2", "Wk 3", "Wk 4"];
   const accuracyTrend = [
-    { week: weeks[0], ai: 62, manual: 55 },
-    { week: weeks[1], ai: 71, manual: 60 },
-    { week: weeks[2], ai: 78, manual: 63 },
-    { week: weeks[3], ai: 85, manual: 68 },
+    { week: weeks[0], accuracy: 62 },
+    { week: weeks[1], accuracy: 71 },
+    { week: weeks[2], accuracy: 78 },
+    { week: weeks[3], accuracy: 85 },
   ];
 
   const topicStrength = [
@@ -61,16 +59,15 @@ export default function AnalyticsPage() {
 
       <AnimatedSection delay={0.1}>
         <div className="bg-card border border-border rounded-xl p-6">
-          <h3 className="font-display font-semibold mb-1">{t("analytics.aiVsManual")}</h3>
-          <p className="text-xs text-muted-foreground mb-4">{t("analytics.aiVsManualDesc")}</p>
+          <h3 className="font-display font-semibold mb-1">{t("analytics.weeklyStudyTime")}</h3>
+          <p className="text-xs text-muted-foreground mb-4">{t("analytics.weeklyStudyTimeDesc")}</p>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={weeklyData} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(216,12%,90%)" />
               <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" />
               <YAxis tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" />
               <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(216,12%,90%)", fontSize: 12 }} />
-              <Bar dataKey="aiMinutes" name={t("analytics.aiLabel")} fill="hsl(175,84%,32%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="manualMinutes" name={t("analytics.manualLabel")} fill="hsl(38,92%,50%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="minutes" name={t("analytics.totalStudyTime")} fill="hsl(175,84%,32%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -87,8 +84,7 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" />
                 <YAxis tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" domain={[40, 100]} />
                 <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(216,12%,90%)", fontSize: 12 }} />
-                <Line type="monotone" dataKey="ai" name={t("analytics.aiLabel")} stroke="hsl(175,84%,32%)" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="manual" name={t("analytics.manualLabel")} stroke="hsl(38,92%,50%)" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="accuracy" name={t("dashboard.accuracy")} stroke="hsl(175,84%,32%)" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

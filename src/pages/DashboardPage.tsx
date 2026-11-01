@@ -1,5 +1,4 @@
 import { useUserProgress } from "@/contexts/UserProgressContext";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
 import { ProgressRing } from "@/components/shared/ProgressRing";
@@ -8,7 +7,6 @@ import { Link } from "react-router-dom";
 
 export default function DashboardPage() {
   const { progress } = useUserProgress();
-  const { isAI } = useLearningMode();
   const { t } = useLanguage();
 
   const accuracy = progress.totalAnswers > 0 ? Math.round((progress.correctAnswers / progress.totalAnswers) * 100) : 0;
@@ -18,7 +16,7 @@ export default function DashboardPage() {
     { to: "/quiz", icon: HelpCircle, label: t("dashboard.startQuiz"), desc: t("dashboard.startQuizDesc"), color: "bg-primary/10 text-primary" },
     { to: "/flashcards", icon: Brain, label: t("dashboard.flashcardReview"), desc: t("dashboard.flashcardReviewDesc"), color: "bg-amber/10 text-amber" },
     { to: "/materials", icon: BookOpen, label: t("dashboard.studyMaterials"), desc: t("dashboard.studyMaterialsDesc"), color: "bg-emerald/10 text-emerald" },
-    { to: "/ai-tutor", icon: Sparkles, label: t("dashboard.aiTutor"), desc: t("dashboard.aiTutorDesc"), color: "bg-primary/10 text-primary", aiOnly: true },
+    { to: "/ai-tutor", icon: Sparkles, label: t("dashboard.aiTutor"), desc: t("dashboard.aiTutorDesc"), color: "bg-primary/10 text-primary" },
   ];
 
   return (
@@ -27,7 +25,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight leading-tight">{t("dashboard.welcome")}</h1>
-            <p className="text-muted-foreground mt-1">{isAI ? t("dashboard.aiReady") : t("dashboard.manualReady")}</p>
+            <p className="text-muted-foreground mt-1">{t("dashboard.aiReady")}</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber/10">
@@ -66,7 +64,6 @@ export default function DashboardPage() {
             <h3 className="font-display font-semibold text-sm text-muted-foreground px-1">{t("dashboard.quickActions")}</h3>
             <div className="grid sm:grid-cols-2 gap-3">
               {quickActions.map((action, i) => {
-                if (action.aiOnly && !isAI) return null;
                 return (
                   <AnimatedCard key={action.to} delay={0.15 + i * 0.06}>
                     <Link to={action.to} className="group block bg-card rounded-xl border border-border p-4 transition-shadow hover:shadow-md active:scale-[0.98]">

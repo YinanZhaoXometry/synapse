@@ -1,5 +1,4 @@
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { XCircle, RefreshCw, Sparkles, BookOpen, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,7 +44,6 @@ const sampleMistakes: Mistake[] = [
 ];
 
 export default function MistakesPage() {
-  const { isAI } = useLearningMode();
   const { t, language } = useLanguage();
 
   return (
@@ -102,7 +100,7 @@ export default function MistakesPage() {
                   </div>
                 </div>
               </div>
-              {isAI && m.aiExplanation && (
+              {m.aiExplanation && (
                 <div className="flex items-start gap-2.5 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2.5">
                   <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div>

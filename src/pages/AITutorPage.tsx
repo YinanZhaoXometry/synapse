@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnimatedSection } from "@/components/shared/AnimatedSection";
 import { Send, Sparkles, User, Lightbulb, BookOpen, HelpCircle, Eraser } from "lucide-react";
@@ -31,7 +30,6 @@ const mockResponses: Record<string, Record<string, string>> = {
 };
 
 export default function AITutorPage() {
-  const { isAI } = useLearningMode();
   const { t, language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -48,22 +46,6 @@ export default function AITutorPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  if (!isAI) {
-    return (
-      <div className="p-6 md:p-8 max-w-3xl mx-auto">
-        <AnimatedSection>
-          <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h2 className="text-xl font-display font-bold mb-2">{t("tutor.disabled")}</h2>
-            <p className="text-muted-foreground text-sm max-w-md mx-auto">{t("tutor.disabledDesc")}</p>
-          </div>
-        </AnimatedSection>
-      </div>
-    );
-  }
 
   const handleSend = (text?: string) => {
     const msg = text || input.trim();

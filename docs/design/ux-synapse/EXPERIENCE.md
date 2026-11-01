@@ -11,21 +11,31 @@ ui_system: shadcn/ui + Tailwind CSS-variable tokens (scaffold-inherited)
 
 # Synapse — Experience Spine
 
-Phase-1-first lean run: the front door (entry states), Study Task, Immersive Reader + Companion, quiz flow, and the light plan home are specified in depth. Phase 2 surfaces (Roadmap graph, Square, Notes, hubs' full build, analytics) hold named IA positions only. DESIGN.md is the visual identity reference; this spine is the behavior. Glossary terms are used verbatim from the PRD (§3).
+Phase-1-first lean run: the front door (entry states), Study Task, Immersive Reader + Companion, quiz flow, and the light plan home are specified in depth. Phase 2 surfaces (Roadmap graph, Square, Notes, hubs' full build, analytics) hold named IA positions only. **Owner round 2026-11-01:** the scaffold's ten-page app is retained as the current demo IA — Dashboard (仪表盘)， AI Tutor (AI 导师)， Achievements (成就)， Analytics (数据分析)， Materials, Quiz, Flashcards, Mistakes, Planner, plus the sidebar's user-profile footer and Settings gear — running on demo data; the plan-first build layers on per the IA table. DESIGN.md is the visual identity reference; this spine is the behavior. Glossary terms are used verbatim from the PRD (§3).
 
 ## Foundation
 
 Responsive web app — no native surfaces. Desktop/laptop ≥1024px is the primary surface (student laptop + the Nov 6 live demo on a projector); tablet 768–1023px is reading-competent; mobile <768px keeps reading and chat usable via a bottom-sheet Companion. The UI system is the scaffold's shadcn/ui + Tailwind token set; both spines inherit it — DESIGN.md holds the visual deltas, this file the behavioral deltas. Data is local-first in Phase 1 (browser persistence, no accounts — FR-29); no offline claims.
 
-**Legacy retirement is part of this IA** (AGENTS.md, PRD FR-36 platform note): `LearningModeContext`, the `aiOnly` nav gating, the AI/manual mode toggle, and the ten-page tool-menu navigation are removed in the first implementation pass. Onboarding's mode step dies with it.
+**Legacy status (owner round, 2026-11-01 — supersedes this run's original retirement):** the dual-mode legacy is gone — `LearningModeContext`, the `aiOnly` gating, the sidebar mode toggle, and onboarding's mode step were removed in the first implementation pass (the retirement this spine originally called for; done). The scaffold's ten-page navigation is **retained**: Dashboard (仪表盘)， AI Tutor (AI 导师)， Materials, Quiz, Flashcards, Mistakes, Planner, Achievements (成就)， Analytics (数据分析) stay as top-level destinations alongside the plan-first core specified below, plus the sidebar's user-profile footer with the Settings gear. Retained pages run on demo data (`UserProgressContext` mock) and adopt plan-first behavior — grounding, in-flow generation, real evidence — as their FRs land.
 
 ## Information Architecture
 
-The Study Plan is the front door. Generation lives in-flow; the sidebar aggregates study output (FR-36).
+The Study Plan is the front door (FR-1 build target). Generation lives in-flow; the sidebar aggregates study output (FR-36) — and, per the owner round 2026-11-01, also carries the scaffold's retained overview pages. Two cohorts share this table: **retained** rows are the current app's live routes (demo data, Nov 6 demo surface); the plan-first rows are the Phase 1 build that layers on top.
 
 | Surface | Route / entry | Purpose | Phase |
 |---|---|---|---|
-| Plans Home (front door) | `/` | Entry states: no plans → agent-style creation chat; plans exist → continue + list + create | 1 |
+| Onboarding | `/` (first run) | 3 steps: welcome → goal multi-select (备战考试 / 深入理解概念 / 高效复习 / 做题练习 — FR-1's future goal-chip set) → ready, then → `/dashboard` | 1 · retained |
+| Dashboard (仪表盘) | `/dashboard` | Post-login overview: greeting + streak pill, 4 StatCards (weekly goal / accuracy / study time / level·points), weekly ProgressRing, quick-actions grid of 4, recent-achievements strip. Re-points at plan data as the FR-1 front door lands | 1 · retained |
+| AI Tutor (AI 导师) | `/ai-tutor` | Full-page Companion chat — the scaffold chat surface as a standalone destination. Phase 1: keyword-routed demo responses; inherits FR-11/FR-46 grounding when server-side AI (FR-33) lands | 1 · retained |
+| Materials (学习资料) | `/materials` | Demo material list (5 files, search + tag filter; upload button is visual-only). Real attach flow = FR-2's UploadDropzone in plan/task context | 1 · retained |
+| Quiz (standalone) | `/quiz` | Scaffold quiz runner as a destination: start screen → one-at-a-time Choice questions with free ✦ hint + explanation reveal → results. 从资料生成 demo button mimics generation | 1 · retained |
+| Flashcards (standalone) | `/flashcards` | Flip-card study with DifficultyRating trio + AI tip + 从资料生成 demo; FR-41's Hub aggregates decks in Phase 2 | 1 · retained |
+| Mistakes (错题本， demo) | `/mistakes` | Demo notebook: 3 sample MistakeCompareCards + weak-areas banner; FR-23's aggregated Notebook is Phase 2 | 1 · retained |
+| Planner (学习计划， demo) | `/planner` | Daily task-list demo — the TodayTaskRow vocabulary source; becomes Today (FR-27) in Phase 2. Current zh label 学习计划 collides with Study Plan (reserved term) — renames when FR-27 lands | 1 · retained |
+| Achievements (成就) | `/achievements` | 12-badge gallery (FR-28 reference taxonomy, demo unlocks) + streak/level/badges stat tiles + unlock ProgressRing | 1 · retained |
+| Analytics (数据分析) | `/analytics` | 4 MiniStats + weekly-study bars + accuracy-trend line + topic-strength bars (recharts, demo data). FR-26 re-points it at per-plan evidence in Phase 2 | 1 · retained |
+| Plans Home (front door) | FR-1 build | Entry states: no plans → agent-style creation chat; plans exist → continue + list + create. Supersedes `/dashboard`-as-landing when it lands (Dashboard stays as the overview destination) | 1 |
 | Plan creation chat | `/plan/new` (or inline in empty state) | State topic/goal → AI proposes Knowledge Node structure → confirm | 1 |
 | Plan Home (light) | `/plan/:id` | Mastery rollup + node list + Materials + continue-reading + recent activity + quick-actions grid + streak (FR-25); Roadmap graph lands here in Phase 2 | 1 |
 | Study Task create | `/task/new` | Upload one Material, no plan ceremony | 1 |
@@ -33,15 +43,15 @@ The Study Plan is the front door. Generation lives in-flow; the sidebar aggregat
 | Immersive Reader | `/read/:materialId` | Flagship: Material + page-aware Companion | 1 |
 | Quiz session | Launched in-flow from plan/task | Focused quiz surface (mode select → questions → results) | 1 |
 | Flashcards study | Launched in-flow from plan/task | Flip-card study of a generated deck | 1 |
-| Mistakes Notebook | `/mistakes` (sidebar) | Aggregated mistakes — placeholder in Phase 1 | 2 |
-| Today (今日学习) | `/today` (sidebar) | Daily tasks: AI-suggested weak-spot tasks + due reviews + manual tasks (FR-27) — placeholder in Phase 1 | 2 |
-| Flashcards Hub | `/flashcards` (sidebar) | Aggregated decks — placeholder in Phase 1 | 2 |
-| Quiz Hub | `/quiz-hub` (sidebar) | Quiz history — placeholder in Phase 1 | 2 |
-| Settings | `/settings` | Language, data (Phase 1); account, cost caps later | 1 |
+| Mistakes Notebook | Sidebar hub | Aggregated mistakes — placeholder in Phase 1 | 2 |
+| Today (今日学习) | Sidebar hub | Daily tasks: AI-suggested weak-spot tasks + due reviews + manual tasks (FR-27) — placeholder in Phase 1 | 2 |
+| Flashcards Hub | Sidebar hub | Aggregated decks — placeholder in Phase 1 | 2 |
+| Quiz Hub | Sidebar hub | Quiz history — placeholder in Phase 1 | 2 |
+| Settings | `/settings` | Profile display + language (Phase 1); account, data export, cost caps later | 1 |
 
-Phase 2 positions (named, not specified): **Roadmap graph** = a view tab inside Plan Home; **Square** = sidebar section below the hubs; **Note** = generated from plan/task context, surfaces as a Material-like item; **Today (今日学习)** = the daily task list that replaced the former Calendar position (FR-27: AI-suggested weak-spot tasks + due Re-queue reviews + manual tasks, scaffold Planner's task-list patterns — duration estimate, priority chip, completion toggle, day-progress; history demoted to a light week strip); **Plan-level Companion** (FR-46) = the Companion's second home — chat on Plan Home grounded in all attached Materials, intent chips per the scaffold tutor's pattern (解释 / 考我 / 总结 / 分析错题); the zh label 学习计划 stays reserved for Study Plan; **Plan creation goal step** (FR-1, Phase 2) = goal-selection chips from the scaffold onboarding feeding AI plan generation; **Analytics** (FR-26) = plan-scoped: mastery-by-node horizontal bars (scaffold topic-strength pattern) + accuracy trend; ai-vs-manual charts are legacy dual-mode and excluded; **Achievements** (FR-28) = the scaffold's 12-badge taxonomy as reference set, no XP/level economy. Retired top-level destinations: AI Tutor, Materials, Achievements, Analytics — their jobs moved into plan/task context.
+Phase 2 positions (named, not specified): **Roadmap graph** = a view tab inside Plan Home; **Square** = sidebar section below the hubs; **Note** = generated from plan/task context, surfaces as a Material-like item; **Today (今日学习)** = the daily task list that replaced the former Calendar position (FR-27: AI-suggested weak-spot tasks + due Re-queue reviews + manual tasks, scaffold Planner's task-list patterns — duration estimate, priority chip, completion toggle, day-progress; history demoted to a light week strip); **Plan-level Companion** (FR-46) = the Companion's second home — chat on Plan Home grounded in all attached Materials, intent chips per the scaffold tutor's pattern (解释 / 考我 / 总结 / 分析错题); the zh label 学习计划 stays reserved for Study Plan; **Plan creation goal step** (FR-1, Phase 2) = goal-selection chips from the scaffold onboarding feeding AI plan generation; **Analytics** (FR-26) = plan-scoped: mastery-by-node horizontal bars (scaffold topic-strength pattern) + accuracy trend; ai-vs-manual charts are legacy dual-mode and excluded; **Achievements** (FR-28) = the scaffold's 12-badge taxonomy as reference set, no new points/level mechanics. ~~Retired top-level destinations: AI Tutor, Materials, Achievements, Analytics~~ — **reversed, owner round 2026-11-01:** those destinations (plus Dashboard) are retained per the IA table; their jobs also live in plan/task context, and the retained pages re-point at that context as FRs land.
 
-Sidebar final order: Synapse mark → Plans (front door) → hubs group (Mistakes Notebook, Today (今日学习), Flashcards Hub, Quiz Hub) → footer: language toggle + Settings. The mobile bottom nav carries Plans + the two hubs students check between sessions.
+Sidebar (as implemented, retained): Synapse mark row → language toggle → nav group of 9 (仪表盘 Dashboard · AI 导师 AI Tutor · 学习资料 Materials · 测验 Quiz · 闪卡 Flashcards · 错题本 Mistakes · 学习计划 Planner · 成就 Achievements · 数据分析 Analytics) → **user profile footer**: avatar initial + display name + 等级 N · 积分 stats line + Settings gear (→ `/settings`). The plan-first re-ordering (Plans front door + hubs group) applies when the FR-1 front door lands; until then the implemented order stands. Mobile: top header (logo, language, 🔥 streak) + bottom nav of 5 — Dashboard, AI Tutor, Quiz, Flashcards, Achievements.
 
 → Visual reference: [mockups/key-plans-home-empty.html](mockups/key-plans-home-empty.html) (front door, empty state) · [mockups/key-plan-home.html](mockups/key-plan-home.html) (Plan Home) · [mockups/key-reader-companion.html](mockups/key-reader-companion.html) (Immersive Reader + Companion) · [mockups/key-quiz.html](mockups/key-quiz.html) (quiz runner + results). Spine wins on conflict with any mock.
 
@@ -126,6 +136,13 @@ Behavioral specs; visuals in DESIGN.md · Components.
 | TodayTaskRow `[Phase 2]` | Today (今日学习) | Scaffold Planner's row: completion toggle (strike-through on done), duration estimate, priority chip, ✦ AI-suggested marker on weak-spot tasks; day-progress bar at top (FR-27). |
 | SelectionBar `[stretch]` | Reader, on text selection | Floating bar: 问 Companion / 快测 (FR-13). Dismisses on scroll/click-away; keyboard-accessible via selection menu. |
 | MasteryMarkButton `[stretch]` | Markdown sections | Mark/unmark per section; marked → green tint immediately as a *claim*; invites confirm quiz; never moves the score (FR-15). |
+| OnboardingFlow | `/` first run | Welcome (sparkle mark + CTA) → goals multi-select (OnboardingGoalRow; ≥1 required — continue disabled until then) → ready screen → `/dashboard`. Collected goals feed FR-1's Phase 2 plan-generation step. |
+| DashboardHome | `/dashboard` | Greeting + amber streak pill; 4 StatCards (weekly-goal %, accuracy, study time, level·points); weekly ProgressRing (140px) beside the QuickActionCard grid (测验 / 闪卡 / 资料 / AI 导师)； recent-achievements strip (last 4, → /achievements). All figures from the demo progress store. |
+| AITutorChat | `/ai-tutor` | Full-height chat: sticky header (avatar chip + title + subtitle), empty state with 2×2 intent-suggestion chips (解释概念 / 考考我 / 总结笔记 / 解释错误 — FR-46's intent family), CompanionBubble transcript, typing dots, sticky composer. Phase 1 = keyword-routed demo responses (1.2–2.0s delay); never claims grounding it doesn't have until FR-33/FR-46 land. |
+| AnalyticsDashboard | `/analytics` | 4 MiniStats + 3 ChartCards (weekly-study bars, accuracy-trend line, topic-strength bars). Demo series hardcoded per language; Phase 2 (FR-26) re-points at real per-plan evidence and mastery-state bar fills. |
+| AchievementsGallery | `/achievements` | Header (unlocked count + ProgressRing + total points); 3 stat tiles (连续天数 / 当前等级 / 获得徽章)； 12-badge grid — unlocked = amber-tint tile + emoji + 「✓ 已解锁」， locked = 60% opacity + lock glyph. FR-28 taxonomy; demo unlocks until Phase 2 binds evidence. |
+| SettingsPage | `/settings` | Profile card (avatar + name + level·points) + language choice (中文 / English selectable cards, `ring` on active) persisting `synapse-lang`. |
+| SidebarProfile | Sidebar footer | Avatar initial + name + stats line (等级 · 积分， read-only) + Settings gear — the only desktop entry to `/settings`; the Phase 1 current-user surface (no accounts, FR-29). |
 
 ## State Patterns
 
@@ -149,6 +166,9 @@ Behavioral specs; visuals in DESIGN.md · Components.
 | Upload: reject size | Dropzone | 「超过 20 MB / Over 20 MB」+ guidance. |
 | Task complete-ish | Task home | Same mastery presentation as Plan Home, single-node scope. |
 | Hubs (Phase 1) | 4 hub routes | HubPlaceholder — one honest card each. |
+| Onboarding: no goal selected | `/` | Continue button disabled (40% opacity) until ≥1 goal is selected; multi-select encouraged. |
+| Standalone quiz: start / result | `/quiz` | Start = centered CTA screen (question count · choice mode · AI-hints note · 从资料生成 demo spinner); result = emoji verdict 🎉/👍/💪 + score + points earned + retry. Retained demo; in-flow QuizRunner remains the plan-first pattern. |
+| AI Tutor: demo answer | `/ai-tutor` | Keyword-routed canned zh/en response after a 1.2–2.0s typing-dots delay — visibly a demo until FR-33 server-side AI lands. |
 | Language switch | Global | Instant, no reload; persists (`synapse-lang`); Companion replies follow on next message. |
 
 ## Interaction Primitives
@@ -179,7 +199,7 @@ Behavioral; visual contrast lives in DESIGN.md · Colors.
 |---|---|
 | ≥1024px (`lg`) | Full sidebar; Reader split view (Companion docked 400–420px); Plan Home two-zone. |
 | 768–1023px (`md`) | Sidebar collapses to icon rail; Reader toggles Companion as right overlay; quiz/plans stack. |
-| <768px | Mobile header + bottom nav (Plans + 2 hubs); Reader full-bleed, Companion = bottom sheet (~65dvh, drag handle); uploads via native picker. |
+| <768px | Mobile header (logo · language · 🔥 streak) + bottom nav of 5 — Dashboard, AI Tutor, Quiz, Flashcards, Achievements (re-cut to Plans + hubs when the FR-1 front door lands); Reader full-bleed, Companion = bottom sheet (~65dvh, drag handle); uploads via native picker. |
 
 Responsive web, not native. Phone use = read + chat + review; generation and quiz sessions work but are not optimized.
 
@@ -189,7 +209,7 @@ Responsive web, not native. Phone use = read + chat + review; generation and qui
 - **Lifted from the scaffold (owner adoption round, PRD memlog 2026-11-01):** the chat surface pattern (ex-AITutorPage) as the Companion's base; the quiz hint button; the flashcard difficulty trio; the mistakes compare card; the Planner task-row vocabulary (→ Today, FR-27); the dashboard's quick-action tiles (→ FR-25); the 12-badge taxonomy (→ FR-28); topic-strength bars (→ FR-26 analytics).
 - **Lifted from modern chat surfaces:** streaming answers, citation chips, suggested starters — but grounded in *this* page, and hint-first by default (the anti-ChatGPT detail is the product).
 - **Lifted from Anki:** the flip-card rhythm — recall attempt before flip (NFR-8 in miniature).
-- **Adopted then bounded — motivation layer (owner decision, supersedes this run's earlier rejection):** evidence-based streak (FR-25: consecutive days with ≥1 evidence-producing session) + FR-28 badges. **XP / points / level economies stay rejected** — they reward activity volume, which SM-C3 forbids optimizing. Celebration stays restrained: one confetti at 100%, ever.
+- **Adopted then bounded — motivation layer (owner decisions 2026-11-01):** evidence-based streak (FR-25: consecutive days with ≥1 evidence-producing session) + FR-28 badges. The scaffold's existing points/level display stays visible on retained surfaces (sidebar profile footer, Achievements) as read-only status garnish — but **no new mechanics are ever built on points, minutes, or logins** (SM-C3); the earned layer remains badges + evidence streak. Celebration stays restrained: one confetti at 100%, ever.
 - **Rejected — engagement nudges / time-in-app displays:** Synapse serves study efficiency, not retention theater. Streak counts evidence days, never minutes.
 - **Rejected — ai-vs-manual analytics charts:** legacy dual-mode comparison; explicitly excluded from FR-26.
 - **Rejected — "AI magic" sparkle-mania:** one pulse-glow thinking indicator; no sparkle-storm chrome.
@@ -242,4 +262,4 @@ Annotations accumulate → Study Focus generates core study items from them, sur
 
 ## Open Items
 
-Non-blocking; logged to the run memlog. Mastery display thresholds (80/1–79) tunable at spec; Phase 2 detail owed: Study Focus panel layout, Square listing order (OQ-12 residual), Note enrichment placement (OQ-11), grade-appeal flow beyond Phase 1's acknowledge-only stance.
+Non-blocking; logged to the run memlog. Mastery display thresholds (80/1–79) tunable at spec; Phase 2 detail owed: Study Focus panel layout, Square listing order (OQ-12 residual), Note enrichment placement (OQ-11), grade-appeal flow beyond Phase 1's acknowledge-only stance. Added by the 2026-11-01 owner round: the four key mocks' sidebar chrome predates the retained 9-item nav + profile footer (spine wins on conflict; regenerate at the next mock touch); Dashboard↔Plans-Home landing placement finalizes when FR-1 builds; Planner's zh label 学习计划 renames when FR-27's Today lands.

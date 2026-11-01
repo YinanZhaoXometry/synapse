@@ -4,8 +4,6 @@ export type Language = "zh" | "en";
 
 const translations = {
   // Common
-  "common.aiMode": { zh: "AI 模式", en: "AI Mode" },
-  "common.manualMode": { zh: "手动模式", en: "Manual Mode" },
   "common.student": { zh: "学生用户", en: "Student" },
   "common.level": { zh: "等级", en: "Level" },
   "common.points": { zh: "积分", en: "Points" },
@@ -32,12 +30,6 @@ const translations = {
   "onboarding.welcome": { zh: "欢迎使用 Synapse", en: "Welcome to Synapse" },
   "onboarding.subtitle": { zh: "你的 AI 智能学习助手，30秒快速设置。", en: "Your AI-powered study assistant. Set up in 30 seconds." },
   "onboarding.start": { zh: "开始使用", en: "Get Started" },
-  "onboarding.chooseMode": { zh: "选择学习模式", en: "Choose Learning Mode" },
-  "onboarding.chooseModeDesc": { zh: "你可以随时切换模式。", en: "You can switch modes anytime." },
-  "onboarding.aiTitle": { zh: "AI 辅助学习", en: "AI-Assisted Learning" },
-  "onboarding.aiDesc": { zh: "获得 AI 辅导、个性化提示、自动生成测验和智能学习计划。", en: "Get AI tutoring, personalized hints, auto-generated quizzes and smart study plans." },
-  "onboarding.manualTitle": { zh: "手动学习模式", en: "Manual Learning" },
-  "onboarding.manualDesc": { zh: "使用相同工具独立学习，不使用 AI 辅助。适合进行对比实验。", en: "Study independently with the same tools, no AI. Great for comparison experiments." },
   "onboarding.goalsTitle": { zh: "你的学习目标是什么？", en: "What are your learning goals?" },
   "onboarding.goalsDesc": { zh: "选择所有适用的选项。", en: "Select all that apply." },
   "onboarding.goalExams": { zh: "备战考试", en: "Prepare for exams" },
@@ -51,7 +43,6 @@ const translations = {
   // Dashboard
   "dashboard.welcome": { zh: "欢迎回来！👋", en: "Welcome back! 👋" },
   "dashboard.aiReady": { zh: "AI 智能学习已就绪。", en: "AI-powered learning is ready." },
-  "dashboard.manualReady": { zh: "准备好开始专注学习了。", en: "Ready for focused studying." },
   "dashboard.streak": { zh: "连续", en: "Streak" },
   "dashboard.weeklyGoal": { zh: "每周目标", en: "Weekly Goal" },
   "dashboard.accuracy": { zh: "正确率", en: "Accuracy" },
@@ -76,8 +67,6 @@ const translations = {
   // AI Tutor
   "tutor.title": { zh: "AI 学习导师", en: "AI Study Tutor" },
   "tutor.subtitle": { zh: "关于课程内容，有什么都可以问我", en: "Ask me anything about your course material" },
-  "tutor.disabled": { zh: "AI 导师已关闭", en: "AI Tutor is Off" },
-  "tutor.disabledDesc": { zh: "你当前处于手动模式。在侧边栏切换到 AI 模式即可使用 AI 导师获取个性化学习帮助。", en: "You're in manual mode. Switch to AI mode in the sidebar to use the AI tutor for personalized help." },
   "tutor.prompt": { zh: "我能帮你学什么？", en: "What can I help you learn?" },
   "tutor.promptDesc": { zh: "我可以解释概念、生成测验、总结笔记，帮你从错误中学习。", en: "I can explain concepts, generate quizzes, summarize notes, and help you learn from mistakes." },
   "tutor.inputPlaceholder": { zh: "输入你的问题...", en: "Type your question..." },
@@ -100,7 +89,6 @@ const translations = {
   "quiz.questionCount": { zh: "道题", en: "questions" },
   "quiz.multipleChoice": { zh: "选择题", en: "Multiple choice" },
   "quiz.aiHints": { zh: "可使用 AI 提示辅助学习", en: "AI hints available" },
-  "quiz.manualMode": { zh: "手动模式 — 无 AI 辅助", en: "Manual mode — no AI help" },
   "quiz.start": { zh: "开始测验", en: "Start Quiz" },
   "quiz.questionOf": { zh: "第 {current} 题 / 共 {total} 题", en: "Question {current} of {total}" },
   "quiz.correctCount": { zh: "已答对 {count} 题", en: "{count} correct" },
@@ -120,7 +108,6 @@ const translations = {
   // Flashcards
   "flashcards.title": { zh: "闪卡复习", en: "Flashcard Review" },
   "flashcards.aiEnhanced": { zh: "AI 增强的间隔重复", en: "AI-enhanced spaced repetition" },
-  "flashcards.manualReview": { zh: "手动复习模式", en: "Manual review mode" },
   "flashcards.reviewed": { zh: "已复习", en: "reviewed" },
   "flashcards.cards": { zh: "张", en: "" },
   "flashcards.ratePrompt": { zh: "你对这个知识点的掌握程度如何？", en: "How well do you know this?" },
@@ -196,12 +183,10 @@ const translations = {
   "analytics.totalStudyTime": { zh: "总学习时长", en: "Total Study Time" },
   "analytics.flashcardsReviewed": { zh: "已复习闪卡", en: "Cards Reviewed" },
   "analytics.quizzesCompleted": { zh: "已完成测验", en: "Quizzes Done" },
-  "analytics.aiVsManual": { zh: "AI 模式 vs 手动模式学习时长", en: "AI vs Manual Study Time" },
-  "analytics.aiVsManualDesc": { zh: "按模式对比每周学习分钟数", en: "Weekly minutes by mode" },
-  "analytics.aiLabel": { zh: "AI 模式", en: "AI Mode" },
-  "analytics.manualLabel": { zh: "手动模式", en: "Manual Mode" },
+  "analytics.weeklyStudyTime": { zh: "每周学习时长", en: "Weekly Study Time" },
+  "analytics.weeklyStudyTimeDesc": { zh: "每周学习分钟数", en: "Study minutes per week" },
   "analytics.accuracyTrend": { zh: "正确率趋势", en: "Accuracy Trend" },
-  "analytics.accuracyTrendDesc": { zh: "AI 辅助 vs 手动测验正确率变化", en: "AI vs manual quiz accuracy over time" },
+  "analytics.accuracyTrendDesc": { zh: "测验正确率变化", en: "Quiz accuracy over time" },
   "analytics.topicStrength": { zh: "知识点掌握度", en: "Topic Mastery" },
   "analytics.topicStrengthDesc": { zh: "各主题的掌握水平", en: "Mastery level by topic" },
 
@@ -209,8 +194,6 @@ const translations = {
   "settings.title": { zh: "设置", en: "Settings" },
   "settings.subtitle": { zh: "管理你的账户和偏好设置", en: "Manage your account and preferences" },
   "settings.profile": { zh: "个人资料", en: "Profile" },
-  "settings.learningMode": { zh: "学习模式", en: "Learning Mode" },
-  "settings.learningModeDesc": { zh: "控制平台中是否启用 AI 功能。", en: "Toggle AI features on or off." },
   "settings.language": { zh: "界面语言", en: "Language" },
   "settings.languageDesc": { zh: "切换界面显示语言", en: "Switch display language" },
 

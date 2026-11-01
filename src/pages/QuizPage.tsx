@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckCircle2, XCircle, ArrowRight, Trophy, Sparkles, RotateCcw, BookOpen, Loader2 } from "lucide-react";
@@ -50,7 +49,6 @@ const aiGeneratedQuestions: Record<string, Question[]> = {
 type QuizState = "start" | "playing" | "result";
 
 export default function QuizPage() {
-  const { isAI } = useLearningMode();
   const { addPoints, recordAnswer, completeQuiz } = useUserProgress();
   const { t, language } = useLanguage();
   const [state, setState] = useState<QuizState>("start");
@@ -124,7 +122,7 @@ export default function QuizPage() {
             <h1 className="text-2xl font-display font-bold mb-2">{t("quiz.title")}</h1>
             <p className="text-muted-foreground text-sm mb-1">{total} {t("quiz.questionCount")} · {t("quiz.multipleChoice")}</p>
             <p className="text-muted-foreground text-xs mb-6">
-              {isAI ? t("quiz.aiHints") : t("quiz.manualMode")}
+              {t("quiz.aiHints")}
             </p>
 
             {useAiGenerated && (
@@ -140,7 +138,7 @@ export default function QuizPage() {
               >
                 {t("quiz.start")} <ArrowRight className="w-4 h-4" />
               </button>
-              {isAI && !useAiGenerated && (
+              {!useAiGenerated && (
                 <button
                   onClick={handleGenerateFromMaterials}
                   disabled={isGenerating}
@@ -227,7 +225,7 @@ export default function QuizPage() {
             })}
           </div>
 
-          {isAI && !revealed && (
+          {!revealed && (
             <AnimatePresence>
               {showHint ? (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mb-4">

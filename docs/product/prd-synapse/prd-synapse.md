@@ -330,11 +330,11 @@ Flashcards and Mistakes Notebook items resurface on a spaced schedule; wrong ans
 
 #### FR-25: Plan overview (light) `[Phase 1]`
 
-The plan home shows the Mastery Score rollup, continue-reading entry points, recent activity, a quick-actions grid, and a study streak (consecutive days with ≥1 evidence-producing session) *(streak + quick actions adopted from the scaffold dashboard)*. A weekly study goal joins in Phase 2, measured in evidence-producing sessions — never minutes (SM-C3). The full Roadmap graph also arrives in Phase 2.
+The plan home shows the Mastery Score rollup, continue-reading entry points, recent activity, a quick-actions grid, and a study streak (consecutive days with ≥1 evidence-producing session) *(streak + quick actions adopted from the scaffold dashboard)*. A weekly study goal joins in Phase 2, measured in evidence-producing sessions — never minutes (SM-C3). The full Roadmap graph also arrives in Phase 2. **Retained surface (owner round 2026-11-01):** the scaffold's Dashboard page (仪表盘， `/dashboard`) — greeting + streak pill, KPI stat cards, weekly-goal ring, quick-actions grid, recent achievements — stays as the post-login overview destination on demo data until the plan-first front door (FR-1) lands, then re-points at plan evidence.
 
 #### FR-26: Analytics `[Phase 2]`
 
-The user can see per-plan progress: **Mastery Score by Knowledge Node** (the scaffold's topic-strength chart pattern), quiz-accuracy trend over weeks, and study consistency. The scaffold's AI-vs-manual comparison charts are legacy of the removed dual-mode concept and are excluded.
+The user can see per-plan progress: **Mastery Score by Knowledge Node** (the scaffold's topic-strength chart pattern), quiz-accuracy trend over weeks, and study consistency. The scaffold's AI-vs-manual comparison charts are legacy of the removed dual-mode concept and are excluded. **Retained surface (owner round 2026-11-01):** the scaffold's Analytics page (数据分析， `/analytics`) — KPI mini-stats, weekly-study bars, accuracy-trend line, topic-strength bars (recharts, demo data) — stays as the Phase 1 surface; Phase 2 re-points it at real per-plan evidence per the spec above.
 
 #### FR-27: Today (今日学习) `[Phase 2]`
 
@@ -363,7 +363,7 @@ A top-level sidebar surface aggregating the user's quiz history across Study Pla
 
 #### FR-46: Plan-level Companion `[Phase 2]`
 
-Outside the Immersive Reader — at the plan home and in the empty state (FR-1) — the user can chat with the Companion grounded in the whole plan's attached Materials instead of a Reading Position; answers cite their Material and section. Intent shortcuts follow the scaffold tutor's pattern (explain / quiz me / summarize / **analyze my mistakes** — the last explains a Mistakes Notebook item against its source section). No standalone tutor page: the Companion lives at the empty state, the plan level, and the reader.
+Outside the Immersive Reader — at the plan home and in the empty state (FR-1) — the user can chat with the Companion grounded in the whole plan's attached Materials instead of a Reading Position; answers cite their Material and section. Intent shortcuts follow the scaffold tutor's pattern (explain / quiz me / summarize / **analyze my mistakes** — the last explains a Mistakes Notebook item against its source section). **Standalone tutor page (revised, owner round 2026-11-01):** the scaffold's AI Tutor page (`/ai-tutor`) is retained as the plan-free chat destination — demo keyword responses in Phase 1; when server-side AI (FR-33) lands it inherits this FR's grounding and citation behavior. The Companion still lives at the empty state, the plan level, and the reader per the original intent.
 
 **Consequences (testable):**
 - Answers cite source Material + section even with no document open.
@@ -371,7 +371,7 @@ Outside the Immersive Reader — at the plan home and in the empty state (FR-1) 
 
 #### FR-28: Achievements `[Phase 2]`
 
-Simple achievement badges for study milestones — the scaffold's 12-badge taxonomy (quizzes / streaks / flashcards / materials / progress) is the reference set. **No XP/level economy:** the motivational layer is badges + streak only — points reward activity volume, which SM-C3 forbids optimizing.
+Simple achievement badges for study milestones — the scaffold's 12-badge taxonomy (quizzes / streaks / flashcards / materials / progress) is the reference set. **No new points/level mechanics** *(stance revised, owner round 2026-11-01)*: the scaffold's existing points/level display stays visible as read-only status garnish on retained surfaces (sidebar profile footer, Achievements page), matching the built demo app — but badges + evidence streak remain the only *earned* mechanics; nothing new is built on points, minutes, or logins (SM-C3). The scaffold's Achievements page (成就， `/achievements`, demo unlocks) is the retained Phase 1 surface.
 
 ### 4.6 Accounts & Data
 
@@ -414,13 +414,14 @@ The app is deployed at a shareable public URL and works for a live demo.
 
 #### FR-36: Generation in-flow, aggregation in the sidebar `[Phase 1]`
 
-Quizzes and flashcards are *generated and launched* within a Study Plan's or Study Task's study flow — the Study Plan is the front door. The top-level sidebar carries **aggregated, cross-plan views** of study output: the Mistakes Notebook (FR-23), Today (FR-27), the Flashcards Hub (FR-41), and the Quiz Hub (FR-42).
+Quizzes and flashcards are *generated and launched* within a Study Plan's or Study Task's study flow — the Study Plan is the front door. The top-level sidebar carries **aggregated, cross-plan views** of study output: the Mistakes Notebook (FR-23), Today (FR-27), the Flashcards Hub (FR-41), and the Quiz Hub (FR-42). **Retained destinations (owner round 2026-11-01):** the sidebar additionally carries the scaffold's overview destinations — Dashboard (仪表盘， FR-25), AI Tutor (AI 导师， FR-46), Analytics (数据分析， FR-26), Achievements (成就， FR-28), plus Materials and Planner — and its footer shows the current-user profile (avatar, name, level·points line) with the Settings gear as the desktop entry to `/settings`. The plan-first ordering (front door + hubs) replaces the overview ordering as FR-1 lands.
 
 **Consequences (testable):**
-- Quiz/flashcard *generation* is only reachable from inside a plan/task context.
+- Quiz/flashcard *generation* is only reachable from inside a plan/task context on the plan-first surfaces; the retained scaffold pages expose demo generation buttons outside plan context for the Nov 6 demo and re-point in-flow as FR-18/FR-19 land.
 - All four aggregated surfaces are reachable from the sidebar from anywhere.
+- The sidebar footer profile and its Settings entry are reachable from every page on desktop.
 
-> **Platform note:** the scaffold's `LearningModeContext` (`ai | non-ai`) and `aiOnly` nav gating are legacy from the abandoned dual-mode concept and are retired in the first implementation pass (AGENTS.md). The same pass restructures the scaffold's ten-page navigation to the Study Plan-first IA (FR-1, FR-36).
+> **Platform note (updated 2026-11-01):** the dual-mode legacy (`LearningModeContext`, `aiOnly` nav gating, mode toggle, onboarding mode step) has been removed in the first implementation pass — the retirement this note originally scheduled is done (AI-vs-manual analytics charts went with it). The same owner round retained the scaffold's ten-page navigation (Dashboard, AI Tutor, Materials, Quiz, Flashcards, Mistakes, Planner, Achievements, Analytics + Settings via the profile footer) alongside the Study Plan-first IA (FR-1, FR-36): retained pages run on demo data and adopt plan-first behavior as their FRs land.
 
 ## 5. Non-Functional Requirements (Cross-Cutting)
 
@@ -441,7 +442,7 @@ FR-1, FR-2, FR-3, FR-8, FR-9, FR-10, FR-11, FR-12, FR-18, FR-19, FR-25, FR-29, F
 
 ### 6.2 Out of Scope for MVP (Phase 1) — delivered in Phase 2
 
-Accounts, plan privacy and sync (FR-4, FR-30, FR-31); Roadmap graph rendering and node states (FR-5, FR-6, FR-7); roadmap.sh import, node-pinned attachment, material–node mapping (FR-43, FR-44, FR-45); Square and plan visibility (FR-38, FR-39); Notes with enrichment (FR-40); PPT upload (owner Q6 — first candidate when Phase 2 opens); adaptive targeting (FR-21); plan-level Companion (FR-46); in-reader Quick Test and Annotations/Study Focus beyond stretch (FR-13–17); Mistakes Notebook and Re-queue (FR-23, FR-24); full analytics, Today, Achievements (FR-26, FR-27, FR-28); Flashcards Hub and Quiz Hub (FR-41, FR-42); cost cap (FR-34); Study Task → Plan promotion (FR-37 stretch half). Reason: the owner-confirmed Nov 6 slice protects the front door (entry states → plan or task → study) plus the flagship reader demo; the hubs, Square, Notes, and import need the fuller data model and accounts. The scaffold's existing Mistakes/Planner/Flashcards/Quiz pages stand in as placeholders for a light Phase 1 appearance if needed for the demo.
+Accounts, plan privacy and sync (FR-4, FR-30, FR-31); Roadmap graph rendering and node states (FR-5, FR-6, FR-7); roadmap.sh import, node-pinned attachment, material–node mapping (FR-43, FR-44, FR-45); Square and plan visibility (FR-38, FR-39); Notes with enrichment (FR-40); PPT upload (owner Q6 — first candidate when Phase 2 opens); adaptive targeting (FR-21); plan-level Companion grounding (FR-46); in-reader Quick Test and Annotations/Study Focus beyond stretch (FR-13–17); Mistakes Notebook and Re-queue (FR-23, FR-24); full per-plan analytics, Today, real badge unlocks (FR-26, FR-27, FR-28); Flashcards Hub and Quiz Hub (FR-41, FR-42); cost cap (FR-34); Study Task → Plan promotion (FR-37 stretch half). Reason: the owner-confirmed Nov 6 slice protects the front door (entry states → plan or task → study) plus the flagship reader demo; the hubs, Square, Notes, and import need the fuller data model and accounts. **Scaffold retention (owner round 2026-11-01):** the scaffold's ten pages are formally retained as the Phase 1 demo app — Dashboard, AI Tutor, Materials, Quiz, Flashcards, Mistakes, Planner, Achievements, Analytics on demo data, plus the sidebar profile footer + Settings — while the plan-first surfaces (FR-1/FR-36) layer on as they land; the earlier "placeholder if needed" framing is superseded by this retention.
 
 ### 6.3 Explicit Non-Goals (v1, both phases)
 

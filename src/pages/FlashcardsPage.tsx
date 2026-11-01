@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -49,7 +48,6 @@ const aiGeneratedCards: Record<string, Flashcard[]> = {
 };
 
 export default function FlashcardsPage() {
-  const { isAI } = useLearningMode();
   const { addPoints, reviewFlashcard } = useUserProgress();
   const { t, language } = useLanguage();
   const [useAiCards, setUseAiCards] = useState(false);
@@ -91,11 +89,11 @@ export default function FlashcardsPage() {
           <div>
             <h1 className="text-2xl font-display font-bold tracking-tight">{t("flashcards.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {isAI ? t("flashcards.aiEnhanced") : t("flashcards.manualReview")} · {t("flashcards.reviewed")} {reviewed} {t("flashcards.cards")}
+              {t("flashcards.aiEnhanced")} · {t("flashcards.reviewed")} {reviewed} {t("flashcards.cards")}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {isAI && !useAiCards && (
+            {!useAiCards && (
               <button onClick={handleGenerateFromMaterials} disabled={isGenerating} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary/5 transition-all active:scale-[0.97] disabled:opacity-50">
                 {isGenerating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("flashcards.generating")}</> : <><BookOpen className="w-3.5 h-3.5" /> {t("flashcards.generateFromMaterials")}</>}
               </button>
@@ -166,7 +164,7 @@ export default function FlashcardsPage() {
       )}
 
       {/* AI Enhancement */}
-      {isAI && flipped && (
+      {flipped && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <div className="bg-primary/5 border border-primary/15 rounded-xl px-4 py-3 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />

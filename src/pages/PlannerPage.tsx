@@ -1,5 +1,4 @@
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
-import { useLearningMode } from "@/contexts/LearningModeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CalendarDays, CheckCircle2, Circle, Clock, Sparkles, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,7 +23,6 @@ const initialTasks: Task[] = [
 ];
 
 export default function PlannerPage() {
-  const { isAI } = useLearningMode();
   const { t, language } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
@@ -59,11 +57,9 @@ export default function PlannerPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            {isAI && (
-              <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all active:scale-[0.97]">
-                <Sparkles className="w-3.5 h-3.5" /> {t("planner.aiPlan")}
-              </button>
-            )}
+            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all active:scale-[0.97]">
+              <Sparkles className="w-3.5 h-3.5" /> {t("planner.aiPlan")}
+            </button>
             <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-all active:scale-[0.97]">
               <Plus className="w-3.5 h-3.5" /> {t("planner.addTask")}
             </button>
@@ -96,7 +92,7 @@ export default function PlannerPage() {
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="w-3 h-3" /> {task.time[language]}
                   </span>
-                  {task.aiSuggested && isAI && (
+                  {task.aiSuggested && (
                     <span className="flex items-center gap-0.5 text-[10px] text-primary font-medium">
                       <Sparkles className="w-3 h-3" /> {t("planner.aiSuggested")}
                     </span>

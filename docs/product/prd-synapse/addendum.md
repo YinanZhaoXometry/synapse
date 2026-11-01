@@ -31,4 +31,7 @@ Technical-how and pointers that don't belong in the PRD body. Product-level dept
 
 ## Scaffold migration
 
-- `LearningModeContext` (`ai | non-ai`) and `aiOnly` nav gating in `AppLayout` are retired in the first implementation pass (AGENTS.md "Platform note"). The settings page's mode toggle, if present in the scaffold, goes with them.
+- Resolved in the first implementation pass (2026-11-01): `LearningModeContext` (`ai | non-ai`), the `aiOnly` nav gating, the sidebar mode toggle, onboarding's mode step, and the AI-vs-manual analytics chart are removed — the app now mounts two providers only (`LanguageProvider`, `UserProgressProvider`).
+- **Owner round 2026-11-01 — retained destinations:** the scaffold's ten-page navigation stays as the current IA alongside the plan-first build: Dashboard (仪表盘， `/dashboard`), AI Tutor (AI 导师， `/ai-tutor`), Materials, Quiz, Flashcards, Mistakes, Planner, Achievements (成就， `/achievements`), Analytics (数据分析， `/analytics`), plus the sidebar's user-profile footer (avatar, name, level·points line, Settings gear → `/settings`). Retained pages run on the `UserProgressContext` demo mock and re-point at real evidence as FR-25/26/28/46 land.
+- Points/level display: retained as read-only garnish per the revised FR-28 stance — badges + evidence streak stay the only earned mechanics (SM-C3).
+- Known label collision: the Planner page's zh label 学习计划 is reserved for Study Plan (FR-27) — it renames when Today (今日学习) lands.

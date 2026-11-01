@@ -3,7 +3,6 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { LearningModeProvider } from "@/contexts/LearningModeContext";
 import { UserProgressProvider } from "@/contexts/UserProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import AppLayout from "@/components/layout/AppLayout";
@@ -26,8 +25,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <LanguageProvider>
-        <LearningModeProvider>
-          <UserProgressProvider>
+        <UserProgressProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -49,7 +47,6 @@ const App = () => (
               </Routes>
             </BrowserRouter>
           </UserProgressProvider>
-        </LearningModeProvider>
       </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>
