@@ -30,6 +30,13 @@ const translations = {
   "nav.achievements": { zh: "成就", en: "Achievements" },
   "nav.analytics": { zh: "数据分析", en: "Analytics" },
   "nav.settings": { zh: "设置", en: "Settings" },
+  "nav.search": { zh: "搜索或命令", en: "Search or command" },
+
+  // Command palette (⌘K)
+  "command.placeholder": { zh: "搜索页面或命令…", en: "Search pages or commands…" },
+  "command.noResults": { zh: "没有匹配的结果", en: "No matching results" },
+  "command.groupActions": { zh: "操作", en: "Actions" },
+  "command.toggleLanguage": { zh: "切换到 English", en: "Switch to 中文" },
 
   // Study states
   "mastery.ready": { zh: "可以进考场了", en: "Ready" },
@@ -216,6 +223,7 @@ const translations = {
   "settings.profile": { zh: "个人资料", en: "Profile" },
   "settings.language": { zh: "界面语言", en: "Language" },
   "settings.languageDesc": { zh: "切换界面显示语言", en: "Switch display language" },
+  "settings.languageRow": { zh: "显示语言", en: "Display language" },
 
   // NotFound
   "notFound.title": { zh: "页面未找到", en: "Page Not Found" },

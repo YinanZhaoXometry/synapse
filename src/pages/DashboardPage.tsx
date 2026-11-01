@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
       <AnimatedSection delay={0.05}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={<Target className="w-4 h-4" />} iconClassName="bg-primary/10 text-primary" label={t("dashboard.weeklyGoal")} value={`${weeklyPct}%`} hint={`${progress.weeklyProgress}/${progress.weeklyGoal} ${t("common.minutes")}`} />
+          <StatCard focal icon={<Target className="w-4 h-4" />} label={t("dashboard.weeklyGoal")} value={`${weeklyPct}%`} hint={`${progress.weeklyProgress}/${progress.weeklyGoal} ${t("common.minutes")}`} />
           <StatCard icon={<TrendingUp className="w-4 h-4" />} iconClassName="bg-mastered-tint text-mastered" label={t("dashboard.accuracy")} value={`${accuracy}%`} hint={`${progress.correctAnswers}/${progress.totalAnswers} ${t("dashboard.correct")}`} />
           <StatCard icon={<Clock className="w-4 h-4" />} iconClassName="bg-partial-tint text-partial" label={t("dashboard.studyTime")} value={`${Math.round(progress.studyMinutes / 60)}${t("common.hours")}`} hint={`${t("dashboard.cumulative")} ${progress.studyMinutes} ${t("common.minutes")}`} />
           <StatCard icon={<Trophy className="w-4 h-4" />} iconClassName="bg-primary/10 text-primary" label={t("common.level")} value={progress.level.toString()} hint={`${progress.points} ${t("common.points")}`} />

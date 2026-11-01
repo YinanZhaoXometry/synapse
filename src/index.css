@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,35 +6,49 @@
 
 @layer base {
   :root {
-    --background: 220 40% 97%;
-    --foreground: 220 20% 15%;
+    /* Northstar import (docs/design/northstar-import/IMPORT.md, 2026-11-02):
+       warm cream canvas, coral/peach gradient brand, glass surfaces. */
+    --background: 25 81% 96%;
+    --foreground: 240 9% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 15%;
+    --card-foreground: 240 9% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 15%;
+    --popover-foreground: 240 9% 11%;
 
-    --primary: 220 50% 50%;
+    --primary: 0 100% 69%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 40% 95%;
-    --secondary-foreground: 220 20% 15%;
+    --secondary: 33 100% 96%;
+    --secondary-foreground: 240 9% 11%;
 
-    --muted: 220 20% 92%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 33 30% 93%;
+    --muted-foreground: 240 6% 34%;
 
-    --accent: 220 45% 60%;
+    --accent: 0 100% 69%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 25% 88%;
-    --input: 220 25% 88%;
-    --ring: 220 50% 50%;
+    --border: 36 39% 89%;
+    --border-soft: 34 50% 94%;
+    --input: 36 39% 89%;
+    --ring: 0 100% 69%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
+
+    --grad-a: 12 100% 68%;
+    --grad-b: 27 100% 74%;
+
+    /* Northstar glass layers (rgba, not HSL — used by the shell) */
+    --glass-1: rgba(255, 255, 255, 0.55);
+    --glass-2: rgba(255, 255, 255, 0.6);
+    --glass-3: rgba(255, 255, 255, 0.7);
+    --glass-4: rgba(255, 255, 255, 0.85);
+    --glass-solid: #ffffff;
+    --glass-edge: rgba(255, 255, 255, 0.6);
 
     --amber: 20 80% 55%;
     --amber-foreground: 0 0% 100%;
@@ -48,18 +62,18 @@
     --uncovered-tint: 220 40% 95%;
     --citation-tint: 220 52% 95%;
 
-    --chart-accent: 175 84% 32%;
-    --chart-grid: 216 12% 90%;
-    --chart-axis: 215 14% 46%;
+    --chart-accent: 12 100% 55%;
+    --chart-grid: 30 20% 90%;
+    --chart-axis: 240 6% 40%;
 
-    --sidebar-background: 220 45% 96%;
-    --sidebar-foreground: 220 15% 25%;
-    --sidebar-primary: 220 50% 50%;
+    --sidebar-background: 30 55% 95%;
+    --sidebar-foreground: 240 6% 30%;
+    --sidebar-primary: 0 100% 69%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 40% 91%;
-    --sidebar-accent-foreground: 220 55% 45%;
-    --sidebar-border: 220 25% 90%;
-    --sidebar-ring: 220 50% 50%;
+    --sidebar-accent: 30 60% 92%;
+    --sidebar-accent-foreground: 240 9% 11%;
+    --sidebar-border: 33 45% 88%;
+    --sidebar-ring: 0 100% 69%;
   }
 }
 
@@ -70,10 +84,17 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    /* Northstar canvas: cream base + three fixed radial gradient blobs */
+    background-image:
+      radial-gradient(circle at 0% 0%, hsl(var(--grad-a) / 0.22), transparent 55%),
+      radial-gradient(circle at 100% 5%, hsl(var(--primary) / 0.16), transparent 50%),
+      radial-gradient(circle at 50% 100%, hsl(var(--grad-b) / 0.2), transparent 60%);
+    background-attachment: fixed;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', system-ui, sans-serif;
+    font-family: 'Source Serif Pro', 'Songti SC', 'Noto Serif SC', Georgia, serif;
     text-wrap: balance;
+    letter-spacing: -0.01em;
   }
   p {
     text-wrap: pretty;
@@ -88,7 +109,7 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Outfit', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+    font-family: 'Source Serif Pro', 'Songti SC', 'Noto Serif SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Georgia, serif;
   }
   .font-body {
     font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
@@ -97,7 +118,7 @@
     @apply text-2xl font-display font-bold tracking-tight;
   }
   .section-label {
-    @apply text-sm font-display font-semibold text-muted-foreground;
+    @apply text-sm font-body font-semibold text-muted-foreground;
   }
   .reader-body {
     font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
@@ -114,9 +135,41 @@
     line-height: 1.6;
   }
   .mastery-number {
-    font-family: 'Outfit', 'PingFang SC', system-ui, sans-serif;
+    font-family: 'Source Serif Pro', 'Songti SC', 'PingFang SC', system-ui, serif;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+  }
+  /* Northstar brand gradient + brand shadow (the .btn-primary look) */
+  .bg-gradient-hero {
+    background-image: linear-gradient(135deg, hsl(var(--grad-a)), hsl(var(--grad-b)));
+  }
+  .shadow-brand {
+    box-shadow: 0 4px 16px hsl(var(--grad-a) / 0.3);
+  }
+  .shadow-brand-hover {
+    box-shadow: 0 8px 24px hsl(var(--grad-a) / 0.4);
+  }
+  /* Northstar elevation set */
+  .shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  .shadow-raised {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+  .shadow-hover {
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+  }
+  /* Northstar glass surfaces (shell only) */
+  .glass-panel {
+    background: var(--glass-1);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-color: var(--glass-edge);
+  }
+  .glass-strong {
+    background: var(--glass-4);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    backdrop-filter: blur(16px) saturate(160%);
   }
 }
 

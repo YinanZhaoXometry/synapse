@@ -60,7 +60,7 @@ export default function PlannerPage() {
             <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all active:scale-[0.97]">
               <Sparkles className="w-3.5 h-3.5" /> {t("planner.aiPlan")}
             </button>
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-all active:scale-[0.97]">
+            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-hero text-white shadow-brand text-xs font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <Plus className="w-3.5 h-3.5" /> {t("planner.addTask")}
             </button>
           </div>

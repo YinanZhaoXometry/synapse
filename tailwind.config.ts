@@ -15,11 +15,12 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['Outfit', 'system-ui', 'sans-serif'],
-        body: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Source Serif Pro"', '"Songti SC"', '"Noto Serif SC"', 'Georgia', 'serif'],
+        body: ['Inter', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
+        "border-soft": "hsl(var(--border-soft))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -70,6 +71,10 @@ export default {
         },
         "uncovered-tint": "hsl(var(--uncovered-tint))",
         "citation-tint": "hsl(var(--citation-tint))",
+        grad: {
+          a: "hsl(var(--grad-a))",
+          b: "hsl(var(--grad-b))",
+        },
         chart: {
           accent: "hsl(var(--chart-accent))",
           grid: "hsl(var(--chart-grid))",

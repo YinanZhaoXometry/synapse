@@ -75,8 +75,8 @@ export default function AITutorPage() {
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-border bg-card">
         <div className="flex items-center gap-3 max-w-3xl mx-auto">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-            <Sparkles className="w-4.5 h-4.5 text-primary-foreground" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-hero shadow-brand flex items-center justify-center">
+            <Sparkles className="w-4.5 h-4.5 text-white" />
           </div>
           <div>
             <h2 className="font-display font-semibold text-sm">{t("tutor.title")}</h2>
@@ -141,7 +141,7 @@ export default function AITutorPage() {
         <div className="max-w-3xl mx-auto">
           <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
             <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t("tutor.inputPlaceholder")} aria-label={t("tutor.inputPlaceholder")} className="flex-1 bg-secondary rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 ring-primary/20 transition-shadow placeholder:text-muted-foreground" disabled={isTyping} />
-            <button type="submit" aria-label={t("tutor.send")} disabled={!input.trim() || isTyping} className="w-11 h-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <button type="submit" aria-label={t("tutor.send")} disabled={!input.trim() || isTyping} className="w-11 h-11 rounded-xl bg-gradient-hero text-white shadow-brand flex items-center justify-center hover:shadow-brand-hover hover:brightness-[1.03] disabled:opacity-40 disabled:shadow-none transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Send className="w-4 h-4" />
             </button>
           </form>

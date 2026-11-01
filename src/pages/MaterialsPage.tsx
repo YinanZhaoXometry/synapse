@@ -45,7 +45,7 @@ export default function MaterialsPage() {
             <h1 className="page-title">{t("materials.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">{t("materials.uploaded")} {sampleMaterials.length} {t("materials.files")}</p>
           </div>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all active:scale-[0.97]">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-hero text-white shadow-brand text-sm font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <Upload className="w-4 h-4" /> {t("materials.upload")}
           </button>
         </div>
@@ -59,7 +59,7 @@ export default function MaterialsPage() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {allTags.slice(0, 5).map(tag => (
-              <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", activeTag === tag ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+              <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} aria-pressed={activeTag === tag} className={cn("px-3.5 py-1.5 rounded-full border text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", activeTag === tag ? "bg-foreground text-background border-transparent" : "bg-white/70 text-muted-foreground border-border hover:bg-white hover:text-foreground")}>
                 {tag}
               </button>
             ))}
@@ -89,9 +89,10 @@ export default function MaterialsPage() {
           </AnimatedCard>
         ))}
         {filtered.length === 0 && (
-          <div className="text-center py-12">
-            <FolderOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">{t("materials.noResults")}</p>
+          <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
+            <FolderOpen className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" aria-hidden="true" />
+            <p className="text-base font-semibold text-foreground/80">{t("materials.noResults")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("materials.search")} · {t("materials.upload")}</p>
           </div>
         )}
       </div>

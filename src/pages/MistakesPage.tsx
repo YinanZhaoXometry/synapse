@@ -54,7 +54,7 @@ export default function MistakesPage() {
             <h1 className="page-title">{t("mistakes.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">{sampleMistakes.length} {t("mistakes.needReview")}</p>
           </div>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all active:scale-[0.97]">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-hero text-white shadow-brand text-sm font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <RefreshCw className="w-4 h-4" /> {t("mistakes.retryAll")}
           </button>
         </div>

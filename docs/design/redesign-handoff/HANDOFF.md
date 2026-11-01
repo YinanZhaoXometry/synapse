@@ -5,6 +5,8 @@
 
 **The one-sentence brief:** restyle and restructure the UI of a bilingual (中文/English) AI study app — keep all product logic, routes, i18n machinery, and the retained 10-page IA intact; push the visual system toward the "quiet intelligence" direction already specified in `docs/design/ux-synapse/DESIGN.md`.
 
+> **UPDATE 2026-11-02 — VISUAL DIRECTION SUPERSEDED:** the owner imported the **Northstar** prototype (warm cream canvas, coral/peach gradient, glass sidebar, serif display) as the new visual layer. Token values in §4 and the hue-220 blue palette described below are historical; the live token set now lives in `src/index.css` with its mapping documented in [`../northstar-import/IMPORT.md`](../northstar-import/IMPORT.md). Everything else in this handoff (IA, §5 pain points, §6 a11y/responsive, §7 invariants, §9 traps) still binds.
+
 ---
 
 ## 0. Read-first order (these docs bind the redesign)
