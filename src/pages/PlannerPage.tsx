@@ -42,8 +42,8 @@ export default function PlannerPage() {
 
   const priorityColors: Record<string, string> = {
     high: "bg-destructive/10 text-destructive",
-    medium: "bg-amber/10 text-amber",
-    low: "bg-emerald/10 text-emerald",
+    medium: "bg-partial-tint text-partial",
+    low: "bg-mastered-tint text-mastered",
   };
 
   return (
@@ -51,7 +51,7 @@ export default function PlannerPage() {
       <AnimatedSection>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-display font-bold tracking-tight">{t("planner.title")}</h1>
+            <h1 className="page-title">{t("planner.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {t("planner.completed")} {completed}/{total} {t("planner.tasks")} · {t("planner.remaining")} {totalMinutes} {t("common.minutes")}
             </p>
@@ -71,7 +71,7 @@ export default function PlannerPage() {
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-muted-foreground">{t("planner.todayProgress")}</span>
-            <span className="text-xs font-semibold text-primary">{Math.round((completed / total) * 100)}%</span>
+            <span className="text-xs font-semibold text-primary mastery-number">{Math.round((completed / total) * 100)}%</span>
           </div>
           <div className="h-2 bg-secondary rounded-full overflow-hidden">
             <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
@@ -83,8 +83,8 @@ export default function PlannerPage() {
         {tasks.map((task, i) => (
           <AnimatedCard key={task.id} delay={0.08 + i * 0.04}>
             <div className={cn("bg-card border border-border rounded-xl p-4 flex items-center gap-3 transition-all", task.completed && "opacity-60")}>
-              <button onClick={() => toggleTask(task.id)} className="shrink-0 active:scale-90 transition-transform">
-                {task.completed ? <CheckCircle2 className="w-5 h-5 text-emerald" /> : <Circle className="w-5 h-5 text-border hover:text-primary transition-colors" />}
+              <button onClick={() => toggleTask(task.id)} aria-label={task.title[language]} aria-pressed={task.completed} className="shrink-0 active:scale-90 transition-transform rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {task.completed ? <CheckCircle2 className="w-5 h-5 text-mastered" /> : <Circle className="w-5 h-5 text-border hover:text-primary transition-colors" />}
               </button>
               <div className="flex-1 min-w-0">
                 <p className={cn("text-sm font-medium", task.completed && "line-through")}>{task.title[language]}</p>

@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
+import { useEffect, useRef, useState } from "react";
+import { AnimatedSection } from "@/components/shared/AnimatedSection";
+import { QuizOptionRow, type QuizOptionState } from "@/components/shared/QuizOptionRow";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CheckCircle2, XCircle, ArrowRight, Trophy, Sparkles, RotateCcw, BookOpen, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Trophy, Sparkles, RotateCcw, BookOpen, Loader2, X } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 interface Question {
   id: number;
@@ -51,6 +51,7 @@ type QuizState = "start" | "playing" | "result";
 export default function QuizPage() {
   const { addPoints, recordAnswer, completeQuiz } = useUserProgress();
   const { t, language } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const [state, setState] = useState<QuizState>("start");
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -60,6 +61,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<(number | null)[]>([]);
   const [useAiGenerated, setUseAiGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const questionRef = useRef<HTMLHeadingElement>(null);
 
   const questions = useAiGenerated ? (aiGeneratedQuestions[language] || aiGeneratedQuestions.zh) : (questionsBank[language] || questionsBank.zh);
   const question = questions[current];
@@ -111,6 +113,39 @@ export default function QuizPage() {
     setUseAiGenerated(false);
   };
 
+  const handleExit = () => {
+    if (window.confirm(t("quiz.exitConfirm"))) {
+      handleRestart();
+    }
+  };
+
+  useEffect(() => {
+    if (state !== "playing") return;
+    questionRef.current?.focus();
+  }, [state, current]);
+
+  useEffect(() => {
+    if (state !== "playing") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= "1" && e.key <= "4") {
+        const idx = Number(e.key) - 1;
+        if (idx < question.options.length) {
+          e.preventDefault();
+          handleSelect(idx);
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (revealed) handleNext();
+        else handleReveal();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleExit();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   if (state === "start") {
     return (
       <div className="p-6 md:p-8 max-w-2xl mx-auto">
@@ -119,7 +154,7 @@ export default function QuizPage() {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
               <Trophy className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-display font-bold mb-2">{t("quiz.title")}</h1>
+            <h1 className="page-title mb-2">{t("quiz.title")}</h1>
             <p className="text-muted-foreground text-sm mb-1">{total} {t("quiz.questionCount")} · {t("quiz.multipleChoice")}</p>
             <p className="text-muted-foreground text-xs mb-6">
               {t("quiz.aiHints")}
@@ -134,7 +169,7 @@ export default function QuizPage() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => setState("playing")}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-all active:scale-[0.97]"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {t("quiz.start")} <ArrowRight className="w-4 h-4" />
               </button>
@@ -142,7 +177,7 @@ export default function QuizPage() {
                 <button
                   onClick={handleGenerateFromMaterials}
                   disabled={isGenerating}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-primary/30 text-primary font-medium text-sm hover:bg-primary/5 transition-all active:scale-[0.97] disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-primary/30 text-primary font-medium text-sm hover:bg-primary/5 transition-all active:scale-[0.97] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   {isGenerating ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> {t("quiz.generating")}</>
@@ -152,6 +187,7 @@ export default function QuizPage() {
                 </button>
               )}
             </div>
+            <p className="mt-6 text-xs text-muted-foreground">{t("quiz.keyboardHint")}</p>
           </div>
         </AnimatedSection>
       </div>
@@ -164,14 +200,22 @@ export default function QuizPage() {
       <div className="p-6 md:p-8 max-w-2xl mx-auto">
         <AnimatedSection>
           <div className="text-center py-12">
-            <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className="text-6xl mb-4">
-              {pct >= 75 ? "🎉" : pct >= 50 ? "👍" : "💪"}
-            </motion.div>
-            <h2 className="text-2xl font-display font-bold mb-1">{t("quiz.complete")}</h2>
-            <p className="text-3xl font-display font-bold text-primary my-3">{score}/{total}</p>
+            {pct === 100 && (
+              <motion.div
+                initial={reduceMotion ? false : { scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="text-6xl mb-4"
+                aria-hidden="true"
+              >
+                🎉
+              </motion.div>
+            )}
+            <h2 className="page-title mb-1">{t("quiz.complete")}</h2>
+            <p className="mastery-number text-3xl text-primary my-3">{score}/{total}</p>
             <p className="text-muted-foreground text-sm mb-2">{t("quiz.correctRate")} {pct}% · {t("quiz.earned")} +{score * 25} {t("common.points")}</p>
             <div className="flex justify-center gap-3 mt-6">
-              <button onClick={handleRestart} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border bg-card font-medium text-sm hover:bg-secondary transition-all active:scale-[0.97]">
+              <button onClick={handleRestart} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border bg-card font-medium text-sm hover:bg-secondary transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <RotateCcw className="w-4 h-4" /> {t("quiz.restart")}
               </button>
             </div>
@@ -181,46 +225,65 @@ export default function QuizPage() {
     );
   }
 
+  const wasCorrect = revealed && selected === question.correct;
+
   return (
     <div className="p-6 md:p-8 max-w-2xl mx-auto">
       <AnimatedSection>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground">{t("quiz.questionOf", { current: current + 1, total })}</span>
-          <span className="text-xs font-medium text-primary">{t("quiz.correctCount", { count: score })}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-primary">{t("quiz.correctCount", { count: score })}</span>
+            <button
+              onClick={handleExit}
+              aria-label={t("quiz.exit")}
+              title={t("quiz.exit")}
+              className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-        <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-8">
-          <motion.div className="h-full bg-primary rounded-full" animate={{ width: `${((current + (revealed ? 1 : 0)) / total) * 100}%` }} transition={{ duration: 0.3 }} />
+        <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-8" role="progressbar" aria-valuenow={current + (revealed ? 1 : 0)} aria-valuemin={0} aria-valuemax={total}>
+          <motion.div className="h-full bg-primary rounded-full" animate={{ width: `${((current + (revealed ? 1 : 0)) / total) * 100}%` }} transition={reduceMotion ? { duration: 0 } : { duration: 0.3 }} />
         </div>
       </AnimatedSection>
 
-      <AnimatePresence mode="wait">
-        <motion.div key={question.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-          <h2 className="text-lg font-display font-semibold mb-6 leading-relaxed">{question.text}</h2>
+      <div aria-live="polite" className="sr-only">
+        {revealed && (wasCorrect ? t("quiz.verdictCorrect") : t("quiz.verdictWrong"))}
+      </div>
 
-          <div className="space-y-3 mb-6">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={question.id}
+          initial={reduceMotion ? false : { opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h2 ref={questionRef} tabIndex={-1} className="text-lg font-display font-semibold mb-6 leading-relaxed focus:outline-none">{question.text}</h2>
+
+          <div className="space-y-3 mb-6" role="radiogroup" aria-label={question.text}>
             {question.options.map((opt, i) => {
               const isCorrect = i === question.correct;
               const isSelected = i === selected;
+              let optionState: QuizOptionState = "idle";
+              if (revealed) {
+                if (isCorrect) optionState = "correct";
+                else if (isSelected) optionState = "wrong";
+              } else if (isSelected) {
+                optionState = "selected";
+              }
               return (
-                <button key={i} onClick={() => handleSelect(i)} disabled={revealed} className={cn(
-                  "w-full text-left px-4 py-3.5 rounded-xl border text-sm font-medium transition-all",
-                  !revealed && isSelected && "border-primary bg-primary/5 ring-2 ring-primary/20",
-                  !revealed && !isSelected && "border-border bg-card hover:border-primary/30 hover:bg-primary/[0.02]",
-                  revealed && isCorrect && "border-emerald bg-emerald/10 text-emerald",
-                  revealed && isSelected && !isCorrect && "border-destructive bg-destructive/10 text-destructive",
-                  revealed && !isSelected && !isCorrect && "border-border bg-card opacity-50",
-                )}>
-                  <div className="flex items-center gap-3">
-                    <span className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold shrink-0",
-                      !revealed && isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
-                      revealed && isCorrect && "bg-emerald text-emerald-foreground",
-                      revealed && isSelected && !isCorrect && "bg-destructive text-destructive-foreground",
-                    )}>
-                      {revealed && isCorrect ? <CheckCircle2 className="w-4 h-4" /> : revealed && isSelected ? <XCircle className="w-4 h-4" /> : String.fromCharCode(65 + i)}
-                    </span>
-                    {opt}
-                  </div>
-                </button>
+                <QuizOptionRow
+                  key={i}
+                  index={i}
+                  text={opt}
+                  state={optionState}
+                  disabled={revealed}
+                  onClick={() => handleSelect(i)}
+                  className={revealed && !isCorrect && !isSelected ? "opacity-50" : undefined}
+                />
               );
             })}
           </div>
@@ -228,14 +291,21 @@ export default function QuizPage() {
           {!revealed && (
             <AnimatePresence>
               {showHint ? (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mb-4">
-                  <div className="flex items-start gap-2.5 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
+                <motion.div
+                  initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="mb-4"
+                >
+                  <div className="flex items-start gap-2.5 bg-citation-tint border border-primary/20 rounded-lg px-4 py-3">
                     <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <p className="text-sm text-foreground/80">{question.aiHint}</p>
+                    <p className="chat-body text-foreground/80">{question.aiHint}</p>
                   </div>
                 </motion.div>
               ) : (
-                <button onClick={() => setShowHint(true)} className="inline-flex items-center gap-1.5 text-xs text-primary font-medium mb-4 hover:underline">
+                <button
+                  onClick={() => setShowHint(true)}
+                  className="inline-flex items-center gap-1.5 rounded-sm px-1 text-xs text-primary font-medium mb-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <Sparkles className="w-3.5 h-3.5" /> {t("quiz.getHint")}
                 </button>
               )}
@@ -243,9 +313,15 @@ export default function QuizPage() {
           )}
 
           {revealed && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-              <div className="bg-secondary/60 rounded-xl px-4 py-3">
-                <p className="text-xs font-semibold text-muted-foreground mb-1">{t("quiz.explanation")}</p>
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6"
+            >
+              <div className={`rounded-lg border-l-2 bg-secondary/60 px-4 py-3 ${wasCorrect ? "border-l-mastered" : "border-l-destructive"}`}>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
+                  {wasCorrect ? t("quiz.verdictCorrect") : t("quiz.verdictWrong")} · {t("quiz.explanation")}
+                </p>
                 <p className="text-sm">{question.explanation}</p>
               </div>
             </motion.div>
@@ -253,11 +329,11 @@ export default function QuizPage() {
 
           <div className="flex justify-end gap-3">
             {!revealed ? (
-              <button onClick={handleReveal} disabled={selected === null} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-all active:scale-[0.97]">
+              <button onClick={handleReveal} disabled={selected === null} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 {t("quiz.checkAnswer")}
               </button>
             ) : (
-              <button onClick={handleNext} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-all active:scale-[0.97]">
+              <button onClick={handleNext} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 {current < total - 1 ? t("quiz.next") : t("quiz.viewResult")} <ArrowRight className="w-4 h-4" />
               </button>
             )}

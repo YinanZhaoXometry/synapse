@@ -11,7 +11,7 @@ export default function SettingsPage() {
   return (
     <div className="p-6 md:p-8 max-w-2xl mx-auto space-y-6">
       <AnimatedSection>
-        <h1 className="text-2xl font-display font-bold tracking-tight">{t("settings.title")}</h1>
+        <h1 className="page-title">{t("settings.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t("settings.subtitle")}</p>
       </AnimatedSection>
 
@@ -38,8 +38,9 @@ export default function SettingsPage() {
           <div className="flex gap-3">
             <button
               onClick={() => setLanguage("zh")}
+              aria-pressed={language === "zh"}
               className={cn(
-                "flex-1 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.97]",
+                "flex-1 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 language === "zh" ? "border-primary bg-primary/5 text-primary ring-2 ring-primary/20" : "border-border hover:border-primary/30"
               )}
             >
@@ -47,8 +48,9 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => setLanguage("en")}
+              aria-pressed={language === "en"}
               className={cn(
-                "flex-1 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.97]",
+                "flex-1 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 language === "en" ? "border-primary bg-primary/5 text-primary ring-2 ring-primary/20" : "border-border hover:border-primary/30"
               )}
             >

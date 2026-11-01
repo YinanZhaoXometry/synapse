@@ -1,4 +1,5 @@
 import { AnimatedSection } from "@/components/shared/AnimatedSection";
+import { StatCard } from "@/components/shared/StatCard";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -32,7 +33,7 @@ export default function AnalyticsPage() {
   ];
 
   const topicStrength = [
-    { name: language === "zh" ? "可用性" : "Usability", value: 85, color: "hsl(175, 84%, 32%)" },
+    { name: language === "zh" ? "可用性" : "Usability", value: 85, color: "hsl(var(--chart-accent))" },
     { name: language === "zh" ? "认知" : "Cognition", value: 60, color: "hsl(38, 92%, 50%)" },
     { name: language === "zh" ? "设计" : "Design", value: 72, color: "hsl(160, 84%, 39%)" },
     { name: language === "zh" ? "研究" : "Research", value: 45, color: "hsl(0, 72%, 51%)" },
@@ -44,16 +45,16 @@ export default function AnalyticsPage() {
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
       <AnimatedSection>
-        <h1 className="text-2xl font-display font-bold tracking-tight">{t("analytics.title")}</h1>
+        <h1 className="page-title">{t("analytics.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t("analytics.subtitle")}</p>
       </AnimatedSection>
 
       <AnimatedSection delay={0.05}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MiniStat icon={<Clock className="w-4 h-4" />} label={t("analytics.totalStudyTime")} value={`${studyH}${t("common.hours")}${studyM}${t("common.minutes")}`} />
-          <MiniStat icon={<Target className="w-4 h-4" />} label={t("dashboard.accuracy")} value={`${accuracy}%`} />
-          <MiniStat icon={<Brain className="w-4 h-4" />} label={t("analytics.flashcardsReviewed")} value={progress.flashcardsReviewed.toString()} />
-          <MiniStat icon={<TrendingUp className="w-4 h-4" />} label={t("analytics.quizzesCompleted")} value={progress.quizzesCompleted.toString()} />
+          <StatCard icon={<Clock className="w-4 h-4" />} label={t("analytics.totalStudyTime")} value={`${studyH}${t("common.hours")}${studyM}${t("common.minutes")}`} />
+          <StatCard icon={<Target className="w-4 h-4" />} label={t("dashboard.accuracy")} value={`${accuracy}%`} />
+          <StatCard icon={<Brain className="w-4 h-4" />} label={t("analytics.flashcardsReviewed")} value={progress.flashcardsReviewed.toString()} />
+          <StatCard icon={<TrendingUp className="w-4 h-4" />} label={t("analytics.quizzesCompleted")} value={progress.quizzesCompleted.toString()} />
         </div>
       </AnimatedSection>
 
@@ -63,11 +64,11 @@ export default function AnalyticsPage() {
           <p className="text-xs text-muted-foreground mb-4">{t("analytics.weeklyStudyTimeDesc")}</p>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={weeklyData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(216,12%,90%)" />
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" />
-              <YAxis tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" />
-              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(216,12%,90%)", fontSize: 12 }} />
-              <Bar dataKey="minutes" name={t("analytics.totalStudyTime")} fill="hsl(175,84%,32%)" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+              <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="hsl(var(--chart-axis))" />
+              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--chart-axis))" />
+              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--chart-grid))", fontSize: 12 }} />
+              <Bar dataKey="minutes" name={t("analytics.totalStudyTime")} fill="hsl(var(--chart-accent))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -80,11 +81,11 @@ export default function AnalyticsPage() {
             <p className="text-xs text-muted-foreground mb-4">{t("analytics.accuracyTrendDesc")}</p>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={accuracyTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(216,12%,90%)" />
-                <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(215,14%,46%)" domain={[40, 100]} />
-                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(216,12%,90%)", fontSize: 12 }} />
-                <Line type="monotone" dataKey="accuracy" name={t("dashboard.accuracy")} stroke="hsl(175,84%,32%)" strokeWidth={2} dot={{ r: 4 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(var(--chart-axis))" />
+                <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--chart-axis))" domain={[40, 100]} />
+                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--chart-grid))", fontSize: 12 }} />
+                <Line type="monotone" dataKey="accuracy" name={t("dashboard.accuracy")} stroke="hsl(var(--chart-accent))" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -99,7 +100,7 @@ export default function AnalyticsPage() {
                 <div key={topic.name}>
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-sm font-medium">{topic.name}</span>
-                    <span className="text-xs font-medium text-muted-foreground">{topic.value}%</span>
+                    <span className="mastery-number text-xs text-muted-foreground">{topic.value}%</span>
                   </div>
                   <div className="h-2 bg-secondary rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-700" style={{ width: `${topic.value}%`, backgroundColor: topic.color }} />
@@ -110,15 +111,6 @@ export default function AnalyticsPage() {
           </div>
         </AnimatedSection>
       </div>
-    </div>
-  );
-}
-
-function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="bg-card border border-border rounded-xl p-4">
-      <div className="flex items-center gap-2 text-muted-foreground mb-2">{icon}<span className="text-xs font-medium">{label}</span></div>
-      <p className="text-xl font-display font-bold">{value}</p>
     </div>
   );
 }

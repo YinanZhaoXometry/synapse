@@ -41,7 +41,7 @@ export default function OnboardingPage() {
             </div>
             <h1 className="text-3xl font-display font-bold tracking-tight mb-2">{t("onboarding.welcome")}</h1>
             <p className="text-muted-foreground mb-8">{t("onboarding.subtitle")}</p>
-            <button onClick={() => setStep("goals")} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all active:scale-[0.97]">
+            <button onClick={() => setStep("goals")} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {t("onboarding.start")} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -53,7 +53,7 @@ export default function OnboardingPage() {
             <p className="text-sm text-muted-foreground text-center mb-6">{t("onboarding.goalsDesc")}</p>
             <div className="space-y-2 mb-8">
               {goals.map(g => (
-                <button key={g.id} onClick={() => toggleGoal(g.id)} className={cn("w-full text-left px-4 py-3.5 rounded-xl border text-sm font-medium transition-all active:scale-[0.98]", selectedGoals.includes(g.id) ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/30")}>
+                <button key={g.id} onClick={() => toggleGoal(g.id)} aria-pressed={selectedGoals.includes(g.id)} className={cn("w-full text-left px-4 py-3.5 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", selectedGoals.includes(g.id) ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-card hover:border-primary/30")}>
                   <div className="flex items-center gap-3">
                     <g.icon className={cn("w-5 h-5", selectedGoals.includes(g.id) ? "text-primary" : "text-muted-foreground")} />
                     {g.label}
@@ -61,7 +61,7 @@ export default function OnboardingPage() {
                 </button>
               ))}
             </div>
-            <button onClick={() => setStep("ready")} disabled={selectedGoals.length === 0} className="w-full px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-40 transition-all active:scale-[0.97]">
+            <button onClick={() => setStep("ready")} disabled={selectedGoals.length === 0} className="w-full px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-40 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {t("common.continue")}
             </button>
           </div>
@@ -72,7 +72,7 @@ export default function OnboardingPage() {
             <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }} className="text-5xl mb-4">🎉</motion.div>
             <h2 className="text-xl font-display font-bold mb-2">{t("onboarding.ready")}</h2>
             <p className="text-sm text-muted-foreground mb-8">{t("onboarding.readyDesc")}</p>
-            <button onClick={() => navigate("/dashboard")} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all active:scale-[0.97]">
+            <button onClick={() => navigate("/dashboard")} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {t("onboarding.goDashboard")} <ArrowRight className="w-4 h-4" />
             </button>
           </div>

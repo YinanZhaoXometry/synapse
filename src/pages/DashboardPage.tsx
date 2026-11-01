@@ -2,8 +2,17 @@ import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
 import { ProgressRing } from "@/components/shared/ProgressRing";
+import { StatCard } from "@/components/shared/StatCard";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Flame, Target, BookOpen, Brain, HelpCircle, Trophy, ArrowRight, Sparkles, TrendingUp, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const achievementKeyById: Record<string, string> = {
+  "first-quiz": "achievement.firstQuiz",
+  "streak-3": "achievement.streak3",
+  "streak-7": "achievement.streak7",
+  "flashcard-50": "achievement.flashcard50",
+};
 
 export default function DashboardPage() {
   const { progress } = useUserProgress();
@@ -24,24 +33,29 @@ export default function DashboardPage() {
       <AnimatedSection>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight leading-tight">{t("dashboard.welcome")}</h1>
+            <h1 className="page-title md:text-3xl leading-tight">{t("dashboard.welcome")}</h1>
             <p className="text-muted-foreground mt-1">{t("dashboard.aiReady")}</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber/10">
-              <Flame className="w-4 h-4 text-amber" />
-              <span className="text-sm font-semibold text-amber">{t("dashboard.streak")} {progress.streak} {t("common.days")}</span>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="button" aria-label={t("dashboard.streakRule")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-partial-tint cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Flame className="w-4 h-4 text-partial" />
+                  <span className="text-sm font-semibold text-partial">{t("dashboard.streak")} {progress.streak} {t("common.days")}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-56 text-center">{t("dashboard.streakRule")}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </AnimatedSection>
 
       <AnimatedSection delay={0.05}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={<Target className="w-5 h-5" />} label={t("dashboard.weeklyGoal")} value={`${weeklyPct}%`} sub={`${progress.weeklyProgress}/${progress.weeklyGoal} ${t("common.minutes")}`} color="primary" />
-          <StatCard icon={<TrendingUp className="w-5 h-5" />} label={t("dashboard.accuracy")} value={`${accuracy}%`} sub={`${progress.correctAnswers}/${progress.totalAnswers} ${t("dashboard.correct")}`} color="emerald" />
-          <StatCard icon={<Clock className="w-5 h-5" />} label={t("dashboard.studyTime")} value={`${Math.round(progress.studyMinutes / 60)}${t("common.hours")}`} sub={`${t("dashboard.cumulative")} ${progress.studyMinutes} ${t("common.minutes")}`} color="amber" />
-          <StatCard icon={<Trophy className="w-5 h-5" />} label={t("common.level")} value={progress.level.toString()} sub={`${progress.points} ${t("common.points")}`} color="primary" />
+          <StatCard icon={<Target className="w-4 h-4" />} iconClassName="bg-primary/10 text-primary" label={t("dashboard.weeklyGoal")} value={`${weeklyPct}%`} hint={`${progress.weeklyProgress}/${progress.weeklyGoal} ${t("common.minutes")}`} />
+          <StatCard icon={<TrendingUp className="w-4 h-4" />} iconClassName="bg-mastered-tint text-mastered" label={t("dashboard.accuracy")} value={`${accuracy}%`} hint={`${progress.correctAnswers}/${progress.totalAnswers} ${t("dashboard.correct")}`} />
+          <StatCard icon={<Clock className="w-4 h-4" />} iconClassName="bg-partial-tint text-partial" label={t("dashboard.studyTime")} value={`${Math.round(progress.studyMinutes / 60)}${t("common.hours")}`} hint={`${t("dashboard.cumulative")} ${progress.studyMinutes} ${t("common.minutes")}`} />
+          <StatCard icon={<Trophy className="w-4 h-4" />} iconClassName="bg-primary/10 text-primary" label={t("common.level")} value={progress.level.toString()} hint={`${progress.points} ${t("common.points")}`} />
         </div>
       </AnimatedSection>
 
@@ -51,7 +65,7 @@ export default function DashboardPage() {
             <h3 className="font-display font-semibold text-sm text-muted-foreground mb-4">{t("dashboard.weeklyProgress")}</h3>
             <ProgressRing progress={weeklyPct} size={140} strokeWidth={10}>
               <div className="text-center">
-                <span className="text-3xl font-display font-bold">{weeklyPct}%</span>
+                <span className="mastery-number text-3xl">{weeklyPct}%</span>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{t("dashboard.goalCompletion")}</p>
               </div>
             </ProgressRing>
@@ -91,38 +105,23 @@ export default function DashboardPage() {
             <Link to="/achievements" className="text-xs text-primary font-medium hover:underline">{t("dashboard.viewAll")}</Link>
           </div>
           <div className="flex flex-wrap gap-3">
-            {progress.achievements.slice(-4).map((a, i) => (
-              <AnimatedCard key={a.id} delay={0.2 + i * 0.08}>
-                <div className="flex items-center gap-2.5 bg-secondary/60 rounded-lg px-3.5 py-2.5">
-                  <span className="text-xl">{a.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium">{a.title}</p>
-                    <p className="text-[11px] text-muted-foreground">{a.description}</p>
+            {progress.achievements.slice(-4).map((a, i) => {
+              const key = achievementKeyById[a.id];
+              return (
+                <AnimatedCard key={a.id} delay={0.2 + i * 0.08}>
+                  <div className="flex items-center gap-2.5 bg-secondary/60 rounded-lg px-3.5 py-2.5">
+                    <span className="text-xl">{a.icon}</span>
+                    <div>
+                      <p className="text-sm font-medium">{key ? t(key) : a.title}</p>
+                      <p className="text-[11px] text-muted-foreground">{key ? t(`${key}Desc`) : a.description}</p>
+                    </div>
                   </div>
-                </div>
-              </AnimatedCard>
-            ))}
+                </AnimatedCard>
+              );
+            })}
           </div>
         </div>
       </AnimatedSection>
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string; sub: string; color: string }) {
-  const colorMap: Record<string, string> = {
-    primary: "text-primary bg-primary/10",
-    emerald: "text-emerald bg-emerald/10",
-    amber: "text-amber bg-amber/10",
-  };
-  return (
-    <div className="bg-card rounded-xl border border-border p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorMap[color]}`}>{icon}</div>
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      </div>
-      <p className="text-2xl font-display font-bold">{value}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
     </div>
   );
 }

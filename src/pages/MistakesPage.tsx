@@ -51,7 +51,7 @@ export default function MistakesPage() {
       <AnimatedSection>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display font-bold tracking-tight">{t("mistakes.title")}</h1>
+            <h1 className="page-title">{t("mistakes.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">{sampleMistakes.length} {t("mistakes.needReview")}</p>
           </div>
           <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all active:scale-[0.97]">
@@ -61,8 +61,8 @@ export default function MistakesPage() {
       </AnimatedSection>
 
       <AnimatedSection delay={0.05}>
-        <div className="bg-amber/5 border border-amber/20 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber shrink-0 mt-0.5" />
+        <div className="bg-partial-tint border border-partial/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-partial shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold">{t("mistakes.weakAreas")}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -92,10 +92,10 @@ export default function MistakesPage() {
                     <p className="text-xs">{m.yourAnswer[language]}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2 bg-emerald/5 border border-emerald/15 rounded-lg px-3 py-2">
-                  <BookOpen className="w-4 h-4 text-emerald shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 bg-mastered-tint border border-mastered/15 rounded-lg px-3 py-2">
+                  <BookOpen className="w-4 h-4 text-mastered shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[10px] font-semibold text-emerald mb-0.5">{t("mistakes.correctAnswer")}</p>
+                    <p className="text-[10px] font-semibold text-mastered mb-0.5">{t("mistakes.correctAnswer")}</p>
                     <p className="text-xs">{m.correctAnswer[language]}</p>
                   </div>
                 </div>

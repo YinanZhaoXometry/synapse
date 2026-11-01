@@ -78,6 +78,12 @@
   p {
     text-wrap: pretty;
   }
+  /* Accessibility floor: visible keyboard focus everywhere (WCAG 2.2 AA).
+     Components may override with a stronger ring, never with none. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {

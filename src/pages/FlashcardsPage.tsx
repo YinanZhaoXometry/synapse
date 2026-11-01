@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, ThumbsUp, ThumbsDown, Minus, Sparkles, BookOpen, Loader2 } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { ThumbsUp, ThumbsDown, Minus, Sparkles, BookOpen, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Flashcard {
@@ -50,6 +50,7 @@ const aiGeneratedCards: Record<string, Flashcard[]> = {
 export default function FlashcardsPage() {
   const { addPoints, reviewFlashcard } = useUserProgress();
   const { t, language } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const [useAiCards, setUseAiCards] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const cards = useAiCards ? (aiGeneratedCards[language] || aiGeneratedCards.zh) : (defaultCards[language] || defaultCards.zh);
@@ -58,6 +59,27 @@ export default function FlashcardsPage() {
   const [reviewed, setReviewed] = useState(0);
 
   const card = cards[current];
+
+  // Interaction primitives (EXPERIENCE.md): ←/→ navigate. The card itself
+  // handles Space/Enter to flip when focused (see motion.div below).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setFlipped(false);
+        setCurrent(c => (c + 1) % cards.length);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setFlipped(false);
+        setCurrent(c => (c - 1 + cards.length) % cards.length);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cards.length]);
 
   const handleGenerateFromMaterials = () => {
     setIsGenerating(true);
@@ -87,7 +109,7 @@ export default function FlashcardsPage() {
       <AnimatedSection>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-display font-bold tracking-tight">{t("flashcards.title")}</h1>
+            <h1 className="page-title">{t("flashcards.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {t("flashcards.aiEnhanced")} · {t("flashcards.reviewed")} {reviewed} {t("flashcards.cards")}
             </p>
@@ -116,14 +138,14 @@ export default function FlashcardsPage() {
       {/* Card */}
       <AnimatedSection delay={0.1}>
         <div className="perspective-1000 mb-6">
-          <motion.div onClick={() => setFlipped(!flipped)} className="relative w-full cursor-pointer" style={{ minHeight: 280 }}>
+          <motion.div onClick={() => setFlipped(!flipped)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFlipped(!flipped); } }} role="button" tabIndex={0} aria-label={flipped ? t("common.answer") : t("common.clickToReveal")} className="relative w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl" style={{ minHeight: 280 }}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={flipped ? "back" : "front"}
                 initial={{ opacity: 0, rotateY: flipped ? -90 : 90 }}
                 animate={{ opacity: 1, rotateY: 0 }}
                 exit={{ opacity: 0, rotateY: flipped ? 90 : -90 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: reduceMotion ? 0 : 0.3 }}
                 className={cn("w-full rounded-2xl border border-border p-8 flex flex-col items-center justify-center text-center", flipped ? "bg-primary/5" : "bg-card")}
                 style={{ minHeight: 280 }}
               >
@@ -131,7 +153,7 @@ export default function FlashcardsPage() {
                   <>
                     <p className="text-xs font-medium text-muted-foreground mb-4">{t("common.question")}</p>
                     <p className="text-lg font-display font-semibold leading-relaxed">{card.front}</p>
-                    <p className="text-xs text-muted-foreground mt-6">{t("common.clickToReveal")}</p>
+                    <p className="text-xs text-muted-foreground mt-6">{t("flashcards.recallFirst")}</p>
                   </>
                 ) : (
                   <>
@@ -150,13 +172,13 @@ export default function FlashcardsPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <p className="text-xs text-center text-muted-foreground mb-3">{t("flashcards.ratePrompt")}</p>
           <div className="flex justify-center gap-3">
-            <button onClick={() => handleRate("hard")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-all active:scale-[0.97]">
+            <button onClick={() => handleRate("hard")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <ThumbsDown className="w-4 h-4" /> {t("flashcards.hard")}
             </button>
-            <button onClick={() => handleRate("medium")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-amber/30 text-amber text-sm font-medium hover:bg-amber/5 transition-all active:scale-[0.97]">
+            <button onClick={() => handleRate("medium")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-partial/30 text-partial text-sm font-medium hover:bg-partial-tint transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Minus className="w-4 h-4" /> {t("flashcards.medium")}
             </button>
-            <button onClick={() => handleRate("easy")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-emerald/30 text-emerald text-sm font-medium hover:bg-emerald/5 transition-all active:scale-[0.97]">
+            <button onClick={() => handleRate("easy")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-mastered/30 text-mastered text-sm font-medium hover:bg-mastered-tint transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <ThumbsUp className="w-4 h-4" /> {t("flashcards.easy")}
             </button>
           </div>
@@ -165,7 +187,7 @@ export default function FlashcardsPage() {
 
       {/* AI Enhancement */}
       {flipped && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.15 }}>
           <div className="bg-primary/5 border border-primary/15 rounded-xl px-4 py-3 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <div>
@@ -175,6 +197,8 @@ export default function FlashcardsPage() {
           </div>
         </motion.div>
       )}
+
+      <p className="text-xs text-muted-foreground text-center mt-8">{t("flashcards.keyboardHint")}</p>
     </div>
   );
 }

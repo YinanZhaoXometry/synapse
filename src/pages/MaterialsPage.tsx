@@ -42,7 +42,7 @@ export default function MaterialsPage() {
       <AnimatedSection>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-display font-bold tracking-tight">{t("materials.title")}</h1>
+            <h1 className="page-title">{t("materials.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">{t("materials.uploaded")} {sampleMaterials.length} {t("materials.files")}</p>
           </div>
           <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all active:scale-[0.97]">
@@ -55,7 +55,7 @@ export default function MaterialsPage() {
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("materials.search")} className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm outline-none focus:ring-2 ring-primary/20 transition-shadow" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("materials.search")} aria-label={t("materials.search")} className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm outline-none focus:ring-2 ring-primary/20 transition-shadow" />
           </div>
           <div className="flex gap-2 flex-wrap">
             {allTags.slice(0, 5).map(tag => (
