@@ -1,5 +1,7 @@
 /** Task + study-state Query hooks (AD-3): thin over the repositories. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { ReadingLocator, ReadingPosition } from "@/domain/entities";
 import { createStudyTask, getTask, getTaskNode, listTasks } from "./task-repository";
 import {
@@ -48,6 +50,7 @@ export function useAllReadingProgressQuery() {
 
 export function useSaveReadingProgressMutation() {
   const qc = useQueryClient();
+  const { t } = useLanguage();
   return useMutation({
     mutationFn: async (input: { materialId: string; position: ReadingPosition }) => {
       saveReadingProgress(input.materialId, input.position);
@@ -57,6 +60,9 @@ export function useSaveReadingProgressMutation() {
       // and the cross-material list (Plans Home continue line) in one sweep.
       void qc.invalidateQueries({ queryKey: queryKeys.progress.all });
     },
+    // Never silent (UX error state): neutral, actionable — say it failed, ask
+    // for a retry, never alarm.
+    onError: () => toast.error(t("errors.persistFailed")),
   });
 }
 
@@ -69,6 +75,7 @@ export function useChatThreadQuery(materialId: string) {
 
 export function useAppendChatMessageMutation() {
   const qc = useQueryClient();
+  const { t } = useLanguage();
   return useMutation({
     mutationFn: async (input: {
       materialId: string;
@@ -77,5 +84,8 @@ export function useAppendChatMessageMutation() {
     onSuccess: (_data, input) => {
       void qc.invalidateQueries({ queryKey: queryKeys.chat.byMaterial(input.materialId) });
     },
+    // Same neutral persistence-failure toast — the transcript itself stays
+    // honest (use-companion-chat's persistence rule).
+    onError: () => toast.error(t("errors.persistFailed")),
   });
 }

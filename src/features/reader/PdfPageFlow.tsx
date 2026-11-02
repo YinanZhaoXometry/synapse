@@ -1,8 +1,9 @@
 /**
  * The PDF page flow (FR-8): a continuous vertical flow of fit-width canvases
  * inside its own scroll container. Pages lazily render near the viewport and
- * far pages release — canvas pixels clear while the container keeps its
- * measured height, so scroll never jumps (pager.ts owns the window math). The
+ * far pages release — the canvas backing store is freed while the container
+ * keeps its measured height, so scroll never jumps (pager.ts owns the window
+ * math). The
  * most-visible page is the current one (FR-10): measured page rects + scrollTop
  * feed the pure selector in position-tracking.ts, and the result reports to the
  * top-bar pager and the position tracker; ←/→ steps pages; a deep link
@@ -197,8 +198,14 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
       pageRefs.current.get(target)?.scrollIntoView({ block: "start", behavior: "auto" });
       reportCurrent(target);
       if (flashTarget) {
+        // Same tracked pattern as the citation flash — a landing flash timer
+        // never outlives the flow either.
+        if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
         setFlashPage(target);
-        window.setTimeout(() => setFlashPage(null), READER_FLASH_MS);
+        flashTimerRef.current = window.setTimeout(() => {
+          flashTimerRef.current = null;
+          setFlashPage(null);
+        }, READER_FLASH_MS);
       }
     } else {
       updateCurrentFromViewport();
@@ -273,7 +280,7 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
 /**
  * One page container — the app's ONE large shadow lives here (DESIGN ·
  * Elevation: a page is a physical object). Pixels render only inside the lazy
- * window; release clears the canvas but keeps the measured height.
+ * window; release frees the backing store but keeps the measured height.
  */
 interface PdfPageCanvasProps {
   doc: OpenedPdfDocument;
@@ -314,6 +321,12 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, co
     } else {
       const ctx = canvas.getContext("2d");
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      // Free the backing store too — clearRect alone keeps the bitmap
+      // allocated (~MBs per far page over a long read). The container's
+      // measured style height keeps layout stable; renderPage re-allocates
+      // (it assigns width/height before drawing) on re-entry.
+      canvas.width = 0;
+      canvas.height = 0;
     }
     return () => {
       cancelled = true;

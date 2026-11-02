@@ -173,7 +173,11 @@ export function evidenceStreak(records: EvidenceRecord[], now: Date = new Date()
 export interface LatestReadingView {
   material: Material;
   locator: ReadingLocator;
-  /** The markdown locator's section title (material data); null for pdf pages. */
+  /**
+   * The markdown locator's section title (material data); null for pdf pages
+   * AND for an empty title (a bare `#` heading has none — the line falls back
+   * to the material alone rather than rendering a dangling 「· 」).
+   */
   sectionTitle: string | null;
   updatedAt: string;
 }
@@ -200,7 +204,7 @@ export function latestReading(progress: ReadingProgress[], materials: Material[]
     return {
       material,
       locator,
-      sectionTitle: locator.kind === "markdown" ? section.title : null,
+      sectionTitle: locator.kind === "markdown" && section.title ? section.title : null,
       updatedAt: record.updatedAt,
     };
   }

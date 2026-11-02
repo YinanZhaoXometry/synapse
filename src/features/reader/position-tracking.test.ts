@@ -117,6 +117,21 @@ describe("markdown scroll-spy (FR-10: current section over boundaries)", () => {
     expect(currentSection([], 100, "introduction.")).toBe("introduction.");
     expect(currentSection([], 100)).toBeNull();
   });
+
+  it("an empty heading's boundary (id \"\") is unaddressable — the earlier section holds", () => {
+    // a bare `#` heading renders id="" (markdown-anchor-agreement pins it);
+    // the report must never carry an empty locator
+    const withEmpty = [
+      { id: "alpha", top: 100 },
+      { id: "", top: 200 },
+      { id: "beta", top: 300 },
+    ];
+    expect(currentSection(withEmpty, 150, "introduction.")).toBe("alpha"); // inside the empty region
+    expect(currentSection(withEmpty, 268, "introduction.")).toBe("beta"); // line 300 — the exact hit
+    // an all-empty run reads as no section (or the intro when one exists)
+    expect(currentSection([{ id: "", top: 100 }], 150)).toBeNull();
+    expect(currentSection([{ id: "", top: 100 }], 150, "introduction.")).toBe("introduction.");
+  });
 });
 
 describe("position text resolver (AD-4: bounded extracted text, never raw bytes)", () => {

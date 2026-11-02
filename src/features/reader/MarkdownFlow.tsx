@@ -7,7 +7,8 @@
  * measureBoundaries() measures each heading's offsetTop relative to the scroll
  * container (it is the headings' offsetParent — content coordinates, stable
  * under scroll); onViewportScroll reports raw scrollTops from real scroll
- * events (rAF-throttled) for the pure scroll-spy selector;
+ * events (rAF-throttled) plus the one-shot landing for the pure scroll-spy
+ * selector;
  * scrollToSection mirrors PdfFlowHandle.scrollToPage for
  * citation jumps (T5). react-markdown itself lives in markdown-view, which is
  * lazy-loaded here, so the markdown pipeline ships in its own chunk (AD-8,
@@ -111,20 +112,43 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
 
   // Anchor landing (#section-id, AD-8): scroll once the headings are real in
   // the DOM, then flash the target once when ?hl=1 rode along. A stale hash —
-  // no such heading — honestly does nothing. No viewport report here: the
-  // landing's own scroll event (and every user scroll after it) carries the
-  // settled scrollTop to the position tracker.
+  // no such heading — scrolls and flashes nothing. The landing is also the
+  // tracker's FIRST reading: a document that fits one screen never fires a
+  // scroll event, so without it the Companion would wait on a position forever
+  // (the PDF branch takes the same first reading on its no-anchor landing). A
+  // plain or stale landing reports immediately; after a scrollIntoView the
+  // report waits one frame — the same never-read-scrollTop-right-after-
+  // scrollIntoView rule the scroll path follows — and lands with the settled
+  // scrollTop.
   useEffect(() => {
     if (anchoredRef.current || !resolved) return;
     anchoredRef.current = true;
-    if (initialSection === null) return;
-    const target = document.getElementById(initialSection);
-    if (!target) return;
-    target.scrollIntoView({ block: "start", behavior: "auto" });
-    if (flashTarget) {
-      setFlashSection(initialSection);
-      window.setTimeout(() => setFlashSection(null), READER_FLASH_MS);
+    const root = scrollRef.current;
+    const reportLanding = () => {
+      if (root && onViewportScroll) onViewportScroll(root.scrollTop);
+    };
+    if (initialSection === null) {
+      reportLanding();
+      return;
     }
+    const target = document.getElementById(initialSection);
+    if (!target) {
+      reportLanding();
+      return;
+    }
+    target.scrollIntoView({ block: "start", behavior: "auto" });
+    const raf = window.requestAnimationFrame(reportLanding);
+    if (flashTarget) {
+      // Same tracked pattern as the citation flash below — a landing flash
+      // timer never outlives the flow either.
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+      setFlashSection(initialSection);
+      flashTimerRef.current = window.setTimeout(() => {
+        flashTimerRef.current = null;
+        setFlashSection(null);
+      }, READER_FLASH_MS);
+    }
+    return () => window.cancelAnimationFrame(raf);
     // The anchor is consumed exactly once per mount; its parts are stable props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved]);

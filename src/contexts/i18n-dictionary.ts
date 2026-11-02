@@ -145,6 +145,7 @@ export const translations = {
       'plans.continueReading': '继续阅读',
       'plans.lastReadPage': '上次读到 《{material}》 第 {n} 页',
       'plans.lastReadSection': '上次读到 《{material}》 · {section}',
+      'plans.lastReadMaterial': '上次读到 《{material}》',
 
       'reader.backToPlan': '返回计划',
       'reader.notFoundBody': '它可能已被删除，或链接有误。',
@@ -194,6 +195,7 @@ export const translations = {
       'errors.parseEncrypted': '文件已加密，暂不支持解析',
       'errors.parseEmpty': '文件没有可提取的内容',
       'errors.parseUnknown': '解析失败，请重试',
+      'errors.persistFailed': '保存失败，请重试。',
 
       'dashboard.eyebrow': '仪表盘',
       'dashboard.greetingA': '早上好，',
@@ -641,6 +643,7 @@ export const translations = {
       'plans.continueReading': 'Continue reading',
       'plans.lastReadPage': 'Last read: {material}, page {n}',
       'plans.lastReadSection': 'Last read: {material} · {section}',
+      'plans.lastReadMaterial': 'Last read: {material}',
 
       'reader.backToPlan': 'Back to plan',
       'reader.notFoundBody': 'It may have been deleted, or the link is wrong.',
@@ -690,6 +693,7 @@ export const translations = {
       'errors.parseEncrypted': 'The file is password-protected — parsing is not supported yet',
       'errors.parseEmpty': 'The file has no extractable content',
       'errors.parseUnknown': 'Parsing failed — please retry',
+      'errors.persistFailed': "Saving failed — please retry.",
 
       'dashboard.eyebrow': 'Dashboard',
       'dashboard.greetingA': 'Good morning, ',

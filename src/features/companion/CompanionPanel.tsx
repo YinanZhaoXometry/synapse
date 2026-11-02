@@ -141,6 +141,9 @@ export function CompanionPanel({
               text={chat.streamText}
               target={streamTarget}
               groundingLabel={t("companion.groundingStream", { target: streamTarget ?? "" })}
+              locator={chat.streamPosition?.locator ?? null}
+              material={material}
+              onJump={onJumpToLocator}
             />
           )}
         </div>
@@ -317,17 +320,26 @@ function CompanionBubble({
   );
 }
 
-/** Streaming row: partial text + the subtle grounding line (mock) — chips swap
- * in when the reply object resolves with its citations (contract note:
- * CompanionReply.citations exist on the final reply only). */
+/** Streaming row: partial text + the send-time grounding CitationChip (spec:
+ * chips render alongside their claims mid-stream — the locator is known at
+ * request time from request.position, so the chip is here and jumpable the
+ * whole turn) + the subtle grounding line. CompanionReply.citations exist on
+ * the final reply only, so the reply's full citation list swaps in below when
+ * it resolves. */
 function StreamingBubble({
   text,
   target,
   groundingLabel,
+  locator,
+  material,
+  onJump,
 }: {
   text: string | null;
   target: string | null;
   groundingLabel: string;
+  locator: ReadingLocator | null;
+  material: Material | null;
+  onJump(locator: ReadingLocator): void;
 }) {
   return (
     <div className="flex gap-2.5 max-w-[88%] self-start">
@@ -339,6 +351,11 @@ function StreamingBubble({
       </span>
       <div className="chat-body leading-[1.7] rounded-[14px] rounded-tl-[4px] bg-card border border-border-soft shadow-soft px-[15px] py-3 min-w-0">
         {text !== null && text.length > 0 && <p className="whitespace-pre-wrap">{text}</p>}
+        {locator && (
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            <CitationChip material={material} locator={locator} onJump={onJump} />
+          </div>
+        )}
         <div className="flex items-center gap-1 mt-1" aria-hidden="true">
           <span className="w-1.5 h-1.5 rounded-full bg-caption-soft animate-bounce" />
           <span className="w-1.5 h-1.5 rounded-full bg-caption-soft animate-bounce" style={{ animationDelay: "160ms" }} />

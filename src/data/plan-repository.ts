@@ -73,10 +73,21 @@ export function updatePlan(id: string, patch: Partial<Pick<StudyPlan, "topic" | 
   return updated;
 }
 
-/** Cascade: a plan's nodes have no life outside it. */
+/**
+ * Cascade: a plan's nodes have no life outside it, and neither do its
+ * materials — they leave with their 1:1 rows (ReadingProgress + ChatThread,
+ * AD-3), so the continue line and threads never reference deleted materials.
+ * One updateDb transaction: plan, nodes, materials, and those rows move
+ * together or not at all.
+ */
 export function deletePlan(id: string): void {
   updateDb((db) => {
     db.plans = db.plans.filter((p) => p.id !== id);
     db.nodes = db.nodes.filter((n) => n.planId !== id);
+    const goneMaterialIds = db.materials.filter((m) => m.planId === id).map((m) => m.id);
+    if (goneMaterialIds.length === 0) return;
+    db.materials = db.materials.filter((m) => m.planId !== id);
+    db.readingProgress = db.readingProgress.filter((r) => !goneMaterialIds.includes(r.materialId));
+    db.chatThreads = db.chatThreads.filter((t) => !goneMaterialIds.includes(t.materialId));
   });
 }

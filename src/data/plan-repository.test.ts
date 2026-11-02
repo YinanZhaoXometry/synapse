@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { STORAGE_KEY } from "./document";
+import { getMaterial, listMaterialsByPlan, registerMaterial } from "./material-repository";
 import {
   createPlan,
   deletePlan,
@@ -8,6 +9,7 @@ import {
   listPlans,
   updatePlan,
 } from "./plan-repository";
+import { appendChatMessage, getChatThread, getReadingProgress, saveReadingProgress } from "./progress-repository";
 import { loadDb, resetDb } from "./store";
 
 beforeEach(() => {
@@ -46,12 +48,44 @@ describe("plan repository (seam: public API over real localStorage)", () => {
     expect(getPlan(plan.id)?.topic).toBe("COMP5241 final");
   });
 
-  it("deletes a plan together with its nodes", () => {
-    const { plan } = createPlan({ topic: "T", goal: null, nodes: [{ title: "N", stage: null }] });
-    deletePlan(plan.id);
-    expect(getPlan(plan.id)).toBeUndefined();
-    expect(listNodesByPlan(plan.id)).toHaveLength(0);
-    expect(listPlans()).toHaveLength(0);
+  it("deletes a plan together with its nodes, its materials, and their progress/thread rows", () => {
+    const a = createPlan({ topic: "A", goal: null, nodes: [{ title: "N", stage: null }] });
+    const b = createPlan({ topic: "B", goal: null, nodes: [] });
+    const materialA = registerMaterial({
+      title: "Lecture.pdf",
+      kind: "pdf",
+      sizeBytes: 10,
+      planId: a.plan.id,
+      taskId: null,
+      sections: [{ id: "page-1", title: "Page 1", text: "page one 文本" }],
+    }).material;
+    const materialB = registerMaterial({
+      title: "Notes.md",
+      kind: "markdown",
+      sizeBytes: 10,
+      planId: b.plan.id,
+      taskId: null,
+      sections: [{ id: "s1", title: "S1", text: "notes 文本" }],
+    }).material;
+    saveReadingProgress(materialA.id, { locator: { kind: "pdf", page: 1 }, text: "page one 文本" });
+    saveReadingProgress(materialB.id, { locator: { kind: "markdown", sectionId: "s1" }, text: "notes 文本" });
+    appendChatMessage(materialA.id, { role: "user", text: "q", citations: [] });
+    appendChatMessage(materialB.id, { role: "user", text: "q", citations: [] });
+
+    deletePlan(a.plan.id);
+
+    // the plan, its nodes, its materials — and the materials' 1:1 rows — go together
+    expect(getPlan(a.plan.id)).toBeUndefined();
+    expect(listNodesByPlan(a.plan.id)).toHaveLength(0);
+    expect(listMaterialsByPlan(a.plan.id)).toHaveLength(0);
+    expect(getMaterial(materialA.id)).toBeUndefined();
+    expect(getReadingProgress(materialA.id)).toBeUndefined();
+    expect(getChatThread(materialA.id)).toBeUndefined();
+    // an unrelated plan's rows are untouched
+    expect(getPlan(b.plan.id)).toBeDefined();
+    expect(getMaterial(materialB.id)).toBeDefined();
+    expect(getReadingProgress(materialB.id)).toBeDefined();
+    expect(getChatThread(materialB.id)).toBeDefined();
   });
 });
 

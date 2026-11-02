@@ -48,9 +48,9 @@ export function mostVisiblePage(
 /**
  * The scroll-spy reading line: a heading becomes the current section once its
  * top crosses this offset below the scroll container's top edge. The value
- * matches the headings' md scroll margin (scroll-mt-8 = 32px), so a section is
- * current the moment an anchor/restore lands on it — tracking never fights
- * the landing.
+ * matches the headings' scroll margin (scroll-mt-8 = 32px, at every width —
+ * one constant both sides read), so a section is current the moment an
+ * anchor/restore lands on it — tracking never fights the landing.
  */
 export const READING_LINE_OFFSET = 32;
 
@@ -61,6 +61,9 @@ export const READING_LINE_OFFSET = 32;
  * heading has no heading element, so it maps to Material.sections[0]'s id
  * (T3's contract), passed as `introId`; null introId → null. An exact
  * boundary hit (top === reading line) already belongs to that section.
+ * An empty heading renders id="" (the anchor-agreement seam pins it) — it is
+ * unaddressable, so it never becomes the current section: the earlier section
+ * holds across it and an all-empty run reads as no section at all.
  */
 export function currentSection(
   boundaries: { id: string; top: number }[],
@@ -71,6 +74,7 @@ export function currentSection(
   let current: string | null = null;
   for (const boundary of boundaries) {
     if (boundary.top > line) break;
+    if (!boundary.id) continue; // "" is no section — the report must never carry an empty locator
     current = boundary.id;
   }
   return current ?? introId;

@@ -33,21 +33,28 @@ export async function parsePdf(bytes: Uint8Array, language: UiLanguage): Promise
   if (!pdfjs.GlobalWorkerOptions.workerSrc) pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   // useWorkerFetch: false keeps asset fetching on the main thread, which the
   // fake-worker path (Node/jsdom tests) requires.
-  const doc = await pdfjs.getDocument({ data: bytes, useWorkerFetch: false }).promise;
+  const loadingTask = pdfjs.getDocument({ data: bytes, useWorkerFetch: false });
+  // The loading task owns the teardown (pdfjs 6: destroy lives here —
+  // openPdfDocument's discipline): extraction releases the worker + doc bytes.
+  try {
+    const doc = await loadingTask.promise;
 
-  const sections: MaterialSection[] = [];
-  for (let n = 1; n <= doc.numPages; n++) {
-    const page = await doc.getPage(n);
-    const content = await page.getTextContent();
-    let text = "";
-    for (const item of content.items) {
-      if ("str" in item) {
-        text += item.str;
-        if (item.hasEOL) text += "\n";
+    const sections: MaterialSection[] = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      const content = await page.getTextContent();
+      let text = "";
+      for (const item of content.items) {
+        if ("str" in item) {
+          text += item.str;
+          if (item.hasEOL) text += "\n";
+        }
       }
+      const trimmed = text.trim();
+      sections.push({ id: `page-${n}`, title: pageTitle(trimmed, n, language), text: trimmed });
     }
-    const trimmed = text.trim();
-    sections.push({ id: `page-${n}`, title: pageTitle(trimmed, n, language), text: trimmed });
+    return sections; // a zero-page document yields [] — parseFile reports the empty reason
+  } finally {
+    void loadingTask.destroy();
   }
-  return sections; // a zero-page document yields [] — parseFile reports the empty reason
 }

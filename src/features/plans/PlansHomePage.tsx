@@ -132,10 +132,12 @@ function ContinueHeroBody({
           <p className="text-[11px] text-accent-ink leading-[1.5] truncate mt-1.5">
             {reading.locator.kind === "pdf"
               ? t("plans.lastReadPage", { material: reading.material.title, n: reading.locator.page })
-              : t("plans.lastReadSection", {
-                  material: reading.material.title,
-                  section: reading.sectionTitle ?? "",
-                })}
+              : reading.sectionTitle
+                ? t("plans.lastReadSection", {
+                    material: reading.material.title,
+                    section: reading.sectionTitle,
+                  })
+                : t("plans.lastReadMaterial", { material: reading.material.title })}
           </p>
         )}
       </div>

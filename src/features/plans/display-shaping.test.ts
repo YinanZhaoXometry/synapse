@@ -288,4 +288,15 @@ describe("continue-hero shaping (ticket 04): latestReading across plans", () => 
       "m1",
     );
   });
+
+  it("an empty section title (a bare # heading) reads as no section — the line shows the material alone", () => {
+    const untitled = mdMaterial("m3", ["empty"]);
+    untitled.sections[0].title = "";
+    const view = latestReading(
+      [progress("m3", "2026-11-02T10:00:00Z", { kind: "markdown", sectionId: "empty" })],
+      [untitled],
+    );
+    expect(view).not.toBeNull(); // still resumable — the section exists
+    expect(view?.sectionTitle).toBeNull(); // but the title is honest null, never ""
+  });
 });

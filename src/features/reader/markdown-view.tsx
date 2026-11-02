@@ -30,7 +30,7 @@ function headingComponent(Tag: HeadingTag, flashSection: string | null) {
   return function Heading({ node: _node, children, ...rest }: HeadingProps) {
     const flashing = typeof rest.id === "string" && rest.id === flashSection;
     return (
-      <Tag {...rest} className="relative scroll-mt-6 md:scroll-mt-8">
+      <Tag {...rest} className="relative scroll-mt-8">
         {children}
         {flashing && (
           <span

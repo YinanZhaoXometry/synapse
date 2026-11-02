@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { getReadingProgress } from "@/data";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import type { Material } from "@/domain/entities";
 import {
   READING_POSITION_SAVE_DEBOUNCE_MS,
@@ -14,7 +15,9 @@ import {
  * restore landing — persists nothing), trailing debounce, unmount flush, and
  * the parsed-only guard. Asserted through the real repository over
  * localStorage — the save path is useSaveReadingProgressMutation, exactly the
- * production seam. Prior art: material-repository.test.ts.
+ * production seam (which needs the LanguageProvider the app mounts: the
+ * mutation toasts persistence failures in the app language). Prior art:
+ * material-repository.test.ts.
  */
 
 const parsedMaterial = (): Material => ({
@@ -32,13 +35,18 @@ const parsedMaterial = (): Material => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-/** Wrapper owns one QueryClient for the hook's lifetime (mutation seam). */
+/** Wrapper owns one QueryClient for the hook's lifetime, under the same
+ * LanguageProvider the app mounts (the mutation's error toast reads it). */
 function makeWrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    return (
+      <LanguageProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      </LanguageProvider>
+    );
   };
 }
 

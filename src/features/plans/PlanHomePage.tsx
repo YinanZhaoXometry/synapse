@@ -30,8 +30,7 @@ import {
 } from "@/data";
 import { cn } from "@/lib/utils";
 import type { Material } from "@/domain/entities";
-import { PARSE_REASON_MESSAGE_KEY } from "@/features/reader/parse";
-import { useParseMaterialMutation } from "@/features/reader/use-parse-material";
+import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import {
   evidenceStreak,
   nodeRowViews,
