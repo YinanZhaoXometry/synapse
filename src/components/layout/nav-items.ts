@@ -16,9 +16,31 @@ export const NAV_ROUTES = [
   { to: "/planner", labelKey: "nav.planner", icon: CalendarCheck },
   { to: "/achievements", labelKey: "nav.achievements", icon: Award },
   { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
-];
+] as const;
 
 export const SETTINGS_ROUTE = { to: "/settings", labelKey: "nav.settings", icon: Settings };
+
+// Functional grouping (restored from the original scaffold's navGroups — owner
+// round 2026-11-02: the flat list lost it during the prototype port). Display
+// order for the sidebar + drawer; the rail stays icon-only (no labels).
+export const NAV_GROUPS: ReadonlyArray<{ labelKey: string; items: ReadonlyArray<(typeof NAV_ROUTES)[number]> }> = [
+  {
+    labelKey: "nav.group.overview",
+    items: [NAV_ROUTES[0]], // 仪表盘
+  },
+  {
+    labelKey: "nav.group.learn",
+    items: [NAV_ROUTES[1], NAV_ROUTES[2], NAV_ROUTES[6]], // AI 导师 / 学习资料 / 学习计划
+  },
+  {
+    labelKey: "nav.group.practice",
+    items: [NAV_ROUTES[3], NAV_ROUTES[4], NAV_ROUTES[5]], // 测验 / 闪卡 / 错题本
+  },
+  {
+    labelKey: "nav.group.progress",
+    items: [NAV_ROUTES[7], NAV_ROUTES[8]], // 成就 / 数据分析
+  },
+];
 
 export const flatNav = [...NAV_ROUTES, SETTINGS_ROUTE];
 

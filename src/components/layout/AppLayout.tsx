@@ -6,7 +6,7 @@ import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
-import { NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
+import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
 import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
@@ -90,9 +90,18 @@ export default function AppLayout() {
         {/* Command-bar search pill (Northstar ⌘K) */}
         <div className="pt-1">{searchPill}</div>
 
-        {/* Flat nav (prototype NAV_ROUTES) */}
-        <nav className="flex-1 pt-2 pb-2 space-y-0.5 overflow-y-auto" aria-label={t("common.primaryAria")}>
-          {NAV_ROUTES.map(item => renderLink(item))}
+        {/* Grouped nav (scaffold navGroups restored — owner round 2026-11-02) */}
+        <nav className="flex-1 pt-1 pb-2 overflow-y-auto" aria-label={t("common.primaryAria")}>
+          {NAV_GROUPS.map(group => (
+            <div key={group.labelKey} className="pt-2">
+              <p className="px-2.5 pb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-caption">
+                {t(group.labelKey)}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map(item => renderLink(item))}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* User footer (prototype sidebar-foot) — language switch lives on the Settings page, so no lang toggle in the sidebar */}
@@ -262,8 +271,17 @@ export default function AppLayout() {
             {searchPill}
           </div>
 
-          <nav className="flex-1 pt-2 pb-2 space-y-0.5 overflow-y-auto" aria-label={t("common.primaryAria")}>
-            {NAV_ROUTES.map(item => renderLink(item, () => setDrawerOpen(false)))}
+          <nav className="flex-1 pt-1 pb-2 overflow-y-auto" aria-label={t("common.primaryAria")}>
+            {NAV_GROUPS.map(group => (
+              <div key={group.labelKey} className="pt-2">
+                <p className="px-2.5 pb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-caption">
+                  {t(group.labelKey)}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map(item => renderLink(item, () => setDrawerOpen(false)))}
+                </div>
+              </div>
+            ))}
           </nav>
 
           <div className="px-1 pt-2.5 border-t border-border-soft" onClick={() => setDrawerOpen(false)}>

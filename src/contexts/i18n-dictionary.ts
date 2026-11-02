@@ -29,6 +29,10 @@ export const translations = {
       'common.notFoundBody': '换一个入口继续。',
       'common.goDashboard': '回到仪表盘',
 
+      'nav.group.overview': '总览',
+      'nav.group.learn': '学习',
+      'nav.group.practice': '练习',
+      'nav.group.progress': '进度',
       'nav.dashboard': '仪表盘',
       'nav.tutor': 'AI 导师',
       'nav.materials': '学习资料',
@@ -382,6 +386,10 @@ export const translations = {
       'common.notFoundBody': 'Pick another starting point.',
       'common.goDashboard': 'Back to dashboard',
 
+      'nav.group.overview': 'Overview',
+      'nav.group.learn': 'Learn',
+      'nav.group.practice': 'Practice',
+      'nav.group.progress': 'Progress',
       'nav.dashboard': 'Dashboard',
       'nav.tutor': 'AI Tutor',
       'nav.materials': 'Materials',
