@@ -13,10 +13,16 @@ import Switcher from "@/features/prototype-final/Switcher";
 import SceneOnboarding from "@/features/prototype-final/SceneOnboarding";
 import ScenePlans from "@/features/prototype-final/ScenePlans";
 import ScenePlanHome from "@/features/prototype-final/ScenePlanHome";
+import SceneRoadmap from "@/features/prototype-final/SceneRoadmap";
 import SceneReader from "@/features/prototype-final/SceneReader";
 import SceneQuiz from "@/features/prototype-final/SceneQuiz";
+import SceneTask from "@/features/prototype-final/SceneTask";
 import SceneToday from "@/features/prototype-final/SceneToday";
 import SceneReview from "@/features/prototype-final/SceneReview";
+import SceneTutor from "@/features/prototype-final/SceneTutor";
+import SceneNote from "@/features/prototype-final/SceneNote";
+import SceneSquare from "@/features/prototype-final/SceneSquare";
+import SceneAnalytics from "@/features/prototype-final/SceneAnalytics";
 import SceneDashboard from "@/features/prototype-final/SceneDashboard";
 import { planCardMetrics, evidenceStreak } from "@/features/plans/display-shaping";
 
@@ -56,10 +62,16 @@ export default function PrototypeFinalSystemPage() {
       {scene === "onboarding" && <SceneOnboarding state={state} />}
       {scene === "plans" && <ScenePlans state={state} />}
       {scene === "plan" && <ScenePlanHome state={state} />}
+      {scene === "roadmap" && <SceneRoadmap state={state} />}
       {scene === "reader" && <SceneReader state={state} />}
       {scene === "quiz" && <SceneQuiz state={state} />}
+      {scene === "task" && <SceneTask state={state} />}
       {scene === "today" && <SceneToday state={state} />}
       {scene === "review" && <SceneReview state={state} />}
+      {scene === "tutor" && <SceneTutor state={state} />}
+      {scene === "note" && <SceneNote state={state} />}
+      {scene === "square" && <SceneSquare state={state} />}
+      {scene === "analytics" && <SceneAnalytics state={state} />}
       {scene === "dashboard" && <SceneDashboard state={state} />}
 
       <Switcher current={scene} onNavigate={go} stats={stats} />

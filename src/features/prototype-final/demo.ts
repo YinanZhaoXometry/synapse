@@ -11,9 +11,9 @@
  * quiz scene and the plan/dashboard numbers move for real. Nothing persists.
  */
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, ClipboardCheck, LayoutDashboard, ListTree, Map, Sparkles, Sun, Layers } from "lucide-react";
+import { BookOpen, ClipboardCheck, FileStack, GraduationCap, LayoutDashboard, LineChart, ListTree, Map, Network, Sparkles, StickyNote, Sun, Layers, Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { EvidenceRecord, Flashcard, KnowledgeNode, Material, MistakeEntry, ReadingLocator, StudyPlan } from "@/domain/entities";
+import type { EvidenceRecord, Flashcard, KnowledgeNode, Material, MistakeEntry, ReadingLocator, StudyPlan, StudyTask } from "@/domain/entities";
 
 /** Inline bilingual literal — prototype-grade i18n that follows the app language. */
 export function useL() {
@@ -34,10 +34,16 @@ export type SceneKey =
   | "onboarding"
   | "plans"
   | "plan"
+  | "roadmap"
   | "reader"
   | "quiz"
+  | "task"
   | "today"
   | "review"
+  | "tutor"
+  | "note"
+  | "square"
+  | "analytics"
   | "dashboard";
 
 export interface SceneDef {
@@ -51,10 +57,16 @@ export const SCENES: SceneDef[] = [
   { key: "onboarding", icon: Sparkles, zh: "入门向导", en: "Onboarding" },
   { key: "plans", icon: Map, zh: "计划前台", en: "Plans Home" },
   { key: "plan", icon: ListTree, zh: "计划主页", en: "Plan Home" },
-  { key: "reader", icon: BookOpen, zh: "阅读 + 伴侣", en: "Reader + Companion" },
+  { key: "roadmap", icon: Network, zh: "路线图", en: "Roadmap" },
+  { key: "reader", icon: BookOpen, zh: "阅读 · 划线", en: "Reader · Mark" },
   { key: "quiz", icon: ClipboardCheck, zh: "测验 · 证据闭环", en: "Quiz · Evidence" },
+  { key: "task", icon: FileStack, zh: "学习任务", en: "Study Task" },
   { key: "today", icon: Sun, zh: "今日学习", en: "Today" },
   { key: "review", icon: Layers, zh: "闪卡 · 错题", en: "Cards · Mistakes" },
+  { key: "tutor", icon: GraduationCap, zh: "AI 导师", en: "AI Tutor" },
+  { key: "note", icon: StickyNote, zh: "AI 笔记", en: "AI Note" },
+  { key: "square", icon: Globe, zh: "广场", en: "Square" },
+  { key: "analytics", icon: LineChart, zh: "分析 · 测验史", en: "Analytics · Quiz Hub" },
   { key: "dashboard", icon: LayoutDashboard, zh: "总览仪表盘", en: "Dashboard" },
 ];
 
@@ -105,6 +117,8 @@ export const demoNodes: KnowledgeNode[] = [
   { id: "n-lin1", planId: "p-lin", taskId: null, stage: null, title: "行变换与秩", order: 1 },
   { id: "n-lin2", planId: "p-lin", taskId: null, stage: null, title: "特征值与特征向量", order: 2 },
   { id: "n-lin3", planId: "p-lin", taskId: null, stage: null, title: "矩阵求导", order: 3 },
+  // Study Task's exactly-one owned node (AD-6)
+  { id: "n-attn", planId: null, taskId: "t-attn", stage: null, title: "Attention 机制精读", order: 1 },
 ];
 
 /**
@@ -130,6 +144,10 @@ export const seedEvidence: EvidenceRecord[] = [
   { id: "ev-14", nodeId: "n-lin1", sessionId: "s-lin-2", questionId: null, outcome: "correct", createdAt: iso(16) },
   { id: "ev-15", nodeId: "n-lin2", sessionId: "s-lin-3", questionId: null, outcome: "correct", createdAt: iso(14) },
   { id: "ev-16", nodeId: "n-lin2", sessionId: "s-lin-3", questionId: null, outcome: "wrong", createdAt: iso(13) },
+  // Study Task evidence: correct/wrong/correct → 67% partial (same machinery, no plan)
+  { id: "ev-t1", nodeId: "n-attn", sessionId: "s-task-1", questionId: null, outcome: "correct", createdAt: iso(1) },
+  { id: "ev-t2", nodeId: "n-attn", sessionId: "s-task-1", questionId: null, outcome: "wrong", createdAt: iso(1) },
+  { id: "ev-t3", nodeId: "n-attn", sessionId: "s-task-1", questionId: null, outcome: "correct", createdAt: iso(0) },
 ];
 
 // ---------------------------------------------------------------------------
@@ -374,4 +392,145 @@ export const todayItems: TodayItem[] = [
     minutes: 3,
     scene: "review",
   },
+];
+
+// ---------------------------------------------------------------------------
+// PACK 2 — Study Task (FR-37 / UJ-6), Square (FR-38/39), Note (FR-40),
+// Study Focus (FR-16/17), plan-level Companion context (FR-46)
+// ---------------------------------------------------------------------------
+
+/** The plan-free twin (UJ-6: one PDF understood tonight, no ceremony). */
+export const demoTask: StudyTask = {
+  id: "t-attn",
+  materialId: "m-attn",
+  nodeId: "n-attn",
+  createdAt: iso(2),
+};
+
+export const demoTaskMaterial: Material = {
+  id: "m-attn",
+  title: "Attention Is All You Need.pdf",
+  kind: "pdf",
+  sizeBytes: 2_202_009,
+  planId: null,
+  taskId: "t-attn",
+  parseState: "parsed",
+  sections: [
+    {
+      id: "page-1",
+      title: "第 1 页 · 摘要与动机",
+      text: "RNN/LSTM 的顺序计算限制了序列内并行；长距离依赖经隐藏状态传递易衰减。Transformer 完全放弃循环，仅用注意力建模依赖。",
+    },
+    {
+      id: "page-2",
+      title: "第 2 页 · 模型架构",
+      text: "多头注意力将 Q、K、V 投影到多个子空间并行计算缩放点积注意力；位置编码注入顺序信息；编码器-解码器间用交叉注意力对齐。",
+    },
+    {
+      id: "page-5",
+      title: "第 5 页 · 实验结果",
+      text: "WMT14 英德翻译 BLEU 28.4，超此前所有单模型与集成模型，且训练成本更低。",
+    },
+  ],
+  createdAt: iso(2),
+};
+
+/** Square (广场) — Public plans, structure only (NFR-7: content never shared). */
+export interface SquarePlan {
+  id: string;
+  topic: string;
+  author: string;
+  stages: string;
+  nodePreview: string[];
+  forks: number;
+  adopted?: boolean;
+}
+
+export const squarePlans: SquarePlan[] = [
+  {
+    id: "sq-ml",
+    topic: "机器学习面试冲刺",
+    author: "Yinan Chen（你）",
+    stages: "基础 → 核心 → 进阶 → 应用",
+    nodePreview: ["数学基础回顾", "监督学习", "模型评估与调参", "集成方法", "面试模拟与复盘"],
+    forks: 12,
+    adopted: true,
+  },
+  {
+    id: "sq-dl",
+    topic: "深度学习入门到实战",
+    author: "陈学长 · CSE",
+    stages: "基础 → 模型 → 应用",
+    nodePreview: ["张量与自动微分", "CNN", "RNN 与序列建模", "Transformer", "训练技巧", "小项目实战"],
+    forks: 48,
+  },
+  {
+    id: "sq-sys",
+    topic: "系统设计面试路线",
+    author: "Ming · EE",
+    stages: "基础 → 分布式 → 场景",
+    nodePreview: ["网络与存储基础", "负载均衡与缓存", "一致性与共识", "消息队列", "设计题演练"],
+    forks: 31,
+  },
+  {
+    id: "sq-lin",
+    topic: "线性代数速通",
+    author: "学姐 Lin",
+    stages: "三条主线",
+    nodePreview: ["行变换与秩", "特征值与特征向量", "矩阵求导"],
+    forks: 7,
+    adopted: true,
+  },
+];
+
+/** AI Note (FR-40) — companion-authored Markdown with visual enrichment. */
+export interface NoteSection {
+  heading: string;
+  paragraphs: string[];
+  chart?: "gradient" | "flow";
+  chartCaption?: string;
+}
+
+export const demoNote: { title: string; scopeZh: string; scopeEn: string } & { sections: NoteSection[] } = {
+  title: "监督学习 · 弱点笔记",
+  scopeZh: "自动圈定范围：你最低的两个节点（监督学习 · 模型评估与调参）",
+  scopeEn: "Auto-scoped to your two weakest nodes (supervised learning · evaluation)",
+  sections: [
+    {
+      heading: "1. 逻辑回归的损失函数：为什么是交叉熵",
+      paragraphs: [
+        "Sigmoid 在输出饱和区导数趋近于零；若用均方误差，损失梯度会再乘上这个趋零因子——错得越离谱，梯度反而越小，模型「学不动」。",
+        "交叉熵的梯度恰好不含 Sigmoid 导数因子：误差越大梯度越充足，修正越快。这是两者最本质的差别，也是昨天那道错题的考点。",
+      ],
+      chart: "gradient",
+      chartCaption: "AI 插入图表：MSE 与交叉熵的梯度量级对比（误差大时 MSE 梯度塌缩）",
+    },
+    {
+      heading: "2. 精确率 / 召回率：阈值这根旋钮",
+      paragraphs: [
+        "精确率管「报出来的有多少真」，召回率管「真目标有多少被报出来」。分类阈值一降，召回升、精确率降——两者由同一根旋钮调节。",
+        "漏报代价高的场景（癌症筛查、欺诈检测）先保召回，再用二次复核收敛误报。答题时先点名场景，再讲权衡，才算完整。",
+      ],
+    },
+    {
+      heading: "3. 下一步建议（按你的证据生成）",
+      paragraphs: [
+        "「监督学习」最近一条证据是错误（MSE）——建议先重做错题本第 1 条，再刷 3 道交叉熵相关选择题巩固。",
+      ],
+      chart: "flow",
+      chartCaption: "AI 插入流程图：错题 → 定位原文 → 重测 → 证据回血",
+    },
+  ],
+};
+
+/** Study Focus (FR-17) — core items derived from the reader's highlights. */
+export interface FocusItem {
+  text: string;
+  source: string;
+}
+
+export const studyFocusItems: FocusItem[] = [
+  { text: "交叉熵 vs 均方误差：梯度行为的本质差异", source: "第 3 页" },
+  { text: "Sigmoid 饱和区为什么让 MSE 学不动", source: "第 3 页" },
+  { text: "正则强度如何弯曲决策边界", source: "第 3 页" },
 ];

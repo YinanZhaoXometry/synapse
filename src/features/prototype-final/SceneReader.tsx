@@ -5,20 +5,29 @@
  * moves a score until a confirm quiz passes. Content is the seeded page-3
  * section from the demo material registry.
  */
-import { useState } from "react";
-import { BookMarked, Check, ChevronLeft, ChevronRight, Lightbulb, ListChecks, Quote, Send } from "lucide-react";
+import { useState, type CSSProperties } from "react";
+import { BookMarked, Check, ChevronLeft, ChevronRight, Highlighter, Lightbulb, ListChecks, Quote, RotateCcw, Send, Wand2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useL, demoMaterials, type ProtoState } from "./demo";
+import { useL, demoMaterials, studyFocusItems, type ProtoState } from "./demo";
 
 const MATERIAL = demoMaterials[0];
 const PAGE = MATERIAL.sections.find((s) => s.id === "page-3")!;
 
 const PAGE_PARAGRAPHS = PAGE.text.split("\n\n");
 
+/** Highlighter colors (FR-16) — content semantics: yellow / blue / green markers. */
+const HL_STYLE: Record<number, CSSProperties> = {
+  1: { background: "rgba(250,204,21,0.22)", borderLeft: "3px solid rgba(250,204,21,0.8)", paddingLeft: "12px", borderRadius: "8px" },
+  2: { background: "rgba(96,165,250,0.18)", borderLeft: "3px solid rgba(96,165,250,0.8)", paddingLeft: "12px", borderRadius: "8px" },
+  3: { background: "rgba(74,222,128,0.18)", borderLeft: "3px solid rgba(74,222,128,0.8)", paddingLeft: "12px", borderRadius: "8px" },
+};
+
 export default function SceneReader({ state }: { state: ProtoState }) {
   const l = useL();
   const [claimed, setClaimed] = useState(false);
+  const [highlights, setHighlights] = useState<Record<number, number>>({ 1: 1 }); // seed: paragraph 2 pre-highlighted yellow
+  const [focusOpen, setFocusOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "companion"; text: string; cite?: boolean }[]>([
     {
       role: "user",
@@ -34,6 +43,26 @@ export default function SceneReader({ state }: { state: ProtoState }) {
     },
   ]);
   const [draft, setDraft] = useState("");
+
+  const hlCount = Object.values(highlights).filter((v) => v > 0).length;
+  const cycleHl = (i: number) => setHighlights((h) => ({ ...h, [i]: ((h[i] ?? 0) % 3) + 1 }));
+  const clearHl = (i: number) => setHighlights((h) => ({ ...h, [i]: 0 }));
+
+  const askAbout = (i: number) => {
+    const excerpt = PAGE_PARAGRAPHS[i].slice(0, 42);
+    setMessages((m) => [
+      ...m,
+      { role: "user", text: l(`解释这段：「${excerpt}…」`, `Explain this: "${excerpt}…"`) },
+      {
+        role: "companion",
+        cite: true,
+        text: l(
+          "先给你一个思考角度（NFR-2 先引导）：这段在对比两种损失的梯度行为——想想「错误很大时，各自梯度会发生什么」？想直接对答案的话再问一次。（原型演示：真实回答由服务端 AI 生成）",
+          "A thinking angle first (NFR-2 hint-first): this paragraph contrasts two losses' gradient behavior — ask yourself 'what happens to each gradient when the error is large?' Ask again if you want the direct answer. (Prototype: real answers are server-side AI)",
+        ),
+      },
+    ]);
+  };
 
   const send = () => {
     const t = draft.trim();
@@ -63,6 +92,12 @@ export default function SceneReader({ state }: { state: ProtoState }) {
           <h1 className="page-title mt-1.5 text-[22px]">{PAGE.title}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <span className="pill pill-muted cursor-help flex-none" title={l("点击段落划线：黄 → 蓝 → 绿 → 取消", "Click a paragraph to highlight: yellow → blue → green → clear")}>
+            <Highlighter className="w-3 h-3" aria-hidden="true" /> {l("划线", "Marks")} {hlCount}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => setFocusOpen((v) => !v)}>
+            <Wand2 className="w-3.5 h-3.5 mr-1.5" /> {l("学习重点", "Study Focus")}
+          </Button>
           {/* evidence-only marking: claim → confirm quiz (FR-15) */}
           {claimed ? (
             <span className="flex flex-col items-end gap-1">
@@ -82,6 +117,33 @@ export default function SceneReader({ state }: { state: ProtoState }) {
         </div>
       </div>
 
+      {/* Study Focus panel (FR-17): core items derived from the highlights */}
+      {focusOpen && (
+        <div className="bg-card border border-border-soft rounded-2xl shadow-raised p-4 mt-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <h2 className="eyebrow">{l("学习重点 · Study Focus", "Study Focus")}</h2>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline"
+            >
+              <RotateCcw className="w-3 h-3" aria-hidden="true" /> {l("随划线重新生成", "Regenerate from marks")}
+            </button>
+          </div>
+          <div className="space-y-2 mt-3">
+            {studyFocusItems.map((item) => (
+              <div key={item.text} className="flex items-center gap-2.5 text-[13px]">
+                <Zap className="w-3.5 h-3.5 text-accent-ink flex-none" aria-hidden="true" />
+                <span className="flex-1">{item.text}</span>
+                <span className="pill pill-muted flex-none">{item.source}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3">
+            {l(`由你的 ${hlCount} 处划线生成（FR-17）——AI 读取高亮与下划线，提炼这份材料的核心。`, `Generated from your ${hlCount} highlights (FR-17) — the AI reads marks and distills this material's core.`)}
+          </p>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-[1fr_340px] gap-5 mt-5 items-start">
         {/* document pane */}
         <div className="min-w-0">
@@ -91,11 +153,49 @@ export default function SceneReader({ state }: { state: ProtoState }) {
               <span className="tabular-nums">{l("第 3 页 · 共 128 页", "Page 3 of 128")}</span>
             </div>
             <div className="py-5 space-y-4 text-[13.5px] leading-[1.85]">
-              {PAGE_PARAGRAPHS.map((p, i) => (
-                <p key={i} className={i === 2 ? "rounded-xl border-l-[3px] border-[var(--grad-a)] bg-[var(--accent-tint)] px-4 py-3" : ""}>
-                  {p}
-                </p>
-              ))}
+              {PAGE_PARAGRAPHS.map((p, i) => {
+                const hl = highlights[i] ?? 0;
+                return (
+                  <div key={i} className="relative group">
+                    <p
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => cycleHl(i)}
+                      onKeyDown={(e) => e.key === "Enter" && cycleHl(i)}
+                      title={l("点击划线 / 换色；再点取消", "Click to highlight / change color; click to clear")}
+                      className={`cursor-pointer rounded-lg -mx-2 px-2 py-1 transition-colors ${hl ? "" : "hover:bg-[var(--glass-2)]"}`}
+                      style={hl ? HL_STYLE[hl] : undefined}
+                    >
+                      {p}
+                    </p>
+                    {hl > 0 && (
+                      <span className="absolute -top-1.5 right-0 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => askAbout(i)}
+                          className="pill tint-coral cursor-pointer text-[10px]"
+                        >
+                          <Lightbulb className="w-2.5 h-2.5" aria-hidden="true" /> {l("问伴侣", "Ask")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => state.go("quiz")}
+                          className="pill tint-blue cursor-pointer text-[10px]"
+                        >
+                          <ListChecks className="w-2.5 h-2.5" aria-hidden="true" /> {l("速测", "Test")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => clearHl(i)}
+                          className="pill pill-muted cursor-pointer text-[10px]"
+                        >
+                          {l("清除", "Clear")}
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {["监督学习", "交叉熵", "Sigmoid", "决策边界", "正则化"].map((term) => (
                   <span key={term} className="pill pill-muted">{term}</span>
