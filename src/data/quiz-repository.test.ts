@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { computeNodeScore, computePlanRollup } from "@/domain/mastery";
+import { computeNodeScore, computePlanRollup, getNodeState } from "@/domain/mastery";
 import { loadDb } from "./store";
+import { AppError } from "./errors";
 import {
   createQuizSession,
   getQuizSession,
@@ -8,6 +9,8 @@ import {
   type AnswerResult,
   type QuestionInput,
 } from "./quiz-repository";
+import { appendChatMessage, saveReadingProgress } from "./progress-repository";
+import { createFlashcards, rateFlashcard } from "./flashcard-repository";
 
 beforeEach(() => {
   localStorage.clear();
@@ -111,13 +114,40 @@ describe("evidence loop (seam: repository API; the spine's core data flow)", () 
       mode: "choice",
       questions: [questions[0]],
     });
-    expect(() =>
+    try {
       recordEvidence({
         sessionId: session.id,
         results: [answer(stored[0].id, "correct"), answer("no-such-question", "correct")],
-      }),
-    ).toThrow(/no-such-question/);
+      });
+      expect.unreachable("recordEvidence should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe("EVIDENCE_BATCH_UNKNOWN_QUESTION");
+    }
     expect(loadDb().evidence).toHaveLength(0); // nothing partially written
+  });
+
+  it("evidence-only movement: non-evidence study activity never changes scores", () => {
+    const { session, questions: stored } = createQuizSession({
+      planId: null,
+      taskId: null,
+      mode: "mix",
+      questions: [questions[0], questions[1]],
+    });
+    recordEvidence({
+      sessionId: session.id,
+      results: [answer(stored[0].id, "correct"), answer(stored[1].id, "correct")],
+    });
+
+    const [card] = createFlashcards({ materialId: "m-1", nodeId: "node-a", cards: [{ front: "f", back: "b" }] });
+    rateFlashcard(card.id, "hard");
+    appendChatMessage("m-1", { role: "user", text: "reading along", citations: [] });
+    saveReadingProgress("m-1", { locator: { kind: "pdf", page: 9 }, text: "..." });
+
+    // mastery recomputed from the store is unchanged by all of the above
+    const evidence = loadDb().evidence;
+    expect(computeNodeScore(evidence)).toBe(99); // 2 records — capped, unchanged
+    expect(getNodeState(evidence)).toBe("partial");
   });
 
   it("a forfeited answer records wrong evidence and lands in the MistakeEntry log", () => {

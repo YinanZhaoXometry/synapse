@@ -7,12 +7,9 @@
  */
 import type { MaterialRef, GeneratedQuestion, GradedAnswer, QuizMode, UiLanguage } from "@/ai/types";
 import type { ReadingLocator } from "@/domain/entities";
+import { firstSentence, splitSentences } from "./text";
 
 const MAX_QUESTIONS = 8;
-
-function firstSentence(text: string): string {
-  return (text.match(/[^.!?。！？]+[.!?。！？]?/g) ?? [text])[0].trim();
-}
 
 /** Choice question from a heading; distractors are other sections' titles (still materials-sourced). */
 function choiceFromSection(section: MaterialRef["sections"][number], all: MaterialRef["sections"], materialId: string, nodeId: string, index: number): GeneratedQuestion {
@@ -106,7 +103,7 @@ export function gradeOpenAnswerFromKeywords(input: {
   const outcome = hits.length >= 2 ? "correct" : hits.length === 1 ? "partial" : "wrong";
 
   const matchedSentence =
-    (input.sourceText.match(/[^.!?。！？]+[.!?。！？]?/g) ?? []).find((s) =>
+    splitSentences(input.sourceText).find((s) =>
       input.keywords.some((k) => s.includes(k)),
     )?.trim() ?? null;
 

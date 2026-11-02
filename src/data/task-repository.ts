@@ -4,11 +4,12 @@
  */
 import type { KnowledgeNode, StudyTask } from "@/domain/entities";
 import { loadDb, saveDb } from "./store";
+import { AppError } from "./errors";
 
 export function createStudyTask(input: { materialId: string }): { task: StudyTask; node: KnowledgeNode } {
   const db = loadDb();
   const material = db.materials.find((m) => m.id === input.materialId);
-  if (!material) throw new Error(`Material not found: ${input.materialId}`);
+  if (!material) throw new AppError("MATERIAL_NOT_FOUND", "errors.materialNotFound");
 
   const now = new Date().toISOString();
   const node: KnowledgeNode = {

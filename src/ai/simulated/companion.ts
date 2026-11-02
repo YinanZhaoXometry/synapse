@@ -20,6 +20,7 @@ import type {
 import type { CompanionService } from "@/ai/companion-service";
 import type { ReadingLocator } from "@/domain/entities";
 import { planTemplateFor } from "./templates";
+import { firstSentence, splitSentences } from "./text";
 import {
   generateFlashcardsFromMaterials,
   generateQuizFromMaterials,
@@ -67,19 +68,14 @@ function terms(text: string): string[] {
 
 /** The supporting sentence in the position text, or null if nothing matches. */
 function matchSentence(question: string, positionText: string): string | null {
-  const sentences = positionText.match(/[^.!?。！？]+[.!?。！？]?/g) ?? [];
   const qTerms = terms(question);
-  for (const sentence of sentences) {
+  for (const sentence of splitSentences(positionText)) {
     const lower = sentence.toLowerCase();
     if (qTerms.some((t) => lower.includes(t.toLowerCase()))) {
       return sentence.trim();
     }
   }
   return null;
-}
-
-function firstSentence(positionText: string): string {
-  return (positionText.match(/[^.!?。！？]+[.!?。！？]?/g) ?? [positionText])[0].trim();
 }
 
 function emit(text: string, onToken?: (chunk: string) => void): Promise<void> {

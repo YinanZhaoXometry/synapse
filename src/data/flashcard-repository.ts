@@ -5,6 +5,7 @@
  */
 import type { Flashcard } from "@/domain/entities";
 import { loadDb, saveDb, updateDb } from "./store";
+import { AppError } from "./errors";
 
 export interface FlashcardInput {
   front: string;
@@ -34,7 +35,7 @@ export function createFlashcards(input: {
 export function rateFlashcard(id: string, difficulty: "hard" | "medium" | "easy"): void {
   updateDb((db) => {
     const card = db.flashcards.find((f) => f.id === id);
-    if (!card) throw new Error(`Flashcard not found: ${id}`);
+    if (!card) throw new AppError("FLASHCARD_NOT_FOUND", "errors.flashcardNotFound");
     card.difficulty = difficulty; // self-rating only — never an EvidenceRecord
   });
 }

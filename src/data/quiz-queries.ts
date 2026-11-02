@@ -20,25 +20,21 @@ import {
 import { queryKeys } from "./query-keys";
 
 export function useQuizSessionQuery(sessionId: string) {
-  return useQuery({ queryKey: ["quiz", sessionId], queryFn: () => getQuizSession(sessionId) });
+  return useQuery({
+    queryKey: queryKeys.quiz.session(sessionId),
+    queryFn: () => getQuizSession(sessionId),
+  });
 }
 
 export function useNodeEvidenceQuery(nodeId: string) {
   return useQuery({
-    queryKey: ["evidence", "node", nodeId],
+    queryKey: queryKeys.evidence.byNode(nodeId),
     queryFn: () => listEvidenceByNode(nodeId),
   });
 }
 
 export function useAllEvidenceQuery() {
-  return useQuery({ queryKey: ["evidence"], queryFn: listEvidence });
-}
-
-function invalidateStudyKeys(qc: ReturnType<typeof useQueryClient>, planId: string | null) {
-  void qc.invalidateQueries({ queryKey: ["evidence"] });
-  void qc.invalidateQueries({ queryKey: ["quiz"] });
-  void qc.invalidateQueries({ queryKey: ["plans", planId ?? "__none__"] });
-  if (planId) void qc.invalidateQueries({ queryKey: queryKeys.plans.all });
+  return useQuery({ queryKey: queryKeys.evidence.all, queryFn: listEvidence });
 }
 
 export function useCreateQuizSessionMutation() {
@@ -51,7 +47,7 @@ export function useCreateQuizSessionMutation() {
       questions: QuestionInput[];
     }) => createQuizSession(input),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["quiz"] });
+      void qc.invalidateQueries({ queryKey: queryKeys.quiz.all });
     },
   });
 }
@@ -63,21 +59,26 @@ export function useRecordEvidenceMutation() {
       recordEvidence(input),
     onSuccess: (_evidence, input) => {
       const session = getQuizSession(input.sessionId);
-      invalidateStudyKeys(qc, session?.planId ?? null);
+      void qc.invalidateQueries({ queryKey: queryKeys.evidence.all });
+      void qc.invalidateQueries({ queryKey: queryKeys.quiz.all });
+      if (session?.planId) {
+        void qc.invalidateQueries({ queryKey: queryKeys.plans.all });
+        void qc.invalidateQueries({ queryKey: queryKeys.plans.detail(session.planId) });
+      }
     },
   });
 }
 
 export function useFlashcardsByMaterialQuery(materialId: string) {
   return useQuery({
-    queryKey: ["flashcards", "material", materialId],
+    queryKey: queryKeys.flashcards.byMaterial(materialId),
     queryFn: () => listFlashcardsByMaterial(materialId),
   });
 }
 
 export function useFlashcardsByPlanQuery(planId: string) {
   return useQuery({
-    queryKey: ["flashcards", "plan", planId],
+    queryKey: queryKeys.flashcards.byPlan(planId),
     queryFn: () => listFlashcardsByPlan(planId),
   });
 }
@@ -90,8 +91,8 @@ export function useCreateFlashcardsMutation() {
       return { cards, materialId: input.materialId };
     },
     onSuccess: ({ materialId }) => {
-      void qc.invalidateQueries({ queryKey: ["flashcards"] });
-      void qc.invalidateQueries({ queryKey: ["materials", materialId] });
+      void qc.invalidateQueries({ queryKey: queryKeys.flashcards.all });
+      void qc.invalidateQueries({ queryKey: queryKeys.materials.detail(materialId) });
     },
   });
 }
@@ -104,7 +105,7 @@ export function useRateFlashcardMutation() {
     },
     onSuccess: () => {
       // self-rating: invalidates flashcards only — evidence keys are untouched by design
-      void qc.invalidateQueries({ queryKey: ["flashcards"] });
+      void qc.invalidateQueries({ queryKey: queryKeys.flashcards.all });
     },
   });
 }

@@ -11,21 +11,21 @@ import { queryKeys } from "./query-keys";
 
 export function useMaterialQuery(materialId: string) {
   return useQuery({
-    queryKey: ["materials", materialId],
+    queryKey: queryKeys.materials.detail(materialId),
     queryFn: () => getMaterial(materialId),
   });
 }
 
 export function usePlanMaterialsQuery(planId: string) {
   return useQuery({
-    queryKey: ["materials", "plan", planId],
+    queryKey: queryKeys.materials.byPlan(planId),
     queryFn: () => listMaterialsByPlan(planId),
   });
 }
 
 export function useTaskMaterialsQuery(taskId: string) {
   return useQuery({
-    queryKey: ["materials", "task", taskId],
+    queryKey: queryKeys.materials.byTask(taskId),
     queryFn: () => listMaterialsByTask(taskId),
   });
 }
@@ -35,7 +35,7 @@ export function useRegisterMaterialMutation() {
   return useMutation({
     mutationFn: async (input: RegisterMaterialInput) => registerMaterial(input),
     onSuccess: ({ material }) => {
-      void qc.invalidateQueries({ queryKey: ["materials"] });
+      void qc.invalidateQueries({ queryKey: queryKeys.materials.all });
       if (material.planId) {
         void qc.invalidateQueries({ queryKey: queryKeys.plans.detail(material.planId) });
       }

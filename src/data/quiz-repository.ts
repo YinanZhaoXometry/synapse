@@ -6,6 +6,7 @@
  */
 import type { EvidenceRecord, MistakeEntry, Outcome, Question, QuizSession } from "@/domain/entities";
 import { loadDb, saveDb } from "./store";
+import { AppError } from "./errors";
 
 export interface QuestionInput {
   prompt: string;
@@ -67,6 +68,9 @@ function sourceLocator(question: Question): MistakeEntry["sourceLocation"] {
   if (material?.kind === "markdown") {
     return { kind: "markdown", sectionId: question.sourceSectionId };
   }
+  // PDF section ids follow the parse convention `page-N` (entities.ts); the
+  // page-1 fallback is unreachable for adapter-generated questions — a guard
+  // for malformed data only, never a fabricated citation for real flows.
   const page = /^page-(\d+)$/.exec(question.sourceSectionId);
   return { kind: "pdf", page: page ? Number(page[1]) : 1 };
 }
@@ -85,8 +89,9 @@ export function recordEvidence(input: {
   // validate the whole batch before touching state (atomicity)
   const questionsById = new Map(db.questions.map((q) => [q.id, q]));
   for (const r of input.results) {
-    const question = questionsById.get(r.questionId);
-    if (!question) throw new Error(`Unknown question in evidence batch: ${r.questionId}`);
+    if (!questionsById.has(r.questionId)) {
+      throw new AppError("EVIDENCE_BATCH_UNKNOWN_QUESTION", "errors.evidenceBatchUnknown");
+    }
   }
 
   const now = new Date().toISOString();

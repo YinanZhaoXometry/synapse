@@ -357,7 +357,16 @@ export const translations = {
       'command.placeholder': '搜索页面或命令…',
       'command.noResults': '没有匹配的结果',
       'command.groupActions': '操作',
-      'command.toggleLanguage': '切换到 English'
+      'command.toggleLanguage': '切换到 English',
+
+      // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
+      'errors.storageReadFailed': '无法读取本地存储',
+      'errors.storageCorrupt': '本地数据已损坏 · 重置后可恢复',
+      'errors.storageWriteFailed': '保存失败 · 存储空间不足',
+      'errors.planNotFound': '找不到该学习计划',
+      'errors.materialNotFound': '找不到该学习资料',
+      'errors.flashcardNotFound': '找不到该闪卡',
+      'errors.evidenceBatchUnknown': '作答数据不完整 · 请重新提交'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -714,7 +723,16 @@ export const translations = {
       'command.placeholder': 'Search pages or commands…',
       'command.noResults': 'No matching results',
       'command.groupActions': 'Actions',
-      'command.toggleLanguage': 'Switch to 中文'
+      'command.toggleLanguage': 'Switch to 中文',
+
+      // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
+      'errors.storageReadFailed': 'Could not read local storage',
+      'errors.storageCorrupt': 'Local data is corrupted · reset to recover',
+      'errors.storageWriteFailed': 'Save failed · storage is full',
+      'errors.planNotFound': 'Study Plan not found',
+      'errors.materialNotFound': 'Material not found',
+      'errors.flashcardNotFound': 'Flashcard not found',
+      'errors.evidenceBatchUnknown': 'Answer data incomplete · please resubmit'
     }
   
 } as const;

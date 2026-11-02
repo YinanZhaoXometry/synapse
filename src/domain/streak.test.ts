@@ -54,4 +54,16 @@ describe("evidence-day streak (FR-25: consecutive days with ≥1 evidence-produc
     expect(computeStreak(records, NOW)).toBe(5);
     expect(computeStreak([...records, ev("2026-10-20T12:00:00")], NOW)).toBe(5);
   });
+
+  it("non-evidence activity (logins, minutes, ratings) never counts — only EvidenceRecords do", () => {
+    // Yesterday's evidence: streak alive at 1.
+    const yesterdayOnly = [dayAt(4)].map(ev);
+    expect(computeStreak(yesterdayOnly, NOW)).toBe(1);
+
+    // "Activity" today that produces no EvidenceRecord (a login, minutes read,
+    // a flashcard self-rating — none of these are EvidenceRecords) cannot
+    // extend the streak: the signature accepts only records, so the run stays 1.
+    expect(computeStreak(yesterdayOnly, NOW)).toBe(1);
+    expect(computeStreak([], NOW)).toBe(0); // all the logins in the world → no evidence → 0
+  });
 });

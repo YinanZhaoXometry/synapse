@@ -74,5 +74,3 @@ export function useDeletePlanMutation() {
     },
   });
 }
-
-export type { CreatePlanNodeInput, KnowledgeNode, StudyPlan };

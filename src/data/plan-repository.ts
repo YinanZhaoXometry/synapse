@@ -4,8 +4,9 @@
  * no direct localStorage anywhere else.
  */
 import type { KnowledgeNode, StudyPlan } from "@/domain/entities";
-import { STORAGE_KEY, emptyDb, type SynapseDb } from "./document";
+import { type SynapseDb } from "./document";
 import { loadDb, saveDb, updateDb } from "./store";
+import { AppError } from "./errors";
 
 // -- queries -----------------------------------------------------------------
 
@@ -65,7 +66,7 @@ export function updatePlan(id: string, patch: Partial<Pick<StudyPlan, "topic" | 
   let updated!: StudyPlan;
   updateDb((db) => {
     const plan = db.plans.find((p) => p.id === id);
-    if (!plan) throw new Error(`Plan not found: ${id}`);
+    if (!plan) throw new AppError("PLAN_NOT_FOUND", "errors.planNotFound");
     Object.assign(plan, patch);
     updated = plan;
   });
@@ -79,6 +80,3 @@ export function deletePlan(id: string): void {
     db.nodes = db.nodes.filter((n) => n.planId !== id);
   });
 }
-
-// Re-exported so the barrel and hooks never import document internals directly.
-export { STORAGE_KEY, emptyDb };
