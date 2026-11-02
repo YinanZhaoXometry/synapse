@@ -48,16 +48,20 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^11.0.0",
+    "github-slugger": "^2.0.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "pdfjs-dist": "^6.5.438",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.61.1",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.9",
     "react-router-dom": "^6.30.1",
     "recharts": "^2.15.4",
+    "rehype-slug": "^6.0.0",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
@@ -87,5 +91,6 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
-  }
+  },
+  "packageManager": "pnpm@10.9.0+sha512.0486e394640d3c1fb3c9d43d49cf92879ff74f8516959c235308f5a8f62e2e19528a65cdc2a3058f587cde71eba3d5b56327c8c33a97e4c4051ca48a10ca2d5f"
 }
