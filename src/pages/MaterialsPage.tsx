@@ -1,101 +1,140 @@
-import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
-import { BookOpen, Upload, Search, FileText, Tag, FolderOpen } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Plus, Search, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { cn } from "@/lib/utils";
+import { MATERIALS, TAG_IDS, pickL, type MaterialTag } from "@/lib/demo-data";
 
-interface Material {
-  id: number;
-  titleKey: string;
-  subject: { zh: string; en: string };
-  type: "pdf" | "notes" | "slides";
-  pages?: number;
-  uploadedAt: { zh: string; en: string };
-  tags: { zh: string[]; en: string[] };
+const TAG_KEYS: Record<(typeof TAG_IDS)[number], string> = {
+  all: "materials.tagAll",
+  course: "materials.tagCourse",
+  notes: "materials.tagNotes",
+  exam: "materials.tagExam",
+};
+
+function tagKey(tag: (typeof TAG_IDS)[number]) {
+  return TAG_KEYS[tag];
 }
 
-const sampleMaterials: Material[] = [
-  { id: 1, titleKey: "material.hciLecture1", subject: { zh: "人机交互", en: "HCI" }, type: "pdf", pages: 42, uploadedAt: { zh: "3月14日", en: "Mar 14" }, tags: { zh: ["人机交互", "入门"], en: ["HCI", "Intro"] } },
-  { id: 2, titleKey: "material.usabilityNotes", subject: { zh: "人机交互", en: "HCI" }, type: "notes", uploadedAt: { zh: "3月16日", en: "Mar 16" }, tags: { zh: ["人机交互", "可用性", "nielsen"], en: ["HCI", "Usability", "Nielsen"] } },
-  { id: 3, titleKey: "material.cognitiveLoad", subject: { zh: "人机交互", en: "HCI" }, type: "slides", pages: 28, uploadedAt: { zh: "3月18日", en: "Mar 18" }, tags: { zh: ["人机交互", "认知"], en: ["HCI", "Cognition"] } },
-  { id: 4, titleKey: "material.userResearch", subject: { zh: "人机交互", en: "HCI" }, type: "pdf", pages: 35, uploadedAt: { zh: "3月19日", en: "Mar 19" }, tags: { zh: ["人机交互", "研究"], en: ["HCI", "Research"] } },
-  { id: 5, titleKey: "material.interactionPatterns", subject: { zh: "人机交互", en: "HCI" }, type: "notes", uploadedAt: { zh: "3月20日", en: "Mar 20" }, tags: { zh: ["人机交互", "模式", "设计"], en: ["HCI", "Patterns", "Design"] } },
-];
-
-const typeIcon: Record<string, string> = { pdf: "📄", notes: "📝", slides: "📊" };
+function materialTagKey(tag: MaterialTag) {
+  return `materials.tag${tag.charAt(0).toUpperCase()}${tag.slice(1)}`;
+}
 
 export default function MaterialsPage() {
   const { t, language } = useLanguage();
-  const [search, setSearch] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTag, setActiveTag] = useState<(typeof TAG_IDS)[number]>("all");
+  const [query, setQuery] = useState("");
 
-  const allTags = Array.from(new Set(sampleMaterials.flatMap(m => m.tags[language])));
-  const filtered = sampleMaterials.filter(m => {
-    const title = t(m.titleKey).toLowerCase();
-    const matchesSearch = !search || title.includes(search.toLowerCase());
-    const matchesTag = !activeTag || m.tags[language].includes(activeTag);
-    return matchesSearch && matchesTag;
+  // Same filter as the prototype: tag + query against title (zh+en), tag label, and type.
+  const items = MATERIALS.filter(m => {
+    if (activeTag !== "all" && m.tag !== activeTag) return false;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const tagLabel = t(materialTagKey(m.tag));
+    const hay = `${m.title.zh} ${m.title.en} ${tagLabel} ${m.type}`.toLowerCase();
+    return hay.includes(q);
   });
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto">
-      <AnimatedSection>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-          <div>
-            <h1 className="page-title">{t("materials.title")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">{t("materials.uploaded")} {sampleMaterials.length} {t("materials.files")}</p>
-          </div>
-          <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-hero text-white shadow-brand text-sm font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-            <Upload className="w-4 h-4" /> {t("materials.upload")}
+    <div className="p-6 md:p-8 max-w-[1120px] mx-auto">
+      {/* Page head */}
+      <div className="flex flex-wrap items-start justify-between gap-6">
+        <div>
+          <p className="eyebrow">{t("materials.eyebrow")}</p>
+          <h1 className="page-title mt-1.5">{t("materials.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-[62ch]">{t("materials.subtitle", { n: MATERIALS.length })}</p>
+        </div>
+        <div className="flex flex-col items-start sm:items-end gap-2">
+          <button
+            type="button"
+            onClick={() => toast(t("materials.uploadToast"))}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-[18px] py-2.5 text-sm font-semibold bg-gradient-hero text-white shadow-brand hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer whitespace-nowrap"
+          >
+            <Plus className="w-[17px] h-[17px]" aria-hidden="true" />
+            {t("materials.upload")}
           </button>
+          <p className="text-[11px] text-muted-foreground max-w-[240px] leading-relaxed sm:text-right">{t("materials.uploadHint")}</p>
         </div>
-      </AnimatedSection>
+      </div>
 
-      <AnimatedSection delay={0.05}>
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("materials.search")} aria-label={t("materials.search")} className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm outline-none focus:ring-2 ring-primary/20 transition-shadow" />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {allTags.slice(0, 5).map(tag => (
-              <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} aria-pressed={activeTag === tag} className={cn("px-3.5 py-1.5 rounded-full border text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", activeTag === tag ? "bg-foreground text-background border-transparent" : "bg-white/70 text-muted-foreground border-border hover:bg-white hover:text-foreground")}>
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-      </AnimatedSection>
+      {/* Tag filter row */}
+      <div className="flex flex-wrap items-center gap-2 mt-5" role="group" aria-label={t("materials.eyebrow")}>
+        {TAG_IDS.map(tag => (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => setActiveTag(tag)}
+            aria-pressed={activeTag === tag}
+            className={`px-3.5 py-[7px] rounded-full text-xs font-semibold border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              activeTag === tag
+                ? "bg-foreground text-background border-transparent"
+                : "bg-[var(--glass-3)] border-border-soft text-muted-foreground hover:bg-white"
+            }`}
+          >
+            {t(tagKey(tag))}
+          </button>
+        ))}
+      </div>
 
-      <div className="space-y-2">
-        {filtered.map((m, i) => (
-          <AnimatedCard key={m.id} delay={0.08 + i * 0.04}>
-            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:shadow-sm transition-shadow cursor-pointer active:scale-[0.995]">
-              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-lg">{typeIcon[m.type]}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{t(m.titleKey)}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-muted-foreground">{m.subject[language]}</span>
-                  {m.pages && <span className="text-xs text-muted-foreground">· {m.pages} {t("materials.pages")}</span>}
-                  <span className="text-xs text-muted-foreground">· {m.uploadedAt[language]}</span>
-                </div>
-              </div>
-              <div className="hidden sm:flex gap-1.5">
-                {m.tags[language].slice(0, 2).map(tag => (
-                  <span key={tag} className="px-2 py-0.5 rounded-md bg-secondary text-[10px] font-medium text-muted-foreground">{tag}</span>
-                ))}
+      {/* Search */}
+      <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[var(--glass-4)] border border-border mt-3">
+        <Search className="w-[18px] h-[18px] text-muted-foreground flex-none" aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={t("materials.search")}
+          aria-label={t("materials.search")}
+          className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm placeholder:text-caption focus-visible:outline-none"
+        />
+      </div>
+
+      {/* Material rows */}
+      <div className="flex flex-col gap-2 mt-4">
+        {items.map(m => (
+          <div
+            key={m.id}
+            className="group flex items-center gap-4 px-4 py-3.5 bg-card border border-border-soft rounded-xl shadow-soft transition-all hover:shadow-raised hover:-translate-y-px"
+          >
+            <span className="w-[42px] h-[42px] rounded-[11px] flex-none grid place-items-center bg-secondary text-lg" aria-hidden="true">
+              {m.type === "pdf" ? "📄" : "📝"}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate">{pickL(m.title, language)}</div>
+              <div className="flex items-center gap-1.5 flex-wrap mt-[3px] text-[10px] text-muted-foreground">
+                <span>{m.type === "pdf" ? t("materials.filePdf") : t("materials.fileMd")}</span>
+                <span aria-hidden="true">·</span>
+                <span>{t("materials.pages", { n: m.pages })}</span>
+                <span aria-hidden="true">·</span>
+                <span>{m.size}</span>
+                <span aria-hidden="true">·</span>
+                <span>{t("materials.updated", { d: pickL(m.updated, language) })}</span>
               </div>
             </div>
-          </AnimatedCard>
-        ))}
-        {filtered.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
-            <FolderOpen className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" aria-hidden="true" />
-            <p className="text-base font-semibold text-foreground/80">{t("materials.noResults")}</p>
-            <p className="text-sm text-muted-foreground mt-1">{t("materials.search")} · {t("materials.upload")}</p>
+            <div className="flex-none flex gap-[5px]">
+              <span className="px-2 py-[3px] rounded-full bg-[var(--surface-warm)] border border-border-soft text-[10px] font-semibold text-muted-foreground whitespace-nowrap">
+                {t(materialTagKey(m.tag))}
+              </span>
+            </div>
+            <div className="flex-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => toast(t("materials.readerToast"))}
+                className="inline-flex items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-[13px] font-semibold bg-[var(--glass-4)] border border-border hover:bg-[var(--glass-solid)] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer whitespace-nowrap"
+              >
+                {t("materials.open")}
+                <ChevronRight className="w-[15px] h-[15px]" aria-hidden="true" />
+              </button>
+            </div>
           </div>
-        )}
+        ))}
       </div>
+
+      {items.length === 0 && (
+        <div className="empty-state">
+          <b>{t("materials.empty")}</b>
+          <span>{t("materials.emptyHint")}</span>
+        </div>
+      )}
     </div>
   );
 }

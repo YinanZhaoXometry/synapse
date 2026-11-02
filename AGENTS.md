@@ -27,17 +27,17 @@ Playwright config (`playwright.config.ts`) imports `lovable-agent-playwright-con
 
 - `src/App.tsx` — all routes. `/` = OnboardingPage; all other pages nest under `AppLayout` (sidebar shell).
 - `src/pages/` — one file per route: dashboard, ai-tutor, materials, quiz, flashcards, mistakes, planner, achievements, analytics, settings.
-- `src/contexts/` — two providers, mounted in App.tsx in order: `LanguageProvider` → `UserProgressProvider`. Consume via `useLanguage()` / `useUserProgress()` (hooks throw outside their provider).
+- `src/contexts/` — three providers, mounted in App.tsx in order: `LanguageProvider` → `ThemeProvider` → `UserProgressProvider`. Consume via `useLanguage()` / `useTheme()` / `useUserProgress()` (hooks throw outside their provider).
 - `src/components/ui/` — shadcn/ui primitives (Radix + CVA). Treat as generated code; put app-specific reusable components in `src/components/shared/`.
 - `src/lib/utils.ts` — `cn()` (clsx + tailwind-merge); use it for all conditional classes.
-- No backend yet: `UserProgressContext` seeds in-memory mock data (resets on reload). Only persistence is `localStorage["synapse-lang"]` (renamed from `studyflow-lang` in the 2026-11-01 product rename; saved language preferences reset once). TanStack Query is mounted but has no API layer yet.
+- No backend yet: `UserProgressContext` seeds in-memory mock data (resets on reload). Only persistence is localStorage: `synapse-lang` (renamed from `studyflow-lang` in the 2026-11-01 product rename) and the theme keys `synapse-theme` / `synapse-mode` / `synapse-motion` (2026-11-02 pass 7; see `docs/design/northstar-import/IMPORT.md` §11). TanStack Query is mounted but has no API layer yet.
 
 ## Conventions
 
 - **Path alias:** `@/*` → `src/*`. It is declared in four places that must stay in sync: `vite.config.ts`, `vitest.config.ts`, `tsconfig.json`/`tsconfig.app.json`.
 - **i18n is mandatory:** never hardcode user-facing strings. Add a dotted key with `{ zh, en }` to the `translations` table in `src/contexts/LanguageContext.tsx` and render via `t("dotted.key")` from `useLanguage()`; `{var}` interpolation is supported.
 - **TypeScript is deliberately loose:** `strict: false`, `noImplicitAny: false`, `strictNullChecks: false`, unused-vars/params checks off (also `@typescript-eslint/no-unused-vars` off in eslint). Don't tighten these or bulk-annotate types in unrelated edits.
-- **Tailwind:** theme colors are CSS-variable/HSL tokens defined in `src/index.css` and mapped in `tailwind.config.ts` — use semantic classes (`bg-background`, `text-muted-foreground`, `bg-primary`), not raw palette classes. Custom fonts: `font-display` (Outfit) / `font-body` (Inter). Custom animations exist (`animate-pop`, `animate-slide-up`, `animate-confetti`, …).
+- **Tailwind:** theme colors are CSS-variable/HSL tokens defined in `src/index.css` and mapped in `tailwind.config.ts` — use semantic classes (`bg-background`, `text-muted-foreground`, `bg-primary`), not raw palette classes. Never hardcode whites (`bg-white/…`) or coral `rgba()` values — they break dark mode and the theme palettes; use the glass (`--glass-*`) and accent-tint (`--accent-tint*` / `--accent-ring` / `--accent-edge`) tokens instead. The app ships dark mode + sunset/twilight/aurora palettes (`ThemeProvider`) — verify UI in both modes. Custom fonts: `font-display` (Source Serif 4) / `font-body` (Inter). Custom animations exist (`animate-pop`, `animate-slide-up`, `animate-confetti`, …).
 - Both the shadcn `<Toaster />` and `<Sonner />` are mounted in App.tsx — pick one pattern for toasts and stay consistent.
 
 ## Gotchas

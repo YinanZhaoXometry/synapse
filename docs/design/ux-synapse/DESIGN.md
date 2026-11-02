@@ -3,7 +3,7 @@ name: Synapse
 description: Bilingual AI-guided study platform — plan-first entry, immersive reader with a page-aware Companion, evidence-based mastery. shadcn/ui + the scaffold's Tailwind token set inherited; this file pins the study-semantic brand layer.
 status: final
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-02
 ui_system: shadcn/ui + Tailwind CSS-variable tokens (scaffold-inherited)
 colors:
   # Full mirror of the scaffold's HSL tokens (src/index.css), hex-converted so
@@ -113,6 +113,8 @@ components:
     background: '{colors.mastered-tint}'
 ---
 
+> **UPDATE 2026-11-02 — VISUAL LAYER SUPERSEDED (Northstar):** the owner imported the **Northstar** prototype (warm cream canvas `#fdf3ec`, coral/peach gradient brand, glass sidebar, Source Serif 4 display) as the new visual layer. The hue-220 blue token values in the frontmatter and the Outfit display font below are historical; the live token set lives in `src/index.css`, mapped and changelogged in [`../northstar-import/IMPORT.md`](../northstar-import/IMPORT.md). Study-state semantics (mastered / partial / uncovered), the sidebar/component decisions, and everything else in this file still bind unless annotated with a later owner-round note.
+
 ## Brand & Style
 
 Synapse is a calm, focused study companion — **quiet intelligence**. The AI is present on every surface but never loud: no sparkle-storms, no engagement nudges, no celebration theater. Three postures drive every visual decision:
@@ -121,7 +123,7 @@ Synapse is a calm, focused study companion — **quiet intelligence**. The AI is
 2. **Progress is honest.** Numbers come from evidence. Uncovered reads as uncovered, never as weakly-green. No vanity metrics, no time-in-app displays (counter-metric SM-C3). The one motivational glyph — the streak flame — counts *evidence days* (consecutive days with ≥1 evidence-producing session, FR-25), never minutes or logins. **Owner round 2026-11-01:** the scaffold's existing points/level display stays visible as read-only status garnish on the retained demo surfaces (sidebar profile footer, Achievements) — it matches the built app and earns nothing new: no engagement mechanics are ever built on points, minutes, or logins, and plan-first surfaces keep the evidence-only posture (streak + mastery numbers + Phase 2 badges).
 3. **The connection metaphor stays subtle.** Learning = connections strengthening. It appears as structure (Knowledge Node lists, Roadmap graph in Phase 2) and one moment of life (the pulse-glow thinking indicator) — not as neural-network wallpaper.
 
-The scaffold's identity is inherited wholesale: hue-220 blue, Outfit display over Inter body, soft 10px corners, light theme only. This file adds the layer the scaffold lacks: **study-state semantics** (mastered / partial / uncovered) and the reading-surface typography.
+The scaffold's original identity (hue-220 blue, Outfit display, soft 10px corners, light-only) was **superseded 2026-11-02 by the Northstar import** — warm cream canvas, coral/peach gradient brand, Source Serif 4 display over Inter, 12px base radius; token mapping and pass-by-pass changelog live in [`docs/design/northstar-import/IMPORT.md`](../northstar-import/IMPORT.md). This file's durable additions still hold: **study-state semantics** (mastered / partial / uncovered) and the reading-surface typography.
 
 ## Colors
 
@@ -136,6 +138,8 @@ The palette is the scaffold's plus one semantic layer. Blue is brand and action;
 - **Contrast targets:** `{colors.primary}` on white 5.2:1 (AA body ✓). `muted-foreground` on `background` ≈ 4.4:1 — captions and secondary labels only; body-critical text uses `foreground`. All state text on tints uses `foreground` or `muted-foreground` at ≥14px.
 
 No dark mode in Phase 1 — the scaffold has no dark token set and building one is not worth demo days. Revisit scoped to the Reader in Phase 2.
+
+> **Amendment 2026-11-02 (owner directive, Northstar pass 7) — decision reversed.** A full dark token set now exists (`.dark` block in `src/index.css`, ported from the Northstar reference's `body.theme-dark`), and accent/gradient/ink are theme-driven at runtime: sunset/twilight/aurora palettes × light/dark/system modes via `src/contexts/ThemeContext.tsx` (persisted `synapse-theme` / `synapse-mode` / `synapse-motion`). New UI must hold in both modes and all three palettes — the Do/Don't row below was updated accordingly. The contrast numbers in this section describe the default light/sunset look only; dark equivalents follow the Northstar reference's lifted-ink values.
 
 ## Typography
 
@@ -154,11 +158,11 @@ Chinese and English strings must survive each other's layouts: English runs ~30%
 
 Tailwind's 4px grid inherited. Named decisions:
 
-- **App shell (as implemented, retained):** fixed sidebar `{spacing.sidebar}` (`w-64`, `bg-card`, `border-r`) + fluid content; sidebar hidden below `md` (mobile header + bottom nav). Sidebar anatomy, top to bottom: **logo row** (32px favicon, `rounded-lg` + Outfit-bold wordmark, `border-b`) → **language toggle** (full-width ghost button: Globe glyph + target-language label 「English/中文」, `text-xs`) → **nav group** — 9 destinations (仪表盘 / AI 导师 / 学习资料 / 测验 / 闪卡 / 错题本 / 学习计划 / 成就 / 数据分析), rows `px-3 py-2.5 rounded-lg text-sm`, 18px icon; active = `bg-sidebar-accent` + `sidebar-accent-foreground` text + icon in `primary`; idle = `sidebar-foreground/70`, hover `bg-secondary` → **user profile footer** (`border-t`, `p-4`; spec below).
-- **Mobile shell (<md):** top header (`border-b`, `bg-card`) — logo + language Globe + streak pill 「🔥 N」; bottom nav — 5 destinations (Dashboard / AI Tutor / Quiz / Flashcards / Achievements), icon-over-`text-[10px]` label, active `text-primary`.
-- **Content containers** (`p-6 md:p-8` throughout): Dashboard, Analytics `max-w-6xl`; Materials, Achievements `max-w-4xl`; Mistakes, Planner `max-w-3xl`; Quiz, Flashcards, Settings `max-w-2xl`; AI Tutor = full-height flex column, chat column `max-w-3xl` between sticky header and composer; Onboarding = centered `max-w-md`.
+- **App shell (as implemented, retained):** fixed sidebar `{spacing.sidebar}` (`w-64`, `bg-card`, `border-r`) + fluid content; sidebar hidden below `md` (mobile header + bottom nav). Sidebar anatomy, top to bottom: **logo row** (32px favicon, `rounded-lg` + Outfit-bold wordmark, `border-b`) → ~~**language toggle** (full-width ghost button: Globe glyph + target-language label 「English/中文」, `text-xs`)~~ → **command-bar search pill** (⌘K palette trigger; React-shell addition) → **nav group** — 9 destinations (仪表盘 / AI 导师 / 学习资料 / 测验 / 闪卡 / 错题本 / 学习计划 / 成就 / 数据分析), rows `px-2.5 h-10 rounded-lg text-sm` (**40px tall** — was `py-2.5`/36px; owner round 2026-11-02, [IMPORT.md §12](../northstar-import/IMPORT.md)), 18px icon; active = `bg-sidebar-accent` + `sidebar-accent-foreground` text + icon in `primary`; idle = `sidebar-foreground/70`, hover `bg-secondary` → **user profile footer** (`border-t`, `p-4`; spec below). **Owner round 2026-11-02:** the sidebar language toggle is removed — it duplicated the Settings 语言 cards; language switching lives there and in the ⌘K palette ([IMPORT.md §10](../northstar-import/IMPORT.md)). Under the Northstar visual layer the shell is frosted glass (`glass-panel`, blur 24px) over the body's radial-gradient canvas, not `bg-card` — values per `src/index.css`.
+- **Mobile shell (<md):** top header (`border-b`) — **hamburger 「打开导航」** (opens the off-canvas drawer) + logo + search + streak pill 「🔥 N」; language Globe and settings button removed from the header — **owner round 2026-11-02** (settings lives in the drawer's profile footer; language in Settings/⌘K — [IMPORT.md §11](../northstar-import/IMPORT.md)). **Off-canvas drawer:** `min(290px, 84vw)` frosted panel sliding from the left over a `rgba(26,20,18,.32)` scrim — same anatomy as the desktop sidebar (brand / ⌘K search / nav group / profile footer); closes on scrim-tap, Esc, or navigation. Bottom nav — 5 destinations (Dashboard / AI Tutor / Quiz / Flashcards / Achievements), icon-over-`text-[10px]` label, active `text-primary`.
+- **Content containers** (`p-6 md:p-8` throughout) — **Owner round 2026-11-02, re-aligned to the prototype `page` classes** ([IMPORT.md §9](../northstar-import/IMPORT.md)): Dashboard, Materials, Achievements, Analytics `max-w-[1120px]` (`.page`); Mistakes, Planner, Settings, Flashcards `max-w-[984px]` (`.page mid`); Quiz `max-w-[784px]` wrapping the 720px `.quiz-shell`; AI Tutor = full-height flex column, chat column `max-w-[900px]` between header and composer; Onboarding = centered `max-w-md`.
 - **Immersive Reader split:** material column fluid, Companion panel `{spacing.companion-panel}` docked right (420px ≥1280px). Panel collapses to a rail; immersive mode removes all chrome. Reading measure for Markdown: `{spacing.reader-measure}` centered.
-- **Quiz surface:** single centered column, `max-w-2xl` — one question at a time, nothing else on screen.
+- **Quiz surface:** single centered column, `max-w-[784px]` wrapping the 720px `.quiz-shell` — one question at a time, nothing else on screen. (was `max-w-2xl`; re-aligned to the prototype shell — **owner round 2026-11-02**, [IMPORT.md §9](../northstar-import/IMPORT.md).)
 - **Plan home:** two-zone layout — mastery summary rail (ring + rollup) left, node list + materials + activity right; stacks below `lg`. The quick-actions grid (FR-25) sits at the top of the right zone — a 2×2 of `QuickActionCard`s, the product's only toolbox surface.
 
 **Entrance rhythm (adopted from the scaffold's `AnimatedSection` / `AnimatedCard`):** page sections enter with a blur-in fade-and-rise (~0.55s, `cubic-bezier(0.16, 1, 0.3, 1)`), staggered 40–80ms per section; list cards stagger ~40ms per row; cards lift 2px on hover. Interaction feedback stays ≤500ms. This rhythm is the standard page entrance everywhere; `prefers-reduced-motion` collapses it to instant (EXPERIENCE · Accessibility Floor).
@@ -219,5 +223,5 @@ Visual specs. Behavioral rules live in EXPERIENCE.md · Component Patterns. Visu
 | Motivation = evidence-based StreakChip + FR-28 badges (P2); the scaffold's points/level display stays read-only garnish on retained pages | Build new engagement mechanics on points/minutes/logins (SM-C3), celebration loops, praise emoji on verdicts |
 | Functional emoji as content markers (FileIcon glyphs, badge icons) | Emoji as UI chrome, verdicts, or Companion voice |
 | `muted-foreground` for captions and secondary labels | Set body-critical or quiz content in `muted-foreground` |
-| Design light-theme-only, and say so | Assume or imply dark mode exists in Phase 1 |
+| Theme-aware: verify in light + dark and across sunset/twilight/aurora; color only via tokens (`hsl(var(--…))`, `var(--glass-*)`, `var(--accent-tint)` family) | Hardcode `bg-white`/coral `rgba()` values, or design and test against a single mode/palette |
 | Restyle Markdown materials via `reader-body`; leave PDFs as authored | Restyle or re-theme the user's uploaded document |

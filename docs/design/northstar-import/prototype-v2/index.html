@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Synapse — AI 学习伙伴</title>
+<meta name="description" content="Synapse 是一个双语 AI 学习伙伴：计划、沉浸阅读、以证据为基础的掌握度。">
+<meta name="theme-color" content="#fdf3ec">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#view">跳到主要内容 / Skip to content</a>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Synapse navigation">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.2 4.9 5.3.7-3.9 3.7 1 5.2L12 14.9l-4.6 2.6 1-5.2L4.5 8.6l5.3-.7z"/></svg>
+      </span>
+      <span class="brand-text">
+        <span class="brand-name">Synapse</span>
+        <span class="brand-sub">Study companion</span>
+      </span>
+    </div>
+    <button class="lang-toggle" id="langToggle" type="button" data-action="lang-toggle" aria-label="Switch language">
+      <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3z"/></svg>
+      <span id="langToggleText">English</span>
+    </button>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot" id="sidebarFoot"></div>
+  </aside>
+
+  <div class="main">
+    <header class="mobile-bar" id="mobileBar"></header>
+    <main class="view" id="view" tabindex="-1"></main>
+    <nav class="bottom-nav" id="bottomNav" aria-label="Primary"></nav>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" data-action="close-sidebar" aria-hidden="true"></div>
+
+<dialog id="confirmDialog" aria-labelledby="confirmTitle">
+  <div class="dialog-body">
+    <h2 class="dialog-title" id="confirmTitle">Confirm</h2>
+    <p class="dialog-text" id="confirmBody"></p>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn btn-secondary" type="button" id="confirmCancel">Cancel</button>
+    <button class="btn btn-primary" type="button" id="confirmOk">Confirm</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

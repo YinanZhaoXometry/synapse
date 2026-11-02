@@ -1,14 +1,13 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import {
-  Settings, Globe, Search
-} from "lucide-react";
-import { useState } from "react";
+import { Settings, Search, Flame, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
-import { navGroups, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
+import { NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
+import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 const mobileNav = mobileNavPaths
@@ -17,89 +16,98 @@ const mobileNav = mobileNavPaths
 
 export default function AppLayout() {
   const { progress } = useUserProgress();
-  const { t, language, setLanguage } = useLanguage();
+  const { t, language } = useLanguage();
   const location = useLocation();
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const renderLink = (item: (typeof flatNav)[number]) => {
+  // Prototype: Escape closes the mobile drawer (body.side-open).
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
+  const renderLink = (item: (typeof NAV_ROUTES)[number], onClick?: () => void) => {
     const isActive = location.pathname === item.to;
     return (
       <NavLink
         key={item.to}
         to={item.to}
+        onClick={onClick}
+        title={t(item.labelKey)}
+        aria-label={t(item.labelKey)}
         className={cn(
-          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+          // Prototype .nav-item = 40px tall (padding 9px 10px + 14px/22px text)
+          "group flex h-10 items-center gap-2.5 px-2.5 rounded-lg text-sm font-medium transition-all duration-150",
           isActive
-            ? "bg-white/90 text-foreground shadow-soft"
-            : "text-sidebar-foreground/70 hover:text-foreground hover:bg-white/60"
+            ? "bg-[var(--glass-4)] text-foreground shadow-soft"
+            : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-2)]"
         )}
       >
-        <item.icon className={cn("w-[18px] h-[18px] shrink-0", isActive && "text-primary")} />
+        <item.icon
+          className={cn(
+            "w-[18px] h-[18px] shrink-0 transition-colors",
+            isActive ? "text-accent-ink" : "text-caption-soft group-hover:text-muted-foreground"
+          )}
+        />
         {t(item.labelKey)}
       </NavLink>
     );
   };
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Full sidebar (lg+) */}
-      <aside className="hidden lg:flex w-64 flex-col glass-panel border-r">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 px-4 py-4">
-          <span className="w-8 h-8 rounded-[9px] bg-gradient-hero shadow-brand flex items-center justify-center shrink-0">
-            <img src="/favicon.png" alt="Synapse" className="w-5 h-5" />
-          </span>
-          <span className="font-display font-bold text-base tracking-tight text-foreground">Synapse</span>
-        </div>
+  const searchPill = (
+    <button
+      onClick={() => setCmdOpen(true)}
+      className="w-full flex items-center gap-2 rounded-lg bg-[var(--glass-4)] border border-border-soft px-2.5 py-2 text-sm text-muted-foreground text-left hover:bg-[var(--glass-solid)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Search className="w-4 h-4 shrink-0 text-caption" />
+      <span className="flex-1 truncate">{t("nav.search")}</span>
+      <kbd className="font-mono text-[11px] px-1.5 py-0.5 rounded border border-border bg-secondary text-muted-foreground">⌘K</kbd>
+    </button>
+  );
 
-        {/* Language Toggle */}
-        <div className="px-3 pt-1 pb-1">
-          <button
-            onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/60 transition-all"
-          >
-            <Globe className="w-3.5 h-3.5" />
-            {language === "zh" ? "English" : "中文"}
-          </button>
+  // No bg on this shell — body carries the cream canvas + 3 radial gradient blobs
+  // (prototype .app is transparent; the sidebar is frosted glass over them).
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Full sidebar (lg+) */}
+      <aside className="hidden lg:flex w-[264px] flex-col gap-2 glass-panel border-r px-3 pt-3.5 pb-3" aria-label={t("common.navAria")}>
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-3.5 border-b border-border-soft">
+          <span className="w-[34px] h-[34px] rounded-[11px] bg-gradient-hero shadow-brand flex items-center justify-center shrink-0">
+            <img src="/favicon.png" alt="" aria-hidden="true" className="w-[17px] h-[17px]" />
+          </span>
+          <span className="flex flex-col leading-tight min-w-0">
+            <span className="font-display font-semibold text-xl tracking-tight text-foreground">Synapse</span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-caption mt-0.5">{t("brand.sub")}</span>
+          </span>
         </div>
 
         {/* Command-bar search pill (Northstar ⌘K) */}
-        <div className="px-3 pt-2">
-          <button
-            onClick={() => setCmdOpen(true)}
-            className="w-full flex items-center gap-2 rounded-lg bg-white/70 border border-border px-3 py-2 text-sm text-muted-foreground text-left hover:bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Search className="w-4 h-4 shrink-0" />
-            <span className="flex-1 truncate">{t("nav.search")}</span>
-            <kbd className="font-mono text-[11px] px-1.5 py-0.5 rounded border border-border bg-secondary text-muted-foreground">⌘K</kbd>
-          </button>
-        </div>
+        <div className="pt-1">{searchPill}</div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-2 space-y-4 overflow-y-auto">
-          {navGroups.map(group => (
-            <div key={group.labelKey ?? "settings"}>
-              {group.labelKey && (
-                <p className="px-3 pb-1 text-[10px] font-body font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-                  {t(group.labelKey)}
-                </p>
-              )}
-              <div className="space-y-0.5">{group.items.map(renderLink)}</div>
-            </div>
-          ))}
+        {/* Flat nav (prototype NAV_ROUTES) */}
+        <nav className="flex-1 pt-2 pb-2 space-y-0.5 overflow-y-auto" aria-label={t("common.primaryAria")}>
+          {NAV_ROUTES.map(item => renderLink(item))}
         </nav>
 
-        {/* User footer */}
-        <div className="px-3 pb-3 pt-2 border-t border-white/60">
-          <div className="flex items-center gap-3 px-1">
-            <div className="w-9 h-9 rounded-full bg-gradient-hero shadow-brand flex items-center justify-center font-display font-semibold text-white text-sm">
+        {/* User footer (prototype sidebar-foot) — language switch lives on the Settings page, so no lang toggle in the sidebar */}
+        <div className="px-1 pt-2.5 border-t border-border-soft">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px]">
               {language === "zh" ? "学" : "S"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{t("common.student")}</p>
-              <p className="text-xs text-muted-foreground">{t("common.level")} {progress.level} · {progress.points} {t("common.points")}</p>
+              <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
+              <p className="text-[10px] text-caption leading-tight mt-0.5">
+                {t("dashboard.level", { n: progress.level })} · {fmtNum(progress.points)} {t("common.pointsUnit")}
+              </p>
             </div>
-            <NavLink to="/settings" aria-label={t("nav.settings")} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/60 transition-colors">
+            <NavLink to={SETTINGS_ROUTE.to} aria-label={t("nav.settings")} title={t("nav.settings")} className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-caption hover:bg-[var(--glass-3)] hover:text-foreground transition-colors">
               <Settings className="w-4 h-4" />
             </NavLink>
           </div>
@@ -108,13 +116,13 @@ export default function AppLayout() {
 
       {/* Icon rail (md–lg) */}
       <aside className="hidden md:flex lg:hidden w-16 flex-col items-center glass-panel border-r">
-        <div className="flex items-center justify-center py-4 w-full">
+        <div className="flex items-center justify-center py-4 w-full border-b border-border-soft">
           <span className="w-8 h-8 rounded-[9px] bg-gradient-hero shadow-brand flex items-center justify-center">
-            <img src="/favicon.png" alt="Synapse" className="w-5 h-5" />
+            <img src="/favicon.png" alt="" aria-hidden="true" className="w-4 h-4" />
           </span>
         </div>
-        <nav className="flex-1 w-full px-2 py-3 space-y-1 overflow-y-auto">
-          {flatNav.map(item => {
+        <nav className="flex-1 w-full px-2 py-3 space-y-1 overflow-y-auto" aria-label={t("common.primaryAria")}>
+          {NAV_ROUTES.map(item => {
             const isActive = location.pathname === item.to;
             return (
               <Tooltip key={item.to}>
@@ -122,14 +130,16 @@ export default function AppLayout() {
                   <NavLink
                     to={item.to}
                     aria-label={t(item.labelKey)}
+                    title={t(item.labelKey)}
                     className={cn(
-                      "flex items-center justify-center w-full py-2.5 rounded-lg transition-all duration-150",
+                      // Prototype tablet .nav-item: padding 11px 0 + 18px icon = 40px tall
+                      "flex items-center justify-center w-full py-[11px] rounded-lg transition-all duration-150",
                       isActive
-                        ? "bg-white/90 text-primary shadow-soft"
-                        : "text-sidebar-foreground/70 hover:text-foreground hover:bg-white/60"
+                        ? "bg-[var(--glass-4)] text-accent-ink shadow-soft"
+                        : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-2)]"
                     )}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <item.icon className="w-[18px] h-[18px]" />
                   </NavLink>
                 </TooltipTrigger>
                 <TooltipContent side="right">{t(item.labelKey)}</TooltipContent>
@@ -137,71 +147,73 @@ export default function AppLayout() {
             );
           })}
         </nav>
-        <div className="w-full p-3 border-t border-white/60 flex flex-col items-center gap-2">
+        <div className="w-full p-2 border-t border-border-soft flex flex-col items-center gap-1.5">
           <button
             onClick={() => setCmdOpen(true)}
             aria-label={t("nav.search")}
-            className="flex items-center justify-center w-full py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/60 transition-all"
+            className="flex items-center justify-center w-full py-2 rounded-lg text-caption hover:text-foreground hover:bg-[var(--glass-3)] transition-all"
           >
             <Search className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
-            aria-label={language === "zh" ? "Switch to English" : "切换到中文"}
-            className="flex items-center justify-center w-full py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/60 transition-all"
+          {/* Prototype tablet sidebar-foot keeps the avatar, text hidden */}
+          <div
+            aria-hidden="true"
+            className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px] flex-none"
           >
-            <Globe className="w-4 h-4" />
-          </button>
+            {language === "zh" ? "学" : "S"}
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink
-                to="/settings"
-                aria-label={t("nav.settings")}
-                className="flex items-center justify-center w-full py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/60 transition-all"
+                to={SETTINGS_ROUTE.to}
+                aria-label={t(SETTINGS_ROUTE.labelKey)}
+                className="flex items-center justify-center w-full py-2 rounded-lg text-caption hover:text-foreground hover:bg-[var(--glass-3)] transition-all"
               >
                 <Settings className="w-4 h-4" />
               </NavLink>
             </TooltipTrigger>
-            <TooltipContent side="right">{t("nav.settings")}</TooltipContent>
+            <TooltipContent side="right">{t(SETTINGS_ROUTE.labelKey)}</TooltipContent>
           </Tooltip>
         </div>
       </aside>
 
-      {/* Mobile header */}
+      {/* Mobile header + main + bottom nav */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="md:hidden flex items-center justify-between px-4 py-3 glass-panel border-b">
+        <header className="md:hidden flex items-center justify-between px-3 h-14 glass-mobile-bar border-b">
           <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-[8px] bg-gradient-hero shadow-brand flex items-center justify-center">
-              <img src="/favicon.png" alt="Synapse" className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label={t("nav.menu")}
+              aria-expanded={drawerOpen}
+              className="text-caption hover:text-foreground p-1.5 -ml-1.5 rounded-md hover:bg-[var(--glass-3)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="w-7 h-7 rounded-[9px] bg-gradient-hero shadow-brand flex items-center justify-center">
+              <img src="/favicon.png" alt="" aria-hidden="true" className="w-3.5 h-3.5" />
             </span>
-            <span className="font-display font-bold text-base">Synapse</span>
+            <span className="font-display font-semibold text-[17px]">Synapse</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCmdOpen(true)}
               aria-label={t("nav.search")}
-              className="text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-white/60 transition-all"
+              className="text-caption hover:text-foreground px-1.5 py-1 rounded-md hover:bg-[var(--glass-3)] transition-all"
             >
               <Search className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
-              aria-label={language === "zh" ? "Switch to English" : "切换到中文"}
-              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-white/60 transition-all"
-            >
-              <Globe className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-medium text-muted-foreground">🔥 {progress.streak}</span>
+            <span className="pill pill-streak" title={`${t("dashboard.streak", { n: progress.streak })} · ${t("dashboard.streakRule")}`}>
+              <Flame aria-hidden="true" />
+              <span>{t("dashboard.streak", { n: progress.streak })}</span>
+            </span>
           </div>
         </header>
-
-        {/* Main content */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
 
-        {/* Mobile nav */}
-        <nav className="md:hidden flex items-center justify-around glass-panel border-t py-2 px-1">
+        <nav className="md:hidden flex items-center justify-around glass-bottom-nav border-t py-1.5 px-2" aria-label={t("common.primaryAria")}>
           {mobileNav.map(item => {
             const isActive = location.pathname === item.to;
             return (
@@ -209,17 +221,69 @@ export default function AppLayout() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 px-2 py-1 rounded-md text-[10px] transition-all",
-                  isActive ? "text-primary bg-white/70 shadow-soft" : "text-muted-foreground"
+                  "flex flex-col items-center justify-center gap-[3px] flex-1 min-h-12 rounded-[10px] text-[9px] font-semibold transition-all",
+                  isActive ? "text-accent-ink bg-[var(--accent-tint)]" : "text-caption"
                 )}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="w-[19px] h-[19px]" />
                 {t(item.labelKey)}
               </NavLink>
             );
           })}
         </nav>
       </div>
+
+      {/* Mobile drawer (prototype body.side-open): off-canvas sidebar + scrim */}
+      {drawerOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-[rgba(26,20,18,0.32)] animate-fade-in"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      {drawerOpen && (
+        <aside
+          className="md:hidden fixed inset-y-0 left-0 z-50 w-[min(290px,84vw)] flex flex-col gap-2 glass-panel shadow-hover px-3 pt-3.5 pb-3 animate-in slide-in-from-left duration-300"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("common.navAria")}
+        >
+          <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-3.5 border-b border-border-soft">
+            <span className="w-[34px] h-[34px] rounded-[11px] bg-gradient-hero shadow-brand flex items-center justify-center shrink-0">
+              <img src="/favicon.png" alt="" aria-hidden="true" className="w-[17px] h-[17px]" />
+            </span>
+            <span className="flex flex-col leading-tight min-w-0">
+              <span className="font-display font-semibold text-xl tracking-tight text-foreground">Synapse</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-caption mt-0.5">{t("brand.sub")}</span>
+            </span>
+          </div>
+
+          <div className="pt-1" onClick={() => setDrawerOpen(false)}>
+            {searchPill}
+          </div>
+
+          <nav className="flex-1 pt-2 pb-2 space-y-0.5 overflow-y-auto" aria-label={t("common.primaryAria")}>
+            {NAV_ROUTES.map(item => renderLink(item, () => setDrawerOpen(false)))}
+          </nav>
+
+          <div className="px-1 pt-2.5 border-t border-border-soft" onClick={() => setDrawerOpen(false)}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px]">
+                {language === "zh" ? "学" : "S"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
+                <p className="text-[10px] text-caption leading-tight mt-0.5">
+                  {t("dashboard.level", { n: progress.level })} · {fmtNum(progress.points)} {t("common.pointsUnit")}
+                </p>
+              </div>
+              <NavLink to={SETTINGS_ROUTE.to} aria-label={t("nav.settings")} title={t("nav.settings")} className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-caption hover:bg-[var(--glass-3)] hover:text-foreground transition-colors">
+                <Settings className="w-4 h-4" />
+              </NavLink>
+            </div>
+          </div>
+        </aside>
+      )}
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
     </div>

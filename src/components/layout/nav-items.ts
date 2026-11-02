@@ -1,45 +1,26 @@
 import {
-  LayoutDashboard, MessageSquare, BookOpen, HelpCircle,
-  Brain, NotebookPen, CalendarDays, Trophy, BarChart3,
+  Home, MessageSquare, BookOpen, HelpCircle,
+  Layers, BookmarkMinus, CalendarCheck, Award, BarChart3,
   Settings,
 } from "lucide-react";
 
-// Single source of truth for the retained 10-page IA (FR-25/26/28/36/46),
-// shared by AppLayout (sidebar/rail/bottom-nav) and CommandPalette.
-export const navGroups = [
-  {
-    labelKey: "nav.group.overview",
-    items: [{ to: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" }],
-  },
-  {
-    labelKey: "nav.group.learn",
-    items: [
-      { to: "/ai-tutor", icon: MessageSquare, labelKey: "nav.aiTutor" },
-      { to: "/materials", icon: BookOpen, labelKey: "nav.materials" },
-      { to: "/planner", icon: CalendarDays, labelKey: "nav.planner" },
-    ],
-  },
-  {
-    labelKey: "nav.group.practice",
-    items: [
-      { to: "/quiz", icon: HelpCircle, labelKey: "nav.quiz" },
-      { to: "/flashcards", icon: Brain, labelKey: "nav.flashcards" },
-      { to: "/mistakes", icon: NotebookPen, labelKey: "nav.mistakes" },
-    ],
-  },
-  {
-    labelKey: "nav.group.progress",
-    items: [
-      { to: "/achievements", icon: Trophy, labelKey: "nav.achievements" },
-      { to: "/analytics", icon: BarChart3, labelKey: "nav.analytics" },
-    ],
-  },
-  {
-    labelKey: null,
-    items: [{ to: "/settings", icon: Settings, labelKey: "nav.settings" }],
-  },
+// Flat nav per prototype v2 (app.js NAV_ROUTES): 9 items, settings stays a
+// footer/rail destination. Shared by AppLayout + CommandPalette.
+export const NAV_ROUTES = [
+  { to: "/dashboard", labelKey: "nav.dashboard", icon: Home },
+  { to: "/ai-tutor", labelKey: "nav.tutor", icon: MessageSquare },
+  { to: "/materials", labelKey: "nav.materials", icon: BookOpen },
+  { to: "/quiz", labelKey: "nav.quiz", icon: HelpCircle },
+  { to: "/flashcards", labelKey: "nav.flashcards", icon: Layers },
+  { to: "/mistakes", labelKey: "nav.mistakes", icon: BookmarkMinus },
+  { to: "/planner", labelKey: "nav.planner", icon: CalendarCheck },
+  { to: "/achievements", labelKey: "nav.achievements", icon: Award },
+  { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
 ];
 
-export const flatNav = navGroups.flatMap(g => g.items);
+export const SETTINGS_ROUTE = { to: "/settings", labelKey: "nav.settings", icon: Settings };
 
+export const flatNav = [...NAV_ROUTES, SETTINGS_ROUTE];
+
+// Prototype BOTTOM_ROUTES
 export const mobileNavPaths = ["/dashboard", "/ai-tutor", "/quiz", "/flashcards", "/achievements"];

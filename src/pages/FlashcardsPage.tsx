@@ -1,204 +1,266 @@
+// Northstar prototype v2 port (docs/design/northstar-import/prototype-v2/app.js — renderFlashcards family).
+// Deck: flip → prev/next → difficulty trio after flip → summary (ring + counts).
 import { useEffect, useState } from "react";
-import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
-import { useUserProgress } from "@/contexts/UserProgressContext";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, BookOpen, Eye, Info, Layers, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ThumbsUp, ThumbsDown, Minus, Sparkles, BookOpen, Loader2 } from "lucide-react";
+import { useUserProgress } from "@/contexts/UserProgressContext";
+import { FLASHCARDS, pickL } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
-interface Flashcard {
-  id: number;
-  front: string;
-  back: string;
-  difficulty: "easy" | "medium" | "hard";
+/* ── Northstar button recipes (prototype .btn / .btn-primary / .btn-secondary / .btn-ghost) ── */
+const btnPrimary =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-hero px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all hover:-translate-y-px hover:shadow-brand-hover hover:brightness-[1.03] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const btnSecondary =
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-[var(--glass-4)] px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-[var(--glass-solid)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+const btnGhost =
+  "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const btnSm = "rounded-[10px] px-3.5 py-2 text-[13px]";
+
+/* ── Score ring (prototype ringSvg: r=(size-stroke)/2, dashoffset, rotate -90°) ── */
+function ScoreRing({ pct, value, label }: { pct: number; value: number; label: string }) {
+  const size = 132;
+  const stroke = 10;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  return (
+    <div className="relative h-[132px] w-[132px] flex-none">
+      <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full" role="img" aria-label={`${Math.round(pct)}%`}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--uncovered-fill))" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c.toFixed(1)}
+          strokeDashoffset={offset.toFixed(1)}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <b className="font-display text-[30px] font-semibold leading-none tabular-nums">{value}</b>
+        <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
+      </div>
+    </div>
+  );
 }
 
-const defaultCards: Record<string, Flashcard[]> = {
-  zh: [
-    { id: 1, front: "什么是费茨定律（Fitts's Law）？", back: "一种人体运动的预测模型，将快速移动到目标区域所需的时间与目标的距离和大小联系起来。目标越大、越近，到达越快。", difficulty: "medium" },
-    { id: 2, front: "在 HCI 中如何定义「可学习性」？", back: "用户第一次接触设计时完成基本任务的容易程度。是可用性的关键组成部分。", difficulty: "easy" },
-    { id: 3, front: "什么是「执行鸿沟」（Gulf of Execution）？", back: "用户意图与系统提供的可用操作之间的差距。好的设计通过使操作明显且易于访问来弥合这一鸿沟。", difficulty: "hard" },
-    { id: 4, front: "解释希克定律（Hick's Law）", back: "做出决策所需的时间随选择的数量和复杂性而增加。简化选择可以减少决策时间。", difficulty: "medium" },
-    { id: 5, front: "什么是心理模型（Mental Model）？", back: "用户对系统工作方式的内部表征。好的设计使系统模型与用户的心理模型保持一致，以减少困惑。", difficulty: "medium" },
-  ],
-  en: [
-    { id: 1, front: "What is Fitts's Law?", back: "A predictive model of human movement that relates the time to move to a target with the target's distance and size. Larger, closer targets are faster to reach.", difficulty: "medium" },
-    { id: 2, front: "How is 'learnability' defined in HCI?", back: "How easily users can accomplish basic tasks the first time they encounter a design. A key component of usability.", difficulty: "easy" },
-    { id: 3, front: "What is the 'Gulf of Execution'?", back: "The gap between user intent and available system actions. Good design bridges this by making actions obvious and accessible.", difficulty: "hard" },
-    { id: 4, front: "Explain Hick's Law", back: "Decision time increases with the number and complexity of choices. Simplifying choices reduces decision time.", difficulty: "medium" },
-    { id: 5, front: "What is a Mental Model?", back: "A user's internal representation of how a system works. Good design aligns the system model with the user's mental model to reduce confusion.", difficulty: "medium" },
-  ],
-};
-
-const aiGeneratedCards: Record<string, Flashcard[]> = {
-  zh: [
-    { id: 101, front: "什么是 WCAG？它的目标是什么？", back: "WCAG（Web Content Accessibility Guidelines）是网页内容可访问性指南，旨在让网页内容对所有人（包括残障人士）都可访问。", difficulty: "medium" },
-    { id: 102, front: "Norman 的设计模型包含哪些要素？", back: "包含设计者模型（设计师的概念模型）、用户模型（用户的心理模型）和系统映像（系统呈现给用户的样子）。三者越一致，可用性越好。", difficulty: "hard" },
-    { id: 103, front: "什么是渐进式披露（Progressive Disclosure）？", back: "一种交互设计策略，只在用户需要时才显示额外信息或功能，减少认知负荷，保持界面简洁。", difficulty: "easy" },
-    { id: 104, front: "错误预防和错误恢复哪个更重要？", back: "错误预防更重要。Nielsen 的启发式原则强调，好的设计应该首先防止错误发生，而不是仅仅提供好的错误信息。防错优于纠错。", difficulty: "medium" },
-    { id: 105, front: "什么是 A/B 测试？在 HCI 中如何应用？", back: "A/B 测试是一种比较两个版本（A 和 B）的实验方法。在 HCI 中用于比较不同设计方案的可用性指标，如完成时间、错误率和用户满意度。", difficulty: "medium" },
-  ],
-  en: [
-    { id: 101, front: "What is WCAG and what is its goal?", back: "WCAG (Web Content Accessibility Guidelines) aims to make web content accessible to everyone, including people with disabilities.", difficulty: "medium" },
-    { id: 102, front: "What are the elements of Norman's design model?", back: "Includes the Designer's Model (conceptual model), User's Model (mental model), and System Image (what the system presents). Better alignment = better usability.", difficulty: "hard" },
-    { id: 103, front: "What is Progressive Disclosure?", back: "An interaction design strategy that shows additional information or features only when needed, reducing cognitive load and keeping the interface clean.", difficulty: "easy" },
-    { id: 104, front: "Which is more important: error prevention or error recovery?", back: "Error prevention is more important. Nielsen's heuristics emphasize that good design should prevent errors first, rather than just providing good error messages.", difficulty: "medium" },
-    { id: 105, front: "What is A/B testing? How is it used in HCI?", back: "A/B testing compares two versions (A and B) experimentally. In HCI, it's used to compare usability metrics like completion time, error rate, and user satisfaction across designs.", difficulty: "medium" },
-  ],
-};
+type Difficulty = "hard" | "medium" | "easy";
 
 export default function FlashcardsPage() {
-  const { addPoints, reviewFlashcard } = useUserProgress();
   const { t, language } = useLanguage();
-  const reduceMotion = useReducedMotion();
-  const [useAiCards, setUseAiCards] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const cards = useAiCards ? (aiGeneratedCards[language] || aiGeneratedCards.zh) : (defaultCards[language] || defaultCards.zh);
-  const [current, setCurrent] = useState(0);
+  const { reviewFlashcard } = useUserProgress();
+  const navigate = useNavigate();
+
+  /* Deck state (mirrors prototype state.flash) */
+  const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [reviewed, setReviewed] = useState(0);
+  const [ratings, setRatings] = useState<Record<string, Difficulty>>({});
+  const [done, setDone] = useState(false);
 
-  const card = cards[current];
+  const n = FLASHCARDS.length;
+  const card = FLASHCARDS[i];
+  const reviewed = Object.keys(ratings).length;
+  const easyCount = Object.values(ratings).filter(d => d === "easy").length;
+  const pct = n ? Math.round((reviewed / n) * 100) : 0;
 
-  // Interaction primitives (EXPERIENCE.md): ←/→ navigate. The card itself
-  // handles Space/Enter to flip when focused (see motion.div below).
+  /* ── Logic (prototype flipCard / flashNext / flashPrev / rateCard) ── */
+  const flipCard = () => {
+    if (done) return;
+    setFlipped(f => !f);
+  };
+
+  const flashNext = () => {
+    if (done) return;
+    if (i >= n - 1) {
+      setDone(true);
+      return;
+    }
+    setI(i + 1);
+    setFlipped(false);
+  };
+
+  const flashPrev = () => {
+    if (done || i === 0) return;
+    setI(i - 1);
+    setFlipped(false);
+  };
+
+  const rateCard = (diff: Difficulty) => {
+    if (done) return;
+    setRatings(r => ({ ...r, [card.id]: diff }));
+    reviewFlashcard();
+    if (i >= n - 1) {
+      setDone(true);
+    } else {
+      setI(i + 1);
+      setFlipped(false);
+    }
+  };
+
+  const restartDeck = () => {
+    setI(0);
+    setFlipped(false);
+    setRatings({});
+    setDone(false);
+  };
+
+  /* ── Keyboard (prototype handleKeydown flashcards branch; rateCard increments context once per rating) ── */
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        setFlipped(false);
-        setCurrent(c => (c + 1) % cards.length);
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setFlipped(false);
-        setCurrent(c => (c - 1 + cards.length) % cards.length);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (done) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.("button, a, input, textarea, select")) return;
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        flipCard();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        flashNext();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        flashPrev();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setDone(true);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cards.length]);
+  });
 
-  const handleGenerateFromMaterials = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setUseAiCards(true);
-      setCurrent(0);
-      setFlipped(false);
-      setReviewed(0);
-      setIsGenerating(false);
-    }, 2000);
-  };
+  if (done) {
+    /* ── Summary ── */
+    return (
+      <div className="p-6 md:p-8 max-w-[984px] mx-auto">
+        <div>
+          <p className="eyebrow">{t("flash.eyebrow")}</p>
+          <h1 className="page-title">{t("flash.summaryTitle")}</h1>
+        </div>
+        <div className="mt-4 rounded-2xl border border-border-soft bg-card p-8 shadow-raised">
+          <div className="flex flex-wrap items-center gap-6">
+            <ScoreRing pct={pct} value={reviewed} label={t("flash.reviewed")} />
+            <div className="min-w-[200px] flex-1">
+              <h2 className="font-display text-2xl font-semibold tracking-tight">{t("flash.summaryCardTitle")}</h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {t("flash.summaryBody", { n: reviewed, easy: easyCount })}
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button type="button" onClick={restartDeck} className={btnPrimary}>
+                  <RefreshCw className="h-4 w-4" />
+                  {t("flash.again")}
+                </button>
+                <button type="button" onClick={() => navigate("/dashboard")} className={btnSecondary}>
+                  {t("flash.backHome")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const handleRate = (rating: "easy" | "medium" | "hard") => {
-    setFlipped(false);
-    reviewFlashcard();
-    if (rating === "easy") addPoints(5);
-    else if (rating === "medium") addPoints(10);
-    else addPoints(15);
-    setReviewed(r => r + 1);
-    setTimeout(() => {
-      setCurrent(c => (c + 1) % cards.length);
-    }, 200);
-  };
-
+  /* ── Deck ── */
   return (
-    <div className="p-6 md:p-8 max-w-2xl mx-auto">
-      <AnimatedSection>
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="page-title">{t("flashcards.title")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("flashcards.aiEnhanced")} · {t("flashcards.reviewed")} {reviewed} {t("flashcards.cards")}
-            </p>
+    <div className="p-6 md:p-8 max-w-[984px] mx-auto">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow">{t("flash.eyebrow")}</p>
+          <h1 className="page-title">{t("flash.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("flash.subtitle")}</p>
+        </div>
+        <span className="pill">
+          <Layers className="h-3.5 w-3.5" />
+          {t("flash.progress", { i: i + 1, n })}
+        </span>
+      </div>
+
+      {/* deck-stage */}
+      <div className="mx-auto mt-5 max-w-[680px]">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={flipCard}
+          aria-label={flipped ? t("flash.back") : t("flash.flip")}
+          className="flex min-h-[320px] cursor-pointer flex-col rounded-[20px] border border-border-soft bg-card p-8 text-left shadow-raised transition-shadow hover:shadow-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            {flipped ? t("flash.back") : t("flash.front")}
+          </span>
+          <span className="mt-4 font-display text-2xl leading-snug tracking-tight">
+            {pickL(card.prompt, language)}
+          </span>
+          {flipped ? (
+            <div className="mt-5 border-t border-border-soft pt-5 text-[15px] leading-loose text-muted-foreground">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                {t("flash.back")}
+              </div>
+              {pickL(card.answer, language)}
+              <div>
+                <span className="citation">
+                  <BookOpen className="h-3 w-3" />
+                  {t("flash.source")} · {pickL(card.source, language)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-auto flex items-center gap-1.5 pt-6 text-xs text-muted-foreground">
+              <Eye className="h-3.5 w-3.5 flex-none" />
+              {t("flash.hint")}
+            </div>
+          )}
+        </div>
+
+        {/* deck-meta */}
+        <div className="mt-4 flex items-center gap-3">
+          <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
+            {t("flash.progress", { i: i + 1, n })}
+          </span>
+          <div className="flex flex-1 gap-1">
+            {FLASHCARDS.map((c, idx) => (
+              <span key={c.id} className={cn("deck-dot", ratings[c.id] ? "done" : idx === i && "on")} />
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            {!useAiCards && (
-              <button onClick={handleGenerateFromMaterials} disabled={isGenerating} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary/5 transition-all active:scale-[0.97] disabled:opacity-50">
-                {isGenerating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("flashcards.generating")}</> : <><BookOpen className="w-3.5 h-3.5" /> {t("flashcards.generateFromMaterials")}</>}
+        </div>
+
+        {/* flash-foot */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={flashPrev} disabled={i === 0} className={cn(btnGhost, btnSm)}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {t("flash.prev")}
+          </button>
+          {flipped ? (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => rateCard("hard")} className="diff-btn diff-hard">
+                {t("flash.hard")}
               </button>
-            )}
-            <div className="text-xs font-medium text-muted-foreground bg-secondary rounded-lg px-3 py-1.5">
-              {current + 1} / {cards.length}
+              <button type="button" onClick={() => rateCard("medium")} className="diff-btn diff-medium">
+                {t("flash.medium")}
+              </button>
+              <button type="button" onClick={() => rateCard("easy")} className="diff-btn diff-easy">
+                {t("flash.easy")}
+              </button>
             </div>
-          </div>
+          ) : (
+            <button type="button" onClick={flipCard} className={cn(btnPrimary, btnSm)}>
+              {t("flash.flip")}
+            </button>
+          )}
+          <button type="button" onClick={() => setDone(true)} className={cn(btnSecondary, btnSm)}>
+            {t("flash.finish")}
+          </button>
         </div>
-      </AnimatedSection>
 
-      {useAiCards && (
-        <AnimatedSection delay={0.05}>
-          <div className="flex items-center gap-1.5 text-xs text-primary font-medium mb-4">
-            <Sparkles className="w-3.5 h-3.5" /> {t("quiz.generated")}
-          </div>
-        </AnimatedSection>
-      )}
-
-      {/* Card */}
-      <AnimatedSection delay={0.1}>
-        <div className="perspective-1000 mb-6">
-          <motion.div onClick={() => setFlipped(!flipped)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFlipped(!flipped); } }} role="button" tabIndex={0} aria-label={flipped ? t("common.answer") : t("common.clickToReveal")} className="relative w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl" style={{ minHeight: 280 }}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={flipped ? "back" : "front"}
-                initial={{ opacity: 0, rotateY: flipped ? -90 : 90 }}
-                animate={{ opacity: 1, rotateY: 0 }}
-                exit={{ opacity: 0, rotateY: flipped ? 90 : -90 }}
-                transition={{ duration: reduceMotion ? 0 : 0.3 }}
-                className={cn("w-full rounded-2xl border border-border p-8 flex flex-col items-center justify-center text-center", flipped ? "bg-primary/5" : "bg-card")}
-                style={{ minHeight: 280 }}
-              >
-                {!flipped ? (
-                  <>
-                    <p className="text-xs font-medium text-muted-foreground mb-4">{t("common.question")}</p>
-                    <p className="text-lg font-display font-semibold leading-relaxed">{card.front}</p>
-                    <p className="text-xs text-muted-foreground mt-6">{t("flashcards.recallFirst")}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs font-medium text-primary mb-4">{t("common.answer")}</p>
-                    <p className="text-sm leading-relaxed max-w-md">{card.back}</p>
-                  </>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </motion.div>
-        </div>
-      </AnimatedSection>
-
-      {/* Rating Buttons */}
-      {flipped && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <p className="text-xs text-center text-muted-foreground mb-3">{t("flashcards.ratePrompt")}</p>
-          <div className="flex justify-center gap-3">
-            <button onClick={() => handleRate("hard")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <ThumbsDown className="w-4 h-4" /> {t("flashcards.hard")}
-            </button>
-            <button onClick={() => handleRate("medium")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-partial/30 text-partial text-sm font-medium hover:bg-partial-tint transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <Minus className="w-4 h-4" /> {t("flashcards.medium")}
-            </button>
-            <button onClick={() => handleRate("easy")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-mastered/30 text-mastered text-sm font-medium hover:bg-mastered-tint transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <ThumbsUp className="w-4 h-4" /> {t("flashcards.easy")}
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* AI Enhancement */}
-      {flipped && (
-        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.15 }}>
-          <div className="bg-primary/5 border border-primary/15 rounded-xl px-4 py-3 flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-semibold text-primary mb-0.5">{t("flashcards.aiTip")}</p>
-              <p className="text-xs text-foreground/70">{t("flashcards.aiTipContent")}</p>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      <p className="text-xs text-muted-foreground text-center mt-8">{t("flashcards.keyboardHint")}</p>
+        <p className="kbd-hint">
+          <Info className="h-3 w-3 flex-none" />
+          {flipped ? t("flash.rateFirst") : t("flash.spaceHint")}
+        </p>
+      </div>
     </div>
   );
 }

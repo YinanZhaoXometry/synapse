@@ -10,7 +10,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { navGroups } from "@/components/layout/nav-items";
+import { NAV_ROUTES, SETTINGS_ROUTE } from "@/components/layout/nav-items";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
@@ -40,35 +40,34 @@ export function CommandPalette({ open, onOpenChange }: Props) {
     action();
   };
 
+  const pageItems = [...NAV_ROUTES, SETTINGS_ROUTE];
+
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput placeholder={t("command.placeholder")} />
       <CommandList>
         <CommandEmpty>{t("command.noResults")}</CommandEmpty>
-        {navGroups.map(group => (
-          <CommandGroup
-            key={group.labelKey ?? "settings"}
-            heading={group.labelKey ? t(group.labelKey) : undefined}
-          >
-            {group.items.map(item => (
-              <CommandItem
-                key={item.to}
-                value={t(item.labelKey)}
-                onSelect={() => run(() => navigate(item.to))}
-              >
-                <item.icon className="w-4 h-4 text-muted-foreground" />
-                {t(item.labelKey)}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        ))}
+        <CommandGroup heading={t("common.primaryAria")}>
+          {pageItems.map(item => (
+            <CommandItem
+              key={item.to}
+              value={t(item.labelKey)}
+              onSelect={() => run(() => navigate(item.to))}
+              className="group"
+            >
+              <item.icon className="w-4 h-4 text-muted-foreground transition-colors group-data-[selected=true]:text-accent-ink" />
+              {t(item.labelKey)}
+            </CommandItem>
+          ))}
+        </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading={t("command.groupActions")}>
           <CommandItem
             value={t("command.toggleLanguage")}
             onSelect={() => run(() => setLanguage(language === "zh" ? "en" : "zh"))}
+            className="group"
           >
-            <Globe className="w-4 h-4 text-muted-foreground" />
+            <Globe className="w-4 h-4 text-muted-foreground transition-colors group-data-[selected=true]:text-accent-ink" />
             {t("command.toggleLanguage")}
           </CommandItem>
         </CommandGroup>

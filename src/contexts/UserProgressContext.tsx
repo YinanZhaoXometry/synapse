@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
+import { DEFAULT_PROGRESS, DEFAULT_MASTERY, type MasteryTopic } from "@/lib/demo-data";
 
-interface Achievement {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  unlockedAt?: Date;
+export type Mastery = Record<MasteryTopic, number>;
+
+export interface MasteryDelta {
+  topic: MasteryTopic;
+  from: number;
+  to: number;
 }
 
 interface UserProgress {
@@ -17,87 +18,65 @@ interface UserProgress {
   studyMinutes: number;
   correctAnswers: number;
   totalAnswers: number;
-  achievements: Achievement[];
   weeklyGoal: number;
   weeklyProgress: number;
 }
 
 interface UserProgressContextType {
   progress: UserProgress;
-  addPoints: (pts: number) => void;
-  incrementStreak: () => void;
-  addStudyMinutes: (mins: number) => void;
-  recordAnswer: (correct: boolean) => void;
-  completeQuiz: () => void;
+  mastery: Mastery;
+  /** Increments on resetAll — pages with local demo state (Planner tasks) reset when it changes. */
+  resetTick: number;
+  /** Record a finished quiz: evidence counters + weekly session + mastery deltas (evidence-only, FR-3/20). */
+  applyQuizOutcome: (opts: { correct: number; total: number; deltas: MasteryDelta[] }) => void;
   reviewFlashcard: () => void;
-  unlockAchievement: (achievement: Omit<Achievement, "unlockedAt">) => void;
+  resetAll: () => void;
 }
-
-const defaultProgress: UserProgress = {
-  points: 1250,
-  streak: 7,
-  level: 5,
-  quizzesCompleted: 12,
-  flashcardsReviewed: 84,
-  studyMinutes: 340,
-  correctAnswers: 89,
-  totalAnswers: 108,
-  achievements: [
-    { id: "first-quiz", title: "测验新手", description: "完成第一次测验", icon: "🎯", unlockedAt: new Date("2025-03-14") },
-    { id: "streak-3", title: "三天连续", description: "连续学习3天", icon: "🔥", unlockedAt: new Date("2025-03-16") },
-    { id: "streak-7", title: "周冠军", description: "连续学习7天", icon: "⚡", unlockedAt: new Date("2025-03-20") },
-    { id: "flashcard-50", title: "卡牌收集者", description: "复习50张闪卡", icon: "🃏", unlockedAt: new Date("2025-03-18") },
-  ],
-  weeklyGoal: 300,
-  weeklyProgress: 210,
-};
 
 const UserProgressContext = createContext<UserProgressContextType | undefined>(undefined);
 
+function freshState(): { progress: UserProgress; mastery: Mastery } {
+  return {
+    progress: { ...DEFAULT_PROGRESS, weeklyProgress: DEFAULT_PROGRESS.weeklyProgress },
+    mastery: { ...DEFAULT_MASTERY },
+  };
+}
+
 export function UserProgressProvider({ children }: { children: React.ReactNode }) {
-  const [progress, setProgress] = useState<UserProgress>(defaultProgress);
+  const [progress, setProgress] = useState<UserProgress>(() => freshState().progress);
+  const [mastery, setMastery] = useState<Mastery>(() => freshState().mastery);
+  // Tasks live in PlannerPage local state; resetAll is observed via this counter.
+  const [resetTick, setResetTick] = useState(0);
 
-  const addPoints = useCallback((pts: number) => {
-    setProgress(p => {
-      const newPoints = p.points + pts;
-      const newLevel = Math.floor(newPoints / 500) + 1;
-      return { ...p, points: newPoints, level: newLevel };
-    });
-  }, []);
-
-  const incrementStreak = useCallback(() => {
-    setProgress(p => ({ ...p, streak: p.streak + 1 }));
-  }, []);
-
-  const addStudyMinutes = useCallback((mins: number) => {
-    setProgress(p => ({ ...p, studyMinutes: p.studyMinutes + mins, weeklyProgress: Math.min(p.weeklyProgress + mins, p.weeklyGoal) }));
-  }, []);
-
-  const recordAnswer = useCallback((correct: boolean) => {
+  const applyQuizOutcome = useCallback((opts: { correct: number; total: number; deltas: MasteryDelta[] }) => {
     setProgress(p => ({
       ...p,
-      correctAnswers: p.correctAnswers + (correct ? 1 : 0),
-      totalAnswers: p.totalAnswers + 1,
+      quizzesCompleted: p.quizzesCompleted + 1,
+      correctAnswers: p.correctAnswers + opts.correct,
+      totalAnswers: p.totalAnswers + opts.total,
+      studyMinutes: p.studyMinutes + 8,
+      weeklyProgress: Math.min(p.weeklyGoal, p.weeklyProgress + 1),
     }));
-  }, []);
-
-  const completeQuiz = useCallback(() => {
-    setProgress(p => ({ ...p, quizzesCompleted: p.quizzesCompleted + 1 }));
+    setMastery(m => {
+      const next = { ...m };
+      opts.deltas.forEach(d => { next[d.topic] = d.to; });
+      return next;
+    });
   }, []);
 
   const reviewFlashcard = useCallback(() => {
     setProgress(p => ({ ...p, flashcardsReviewed: p.flashcardsReviewed + 1 }));
   }, []);
 
-  const unlockAchievement = useCallback((achievement: Omit<Achievement, "unlockedAt">) => {
-    setProgress(p => {
-      if (p.achievements.find(a => a.id === achievement.id)) return p;
-      return { ...p, achievements: [...p.achievements, { ...achievement, unlockedAt: new Date() }] };
-    });
+  const resetAll = useCallback(() => {
+    const fresh = freshState();
+    setProgress(fresh.progress);
+    setMastery(fresh.mastery);
+    setResetTick(t => t + 1);
   }, []);
 
   return (
-    <UserProgressContext.Provider value={{ progress, addPoints, incrementStreak, addStudyMinutes, recordAnswer, completeQuiz, reviewFlashcard, unlockAchievement }}>
+    <UserProgressContext.Provider value={{ progress, mastery, resetTick, applyQuizOutcome, reviewFlashcard, resetAll }}>
       {children}
     </UserProgressContext.Provider>
   );

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -42,18 +42,49 @@
     --grad-a: 12 100% 68%;
     --grad-b: 27 100% 74%;
 
-    /* Northstar glass layers (rgba, not HSL — used by the shell) */
+    /* Northstar glass layers (rgba, not HSL — used by the shell; prototype-v2 values) */
     --glass-1: rgba(255, 255, 255, 0.55);
-    --glass-2: rgba(255, 255, 255, 0.6);
-    --glass-3: rgba(255, 255, 255, 0.7);
-    --glass-4: rgba(255, 255, 255, 0.85);
+    --glass-2: rgba(255, 255, 255, 0.42);
+    --glass-3: rgba(255, 255, 255, 0.62);
+    --glass-4: rgba(255, 255, 255, 0.78);
+    --glass-5: rgba(255, 255, 255, 0.92);
     --glass-solid: #ffffff;
-    --glass-edge: rgba(255, 255, 255, 0.6);
+    --glass-edge: rgba(255, 255, 255, 0.65);
+    --glass-bar: rgba(255, 250, 246, 0.86);
+
+    /* Accent tints/rings — runtime-set by ThemeContext so themes swap them app-wide.
+       :root defaults are the sunset brand values (pre-JS flash = current look). */
+    --accent-tint: rgba(255, 95, 95, 0.1);
+    --accent-tint-2: rgba(255, 95, 95, 0.16);
+    --accent-ring: rgba(255, 95, 95, 0.22);
+    --accent-edge: rgba(255, 95, 95, 0.35);
+
+    /* Scrim / switch / soft ink (northstar-reference dialog::backdrop + .switch) */
+    --scrim: rgba(26, 26, 31, 0.3);
+    --switch-off: rgba(0, 0, 0, 0.12);
+    --ink-soft: rgba(26, 26, 31, 0.08);
+
+    /* Northstar elevation set (theme-dependent — .dark redefines these heavier) */
+    --elev-low: 0 2px 8px rgba(60, 40, 30, 0.05);
+    --elev-raised: 0 8px 32px rgba(60, 40, 30, 0.08);
+    --elev-hover: 0 16px 40px rgba(60, 40, 30, 0.11);
 
     --amber: 20 80% 55%;
     --amber-foreground: 0 0% 100%;
     --emerald: 160 50% 45%;
     --emerald-foreground: 0 0% 100%;
+
+    --surface-warm: #fff4ea; /* prototype --surface-warm (raw hex — some HSL triplets drift) */
+
+    /* Northstar ink tokens (dark-on-tint text + warm grays, prototype-v2 :root) */
+    --accent-ink: #b23a3a;
+    --mastered-ink: #1f6b50;
+    --partial-ink: #a44e1a;
+    --citation-ink: #35507c;
+    --danger-ink: #a83232;
+    --caption: 30 7% 40%;        /* prototype --muted #6d665f (warm) */
+    --caption-soft: 30 7% 55%;   /* prototype --muted-soft #948c84 (nav icons) */
+    --uncovered-fill: 220 40% 95%;
 
     --mastered: 160 50% 45%;
     --mastered-tint: 152 39% 93%;
@@ -77,6 +108,72 @@
   }
 }
 
+/* ── Dark mode (ported from northstar-reference.html body.theme-dark) ──
+   The `dark` class is set on <html> by ThemeContext; accent/grad/ink vars stay
+   runtime-driven (lifted toward white there), so only neutrals live here. */
+@layer base {
+  .dark {
+    color-scheme: dark;
+
+    --background: 288 12% 9%;      /* #171318 */
+    --foreground: 23 27% 94%;      /* #f4efec */
+
+    --card: 285 12% 13%;           /* #231d25 */
+    --card-foreground: 23 27% 94%;
+    --popover: 285 12% 13%;
+    --popover-foreground: 23 27% 94%;
+
+    --secondary: 300 10% 16%;      /* #2d252d */
+    --secondary-foreground: 23 27% 94%;
+
+    --muted: 300 10% 16%;
+    --muted-foreground: 16 9% 77%; /* #c9c1be */
+
+    --border: 300 7% 21%;          /* #3a323a */
+    --border-soft: 300 7% 16%;     /* #2c262c */
+    --input: 300 7% 21%;
+
+    --caption: 350 3% 62%;         /* #9d9697-ish */
+    --caption-soft: 350 3% 50%;
+
+    /* Ink set lifts toward white so tinted text stays readable on dark surfaces */
+    --accent-ink: #ff8f8f;
+    --mastered-ink: #7ddaba;
+    --partial-ink: #f0a86e;
+    --citation-ink: #9fc0ec;
+    --danger-ink: #ff8f8f;
+
+    --uncovered-fill: 288 6% 20%;
+    --mastered-tint: 160 30% 20%;
+    --partial-tint: 23 40% 22%;
+    --uncovered-tint: 288 6% 20%;
+    --citation-tint: 220 25% 24%;
+
+    --chart-grid: 300 7% 18%;
+    --chart-axis: 350 3% 62%;
+
+    --glass-1: rgba(26, 21, 28, 0.55);
+    --glass-2: rgba(255, 255, 255, 0.07);
+    --glass-3: rgba(255, 255, 255, 0.09);
+    --glass-4: rgba(255, 255, 255, 0.11);
+    --glass-5: rgba(255, 255, 255, 0.16);
+    --glass-solid: rgba(255, 255, 255, 0.2);
+    --glass-edge: rgba(255, 255, 255, 0.1);
+    --glass-bar: rgba(23, 19, 24, 0.86);
+
+    --switch-off: rgba(255, 255, 255, 0.18);
+    --ink-soft: rgba(255, 255, 255, 0.1);
+    --scrim: rgba(0, 0, 0, 0.55);
+
+    --elev-low: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --elev-raised: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --elev-hover: 0 16px 40px rgba(0, 0, 0, 0.55);
+  }
+  .dark {
+    --surface-warm: #2d252d; /* design dark surface-warm (raw hex like :root) */
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -84,15 +181,23 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    /* Northstar canvas: cream base + three fixed radial gradient blobs */
+    /* Northstar canvas: cream base + three fixed radial gradient blobs, tied to the
+       theme tokens so the blobs follow the active palette (ThemeContext sets them). */
     background-image:
-      radial-gradient(circle at 0% 0%, hsl(var(--grad-a) / 0.22), transparent 55%),
-      radial-gradient(circle at 100% 5%, hsl(var(--primary) / 0.16), transparent 50%),
-      radial-gradient(circle at 50% 100%, hsl(var(--grad-b) / 0.2), transparent 60%);
+      radial-gradient(circle at 0% 0%, hsl(var(--grad-a) / 0.18), transparent 52%),
+      radial-gradient(circle at 100% 4%, hsl(var(--primary) / 0.13), transparent 46%),
+      radial-gradient(circle at 55% 100%, hsl(var(--grad-b) / 0.18), transparent 58%);
     background-attachment: fixed;
   }
+  /* Dark canvas: same blobs, fainter (northstar-reference body.theme-dark). */
+  .dark body {
+    background-image:
+      radial-gradient(circle at 0% 0%, hsl(var(--grad-a) / 0.1), transparent 52%),
+      radial-gradient(circle at 100% 4%, hsl(var(--primary) / 0.08), transparent 46%),
+      radial-gradient(circle at 55% 100%, hsl(var(--grad-b) / 0.1), transparent 58%);
+  }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Source Serif Pro', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+    font-family: 'Source Serif 4', 'Source Serif Pro', 'Songti SC', 'Noto Serif SC', Georgia, serif;
     text-wrap: balance;
     letter-spacing: -0.01em;
   }
@@ -109,13 +214,13 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Source Serif Pro', 'Songti SC', 'Noto Serif SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Georgia, serif;
+    font-family: 'Source Serif 4', 'Source Serif Pro', 'Songti SC', 'Noto Serif SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Georgia, serif;
   }
   .font-body {
     font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
   }
   .page-title {
-    @apply text-2xl font-display font-bold tracking-tight;
+    @apply text-[27px] md:text-[34px] font-display font-semibold tracking-[-0.025em] leading-[1.16];
   }
   .section-label {
     @apply text-sm font-body font-semibold text-muted-foreground;
@@ -135,8 +240,8 @@
     line-height: 1.6;
   }
   .mastery-number {
-    font-family: 'Source Serif Pro', 'Songti SC', 'PingFang SC', system-ui, serif;
-    font-weight: 700;
+    font-family: 'Source Serif 4', 'Source Serif Pro', 'Songti SC', 'PingFang SC', system-ui, serif;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
   /* Northstar brand gradient + brand shadow (the .btn-primary look) */
@@ -149,15 +254,15 @@
   .shadow-brand-hover {
     box-shadow: 0 8px 24px hsl(var(--grad-a) / 0.4);
   }
-  /* Northstar elevation set */
+  /* Northstar elevation set (token-driven — .dark redefines the vars heavier) */
   .shadow-soft {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--elev-low);
   }
   .shadow-raised {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--elev-raised);
   }
   .shadow-hover {
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--elev-hover);
   }
   /* Northstar glass surfaces (shell only) */
   .glass-panel {
@@ -171,6 +276,194 @@
     -webkit-backdrop-filter: blur(16px) saturate(160%);
     backdrop-filter: blur(16px) saturate(160%);
   }
+  /* Warm mobile chrome (prototype-v2 .mobile-bar / .bottom-nav) */
+  .glass-mobile-bar {
+    background: var(--glass-bar);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-color: var(--glass-edge);
+  }
+  .glass-bottom-nav {
+    background: var(--glass-bar);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-color: var(--glass-edge);
+  }
+
+  /* ── Prototype v2 component utilities (docs/design/northstar-import/prototype-v2/styles.css) ── */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--caption));
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border-soft));
+    background: var(--surface-warm);
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .pill > svg { width: 13px; height: 13px; }
+  .pill-streak { background: rgba(232, 110, 48, 0.12); border-color: rgba(232, 110, 48, 0.2); color: var(--partial-ink); }
+  .pill-mastered { background: hsl(var(--mastered-tint)); border-color: rgba(57, 172, 134, 0.24); color: var(--mastered-ink); }
+  .pill-partial { background: hsl(var(--partial-tint)); border-color: rgba(232, 110, 48, 0.2); color: var(--partial-ink); }
+  .pill-muted { background: hsl(var(--uncovered-fill)); border-color: transparent; color: hsl(var(--muted-foreground)); }
+
+  .tint-coral { background: var(--accent-tint); color: var(--accent-ink); }
+  .tint-amber { background: hsl(var(--partial-tint)); color: var(--partial-ink); }
+  .tint-green { background: hsl(var(--mastered-tint)); color: var(--mastered-ink); }
+  .tint-blue { background: hsl(var(--citation-tint)); color: var(--citation-ink); }
+
+  .citation {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    padding: 3px 9px;
+    border-radius: 7px;
+    background: hsl(var(--citation-tint));
+    color: var(--citation-ink);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .kbd-hint { font-size: 10px; color: hsl(var(--caption)); margin-top: 16px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+  .hint-box { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-warm); border: 1px solid rgba(232, 110, 48, 0.18); font-size: 13px; color: hsl(var(--muted-foreground)); line-height: 1.6; display: flex; gap: 8px; align-items: flex-start; }
+
+  .verdict { margin-top: 16px; padding: 16px; border-radius: 12px; border: 1px solid hsl(var(--border-soft)); background: var(--surface-warm); }
+  .verdict-head { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+  .verdict p { font-size: 13px; color: hsl(var(--muted-foreground)); line-height: 1.65; margin-top: 8px; }
+  .verdict.correct { background: hsl(var(--mastered-tint)); border-color: rgba(57, 172, 134, 0.26); }
+  .verdict.correct .verdict-head { color: var(--mastered-ink); }
+  .verdict.partial { background: hsl(var(--partial-tint)); border-color: rgba(232, 110, 48, 0.24); }
+  .verdict.partial .verdict-head { color: var(--partial-ink); }
+  .verdict.wrong { background: rgba(168, 50, 50, 0.055); border-color: rgba(168, 50, 50, 0.22); }
+  .verdict.wrong .verdict-head { color: var(--danger-ink); }
+
+  .compare-box { padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.6; }
+  .compare-wrong { background: rgba(168, 50, 50, 0.055); border: 1px solid rgba(168, 50, 50, 0.18); }
+  .compare-right { background: hsl(var(--mastered-tint)); border: 1px solid rgba(57, 172, 134, 0.2); }
+  .compare-label { display: flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: hsl(var(--caption)); margin-bottom: 4px; }
+  .ai-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--surface-warm); border: 1px solid hsl(var(--border-soft)); font-size: 13px; color: hsl(var(--muted-foreground)); line-height: 1.6; }
+  .ai-note > svg { color: var(--accent-ink); }
+
+  .diff-btn { padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; background: hsl(var(--card)); transition: background 150ms ease; }
+  .diff-hard { color: var(--danger-ink); border: 1px solid rgba(168, 50, 50, 0.32); }
+  .diff-hard:hover { background: rgba(168, 50, 50, 0.05); }
+  .diff-medium { color: var(--partial-ink); border: 1px solid rgba(232, 110, 48, 0.34); }
+  .diff-medium:hover { background: rgba(232, 110, 48, 0.06); }
+  .diff-easy { color: var(--mastered-ink); border: 1px solid rgba(57, 172, 134, 0.34); }
+  .diff-easy:hover { background: rgba(57, 172, 134, 0.06); }
+
+  .deck-dot { height: 4px; flex: 1; border-radius: 9999px; background: var(--ink-soft); }
+  .deck-dot.on { background: hsl(var(--primary)); }
+  .deck-dot.done { background: hsl(var(--primary)); }
+  .step-dot { height: 4px; flex: 1; border-radius: 9999px; background: var(--ink-soft); transition: background 320ms ease; }
+  .step-dot.on { background: linear-gradient(90deg, hsl(var(--grad-a)), hsl(var(--grad-b))); }
+
+  .bar-track { height: 8px; border-radius: 9999px; background: hsl(var(--uncovered-fill)); overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: inherit; transition: width 320ms cubic-bezier(0.32, 0.72, 0, 1); }
+  .bar-high { background: hsl(var(--mastered)); }
+  .bar-mid { background: hsl(var(--partial)); }
+  .bar-low { background: hsl(var(--destructive)); }
+
+  .empty-state {
+    margin-top: 24px;
+    padding: 48px 24px;
+    text-align: center;
+    border: 1px dashed hsl(var(--border));
+    border-radius: 16px;
+    color: hsl(var(--caption));
+  }
+  .empty-state b { display: block; font-size: 15px; color: hsl(var(--muted-foreground)); margin-bottom: 4px; }
+  .empty-state span { font-size: 13px; }
+
+  .warm-value { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: hsl(var(--muted-foreground)); padding: 5px 10px; border-radius: 9999px; background: var(--surface-warm); border: 1px solid hsl(var(--border-soft)); }
+
+  .g-mastered { background: hsl(var(--mastered)); color: #fff; }
+  .g-partial { background: hsl(var(--partial)); color: #fff; }
+  .g-uncovered { background: hsl(var(--uncovered-fill)); color: hsl(var(--caption)); }
+
+  /* ── Settings groups (ported from northstar-reference.html Settings CSS) ── */
+  .settings-group {
+    margin-top: 16px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border-soft));
+    border-radius: 16px;
+    box-shadow: var(--elev-raised);
+    overflow: hidden;
+  }
+  .settings-group > h2 {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 16px 24px 0;
+  }
+  .group-note {
+    font-size: 11px;
+    color: hsl(var(--caption));
+    line-height: 1.6;
+    padding: 4px 24px 0;
+  }
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    border-bottom: 1px solid hsl(var(--border-soft));
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 15px; font-weight: 500; }
+  .setting-help { font-size: 12px; color: hsl(var(--caption)); }
+  .setting-note { font-size: 11px; color: hsl(var(--caption)); line-height: 1.6; }
+
+  /* Theme swatches (northstar-reference .theme-swatches / .swatch) */
+  .theme-swatches { display: flex; gap: 8px; }
+  .swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1), border-color 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .swatch:hover { transform: scale(1.08); }
+  .swatch[aria-pressed="true"] { border-color: hsl(var(--foreground)); }
+
+  /* Pill switch (northstar-reference .switch) */
+  .switch {
+    position: relative;
+    flex: none;
+    width: 46px;
+    height: 28px;
+    border-radius: 9999px;
+    background: var(--switch-off);
+    transition: background 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .switch[aria-checked="true"] { background: hsl(var(--primary)); }
+  .switch[aria-checked="true"]::after { transform: translateX(18px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -179,6 +472,18 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Manual reduce-motion twin (Settings toggle, northstar-reference body.reduce-motion) */
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+}
+
+/* Prototype .icon stroke weight (1.8) — beats lucide's stroke-width="2" attribute.
+   Lives OUTSIDE @layer: Tailwind purges class selectors written inside layers. */
+svg.lucide {
+  stroke-width: 1.8;
 }
 
 /* Scrollbar */

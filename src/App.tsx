@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProgressProvider } from "@/contexts/UserProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import AppLayout from "@/components/layout/AppLayout";
 import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -24,7 +25,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <LanguageProvider>
-        <UserProgressProvider>
+        <ThemeProvider>
+          <UserProgressProvider>
             <Toaster />
             <BrowserRouter>
               <Routes>
@@ -44,7 +46,8 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </UserProgressProvider>
+            </UserProgressProvider>
+        </ThemeProvider>
       </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>

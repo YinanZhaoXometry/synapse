@@ -1,27 +1,30 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Compass } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="glass-panel border rounded-2xl shadow-raised px-8 py-12 text-center max-w-sm">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-hero shadow-brand flex items-center justify-center mx-auto mb-5">
-          <Compass className="w-7 h-7 text-white" aria-hidden="true" />
+    <div className="p-6 md:p-8 max-w-2xl mx-auto">
+      <div className="empty-state" style={{ marginTop: 48 }}>
+        <b>{t("common.notFoundTitle")}</b>
+        <span>{t("common.notFoundBody")}</span>
+        <div className="mt-4">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-hero text-white shadow-brand text-sm font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {t("common.goDashboard")}
+          </button>
         </div>
-        <p className="mastery-number text-3xl mb-1">404</p>
-        <p className="mb-6 text-sm text-muted-foreground">{t("notFound.title")}</p>
-        <a href="/" className="inline-flex items-center px-5 py-2.5 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {t("notFound.back")}
-        </a>
       </div>
     </div>
   );

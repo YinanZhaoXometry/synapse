@@ -1,110 +1,128 @@
-import { AnimatedSection, AnimatedCard } from "@/components/shared/AnimatedSection";
+import { useEffect, useState } from "react";
+import { Flame, Check, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CalendarDays, CheckCircle2, Circle, Clock, Sparkles, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useUserProgress } from "@/contexts/UserProgressContext";
+import { DEFAULT_TASKS, type PlannerTask } from "@/lib/demo-data";
 
-interface Task {
-  id: number;
-  title: { zh: string; en: string };
-  time: { zh: string; en: string };
-  completed: boolean;
-  priority: "high" | "medium" | "low";
-  aiSuggested?: boolean;
-}
+const PRIORITY_KEYS: Record<PlannerTask["priority"], string> = {
+  high: "planner.high",
+  medium: "planner.medium",
+  low: "planner.low",
+};
 
-const initialTasks: Task[] = [
-  { id: 1, title: { zh: "复习 HCI 第三讲笔记", en: "Review HCI Lecture 3 notes" }, time: { zh: "30 分钟", en: "30 min" }, completed: true, priority: "high" },
-  { id: 2, title: { zh: "完成可用性启发式测验", en: "Complete usability heuristics quiz" }, time: { zh: "15 分钟", en: "15 min" }, completed: true, priority: "high", aiSuggested: true },
-  { id: 3, title: { zh: "学习认知负荷理论", en: "Study cognitive load theory" }, time: { zh: "45 分钟", en: "45 min" }, completed: false, priority: "medium" },
-  { id: 4, title: { zh: "复习薄弱点：可访问性", en: "Review weak area: accessibility" }, time: { zh: "20 分钟", en: "20 min" }, completed: false, priority: "high", aiSuggested: true },
-  { id: 5, title: { zh: "制作第五章闪卡", en: "Create Chapter 5 flashcards" }, time: { zh: "25 分钟", en: "25 min" }, completed: false, priority: "medium" },
-  { id: 6, title: { zh: "练习交互设计模式", en: "Practice interaction design patterns" }, time: { zh: "30 分钟", en: "30 min" }, completed: false, priority: "low" },
-];
+const PRIORITY_CLS: Record<PlannerTask["priority"], string> = {
+  high: "bg-[rgba(168,50,50,0.1)] text-danger-ink",
+  medium: "bg-[hsl(var(--partial-tint))] text-partial-ink",
+  low: "bg-[hsl(var(--mastered-tint))] text-mastered-ink",
+};
 
 export default function PlannerPage() {
-  const { t, language } = useLanguage();
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const { t } = useLanguage();
+  const { progress, resetTick } = useUserProgress();
 
-  const toggleTask = (id: number) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  // Local demo state only — completion affects today, never mastery. Reset on demo-data reset.
+  const [tasks, setTasks] = useState<PlannerTask[]>(() => DEFAULT_TASKS.map(task => ({ ...task })));
+
+  useEffect(() => {
+    setTasks(DEFAULT_TASKS.map(task => ({ ...task })));
+  }, [resetTick]);
+
+  const toggleTask = (id: string) => {
+    setTasks(prev => prev.map(task => (task.id === id ? { ...task, done: !task.done } : task)));
   };
 
-  const completed = tasks.filter(t => t.completed).length;
+  const done = tasks.filter(task => task.done).length;
   const total = tasks.length;
-  const totalMinutes = tasks.filter(t => !t.completed).reduce((acc, t) => acc + parseInt(t.time.en), 0);
-
-  const priorityLabels: Record<string, string> = {
-    high: t("planner.priorityHigh"),
-    medium: t("planner.priorityMedium"),
-    low: t("planner.priorityLow"),
-  };
-
-  const priorityColors: Record<string, string> = {
-    high: "bg-destructive/10 text-destructive",
-    medium: "bg-partial-tint text-partial",
-    low: "bg-mastered-tint text-mastered",
-  };
+  const percent = Math.round((done / total) * 100);
 
   return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-      <AnimatedSection>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="p-6 md:p-8 max-w-[984px] mx-auto">
+      {/* Page head */}
+      <div className="flex flex-wrap items-start justify-between gap-6">
+        <div>
+          <p className="eyebrow">{t("planner.eyebrow")}</p>
+          <h1 className="page-title mt-1.5">{t("planner.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-[62ch]">{t("planner.subtitle")}</p>
+        </div>
+        <span className="pill pill-streak">
+          <Flame className="w-[13px] h-[13px]" aria-hidden="true" />
+          {t("dashboard.streak", { n: progress.streak })}
+        </span>
+      </div>
+
+      {/* Day card */}
+      <div className="bg-card border border-border-soft rounded-2xl shadow-raised p-6 mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="page-title">{t("planner.title")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("planner.completed")} {completed}/{total} {t("planner.tasks")} · {t("planner.remaining")} {totalMinutes} {t("common.minutes")}
-            </p>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{t("planner.dayProgress")}</h2>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{t("planner.daySub", { done, total })}</p>
           </div>
-          <div className="flex gap-2">
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-all active:scale-[0.97]">
-              <Sparkles className="w-3.5 h-3.5" /> {t("planner.aiPlan")}
-            </button>
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-hero text-white shadow-brand text-xs font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-              <Plus className="w-3.5 h-3.5" /> {t("planner.addTask")}
-            </button>
-          </div>
+          <span className="font-display font-bold tabular-nums text-[13px] text-muted-foreground">{percent}%</span>
         </div>
-      </AnimatedSection>
 
-      <AnimatedSection delay={0.05}>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground">{t("planner.todayProgress")}</span>
-            <span className="text-xs font-semibold text-primary mastery-number">{Math.round((completed / total) * 100)}%</span>
-          </div>
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
-          </div>
+        <div
+          className="h-2 rounded-full bg-[hsl(var(--uncovered-fill))] overflow-hidden mt-3"
+          aria-hidden="true"
+        >
+          <span
+            className="block h-full rounded-full bg-gradient-to-r from-grad-a to-grad-b transition-[width] duration-300"
+            style={{ width: `${percent}%` }}
+          />
         </div>
-      </AnimatedSection>
 
-      <div className="space-y-2">
-        {tasks.map((task, i) => (
-          <AnimatedCard key={task.id} delay={0.08 + i * 0.04}>
-            <div className={cn("bg-card border border-border rounded-xl p-4 flex items-center gap-3 transition-all", task.completed && "opacity-60")}>
-              <button onClick={() => toggleTask(task.id)} aria-label={task.title[language]} aria-pressed={task.completed} className="shrink-0 active:scale-90 transition-transform rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                {task.completed ? <CheckCircle2 className="w-5 h-5 text-mastered" /> : <Circle className="w-5 h-5 text-border hover:text-primary transition-colors" />}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={cn("text-sm font-medium", task.completed && "line-through")}>{task.title[language]}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" /> {task.time[language]}
-                  </span>
-                  {task.aiSuggested && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-primary font-medium">
-                      <Sparkles className="w-3 h-3" /> {t("planner.aiSuggested")}
+        {/* Task list */}
+        <div className="flex flex-col mt-3">
+          {tasks.map(task => {
+            return (
+              <div
+                key={task.id}
+                className={`flex items-start gap-3 py-3.5 px-1 border-b border-border-soft last:border-b-0 ${task.done ? "done" : ""}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleTask(task.id)}
+                  aria-pressed={task.done}
+                  aria-label={task.done ? t("planner.markUndone") : t("planner.markDone")}
+                  className={`w-[22px] h-[22px] rounded-full border-[1.5px] grid place-items-center flex-none mt-px cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    task.done
+                      ? "bg-mastered border-mastered text-white"
+                      : "border-[#d9cfc3] text-transparent hover:border-primary"
+                  }`}
+                >
+                  <Check className="w-3 h-3" aria-hidden="true" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-semibold leading-[1.45] transition-opacity ${task.done ? "line-through opacity-55" : ""}`}>
+                    {t(task.key)}
+                  </div>
+                  <div className="flex items-center gap-[7px] flex-wrap mt-1 text-[10px] text-muted-foreground">
+                    <span className={`px-2 py-[2px] rounded-full text-[9px] font-bold tracking-[0.02em] ${PRIORITY_CLS[task.priority]}`}>
+                      {t(PRIORITY_KEYS[task.priority])}
                     </span>
-                  )}
+                    <span>{t(task.metaKey)}</span>
+                    {task.ai && (
+                      <span className="inline-flex items-center gap-[3px] text-accent-ink font-semibold">
+                        <Sparkles className="w-[11px] h-[11px]" aria-hidden="true" />
+                        {t("planner.ai")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="ml-auto flex-none flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {task.minutes} {t("common.minUnit")}
+                  </span>
                 </div>
               </div>
-              <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-semibold", priorityColors[task.priority])}>
-                {priorityLabels[task.priority]}
-              </span>
-            </div>
-          </AnimatedCard>
-        ))}
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Streak note */}
+      <div className="mt-3 flex items-center gap-2.5 px-4 py-3.5 rounded-xl bg-[var(--surface-warm)] border border-[rgba(232,110,48,0.18)] text-xs text-muted-foreground">
+        <Flame className="w-[18px] h-[18px] text-partial-ink flex-none" aria-hidden="true" />
+        {t("planner.streakNote", { n: progress.streak })}
       </div>
     </div>
   );

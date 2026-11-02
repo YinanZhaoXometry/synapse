@@ -15,7 +15,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['"Source Serif Pro"', '"Songti SC"', '"Noto Serif SC"', 'Georgia', 'serif'],
+        display: ['"Source Serif 4"', '"Source Serif Pro"', '"Songti SC"', '"Noto Serif SC"', 'Georgia', 'serif'],
         body: ['Inter', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'],
       },
       colors: {
@@ -75,6 +75,13 @@ export default {
           a: "hsl(var(--grad-a))",
           b: "hsl(var(--grad-b))",
         },
+        "accent-ink": "var(--accent-ink)",
+        "mastered-ink": "var(--mastered-ink)",
+        "partial-ink": "var(--partial-ink)",
+        "citation-ink": "var(--citation-ink)",
+        "danger-ink": "var(--danger-ink)",
+        caption: "hsl(var(--caption))",
+        "caption-soft": "hsl(var(--caption-soft))",
         chart: {
           accent: "hsl(var(--chart-accent))",
           grid: "hsl(var(--chart-grid))",

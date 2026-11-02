@@ -5,7 +5,7 @@ sources:
   - ../../product/brief-synapse/brief-synapse.md
   - ../../product/prd-synapse/prd-synapse.md
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-02
 ui_system: shadcn/ui + Tailwind CSS-variable tokens (scaffold-inherited)
 ---
 
@@ -51,7 +51,7 @@ The Study Plan is the front door (FR-1 build target). Generation lives in-flow; 
 
 Phase 2 positions (named, not specified): **Roadmap graph** = a view tab inside Plan Home; **Square** = sidebar section below the hubs; **Note** = generated from plan/task context, surfaces as a Material-like item; **Today (今日学习)** = the daily task list that replaced the former Calendar position (FR-27: AI-suggested weak-spot tasks + due Re-queue reviews + manual tasks, scaffold Planner's task-list patterns — duration estimate, priority chip, completion toggle, day-progress; history demoted to a light week strip); **Plan-level Companion** (FR-46) = the Companion's second home — chat on Plan Home grounded in all attached Materials, intent chips per the scaffold tutor's pattern (解释 / 考我 / 总结 / 分析错题); the zh label 学习计划 stays reserved for Study Plan; **Plan creation goal step** (FR-1, Phase 2) = goal-selection chips from the scaffold onboarding feeding AI plan generation; **Analytics** (FR-26) = plan-scoped: mastery-by-node horizontal bars (scaffold topic-strength pattern) + accuracy trend; ai-vs-manual charts are legacy dual-mode and excluded; **Achievements** (FR-28) = the scaffold's 12-badge taxonomy as reference set, no new points/level mechanics. ~~Retired top-level destinations: AI Tutor, Materials, Achievements, Analytics~~ — **reversed, owner round 2026-11-01:** those destinations (plus Dashboard) are retained per the IA table; their jobs also live in plan/task context, and the retained pages re-point at that context as FRs land.
 
-Sidebar (as implemented, retained): Synapse mark row → language toggle → nav group of 9 (仪表盘 Dashboard · AI 导师 AI Tutor · 学习资料 Materials · 测验 Quiz · 闪卡 Flashcards · 错题本 Mistakes · 学习计划 Planner · 成就 Achievements · 数据分析 Analytics) → **user profile footer**: avatar initial + display name + 等级 N · 积分 stats line + Settings gear (→ `/settings`). The plan-first re-ordering (Plans front door + hubs group) applies when the FR-1 front door lands; until then the implemented order stands. Mobile: top header (logo, language, 🔥 streak) + bottom nav of 5 — Dashboard, AI Tutor, Quiz, Flashcards, Achievements.
+Sidebar (as implemented, retained): Synapse mark row → ~~language toggle~~ (removed — **owner round 2026-11-02**: duplicated the Settings 语言 cards; language switching lives there and in the ⌘K palette — [IMPORT.md §10](../northstar-import/IMPORT.md)) → ⌘K command-bar search pill (React-shell addition) → nav group of 9 (仪表盘 Dashboard · AI 导师 AI Tutor · 学习资料 Materials · 测验 Quiz · 闪卡 Flashcards · 错题本 Mistakes · 学习计划 Planner · 成就 Achievements · 数据分析 Analytics) → **user profile footer**: avatar initial + display name + 等级 N · 积分 stats line + Settings gear (→ `/settings`). The plan-first re-ordering (Plans front door + hubs group) applies when the FR-1 front door lands; until then the implemented order stands. Mobile: top header (hamburger menu + logo + search + 🔥 streak — language/settings buttons removed, **owner round 2026-11-02**; the hamburger opens an off-canvas drawer mirroring the sidebar: nav + profile footer with settings gear — [IMPORT.md §11](../northstar-import/IMPORT.md)) + bottom nav of 5 — Dashboard, AI Tutor, Quiz, Flashcards, Achievements.
 
 → Visual reference: [mockups/key-plans-home-empty.html](mockups/key-plans-home-empty.html) (front door, empty state) · [mockups/key-plan-home.html](mockups/key-plan-home.html) (Plan Home) · [mockups/key-reader-companion.html](mockups/key-reader-companion.html) (Immersive Reader + Companion) · [mockups/key-quiz.html](mockups/key-quiz.html) (quiz runner + results). Spine wins on conflict with any mock.
 
@@ -178,7 +178,8 @@ Behavioral specs; visuals in DESIGN.md · Components.
 - **Chat:** Enter send / Shift+Enter newline; citation chips focusable; suggested starters clickable.
 - **Selection `[stretch]`:** select text → SelectionBar appears (问 / 快测); Esc or click-away dismisses.
 - **Flashcards:** Space flip, ←/→ navigate, Esc ends session with summary.
-- **Language toggle:** sidebar footer, one click, persists.
+- **Language switch:** Settings page 语言 cards (one click, persists) or the ⌘K palette. ~~Sidebar toggle~~ removed — owner round 2026-11-02 ([IMPORT.md §10](../northstar-import/IMPORT.md)).
+- **Mobile menu:** hamburger 「打开导航」 opens the off-canvas drawer; scrim-tap, Esc, or any navigation closes it ([IMPORT.md §11](../northstar-import/IMPORT.md)).
 - **Banned everywhere:** hover-only affordances on touch, modal stacks >1 deep, infinite scroll, auto-playing audio, engagement toasts («快来学习吧!» — no).
 
 ## Accessibility Floor
@@ -198,7 +199,7 @@ Behavioral; visual contrast lives in DESIGN.md · Colors.
 | Breakpoint | Behavior |
 |---|---|
 | ≥1024px (`lg`) | Full sidebar; Reader split view (Companion docked 400–420px); Plan Home two-zone. |
-| 768–1023px (`md`) | Sidebar collapses to icon rail; Reader toggles Companion as right overlay; quiz/plans stack. |
+| 768–1023px (`md`) | Sidebar collapses to icon rail (nav icons + search + avatar + settings gear — language toggle removed, owner round 2026-11-02); Reader toggles Companion as right overlay; quiz/plans stack. |
 | <768px | Mobile header (logo · language · 🔥 streak) + bottom nav of 5 — Dashboard, AI Tutor, Quiz, Flashcards, Achievements (re-cut to Plans + hubs when the FR-1 front door lands); Reader full-bleed, Companion = bottom sheet (~65dvh, drag handle); uploads via native picker. |
 
 Responsive web, not native. Phone use = read + chat + review; generation and quiz sessions work but are not optimized.
@@ -213,7 +214,7 @@ Responsive web, not native. Phone use = read + chat + review; generation and qui
 - **Rejected — engagement nudges / time-in-app displays:** Synapse serves study efficiency, not retention theater. Streak counts evidence days, never minutes.
 - **Rejected — ai-vs-manual analytics charts:** legacy dual-mode comparison; explicitly excluded from FR-26.
 - **Rejected — "AI magic" sparkle-mania:** one pulse-glow thinking indicator; no sparkle-storm chrome.
-- **Rejected — dark mode in Phase 1:** no token set exists; demo days beat theme days.
+- **Rejected — dark mode in Phase 1:** no token set exists; demo days beat theme days. **→ Reversed 2026-11-02** (owner directive, Northstar pass 7): dark mode + sunset/twilight/aurora palettes shipped via `ThemeContext` (`src/contexts/ThemeContext.tsx`); the no-token-set rationale no longer holds — the dark set was ported from the Northstar reference's `body.theme-dark` (see [`docs/design/northstar-import/IMPORT.md`](../northstar-import/IMPORT.md) §11). New UI must hold in both modes and all three palettes.
 
 ## Key Flows
 
