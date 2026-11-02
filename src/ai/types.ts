@@ -36,6 +36,15 @@ export interface GroundedChatRequest {
   question: string;
   position: ReadingPosition;
   language: UiLanguage;
+  /**
+   * Contract amendment (epic-3 spec, 2026-11-03 · FR-12/NFR-2): the
+   * EscalationControl re-sends the SAME question + position with
+   * `escalated: true`; an adapter honors it by returning the answer rung
+   * directly — still grounded on the position and cited (the guardrail is a
+   * ladder, never a wall). Backward-compatible: optional, omitted by callers
+   * that predate the amendment.
+   */
+  escalated?: boolean;
 }
 
 /** Plan-structure proposal (creation chat): stage-grouped node titles. */

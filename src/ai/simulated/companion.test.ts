@@ -65,6 +65,49 @@ describe("grounded chat (seam: CompanionService interface)", () => {
     expect(chunks.length).toBeGreaterThan(0);
     expect(chunks.join("")).toBe(reply.text);
   });
+
+  it("escalated:true skips the hint ladder — the answer rung directly, still grounded + cited (FR-12 amendment)", async () => {
+    const reply = await svc.chat({
+      question: "为什么集成测试要先验证接口契约？",
+      position,
+      language: "zh",
+      escalated: true,
+    });
+    expect(reply.rung).toBe("answer"); // the ladder is a ladder, never a wall
+    expect(reply.intent).toBe("direct");
+    expect(reply.citations).toHaveLength(1); // still grounded on the position
+    expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 });
+    expect(reply.text).toContain("答案");
+  });
+
+  it("escalated quiz-me reaches the answer rung too — skipping rungs is always allowed", async () => {
+    const reply = await svc.chat({
+      question: "考考我这一页",
+      position,
+      language: "zh",
+      escalated: true,
+    });
+    expect(reply.rung).toBe("answer");
+    expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 });
+  });
+
+  it("escalation never conjures grounding — an ungroundable question stays honest", async () => {
+    const reply = await svc.chat({
+      question: "量子计算在业界的发展现状如何？",
+      position,
+      language: "en",
+      escalated: true,
+    });
+    expect(reply.intent).toBe("beyond-material");
+    expect(reply.citations).toHaveLength(0); // nothing to cite — never fakes grounding
+  });
+
+  it("the summarizer starter grounds on the open page at the answer rung (FR-11)", async () => {
+    const reply = await svc.chat({ question: "总结这一页", position, language: "zh" });
+    expect(reply.rung).toBe("answer");
+    expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 });
+    expect(reply.text.length).toBeGreaterThan(0);
+  });
 });
 
 describe("plan structure proposal (creation chat, spec Q4)", () => {

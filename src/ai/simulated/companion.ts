@@ -37,6 +37,7 @@ const COPY = {
     answer: (quote: string) => `答案：${quote}（来自你正在读的一页）`,
     reference: (quote: string) => `${quote}——这一页给了定义，注意它的前提条件。`,
     quizMe: (quote: string) => `好，考你一个：${quote}——你会怎么向别人解释这句话？先说说看。`,
+    summarize: (quote: string) => `这一页的主线：「${quote}」——页面其余部分都围绕这一点展开。`,
     beyond: "这一页答不了这个问题。我可以基于通用知识回答，但会明确标注不是来自你的材料。",
   },
   en: {
@@ -44,6 +45,7 @@ const COPY = {
     answer: (quote: string) => `Answer: ${quote} (from the page you're on)`,
     reference: (quote: string) => `${quote} — the page defines it; watch its preconditions.`,
     quizMe: (quote: string) => `Let's test you: "${quote}" — how would you explain this line to someone else? Go ahead.`,
+    summarize: (quote: string) => `This page's throughline: "${quote}" — the rest of the page builds around it.`,
     beyond: "This page can't answer that. I can answer from general knowledge — clearly labeled as outside your material.",
   },
 } as const;
@@ -52,6 +54,8 @@ const COPY = {
 const DIRECT = /直接|答案|直接告诉我|tell me|direct|the answer/i;
 const EXPLAIN = /为什么|为何|怎么会|why|how come|explain/i;
 const QUIZ_ME = /考(一)?考|考考|quiz|test me/i;
+/** The FR-11 summarizer starter — like quiz-me, inherently about the open page. */
+const SUMMARIZE = /总结|小结|summar/i;
 
 /**
  * Comparable terms: latin words + CJK 2-char shingles (whole CJK runs never
@@ -114,6 +118,14 @@ export class SimulatedCompanion implements CompanionService {
       rung = "hint";
       quote ??= firstSentence(position.text);
       text = copy.quizMe(quote);
+    } else if (SUMMARIZE.test(question)) {
+      // The summarizer starter (FR-11) is also inherently about the open page —
+      // grounded like quiz-me, at the low-friction reference rung.
+      quote ??= firstSentence(position.text);
+      intent = "reference";
+      rung = "answer";
+      text = quote ? copy.summarize(quote) : copy.beyond;
+      if (!quote) intent = "beyond-material";
     } else if (!quote) {
       intent = "beyond-material";
       rung = "answer";
@@ -130,6 +142,15 @@ export class SimulatedCompanion implements CompanionService {
       intent = "reference";
       rung = "answer";
       text = copy.reference(quote);
+    }
+
+    // Escalation honored (FR-12; the GroundedChatRequest amendment): the answer
+    // rung directly — still grounded on the position and cited. Escalation
+    // never conjures grounding: a beyond-material question stays honest.
+    if (request.escalated === true && intent !== "beyond-material" && rung !== "answer") {
+      intent = "direct";
+      rung = "answer";
+      text = copy.answer(quote);
     }
 
     await new Promise((r) => setTimeout(r, CHAT_DELAY));

@@ -31,8 +31,13 @@ const RENDER_RADIUS = 2;
 const MAX_DPR = 2;
 
 export interface PdfFlowHandle {
-  /** Scroll the flow so a page tops the viewport (pager arrows, ←/→, anchors). */
-  scrollToPage(page: number): void;
+  /**
+   * Scroll the flow so a page tops the viewport (pager arrows, ←/→, anchors).
+   * `flash` re-runs the citation-tint flash on the target — the in-reader half
+   * of the AD-8 anchor channel (citation chips, T5); deep links keep using the
+   * ?hl=1 mount flag.
+   */
+  scrollToPage(page: number, flash?: boolean): void;
 }
 
 interface PdfPageFlowProps {
@@ -63,6 +68,7 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
   const columnRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
   const anchoredRef = useRef(false);
+  const flashTimerRef = useRef<number | null>(null);
 
   // Open once per blob identity — the blob is converted to its own bytes copy
   // per open, so a re-mount never meets a pdfjs-detached buffer.
@@ -149,12 +155,30 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
     };
   }, [doc, updateCurrentFromViewport]);
 
+  // A citation-flash timer never outlives the flow.
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    },
+    [],
+  );
+
   const scrollToPage = useCallback(
-    (page: number) => {
+    (page: number, flash = false) => {
       if (!doc) return;
       const target = clampPage(page, doc.numPages);
       pageRefs.current.get(target)?.scrollIntoView({ block: "start", behavior: "auto" });
       reportCurrent(target);
+      if (flash) {
+        // Citation-chip flash (AD-8): one transient tint, a re-jump replaces
+        // the pending clear instead of racing it.
+        if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+        setFlashPage(target);
+        flashTimerRef.current = window.setTimeout(() => {
+          flashTimerRef.current = null;
+          setFlashPage(null);
+        }, READER_FLASH_MS);
+      }
     },
     [doc, reportCurrent],
   );

@@ -2,8 +2,9 @@
  * The Immersive Reader route (FR-8; AD-8): `/read/:materialId`, lazy-loaded
  * under AppLayout. Reading is sacred — maximal area, minimal chrome: a slim
  * top bar (back link, title, page pager, panel-collapse + immersive toggles)
- * over the material zone, with the Companion panel side structurally reserved
- * (its content is T5's — an honest placeholder, never a chat that pretends).
+ * over the material zone, with the page-aware Companion panel docked right
+ * (T5's CompanionPanel; the responsive ladder — overlay/bottom-sheet — is
+ * T6's, this aside is the seam).
  *
  * Parse states land here exactly as the UX spine specifies: parsing →
  * page-skeleton + progress copy; failed → card with the bilingual reason and
@@ -16,6 +17,11 @@
  * debounces persistence through the existing ReadingProgress mutation and
  * flushes on unmount. On open, an anchor (?page=N / #section-id) wins over
  * the stored position; with no anchor the stored page/section restores.
+ *
+ * Companion wiring (FR-11/12; T5): the tracker's currentPositionRef is the
+ * panel's send-time grounding source; a reactive displayLocator mirrors it
+ * for the grounded badge and send gating. Citation-chip jumps are the AD-8
+ * anchor channel's in-reader half — the flow handles scroll AND flash.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -33,6 +39,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { CompanionPanel } from "@/features/companion/CompanionPanel";
 import {
   sessionBlobs,
   useMaterialQuery,
@@ -40,6 +47,7 @@ import {
   useReadingProgressQuery,
 } from "@/data";
 import { cn } from "@/lib/utils";
+import type { ReadingLocator } from "@/domain/entities";
 import { PARSE_REASON_MESSAGE_KEY } from "./parse";
 import { parseReaderHash, parseReaderSearchParams, type ReaderAnchor } from "./anchors";
 import { currentSection } from "./position-tracking";
@@ -123,6 +131,11 @@ export default function ReaderPage() {
     material ?? null,
   );
 
+  // Reactive mirror of the tracked position for DISPLAY (the Companion's
+  // grounded badge + send gating); the tracker ref above stays the send-time
+  // grounding source. Same report handlers feed both, so they never disagree.
+  const [displayLocator, setDisplayLocator] = useState<ReadingLocator | null>(null);
+
   // Markdown scroll-spy inputs: the rendered heading ids (to detect the intro
   // section — it has no heading element, per T3) feed the pure selector with
   // each viewport report. Reports before the headings resolve are ignored —
@@ -145,7 +158,12 @@ export default function ReaderPage() {
       const first = current.sections[0];
       const introId = first && !resolvedHeadingIdsRef.current.includes(first.id) ? first.id : null;
       const sectionId = currentSection(boundaries, scrollTop, introId);
-      if (sectionId) reportPosition({ kind: "markdown", sectionId });
+      if (sectionId) {
+        reportPosition({ kind: "markdown", sectionId });
+        setDisplayLocator((prev) =>
+          prev?.kind === "markdown" && prev.sectionId === sectionId ? prev : { kind: "markdown", sectionId },
+        );
+      }
     },
     [reportPosition],
   );
@@ -155,10 +173,19 @@ export default function ReaderPage() {
     (page: number) => {
       setCurrentPage(page);
       reportPosition({ kind: "pdf", page });
+      setDisplayLocator((prev) => (prev?.kind === "pdf" && prev.page === page ? prev : { kind: "pdf", page }));
     },
     [reportPosition],
   );
   const handleTotalPages = useCallback((total: number) => setTotalPages(total), []);
+
+  // Citation-chip jumps (AD-8, in-reader half): scroll the flow to the cited
+  // page/section AND flash it in the citation tint — the same channel external
+  // deep links use, without a route change.
+  const jumpToLocator = useCallback((locator: ReadingLocator) => {
+    if (locator.kind === "pdf") flowRef.current?.scrollToPage(locator.page, true);
+    else mdFlowRef.current?.scrollToSection(locator.sectionId, true);
+  }, []);
 
   // A deep link into a still-pending material self-heals: with session bytes
   // present the reader can run the same eager parse the attach flow runs.
@@ -350,24 +377,35 @@ export default function ReaderPage() {
           )}
         </div>
 
-        {/* Companion side — structurally reserved; content is T5's. */}
+        {/* Companion side (FR-11/12; T5): the panel stays mounted while
+            collapsed (display-none) so an in-flight reply finishes and
+            persists. This aside is the desktop dock — T6's responsive ladder
+            repositions it without touching the panel. */}
         {!immersive && (
-          panelOpen ? (
+          <>
             <aside
-              className="hidden lg:flex w-[400px] xl:w-[420px] flex-none border-l border-border-soft bg-card flex-col items-center justify-center gap-2 px-6 text-center"
-              aria-label={t("reader.panelPlaceholder")}
+              aria-label={t("companion.title")}
+              className={cn(
+                "w-[400px] xl:w-[420px] flex-none border-l border-border-soft bg-card flex-col min-h-0",
+                panelOpen ? "hidden lg:flex" : "hidden",
+              )}
             >
-              <p className="text-xs text-muted-foreground leading-[1.6] max-w-[26ch]">
-                {t("reader.panelPlaceholder")}
-              </p>
+              <CompanionPanel
+                materialId={material.id}
+                material={material}
+                positionRef={currentPositionRef}
+                displayLocator={displayLocator}
+                onJumpToLocator={jumpToLocator}
+              />
             </aside>
-          ) : (
-            <div className="hidden lg:flex w-10 flex-none border-l border-border-soft flex-col items-center pt-3">
-              <IconToggle label={t("reader.panelExpandAria")} onClick={() => setPanelOpen(true)}>
-                <PanelRightOpen className="w-4 h-4" />
-              </IconToggle>
-            </div>
-          )
+            {panelOpen ? null : (
+              <div className="hidden lg:flex w-10 flex-none border-l border-border-soft flex-col items-center pt-3">
+                <IconToggle label={t("reader.panelExpandAria")} onClick={() => setPanelOpen(true)}>
+                  <PanelRightOpen className="w-4 h-4" />
+                </IconToggle>
+              </div>
+            )}
+          </>
         )}
       </div>
 

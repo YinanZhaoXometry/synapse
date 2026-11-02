@@ -38,8 +38,13 @@ export interface MeasuredSection {
 }
 
 export interface MarkdownFlowHandle {
-  /** Scroll a section heading to the top of the viewport (citation chips, T5). */
-  scrollToSection(id: string): void;
+  /**
+   * Scroll a section heading to the top of the viewport (citation chips, T5).
+   * `flash` re-runs the citation-tint flash on the heading — the in-reader
+   * half of the AD-8 anchor channel; deep links keep using the ?hl=1 mount
+   * flag.
+   */
+  scrollToSection(id: string, flash?: boolean): void;
   /** Measured section boundaries in document order (position tracker, T4). */
   measureBoundaries(): MeasuredSection[];
 }
@@ -72,6 +77,7 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const anchoredRef = useRef(false);
+  const flashTimerRef = useRef<number | null>(null);
 
   // Decode once per blob identity (AD-4): bytes → the full document text. The
   // parsed Material.sections stay the bounded extraction — that asymmetry is
@@ -143,8 +149,26 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
     };
   }, [onViewportScroll]);
 
-  const scrollToSection = useCallback((id: string) => {
+  // A citation-flash timer never outlives the flow.
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    },
+    [],
+  );
+
+  const scrollToSection = useCallback((id: string, flash = false) => {
     document.getElementById(id)?.scrollIntoView({ block: "start", behavior: "auto" });
+    if (flash) {
+      // Citation-chip flash (AD-8): one transient tint; a re-jump replaces the
+      // pending clear instead of racing it.
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+      setFlashSection(id);
+      flashTimerRef.current = window.setTimeout(() => {
+        flashTimerRef.current = null;
+        setFlashSection(null);
+      }, READER_FLASH_MS);
+    }
   }, []);
 
   const measureBoundaries = useCallback((): MeasuredSection[] => {
