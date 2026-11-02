@@ -322,6 +322,7 @@
   .tint-amber { background: hsl(var(--partial-tint)); color: var(--partial-ink); }
   .tint-green { background: hsl(var(--mastered-tint)); color: var(--mastered-ink); }
   .tint-blue { background: hsl(var(--citation-tint)); color: var(--citation-ink); }
+  .tint-danger { background: hsl(var(--destructive) / 0.12); color: var(--danger-ink); }
 
   .citation {
     display: inline-flex;

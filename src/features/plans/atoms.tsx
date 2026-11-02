@@ -2,8 +2,11 @@
  * Plans-feature shared atoms — display-contract bits reused by Plans Home and
  * Plan Home surfaces. Token-driven only (no hardcoded palette values).
  */
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
+import { Flame, Info } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { NodeState, Outcome } from "@/domain/entities";
 
 /** Mastery ring (ADR-0001 display): brand-gradient arc over the uncovered track. */
 export function MasteryRing({ value, size = 64 }: { value: number; size?: number }) {
@@ -63,5 +66,83 @@ export function StateMiniBar({ counts }: { counts: Record<"mastered" | "partial"
       <span className="bg-partial-tint" style={{ width: share(counts.partial) }} />
       <span className="bg-uncovered-tint" style={{ width: share(counts.uncovered) }} />
     </div>
+  );
+}
+
+const STATE_PILL: Record<NodeState, string> = {
+  mastered: "pill pill-mastered",
+  partial: "pill pill-partial",
+  uncovered: "pill pill-muted",
+};
+
+const STATE_MARK: Record<NodeState, string> = { mastered: "✦", partial: "◐", uncovered: "○" };
+
+/**
+ * Node state as glyph + tint + text label — never color alone (UX display
+ * contract; ADR-0001 consumers).
+ */
+export function StateGlyph({ state }: { state: NodeState }) {
+  const { t } = useLanguage();
+  const label = state === "mastered" ? t("plans.stateMastered") : state === "partial" ? t("plans.statePartial") : t("plans.stateUncovered");
+  return (
+    <span className={`${STATE_PILL[state]} flex-none`}>
+      <span aria-hidden="true" className="text-[11px] leading-none">
+        {STATE_MARK[state]}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+const OUTCOME_TINT: Record<Outcome, string> = {
+  correct: "tint-green",
+  partial: "tint-amber",
+  wrong: "tint-danger",
+};
+
+const OUTCOME_MARK: Record<Outcome, string> = { correct: "●", partial: "◐", wrong: "✕" };
+
+/** One evidence mark in the popover — outcome glyph + tint (not color alone). */
+export function OutcomeMark({ outcome, small = false }: { outcome: Outcome; small?: boolean }) {
+  const { t } = useLanguage();
+  const label = outcome === "correct" ? t("plans.outcomeCorrect") : outcome === "partial" ? t("plans.outcomePartial") : t("plans.outcomeWrong");
+  return (
+    <span
+      title={label}
+      className={`grid place-items-center rounded-full font-semibold flex-none ${OUTCOME_TINT[outcome]} ${
+        small ? "w-3.5 h-3.5 text-[9px]" : "w-5 h-5 text-[10px]"
+      }`}
+    >
+      <span aria-hidden="true">{OUTCOME_MARK[outcome]}</span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+/** Evidence-day streak (FR-25): the counting rule stated on hover — never minutes/logins. */
+export function StreakChip({ days }: { days: number }) {
+  const { t } = useLanguage();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="pill pill-streak cursor-help" tabIndex={0}>
+          <Flame className="w-[13px] h-[13px]" aria-hidden="true" />
+          {t("plans.streakDays", { n: days })}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[260px] text-xs leading-[1.5]">
+        {t("plans.streakRule")}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Quiet honesty footnote (e.g. the rollup contract, ADR-0001). */
+export function ContractNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 text-[11px] leading-[1.5] text-muted-foreground mt-2 max-w-[220px]">
+      <Info className="w-3 h-3 mt-[2px] flex-none" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
   );
 }
