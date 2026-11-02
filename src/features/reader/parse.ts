@@ -2,10 +2,12 @@
  * The reader feature's public parse(file) extraction API (AD-7): file bytes +
  * kind in; bounded MaterialSections + an honest parsed|failed state out.
  * PDF extraction dynamically imports pdfjs-dist inside parse-pdf only (AD-8);
- * Markdown is a pure sectioner. parse() never throws — every failure becomes a
- * failed outcome carrying a reason code, mapped to bilingual i18n keys (NFR-5)
- * via PARSE_REASON_MESSAGE_KEY. Per-section text is bounded by the existing
- * 2000-char cap (AD-4); no raw bytes ever leave this module.
+ * Markdown is a pure sectioner (which lazily loads the same render pipeline the
+ * reader renders with — its ids ARE the rendered anchors). parse() never
+ * throws — every failure becomes a failed outcome carrying a reason code,
+ * mapped to bilingual i18n keys (NFR-5) via PARSE_REASON_MESSAGE_KEY.
+ * Per-section text is bounded by the existing 2000-char cap (AD-4); no raw
+ * bytes ever leave this module.
  */
 import type { MaterialSection, ParseFailureReason } from "@/domain/entities";
 import type { UiLanguage } from "@/ai/types";
@@ -56,7 +58,7 @@ export async function parseFile(input: ParseInput): Promise<ParseOutcome> {
     const extracted =
       input.kind === "pdf"
         ? await parsePdf(input.bytes, input.language ?? "zh")
-        : sectionMarkdown(new TextDecoder("utf-8").decode(input.bytes), input.language ?? "zh");
+        : await sectionMarkdown(new TextDecoder("utf-8").decode(input.bytes), input.language ?? "zh");
     const sections = extracted.map((s) => ({ ...s, text: bound(s.text) }));
     if (sections.length === 0) return { sections: [], state: "failed", reason: "empty" };
     return { sections, state: "parsed" };

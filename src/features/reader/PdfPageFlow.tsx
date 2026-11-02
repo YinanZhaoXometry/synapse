@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { READER_FLASH_MS } from "./anchors";
 import { clampPage, inRenderWindow, renderWindow, stepPage } from "./pager";
 import { openPdfDocument, type OpenedPdfDocument } from "./pdf-render";
 
@@ -25,8 +26,6 @@ import { openPdfDocument, type OpenedPdfDocument } from "./pdf-render";
 const RENDER_RADIUS = 2;
 /** Device pixels per CSS pixel — capped so a hi-dpi window cannot balloon memory. */
 const MAX_DPR = 2;
-/** How long the citation-tint flash stays visible (AD-8: brief, once). */
-const FLASH_MS = 1400;
 
 export interface PdfFlowHandle {
   /** Scroll the flow so a page tops the viewport (pager arrows, ←/→, anchors). */
@@ -166,7 +165,7 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
       reportCurrent(target);
       if (flashTarget) {
         setFlashPage(target);
-        window.setTimeout(() => setFlashPage(null), FLASH_MS);
+        window.setTimeout(() => setFlashPage(null), READER_FLASH_MS);
       }
     }
     // The anchor is consumed exactly once per mount; its parts are stable props.

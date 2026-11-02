@@ -12,7 +12,7 @@
  * and re-runs the parse. An unknown material reads honestly as not-found.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -34,7 +34,8 @@ import {
 } from "@/data";
 import { cn } from "@/lib/utils";
 import { PARSE_REASON_MESSAGE_KEY } from "./parse";
-import { parseReaderSearchParams, type ReaderAnchor } from "./anchors";
+import { parseReaderHash, parseReaderSearchParams, type ReaderAnchor } from "./anchors";
+import { MarkdownFlow, type MarkdownFlowHandle } from "./MarkdownFlow";
 import { PdfPageFlow, type PdfFlowHandle } from "./PdfPageFlow";
 import { useParseMaterialMutation } from "./use-parse-material";
 import { useSessionBytes } from "./use-session-bytes";
@@ -56,12 +57,22 @@ export default function ReaderPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState<number | null>(null);
   const flowRef = useRef<PdfFlowHandle | null>(null);
+  // Markdown flow handle — T4 measures section boundaries through it, T5's
+  // citation chips scroll through it.
+  const mdFlowRef = useRef<MarkdownFlowHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // The anchor parses ONCE on mount — later URL edits are T4's business, and
-  // the flags below must not move mid-read.
+  // the flags below must not move mid-read. ?page=N / ?hl=1 come from the
+  // search; #section-id (the Markdown branch of the channel) from the hash.
+  const location = useLocation();
   const anchorRef = useRef<ReaderAnchor | null>(null);
-  if (anchorRef.current === null) anchorRef.current = parseReaderSearchParams(searchParams.toString());
+  if (anchorRef.current === null) {
+    anchorRef.current = {
+      ...parseReaderSearchParams(searchParams.toString()),
+      section: parseReaderHash(location.hash),
+    };
+  }
   const anchor = anchorRef.current;
 
   // ?hl=1 is transient (AD-8): the flag is consumed into the anchor above, so
@@ -233,8 +244,19 @@ export default function ReaderPage() {
               <ReuploadCard onReupload={() => fileInputRef.current?.click()} />
             )
           ) : material.kind === "markdown" ? (
-            // Markdown branch is T3 — the route/structure already hosts it.
-            <MarkdownPlaceholder />
+            // Markdown branch (FR-9): the full document from the session
+            // bytes; the byteless post-reload contract is the re-upload card,
+            // exactly like the PDF branch.
+            hasBytes ? (
+              <MarkdownFlow
+                ref={mdFlowRef}
+                blob={sessionBlobs.get(material.id)}
+                initialSection={anchor.section}
+                flashTarget={anchor.highlight}
+              />
+            ) : (
+              <ReuploadCard onReupload={() => fileInputRef.current?.click()} />
+            )
           ) : hasBytes ? (
             <PdfPageFlow
               ref={flowRef}
@@ -387,19 +409,6 @@ function ReuploadAction({ onReupload, hint }: { onReupload(): void; hint?: boole
       </button>
       {hint && <p className="text-[11px] text-muted-foreground mt-2">{t("plans.materialsSessionNote")}</p>}
     </>
-  );
-}
-
-/** Markdown branch placeholder — T3 renders the real thing here (honest copy only). */
-function MarkdownPlaceholder() {
-  const { t } = useLanguage();
-  return (
-    <StateZone>
-      <div className="bg-card border border-border-soft rounded-2xl shadow-raised p-6 max-w-md text-center">
-        <FileText className="w-5 h-5 mx-auto text-muted-foreground" aria-hidden="true" />
-        <p className="text-xs text-muted-foreground leading-[1.6] mt-2">{t("reader.markdownPending")}</p>
-      </div>
-    </StateZone>
   );
 }
 
