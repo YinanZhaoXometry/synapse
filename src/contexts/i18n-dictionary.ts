@@ -164,6 +164,7 @@ export const translations = {
       'reader.renderFailedTitle': '这份文件无法渲染。',
       'reader.renderFailedBody': '重新上传同一份文件通常可以解决。',
       'reader.reuploadKindMismatch': '文件类型与这份材料不符',
+      'reader.companionCloseAria': '关闭 Companion',
 
       'companion.title': 'Companion',
       'companion.groundedBadge': '◎ 已定位 · {target}',
@@ -659,6 +660,7 @@ export const translations = {
       'reader.renderFailedTitle': "This file couldn't be rendered.",
       'reader.renderFailedBody': 'Re-uploading the same file usually fixes this.',
       'reader.reuploadKindMismatch': "That file doesn't match this material",
+      'reader.companionCloseAria': 'Close Companion',
 
       'companion.title': 'Companion',
       'companion.groundedBadge': '◎ Located · {target}',

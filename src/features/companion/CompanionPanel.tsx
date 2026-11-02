@@ -104,8 +104,8 @@ export function CompanionPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* header */}
-      <div className="flex-none flex items-center gap-2.5 h-[52px] px-4 border-b border-border-soft">
+      {/* header — min-h so 200% text zoom reflows instead of clipping (a11y floor) */}
+      <div className="flex-none flex items-center gap-2.5 min-h-[52px] px-4 border-b border-border-soft">
         <span
           aria-hidden="true"
           className="w-8 h-8 rounded-[9px] bg-[var(--accent-tint)] text-accent-ink grid place-items-center text-xs font-bold shrink-0 font-display"

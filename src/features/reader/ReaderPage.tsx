@@ -2,9 +2,11 @@
  * The Immersive Reader route (FR-8; AD-8): `/read/:materialId`, lazy-loaded
  * under AppLayout. Reading is sacred — maximal area, minimal chrome: a slim
  * top bar (back link, title, page pager, panel-collapse + immersive toggles)
- * over the material zone, with the page-aware Companion panel docked right
- * (T5's CompanionPanel; the responsive ladder — overlay/bottom-sheet — is
- * T6's, this aside is the seam).
+ * over the material zone, with the page-aware Companion positioned by the
+ * responsive ladder (T6; UX responsive rows): ≥1024px docked right (400px,
+ * 420px ≥1280px) collapsible to a rail; 768–1023px a right slide-over above a
+ * scrim; <768px a bottom sheet at ~65dvh. All three mount the SAME
+ * CompanionPanel — only the container changes (companion-surfaces.tsx).
  *
  * Parse states land here exactly as the UX spine specifies: parsing →
  * page-skeleton + progress copy; failed → card with the bilingual reason and
@@ -39,7 +41,9 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useViewportTier } from "@/hooks/use-mobile";
 import { CompanionPanel } from "@/features/companion/CompanionPanel";
+import { CompanionOverlay, CompanionSheet } from "./companion-surfaces";
 import {
   sessionBlobs,
   useMaterialQuery,
@@ -69,7 +73,7 @@ export default function ReaderPage() {
   const hasBytes = useSessionBytes(materialId ?? "");
   const parseMaterial = useParseMaterialMutation();
 
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const [immersive, setImmersive] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState<number | null>(null);
@@ -107,6 +111,28 @@ export default function ReaderPage() {
   }, [searchParams, setSearchParams]);
 
   const material = materialQuery.data;
+
+  // Responsive ladder (T6): which Companion surface this width mounts — the
+  // CSS-gated dock (≥1024), the slide-over (768–1023) or the sheet (<768).
+  // A null choice follows the tier default: desktop opens the dock, tablet/
+  // mobile keep the reading primary (overlay/sheet closed until asked for).
+  const tier = useViewportTier();
+  const panelOpen = panelChoice ?? tier === "desktop";
+
+  // A11y floor: Esc closes the topmost reader layer — the floating Companion
+  // (overlay/sheet; they cover the reading) first, then immersive exit. The
+  // docked panel and rail are not layers (they never cover the reading) and
+  // are left alone.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const floating = tier === "tablet" || tier === "mobile";
+      if (floating && panelOpen) setPanelChoice(false);
+      else if (immersive) setImmersive(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tier, panelOpen, immersive]);
 
   // Stored progress (FR-10): the restore target when no anchor asks for one.
   // The flows mount only once this query has settled (gate below), so the
@@ -260,7 +286,7 @@ export default function ReaderPage() {
       />
 
       {!immersive && (
-        <header className="flex-none flex items-center gap-3 h-[52px] px-4 md:px-5 bg-card border-b border-border-soft">
+        <header className="flex-none flex items-center gap-3 min-h-[52px] px-4 md:px-5 bg-card border-b border-border-soft">
           <button
             type="button"
             onClick={() => navigate(material.planId ? `/plan/${material.planId}` : "/plans")}
@@ -304,7 +330,7 @@ export default function ReaderPage() {
             )}
             <IconToggle
               label={panelOpen ? t("reader.panelCollapseAria") : t("reader.panelExpandAria")}
-              onClick={() => setPanelOpen((open) => !open)}
+              onClick={() => setPanelChoice(!panelOpen)}
             >
               {panelOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
             </IconToggle>
@@ -318,7 +344,10 @@ export default function ReaderPage() {
         </header>
       )}
 
-      <div className="flex flex-1 min-h-0">
+      {/* `relative` scopes the floating ladder surfaces (overlay/sheet) to the
+          row UNDER the top bar — the toggle that opens them stays clickable
+          above them, and the app's own chrome stays untouched. */}
+      <div className="relative flex flex-1 min-h-0">
         {/* material zone */}
         <div className="flex-1 min-w-0 flex flex-col">
           {parseState === "parsing" ? (
@@ -377,10 +406,11 @@ export default function ReaderPage() {
           )}
         </div>
 
-        {/* Companion side (FR-11/12; T5): the panel stays mounted while
-            collapsed (display-none) so an in-flight reply finishes and
-            persists. This aside is the desktop dock — T6's responsive ladder
-            repositions it without touching the panel. */}
+        {/* Companion side, desktop ≥1024px (FR-11/12; T5): the docked panel at
+            400px (420px ≥1280px), collapsible to the rail beside it. The panel
+            stays mounted while collapsed (display-none) so an in-flight reply
+            finishes and persists. Tablet/mobile widths take the overlay/sheet
+            surfaces below (T6's ladder) — same panel, different container. */}
         {!immersive && (
           <>
             <aside
@@ -400,12 +430,44 @@ export default function ReaderPage() {
             </aside>
             {panelOpen ? null : (
               <div className="hidden lg:flex w-10 flex-none border-l border-border-soft flex-col items-center pt-3">
-                <IconToggle label={t("reader.panelExpandAria")} onClick={() => setPanelOpen(true)}>
+                <IconToggle label={t("reader.panelExpandAria")} onClick={() => setPanelChoice(true)}>
                   <PanelRightOpen className="w-4 h-4" />
                 </IconToggle>
               </div>
             )}
           </>
+        )}
+
+        {/* Ladder, tablet 768–1023px: the Companion as a right slide-over above
+            the reading (scrim tap / Esc / the top-bar toggle dismiss). */}
+        {!immersive && tier === "tablet" && panelOpen && (
+          <CompanionOverlay label={t("companion.title")} onClose={() => setPanelChoice(false)}>
+            <CompanionPanel
+              materialId={material.id}
+              material={material}
+              positionRef={currentPositionRef}
+              displayLocator={displayLocator}
+              onJumpToLocator={jumpToLocator}
+            />
+          </CompanionOverlay>
+        )}
+
+        {/* Ladder, mobile <768px: full-bleed reading with the Companion as a
+            bottom sheet (~65dvh, drag handle + swipe-to-dismiss). */}
+        {!immersive && tier === "mobile" && panelOpen && (
+          <CompanionSheet
+            label={t("companion.title")}
+            closeLabel={t("reader.companionCloseAria")}
+            onClose={() => setPanelChoice(false)}
+          >
+            <CompanionPanel
+              materialId={material.id}
+              material={material}
+              positionRef={currentPositionRef}
+              displayLocator={displayLocator}
+              onJumpToLocator={jumpToLocator}
+            />
+          </CompanionSheet>
         )}
       </div>
 

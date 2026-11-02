@@ -136,6 +136,16 @@ export default {
           "0%": { opacity: "0.75" },
           "100%": { opacity: "0" },
         },
+        // Responsive ladder (T6, UX responsive rows): the tablet slide-over and
+        // the mobile bottom sheet animate in from their screen edge; `to` is
+        // the element's natural position. The same global media rule collapses
+        // both under prefers-reduced-motion.
+        "sheet-up": {
+          from: { transform: "translateY(100%)" },
+        },
+        "slide-in-right": {
+          from: { transform: "translateX(100%)" },
+        },
         "confetti-fall": {
           "0%": { transform: "translateY(-10px) rotate(0deg)", opacity: "1" },
           "100%": { transform: "translateY(40px) rotate(360deg)", opacity: "0" },
@@ -149,6 +159,8 @@ export default {
         "fade-in": "fade-in 0.4s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "reader-flash": "reader-flash 1.2s ease-out forwards",
+        "sheet-up": "sheet-up 0.32s cubic-bezier(0.32, 0.72, 0, 1)",
+        "slide-in-right": "slide-in-right 0.28s cubic-bezier(0.32, 0.72, 0, 1)",
         "confetti": "confetti-fall 0.8s ease-out forwards",
       },
     },
