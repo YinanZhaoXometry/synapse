@@ -133,7 +133,7 @@ The system computes and displays a Mastery Score (0–100%) per Knowledge Node f
 **Consequences (testable):**
 - Each quiz result updates the affected nodes' Mastery Scores immediately after grading.
 - A node's score, its basis (which evidence), and the plan rollup are visible to the user.
-- Score computation and weighting: OQ-9 (deferred); the PRD pins only that scores are evidence-based and update on grading.
+- Score computation and weighting: resolved at spec time (OQ-9, 2026-11-02) — evidence-windowed mean; values and rationale in [ADR-0001](../../adr/0001-mastery-computation.md); the PRD pins that scores are evidence-based and update on grading.
 
 #### FR-4: Plan privacy `[Phase 2]`
 
@@ -295,7 +295,7 @@ Within a Study Plan, the user can generate flashcards from the attached Material
 
 #### FR-20: Mastery evidence recording `[Phase 2]`
 
-Quiz results (question, node, correctness) are recorded as mastery evidence and consumed by FR-3 (Mastery Score), FR-6 (node state), and FR-23 (Mistakes Notebook).
+Quiz results (question, node, correctness) are recorded as mastery evidence and consumed by FR-3 (Mastery Score), FR-6 (node state), and FR-23 (Mistakes Notebook). *(Clarified 2026-11-02: the recording itself is Phase 1 — a prerequisite of FR-3, per architecture AD-6; this FR's `[Phase 2]` tag denotes its hub consumption by FR-6/FR-23.)*
 
 #### FR-21: Adaptive weak-spot targeting `[Phase 2]`
 
@@ -476,7 +476,7 @@ Hosted learning content of any kind — no content library, no course marketplac
 6. **OQ-6** — Re-queue algorithm and intervals → implementation spec.
 7. **OQ-7 — RESOLVED** *(owner, Q3(c), 2026-11-01)*: Mastery Marking never raises the score; it marks the claim (green) and invites a confirm quiz — only quiz evidence moves the Mastery Score (FR-15).
 8. **OQ-8 — RESOLVED** *(owner, Q4, 2026-11-01)*: Phase 1 plan creation is AI-generated from a topic/goal; roadmap.sh open-source roadmaps import as ready-made plans in Phase 2 (FR-43).
-9. **OQ-9** — Mastery Score computation: evidence weighting, partial credit, coverage handling (uncovered ≠ mastered), decay/freshness over time → `/bmad-ux` + `/bmad-architecture`.
+9. **OQ-9 — RESOLVED** *(spec time, 2026-11-02)*: windowed mean of the last 5 evidence outcomes (correct 1 / partial 0.5 / wrong-or-forfeit 0); mastered = ≥80% **and** ≥3 evidence records; rollup = mean of node scores with uncovered nodes at 0; no time-based decay in Phase 1 (the window ages evidence; Phase-2 freshness layers on). Recorded in [ADR-0001](../../adr/0001-mastery-computation.md); placement per architecture AD-6.
 10. **OQ-10** — Open Question grading: how the Companion grades Open Questions (rubric visibility, partial credit, appeal) → `/bmad-ux`.
 11. **OQ-11** — Note enrichment sourcing: AI-generated charts vs. curated/stock images vs. none; placement policy and cost → `/bmad-architecture` + `/bmad-ux`.
 12. **OQ-12 — RESOLVED product-side** *(owner default accepted, Q7, 2026-11-01)*: adoption = **fork** into the adopter's own plan, original author attributed; residual discovery UX (listing order) stays with `/bmad-ux`.

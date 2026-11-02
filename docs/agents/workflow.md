@@ -34,6 +34,34 @@ Phase reference: brief = Analysis; PRD + UX = Planning; architecture = Solutioni
 
 `bmad-prd` reads the brief but is not a hard dependency — brief-only or PRD-only are both valid shapes. When it IS used, the rule below still applies.
 
+## Managing delivery phases & epics
+
+(BMAD's "phase reference" above means methodology phases — Analysis/Planning/Solutioning. This section is about **delivery phases**: what ships when.)
+
+**Vocabulary.** The PRD owns the only phase tags — `[Phase 1]` (Nov 6 course deadline), `[Phase 2]`, `stretch` (pull into Phase 1 only if the core lands early). Never invent new phase names; a ticket's phase = its FRs' tags.
+
+**Phases = GitHub milestones.** One milestone per phase; every ticket gets exactly one. `stretch` FRs ride in the Phase-2 milestone until a Phase-1 checkpoint pulls them forward (re-milestone + one-line note on the epic). Created 2026-11-02: `Phase 1 — Nov 6 core` (due 2026-11-06) and `Phase 2 — post-deadline`.
+
+**Epics = capability slices, one spec pipeline each.** An epic is a GitHub tracking issue; its tickets are sub-issues; dependencies are native blocked-by edges (see [issue-tracker.md](issue-tracker.md)). Create the epic issue when its spec run starts — never pre-file empty shells. One epic = one `/grill-with-docs` → `/to-spec` → `/to-tickets` chain; don't run the chain per-ticket.
+
+**Phase-1 slicing** (dependency-ordered, from the [gap analysis](../architecture/architecture-synapse/gap-analysis.md) §5):
+
+| # | Epic | Scope (FRs) | Blocks |
+| --- | --- | --- | --- |
+| 1 | foundation | `src/domain` entities + `mastery.ts` + tests; `src/data` `synapse-db:v1`; `src/ai` simulated CompanionService | everything |
+| 2 | plans | entry states, Plans Home light + streak, creation chat, material attach (FR-1/2/25) | — |
+| 3 | reader | `parse(file)`, PDF/MD render, ReadingPosition (FR-8/9/10) | companion, tasks |
+| 4 | companion | page-aware panel + guardrail contract (FR-11/12) | — |
+| 5 | tasks | Study Task (FR-37) | — |
+| 6 | quiz + flashcards | in-flow generation, evidence recording (FR-18/19) | — |
+| 7 | small tail | FR-36 sidebar ordering, Settings store reset, deploy (FR-35/36) — scale-ladder row 1: straight to `/implement`, no spec chain | — |
+
+After epic 1 lands, epics 2–6 can run two lanes in parallel (that's what AD-2's visible boundaries are for); epic 4 waits on 3 for ReadingPosition grounding.
+
+**Definition of done (Phase-1 epic):** FR acceptance criteria pass · gates green (`npx tsc -b`, `npm run lint`, `npm run test` — AD-10) · grandfathered scaffold surfaces untouched unless the epic's FR re-points them · every ticket cites its AD ids.
+
+**Phase 2 is not planned yet.** The architecture spine's Deferred table is its parking lot; a row's "revisit when" trigger is what starts that epic's spec run. The hub stand-ins (`/quiz` `/flashcards` `/mistakes` `/planner` scaffold pages) stand until then.
+
 ## Rules
 
 - Do not run `/bmad-prd` and `/to-spec` over the same feature unless one is explicitly updating the other. One spec pipeline per feature.
