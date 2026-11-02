@@ -67,7 +67,7 @@ export default function MaterialsPage() {
             className={`px-3.5 py-[7px] rounded-full text-xs font-semibold border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               activeTag === tag
                 ? "bg-foreground text-background border-transparent"
-                : "bg-[var(--glass-3)] border-border-soft text-muted-foreground hover:bg-white"
+                : "bg-[var(--glass-3)] border-border-soft text-muted-foreground hover:bg-[var(--glass-solid)]"
             }`}
           >
             {t(tagKey(tag))}

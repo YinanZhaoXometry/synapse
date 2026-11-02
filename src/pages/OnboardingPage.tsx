@@ -81,7 +81,7 @@ export default function OnboardingPage() {
         <div
           className="border rounded-[20px] shadow-raised p-6 md:p-10"
           style={{
-            background: "rgba(255, 255, 255, 0.82)",
+            background: "var(--glass-4)",
             WebkitBackdropFilter: "blur(24px) saturate(180%)",
             backdropFilter: "blur(24px) saturate(180%)",
             borderColor: "var(--glass-edge)",
