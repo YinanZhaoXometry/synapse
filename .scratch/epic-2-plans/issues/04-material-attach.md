@@ -1,6 +1,6 @@
 # T4: Material attach — dropzone → registered, pending-parse Material (FR-2)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 Blocked by: 03-plan-home-light.md
 
@@ -14,12 +14,12 @@ Attaching materials to a plan (FR-2, Q1): an upload dropzone on Plan Home (the a
 
 ## Acceptance criteria
 
-- [ ] Valid PDF or Markdown (≤ 20 MB) attaches to the plan: metadata row (title, kind, size) appears with parse state "pending"; the plan's material count updates (FR-2; AD-4)
-- [ ] Wrong-type uploads rejected with a bilingual reason naming what is supported today (PPT = Phase 2); oversized files rejected at the 20 MB boundary with a bilingual reason (FR-2)
-- [ ] File bytes go to the session-blob registry only — nothing persisted, no localStorage growth (AD-4; owner FR-29 decision)
-- [ ] No parsing happens and no parse-state promise is made beyond "pending" — the Reader owns `parse(file)` (AD-7; Q1)
-- [ ] After reload: material metadata survives; the row states the file needs re-uploading — reads as a known contract, not data loss (FR-29)
-- [ ] Attachment gates lift on Plan Home: generation quick actions become enabled-looking once a material exists (their real behavior still arrives with slices 4/6) (Q7)
-- [ ] Validators (extension/content-type accept list, size boundary) are pure functions with vitest coverage including the 20 MB boundary (Q8)
-- [ ] All new user-facing strings in the i18n table, zh + en (NFR-5)
-- [ ] Gates green: `npx tsc -b`, `npm run lint`, `npm run test`; grandfathered scaffold surfaces untouched (AD-9)
+- [x] Valid PDF or Markdown (≤ 20 MB) attaches to the plan: metadata row (title, kind, size) appears with parse state "pending"; the plan's material count updates (FR-2; AD-4)
+- [x] Wrong-type uploads rejected with a bilingual reason naming what is supported today (PPT = Phase 2); oversized files rejected at the 20 MB boundary with a bilingual reason (FR-2)
+- [x] File bytes go to the session-blob registry only — nothing persisted, no localStorage growth (AD-4; owner FR-29 decision)
+- [x] No parsing happens and no parse-state promise is made beyond "pending" — the Reader owns `parse(file)` (AD-7; Q1)
+- [x] After reload: material metadata survives; the row states the file needs re-uploading — reads as a known contract, not data loss (FR-29)
+- [x] Attachment gates lift on Plan Home: generation quick actions become enabled-looking once a material exists (their real behavior still arrives with slices 4/6) (Q7)
+- [x] Validators (extension/content-type accept list, size boundary) are pure functions with vitest coverage including the 20 MB boundary (Q8)
+- [x] All new user-facing strings in the i18n table, zh + en (NFR-5)
+- [x] Gates green: `npx tsc -b`, `npm run lint`, `npm run test`; grandfathered scaffold surfaces untouched (AD-9)

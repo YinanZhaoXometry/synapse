@@ -1,6 +1,6 @@
 # Epic 2 — Study Plans, the front door (FR-1 · FR-2 · FR-25)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 
 ## Parent
