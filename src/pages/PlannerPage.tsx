@@ -3,6 +3,8 @@ import { Flame, Check, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { DEFAULT_TASKS, type PlannerTask } from "@/lib/demo-data";
+import { useSearchParams } from "react-router-dom";
+import PlannerPrototype from "@/prototype/plans-epic2";
 
 const PRIORITY_KEYS: Record<PlannerTask["priority"], string> = {
   high: "planner.high",
@@ -16,7 +18,14 @@ const PRIORITY_CLS: Record<PlannerTask["priority"], string> = {
   low: "bg-[hsl(var(--mastered-tint))] text-mastered-ink",
 };
 
+/** PROTOTYPE gate (epic-2): /planner?variant=A|B|C renders throwaway plans-UI variants. */
 export default function PlannerPage() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("variant")) return <PlannerPrototype />;
+  return <PlannerDemoPage />;
+}
+
+function PlannerDemoPage() {
   const { t } = useLanguage();
   const { progress, resetTick } = useUserProgress();
 
