@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { STORAGE_KEY } from "./document";
 import { getMaterial, listMaterialsByPlan, registerMaterial } from "./material-repository";
-import { createSessionBlobRegistry } from "./session-blobs";
+import { createSessionBlobRegistry, sessionBlobs } from "./session-blobs";
 
 beforeEach(() => {
   localStorage.clear();
@@ -73,5 +73,29 @@ describe("material repository (seam: public API over real localStorage)", () => 
     const stored = getMaterial(material.id)?.sections[0].text ?? "";
     expect(stored.length).toBeLessThanOrEqual(2000);
     expect(stored.length).toBeGreaterThan(0);
+  });
+
+  it("attach flow (FR-2, AD-7): pending registration with plan linkage; bytes session-only so a reload asks for the file again", () => {
+    const { material } = registerMaterial({
+      title: "Lecture 4",
+      kind: "pdf",
+      sizeBytes: 123,
+      planId: "p-9",
+      taskId: null,
+      blob: new Blob(["raw"]),
+      sections: [],
+      parseState: "pending",
+    });
+
+    expect(material.parseState).toBe("pending"); // no parsing promised (AD-7)
+    expect(material.sections).toHaveLength(0);
+    expect(listMaterialsByPlan("p-9").map((m) => m.id)).toContain(material.id); // plan count source
+    expect(sessionBlobs.has(material.id)).toBe(true); // bytes retrievable this session
+
+    // "reload": the app-wide registry resets naturally (fresh memory), metadata survives —
+    // the row must then read as re-upload-needed, not data loss (FR-29).
+    const freshRegistry = createSessionBlobRegistry();
+    expect(freshRegistry.has(material.id)).toBe(false);
+    expect(getMaterial(material.id)?.title).toBe("Lecture 4");
   });
 });

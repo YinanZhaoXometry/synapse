@@ -135,6 +135,10 @@ export const translations = {
       'plans.activityMeta': '{score}% · {n} 条作答',
       'plans.stageUntitled': '—',
       'plans.sizeMb': '{n} MB',
+      'plans.materialsUpload': '上传',
+      'plans.attachDropActive': '松开即可附上',
+      'plans.materialReupload': '需重新上传',
+      'plans.materialReuploadAction': '重新上传',
 
       'dashboard.eyebrow': '仪表盘',
       'dashboard.greetingA': '早上好，',
@@ -434,7 +438,9 @@ export const translations = {
       'errors.planNotFound': '找不到该学习计划',
       'errors.materialNotFound': '找不到该学习资料',
       'errors.flashcardNotFound': '找不到该闪卡',
-      'errors.evidenceBatchUnknown': '作答数据不完整 · 请重新提交'
+      'errors.evidenceBatchUnknown': '作答数据不完整 · 请重新提交',
+      'errors.uploadUnsupportedType': '目前仅支持 PDF 与 Markdown（PPT 将在 Phase 2 支持）',
+      'errors.uploadTooLarge': '文件超过 20MB 上限，请换更小的文件'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -569,6 +575,10 @@ export const translations = {
       'plans.activityMeta': '{score}% · {n} answers',
       'plans.stageUntitled': '—',
       'plans.sizeMb': '{n} MB',
+      'plans.materialsUpload': 'Upload',
+      'plans.attachDropActive': 'Drop to attach',
+      'plans.materialReupload': 're-upload needed',
+      'plans.materialReuploadAction': 'Re-upload',
 
       'dashboard.eyebrow': 'Dashboard',
       'dashboard.greetingA': 'Good morning, ',
@@ -868,7 +878,9 @@ export const translations = {
       'errors.planNotFound': 'Study Plan not found',
       'errors.materialNotFound': 'Material not found',
       'errors.flashcardNotFound': 'Flashcard not found',
-      'errors.evidenceBatchUnknown': 'Answer data incomplete · please resubmit'
+      'errors.evidenceBatchUnknown': 'Answer data incomplete · please resubmit',
+      'errors.uploadUnsupportedType': 'Only PDF and Markdown are supported today (PPT arrives in Phase 2)',
+      'errors.uploadTooLarge': 'That file is over the 20 MB limit — try a smaller one'
     }
   
 } as const;
