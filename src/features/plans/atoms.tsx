@@ -6,53 +6,70 @@ import { useId, type ReactNode } from "react";
 import { Flame, Info } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import type { NodeState, Outcome } from "@/domain/entities";
+import { masteryRingVariant } from "./display-shaping";
+import { OUTCOME_LABEL_KEY } from "./outcome-labels";
 
-/** Mastery ring (ADR-0001 display): brand-gradient arc over the uncovered track. */
+/**
+ * Mastery ring (ADR-0001 display): brand-gradient arc over the uncovered track.
+ * At exactly 100 the ring switches to the mastered palette with the readiness
+ * label (DESIGN.md display contract; FR-3) — never the brand gradient.
+ */
 export function MasteryRing({ value, size = 64 }: { value: number; size?: number }) {
   const { t } = useLanguage();
   const gradientId = useId();
   const r = (size - 8) / 2;
   const c = 2 * Math.PI * r;
+  const ready = masteryRingVariant(value) === "mastered";
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label={t("plans.masteryAria", { n: value })}
-      className="flex-none"
-    >
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--uncovered-fill))" strokeWidth="6" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke={`url(#${gradientId})`}
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={`${(c * value) / 100} ${c}`}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="hsl(var(--grad-a))" />
-          <stop offset="100%" stopColor="hsl(var(--grad-b))" />
-        </linearGradient>
-      </defs>
-      <text
-        x="50%"
-        y="54%"
-        dominantBaseline="middle"
-        textAnchor="middle"
-        fill="hsl(var(--foreground))"
-        fontSize={size * 0.22}
-        className="font-display font-bold tabular-nums"
+    <div className="flex flex-col items-center gap-1 flex-none">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={t("plans.masteryAria", { n: value })}
+        className="flex-none"
       >
-        {value}%
-      </text>
-    </svg>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--uncovered-fill))" strokeWidth="6" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={ready ? "var(--mastered-ink)" : `url(#${gradientId})`}
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={`${(c * value) / 100} ${c}`}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+        {!ready && (
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--grad-a))" />
+              <stop offset="100%" stopColor="hsl(var(--grad-b))" />
+            </linearGradient>
+          </defs>
+        )}
+        <text
+          x="50%"
+          y="54%"
+          dominantBaseline="middle"
+          textAnchor="middle"
+          fill="hsl(var(--foreground))"
+          fontSize={size * 0.22}
+          className="font-display font-bold tabular-nums"
+        >
+          {value}%
+        </text>
+      </svg>
+      {ready && (
+        <span className="pill pill-mastered text-[10px] leading-none" aria-hidden="true">
+          {t("plans.readyLabel")}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -85,7 +102,7 @@ export function StateGlyph({ state }: { state: NodeState }) {
   const { t } = useLanguage();
   const label = state === "mastered" ? t("plans.stateMastered") : state === "partial" ? t("plans.statePartial") : t("plans.stateUncovered");
   return (
-    <span className={`${STATE_PILL[state]} flex-none`}>
+    <span className={cn(STATE_PILL[state], "flex-none")}>
       <span aria-hidden="true" className="text-[11px] leading-none">
         {STATE_MARK[state]}
       </span>
@@ -105,13 +122,15 @@ const OUTCOME_MARK: Record<Outcome, string> = { correct: "●", partial: "◐", 
 /** One evidence mark in the popover — outcome glyph + tint (not color alone). */
 export function OutcomeMark({ outcome, small = false }: { outcome: Outcome; small?: boolean }) {
   const { t } = useLanguage();
-  const label = outcome === "correct" ? t("plans.outcomeCorrect") : outcome === "partial" ? t("plans.outcomePartial") : t("plans.outcomeWrong");
+  const label = t(OUTCOME_LABEL_KEY[outcome]);
   return (
     <span
       title={label}
-      className={`grid place-items-center rounded-full font-semibold flex-none ${OUTCOME_TINT[outcome]} ${
-        small ? "w-3.5 h-3.5 text-[9px]" : "w-5 h-5 text-[10px]"
-      }`}
+      className={cn(
+        "grid place-items-center rounded-full font-semibold flex-none",
+        OUTCOME_TINT[outcome],
+        small ? "w-3.5 h-3.5 text-[9px]" : "w-5 h-5 text-[10px]",
+      )}
     >
       <span aria-hidden="true">{OUTCOME_MARK[outcome]}</span>
       <span className="sr-only">{label}</span>

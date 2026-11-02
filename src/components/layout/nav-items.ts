@@ -14,8 +14,9 @@ export const NAV_ROUTES = [
   { to: "/flashcards", labelKey: "nav.flashcards", icon: Layers },
   { to: "/mistakes", labelKey: "nav.mistakes", icon: BookmarkMinus },
   // 学习计划 → Plans Home (AD-8 front door); /planner stays reachable by URL
-  // only and returns to the nav when FR-27 lands (Phase 2).
-  { to: "/plans", labelKey: "nav.planner", icon: CalendarCheck },
+  // only and returns to the nav when FR-27 lands (Phase 2). The entry gets its
+  // own key — nav.planner ("Planner") is the old demo page's avoided alias.
+  { to: "/plans", labelKey: "nav.plans", icon: CalendarCheck },
   { to: "/achievements", labelKey: "nav.achievements", icon: Award },
   { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
 ] as const;

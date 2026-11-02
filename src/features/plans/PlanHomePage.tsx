@@ -24,6 +24,7 @@ import {
   usePlanQuery,
   useRegisterMaterialMutation,
 } from "@/data";
+import { cn } from "@/lib/utils";
 import type { Material } from "@/domain/entities";
 import {
   evidenceStreak,
@@ -33,7 +34,10 @@ import {
   stageGroups,
   type NodeRowView,
 } from "./display-shaping";
+import { localeTag } from "./locale";
+import { OUTCOME_LABEL_KEY } from "./outcome-labels";
 import { validateUpload } from "./upload-validation";
+import { useSessionBlob } from "./use-session-blob";
 import { ContractNote, MasteryRing, OutcomeMark, StateGlyph, StreakChip } from "./atoms";
 
 export default function PlanHomePage() {
@@ -49,8 +53,6 @@ export default function PlanHomePage() {
   // The picker serves two flows: null = attach a new material; a material id = re-upload
   // that row's session bytes (FR-29 contract — metadata persists, bytes do not).
   const pickerTargetRef = useRef<string | null>(null);
-  // Bumped after a re-upload so rows re-read the session registry (which resets on reload by design).
-  const [, setBlobTick] = useState(0);
   const [dragOver, setDragOver] = useState(false);
 
   const openPicker = (materialId: string | null = null) => {
@@ -71,8 +73,8 @@ export default function PlanHomePage() {
     pickerTargetRef.current = null;
     if (reuploadId) {
       // Re-upload: same Material metadata, fresh session-only bytes — still no parsing (AD-7).
+      // The row re-renders via its useSessionBlob subscription (no manual tick).
       sessionBlobs.put(reuploadId, file);
-      setBlobTick((n) => n + 1);
       return;
     }
     // Register pending-parse (AD-7/Q1): no parsing here; the Reader owns parse(file).
@@ -193,7 +195,6 @@ export default function PlanHomePage() {
                   <MaterialRow
                     key={material.id}
                     material={material}
-                    needsReupload={!sessionBlobs.has(material.id)}
                     onReupload={() => openPicker(material.id)}
                   />
                 ))}
@@ -222,11 +223,12 @@ export default function PlanHomePage() {
                 setDragOver(false);
                 handleFiles(e.dataTransfer.files);
               }}
-              className={`w-full rounded-2xl border-[1.5px] border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${
+              className={cn(
+                "w-full rounded-2xl border-[1.5px] border-dashed px-4 py-6 text-center cursor-pointer transition-colors",
                 dragOver
                   ? "border-[var(--accent-ring)] bg-[var(--accent-tint-2)]"
-                  : "border-[var(--accent-edge)] bg-[var(--accent-tint)] hover:bg-[var(--accent-tint-2)]"
-              }`}
+                  : "border-[var(--accent-edge)] bg-[var(--accent-tint)] hover:bg-[var(--accent-tint-2)]",
+              )}
             >
               <Upload className="w-5 h-5 mx-auto text-accent-ink" aria-hidden="true" />
               <p className="text-sm font-semibold mt-2">{t("plans.attachCta")}</p>
@@ -245,10 +247,17 @@ export default function PlanHomePage() {
                   type="button"
                   aria-disabled={action.off}
                   title={action.off ? t("plans.needMaterial") : undefined}
-                  onClick={() => (action.slice ? toast(t(action.slice)) : openPicker())}
-                  className={`text-left rounded-xl border border-border-soft p-3 transition-colors cursor-pointer ${
-                    action.off ? "opacity-50" : "hover:bg-[var(--glass-2)]"
-                  }`}
+                  onClick={() => {
+                    // Gated tiles name the gate (attach a material), never the
+                    // roadmap; ungated slice tiles keep their slice explanation.
+                    if (action.off) toast(t("plans.needMaterial"));
+                    else if (action.slice) toast(t(action.slice));
+                    else openPicker();
+                  }}
+                  className={cn(
+                    "text-left rounded-xl border border-border-soft p-3 transition-colors cursor-pointer",
+                    action.off ? "opacity-50" : "hover:bg-[var(--glass-2)]",
+                  )}
                 >
                   <action.icon className="w-4 h-4 text-accent-ink" aria-hidden="true" />
                   <p className="text-[13px] font-semibold mt-1.5">{action.label}</p>
@@ -269,7 +278,7 @@ export default function PlanHomePage() {
                     <p className="font-semibold leading-[1.4] truncate">{entry.nodeTitle}</p>
                     <p className="text-muted-foreground mt-0.5">
                       {t("plans.activityMeta", { score: entry.score, n: entry.recordCount })} ·{" "}
-                      {new Date(entry.latestAt).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")}
+                      {new Date(entry.latestAt).toLocaleDateString(localeTag(language))}
                     </p>
                   </div>
                 ))}
@@ -315,7 +324,7 @@ function NodeRow({ view }: { view: NodeRowView }) {
             {(["correct", "partial", "wrong"] as const).map((outcome) => (
               <span key={outcome} className="inline-flex items-center gap-1">
                 <OutcomeMark outcome={outcome} small />
-                {outcome === "correct" ? t("plans.outcomeCorrect") : outcome === "partial" ? t("plans.outcomePartial") : t("plans.outcomeWrong")}
+                {t(OUTCOME_LABEL_KEY[outcome])}
               </span>
             ))}
           </div>
@@ -330,18 +339,13 @@ function NodeRow({ view }: { view: NodeRowView }) {
  * One material row (Q1): kind + size + honest parse-pending chip while the
  * session bytes are present; once they are gone (reload), the row names the
  * contract — re-upload needed — with an affordance that opens the picker for
- * that row. Parse state never promises more than "pending" (AD-7).
+ * that row. Parse state never promises more than "pending" (AD-7). Byte
+ * presence is a declarative `useSessionBlob` subscription, so the row itself
+ * re-renders when bytes are attached or re-uploaded.
  */
-function MaterialRow({
-  material,
-  needsReupload,
-  onReupload,
-}: {
-  material: Material;
-  needsReupload: boolean;
-  onReupload: () => void;
-}) {
+function MaterialRow({ material, onReupload }: { material: Material; onReupload: () => void }) {
   const { t } = useLanguage();
+  const needsReupload = !useSessionBlob(material.id);
   const kind = material.kind === "pdf" ? t("plans.materialKindPdf") : t("plans.materialKindMarkdown");
   return (
     <div className="flex items-center gap-3 px-4 py-3">

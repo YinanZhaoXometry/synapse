@@ -6,7 +6,7 @@
  * is the Reader epic's public API (AD-7, Q1).
  */
 
-/** The attach cap (AD-4); a file of exactly this size is rejected — just under passes. */
+/** The attach cap (AD-4); a file of EXACTLY this size passes (PRD FR-2: ≤ 20 MB uploads) — anything larger is rejected. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 export type UploadKind = "pdf" | "markdown";
@@ -54,12 +54,12 @@ export function titleFromFilename(name: string): string {
  * by its name (the extension is what the user controls — a `.txt` claiming to
  * be markdown in its MIME header is still not attachable); only extension-less
  * filenames fall back to the content-type. Size is checked once the type is
- * accepted, at the strict 20 MB boundary.
+ * accepted, at the 20 MB boundary (the cap itself is allowed — FR-2).
  */
 export function validateUpload(file: UploadFileSpec): UploadValidation {
   const extension = extensionOf(file.name);
   const kind = extension ? KIND_BY_EXTENSION[extension] : KIND_BY_CONTENT_TYPE[file.type.toLowerCase()];
   if (!kind) return { ok: false, messageKey: "errors.uploadUnsupportedType" };
-  if (file.size >= MAX_UPLOAD_BYTES) return { ok: false, messageKey: "errors.uploadTooLarge" };
+  if (file.size > MAX_UPLOAD_BYTES) return { ok: false, messageKey: "errors.uploadTooLarge" };
   return { ok: true, kind, title: titleFromFilename(file.name) };
 }

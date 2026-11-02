@@ -13,6 +13,13 @@ export function mostRecentPlan(plans: StudyPlan[]): StudyPlan | undefined {
   return [...plans].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
 }
 
+/** MasteryRing's palette decision (DESIGN.md display contract; FR-3): 100% is the readiness state. */
+export type MasteryRingVariant = "brand" | "mastered";
+
+export function masteryRingVariant(rollup: number): MasteryRingVariant {
+  return rollup >= 100 ? "mastered" : "brand";
+}
+
 /** One card/hero's presentation inputs (rollup chip + node-state mini bar). */
 export interface PlanCardMetrics {
   rollup: number;

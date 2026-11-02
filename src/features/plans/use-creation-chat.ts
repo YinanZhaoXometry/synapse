@@ -6,8 +6,10 @@
  * surface (create mutation + navigation, see CreationChat).
  */
 import { useCallback, useRef, useState } from "react";
+import { toast } from "sonner";
 import { getCompanionService } from "@/ai/companion-service";
 import type { PlanStructureProposal, UiLanguage } from "@/ai/types";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export type ChatMessage = { role: "user" | "ai"; text: string; goal?: string | null };
 export type ChatPhase = "idle" | "streaming" | "proposed";
@@ -19,6 +21,7 @@ export interface ChatInput {
 }
 
 export function useCreationChat(language: UiLanguage) {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<ChatPhase>("idle");
   const [streamText, setStreamText] = useState("");
@@ -41,9 +44,18 @@ export function useCreationChat(language: UiLanguage) {
         .then((p) => {
           setProposal(p);
           setPhase("proposed");
+        })
+        .catch(() => {
+          // Failure is never silent (review): back to idle with a clean stream so
+          // the chat stays usable — the user can send again or hit regenerate.
+          setPhase("idle");
+          setStreamText("");
+          setProposal(null);
+          buf.current = "";
+          toast.error(t("errors.planGenerationFailed"));
         });
     },
-    [language],
+    [language, t],
   );
 
   const send = useCallback(

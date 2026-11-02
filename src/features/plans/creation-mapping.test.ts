@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanStructureProposal } from "@/ai/types";
-import { toPlanCreateInput } from "./creation-mapping";
+import { proposalNodeKey, toPlanCreateInput } from "./creation-mapping";
 
 /** Known-good literal fixture — the simulated Companion's proposal shape (AD-5). */
 const PROPOSAL: PlanStructureProposal = {
@@ -23,8 +23,9 @@ describe("proposal → create-input mapping (spec seam 2: proposal + renames + g
     ]);
   });
 
-  it("rename application: renamed titles replace the originals, untouched titles pass through", () => {
-    const input = toPlanCreateInput(PROPOSAL, { 需求分析: "用户故事与用例" });
+  it("rename application: renames keyed by proposal order index replace only their node", () => {
+    // index 2 = 需求分析 (flattened stage-then-title order)
+    const input = toPlanCreateInput(PROPOSAL, { [proposalNodeKey(2)]: "用户故事与用例" });
     expect(input.nodes.map((n) => n.title)).toEqual([
       "软件生命周期",
       "敏捷方法",
@@ -33,6 +34,22 @@ describe("proposal → create-input mapping (spec seam 2: proposal + renames + g
     ]);
     // stages are unaffected by renames
     expect(input.nodes.map((n) => n.stage)).toEqual(["基础", "基础", "核心", "核心"]);
+  });
+
+  it("duplicate titles in one proposal rename independently (order-index keys cannot collide)", () => {
+    const dup: PlanStructureProposal = {
+      topic: "复习",
+      stages: [
+        { name: "一轮", nodeTitles: ["复习要点", "练习题"] },
+        { name: "二轮", nodeTitles: ["复习要点"] },
+      ],
+      language: "zh",
+    };
+    const input = toPlanCreateInput(dup, {
+      [proposalNodeKey(0)]: "一轮 · 复习要点",
+      [proposalNodeKey(2)]: "二轮 · 复习要点",
+    });
+    expect(input.nodes.map((n) => n.title)).toEqual(["一轮 · 复习要点", "练习题", "二轮 · 复习要点"]);
   });
 
   it("goal passthrough: the optional goal lands verbatim; absent goal stays null", () => {

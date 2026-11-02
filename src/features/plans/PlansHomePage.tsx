@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAllEvidenceQuery, usePlanMaterialsQuery, usePlanNodesQuery, usePlansQuery } from "@/data";
 import type { EvidenceRecord, StudyPlan } from "@/domain/entities";
 import { mostRecentPlan, planCardMetrics } from "./display-shaping";
+import { localeTag } from "./locale";
 import { MasteryRing, StateMiniBar } from "./atoms";
 import CreationChat from "./CreationChat";
 
@@ -62,9 +63,7 @@ function ReturningHome({
   const { t } = useLanguage();
   const navigate = useNavigate();
   const hero = mostRecentPlan(plans);
-  const recency = hero
-    ? new Date(hero.createdAt).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")
-    : null;
+  const recency = hero ? new Date(hero.createdAt).toLocaleDateString(localeTag(language)) : null;
 
   return (
     <>

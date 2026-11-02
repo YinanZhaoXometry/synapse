@@ -14,15 +14,28 @@ export interface PlanCreateInput {
   nodes: CreatePlanNodeInput[];
 }
 
+/**
+ * Stable per-node key for rename maps (review fix): the node's proposal-wide
+ * order index as a string. Title-keyed maps collide when a proposal repeats a
+ * title; the order index cannot. `toPlanCreateInput` and the creation chat's
+ * rename UI both enumerate nodes in the same stage-then-title order, so both
+ * derive identical keys for the same node.
+ */
+export function proposalNodeKey(orderIndex: number): string {
+  return String(orderIndex);
+}
+
 export function toPlanCreateInput(
   proposal: PlanStructureProposal,
   renames: Record<string, string> = {},
   goal: string | null = null,
 ): PlanCreateInput {
   const nodes: CreatePlanNodeInput[] = [];
+  let orderIndex = 0;
   for (const stage of proposal.stages) {
     for (const title of stage.nodeTitles) {
-      nodes.push({ title: renames[title] ?? title, stage: stage.name });
+      nodes.push({ title: renames[proposalNodeKey(orderIndex)] ?? title, stage: stage.name });
+      orderIndex += 1;
     }
   }
   if (nodes.length === 0) {

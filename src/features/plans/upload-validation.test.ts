@@ -70,13 +70,19 @@ describe("upload validators — accept list (PDF / Markdown only)", () => {
   });
 });
 
-describe("upload validators — 20 MB size boundary", () => {
+describe("upload validators — 20 MB size boundary (FR-2: ≤ 20 MB uploads without error)", () => {
   it("a byte just under the cap passes", () => {
     expect(validateUpload(file("big.pdf", "application/pdf", MAX_UPLOAD_BYTES - 1)).ok).toBe(true);
   });
 
-  it("a file of exactly the cap is rejected with the too-large reason key", () => {
+  it("a file of exactly the cap passes (≤ 20 MB is allowed)", () => {
     const v = validateUpload(file("big.pdf", "application/pdf", MAX_UPLOAD_BYTES));
+    expect(v.ok).toBe(true);
+    if (v.ok) expect(v.kind).toBe("pdf");
+  });
+
+  it("a byte over the cap is rejected with the too-large reason key", () => {
+    const v = validateUpload(file("big.pdf", "application/pdf", MAX_UPLOAD_BYTES + 1));
     expect(v.ok).toBe(false);
     if ("messageKey" in v) expect(v.messageKey).toBe("errors.uploadTooLarge");
   });

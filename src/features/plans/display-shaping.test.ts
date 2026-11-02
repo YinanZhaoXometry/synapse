@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EvidenceRecord, KnowledgeNode, StudyPlan } from "@/domain/entities";
 import {
   evidenceStreak,
+  masteryRingVariant,
   mostRecentPlan,
   nodeRowViews,
   planCardMetrics,
@@ -54,6 +55,12 @@ describe("display shaping (spec seam 4: evidence → presentation inputs)", () =
 
   it("most-recent-plan selection: no plans → undefined (the empty state owns the page)", () => {
     expect(mostRecentPlan([])).toBeUndefined();
+  });
+
+  it("mastery ring variant (FR-3 display contract): exactly 100 renders as the readiness state, anything under stays brand", () => {
+    expect(masteryRingVariant(100)).toBe("mastered");
+    expect(masteryRingVariant(99)).toBe("brand");
+    expect(masteryRingVariant(0)).toBe("brand");
   });
 
   it("rollup composition: uncovered nodes count 0 — one mastered node beside two uncovered reads ~33%", () => {

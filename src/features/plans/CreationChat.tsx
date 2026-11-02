@@ -14,7 +14,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCreatePlanMutation } from "@/data";
-import { toPlanCreateInput } from "./creation-mapping";
+import { cn } from "@/lib/utils";
+import { proposalNodeKey, toPlanCreateInput } from "./creation-mapping";
 import { useCreationChat } from "./use-creation-chat";
 
 const STREAM_DISPLAY_CAP = 900;
@@ -27,8 +28,10 @@ export default function CreationChat() {
 
   const [topicDraft, setTopicDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
+  // Renames are keyed by the node's proposal-wide order index (proposalNodeKey),
+  // never by title — duplicate titles in one draft must rename independently.
   const [renames, setRenames] = useState<Record<string, string>>({});
-  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
 
   const submit = () => {
@@ -40,21 +43,21 @@ export default function CreationChat() {
     setRenames({});
   };
 
-  const commitRename = (original: string) => {
+  const commitRename = (key: string, original: string) => {
     const next = renameDraft.trim();
     setRenames((r) => {
       const updated = { ...r };
-      if (next && next !== original) updated[original] = next;
-      else delete updated[original];
+      if (next && next !== original) updated[key] = next;
+      else delete updated[key];
       return updated;
     });
-    setEditingTitle(null);
+    setEditingKey(null);
     setRenameDraft("");
   };
 
   const regenerate = () => {
     setRenames({});
-    setEditingTitle(null);
+    setEditingKey(null);
     chat.regenerate();
   };
 
@@ -73,6 +76,14 @@ export default function CreationChat() {
 
   const suggestions = ["plans.suggestExam", "plans.suggestInterview", "plans.suggestMl"] as const;
 
+  // Proposal nodes in the same enumeration order toPlanCreateInput uses, so the
+  // rename keys here match the keys the mapper reads (stage-then-title order).
+  let runningIndex = 0;
+  const stageEntries = (chat.proposal?.stages ?? []).map((s) => ({
+    name: s.name,
+    entries: s.nodeTitles.map((title) => ({ title, key: proposalNodeKey(runningIndex++) })),
+  }));
+
   return (
     <div className="glass-panel rounded-2xl shadow-raised p-5 mt-4">
       <div className="flex items-start gap-3">
@@ -83,9 +94,10 @@ export default function CreationChat() {
           {chat.messages.map((m, i) => (
             <div
               key={i}
-              className={`max-w-[85%] text-[13px] leading-[1.55] rounded-2xl px-3.5 py-2 ${
-                m.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-card border border-border-soft"
-              }`}
+              className={cn(
+                "max-w-[85%] text-[13px] leading-[1.55] rounded-2xl px-3.5 py-2",
+                m.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-card border border-border-soft",
+              )}
             >
               <span className="whitespace-pre-wrap">{m.text}</span>
               {m.goal && <span className="block text-[11px] opacity-80 mt-1">{t("plans.goalLabel")}{m.goal}</span>}
@@ -104,33 +116,33 @@ export default function CreationChat() {
           {chat.phase === "proposed" && chat.proposal && (
             <div className="bg-card border border-border-soft rounded-2xl p-4 max-w-[95%]">
               <p className="eyebrow">{t("plans.draftLabel")}</p>
-              {chat.proposal.stages.map((s) => (
-                <div key={s.name} className="mt-3">
-                  <p className="text-xs font-bold text-accent-ink">{s.name}</p>
+              {stageEntries.map((stage) => (
+                <div key={stage.name} className="mt-3">
+                  <p className="text-xs font-bold text-accent-ink">{stage.name}</p>
                   <div className="mt-1 space-y-1">
-                    {s.nodeTitles.map((title) =>
-                      editingTitle === title ? (
+                    {stage.entries.map((entry) =>
+                      editingKey === entry.key ? (
                         <input
-                          key={title}
+                          key={entry.key}
                           autoFocus
                           value={renameDraft}
                           aria-label={t("plans.renameAria")}
                           onChange={(e) => setRenameDraft(e.target.value)}
-                          onBlur={() => commitRename(title)}
+                          onBlur={() => commitRename(entry.key, entry.title)}
                           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                           className="w-full text-sm bg-transparent border-b border-ring outline-none"
                         />
                       ) : (
                         <button
-                          key={title}
+                          key={entry.key}
                           type="button"
                           onClick={() => {
-                            setEditingTitle(title);
-                            setRenameDraft(renames[title] ?? title);
+                            setEditingKey(entry.key);
+                            setRenameDraft(renames[entry.key] ?? entry.title);
                           }}
                           className="block w-full text-left text-sm px-2 py-1 rounded-lg hover:bg-[var(--glass-2)] cursor-pointer"
                         >
-                          {renames[title] ?? title}
+                          {renames[entry.key] ?? entry.title}
                         </button>
                       ),
                     )}
