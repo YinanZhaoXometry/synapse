@@ -6,13 +6,16 @@
  * honestly and lights up when slice 6 produces evidence. Materials attach via
  * the upload dropzone (FR-2; Q1): PDF/Markdown ≤ 20MB, validated by the pure
  * validators, registered pending-parse with bytes in the session-blob registry
- * only (AD-4) — after a reload rows honestly ask for the file again. Quick
- * actions never promise dead clicks: generation tiles explain their slice,
- * upload opens the real file picker.
+ * only (AD-4), then parsed eagerly by the reader's parse(file) API (AD-7) —
+ * the row's chip walks pending → parsing → parsed | failed (+ retry while the
+ * bytes exist). After a reload rows honestly ask for the file again; a
+ * re-upload of a pending/failed material re-runs the parse. Quick actions
+ * never promise dead clicks: generation tiles explain their slice, upload
+ * opens the real file picker.
  */
 import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Info, Layers, ListChecks, MessageCircle, Sparkles, Upload } from "lucide-react";
+import { ArrowLeft, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,6 +29,8 @@ import {
 } from "@/data";
 import { cn } from "@/lib/utils";
 import type { Material } from "@/domain/entities";
+import { PARSE_REASON_MESSAGE_KEY } from "@/features/reader/parse";
+import { useParseMaterialMutation } from "@/features/reader/use-parse-material";
 import {
   evidenceStreak,
   nodeRowViews,
@@ -49,6 +54,7 @@ export default function PlanHomePage() {
   const materialsQuery = usePlanMaterialsQuery(id ?? "");
   const evidenceQuery = useAllEvidenceQuery();
   const registerMaterial = useRegisterMaterialMutation();
+  const parseMaterial = useParseMaterialMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // The picker serves two flows: null = attach a new material; a material id = re-upload
   // that row's session bytes (FR-29 contract — metadata persists, bytes do not).
@@ -72,22 +78,32 @@ export default function PlanHomePage() {
     const reuploadId = pickerTargetRef.current;
     pickerTargetRef.current = null;
     if (reuploadId) {
-      // Re-upload: same Material metadata, fresh session-only bytes — still no parsing (AD-7).
-      // The row re-renders via its useSessionBlob subscription (no manual tick).
+      // Re-upload: same Material metadata, fresh session-only bytes. The row
+      // re-renders via its useSessionBlob subscription (no manual tick). A
+      // pending/failed material now has bytes again — retry the parse (AD-7).
       sessionBlobs.put(reuploadId, file);
+      const target = materialsQuery.data?.find((m) => m.id === reuploadId);
+      if (target && (target.parseState === "pending" || target.parseState === "failed")) {
+        parseMaterial.mutate(reuploadId);
+      }
       return;
     }
-    // Register pending-parse (AD-7/Q1): no parsing here; the Reader owns parse(file).
-    registerMaterial.mutate({
-      title: verdict.title,
-      kind: verdict.kind,
-      sizeBytes: file.size,
-      planId,
-      taskId: null,
-      blob: file,
-      sections: [],
-      parseState: "pending",
-    });
+    // Register pending-parse (AD-7), then hand the fresh bytes to the reader's
+    // parse(file) eagerly — bytes exist only now, so this is the moment the
+    // extracted sections are captured for persistence.
+    registerMaterial.mutate(
+      {
+        title: verdict.title,
+        kind: verdict.kind,
+        sizeBytes: file.size,
+        planId,
+        taskId: null,
+        blob: file,
+        sections: [],
+        parseState: "pending",
+      },
+      { onSuccess: ({ material }) => parseMaterial.mutate(material.id) },
+    );
   };
 
   if (planQuery.isPending || nodesQuery.isPending || materialsQuery.isPending || evidenceQuery.isPending) return null;
@@ -196,6 +212,7 @@ export default function PlanHomePage() {
                     key={material.id}
                     material={material}
                     onReupload={() => openPicker(material.id)}
+                    onRetryParse={(materialId) => parseMaterial.mutate(materialId)}
                   />
                 ))}
               </div>
@@ -336,14 +353,24 @@ function NodeRow({ view }: { view: NodeRowView }) {
 }
 
 /**
- * One material row (Q1): kind + size + honest parse-pending chip while the
- * session bytes are present; once they are gone (reload), the row names the
- * contract — re-upload needed — with an affordance that opens the picker for
- * that row. Parse state never promises more than "pending" (AD-7). Byte
- * presence is a declarative `useSessionBlob` subscription, so the row itself
- * re-renders when bytes are attached or re-uploaded.
+ * One material row (Q1): kind + size + an honest parse chip while the session
+ * bytes are present — pending → parsing → parsed, or failed with its bilingual
+ * reason (tooltip) and a retry action that re-runs the reader's parse from the
+ * session blob (only while the bytes exist, AD-7). Once the bytes are gone
+ * (reload), the row names the contract — re-upload needed — with an affordance
+ * that opens the picker for that row. Byte presence is a declarative
+ * `useSessionBlob` subscription, so the row itself re-renders when bytes are
+ * attached or re-uploaded.
  */
-function MaterialRow({ material, onReupload }: { material: Material; onReupload: () => void }) {
+function MaterialRow({
+  material,
+  onReupload,
+  onRetryParse,
+}: {
+  material: Material;
+  onReupload: () => void;
+  onRetryParse: (materialId: string) => void;
+}) {
   const { t } = useLanguage();
   const needsReupload = !useSessionBlob(material.id);
   const kind = material.kind === "pdf" ? t("plans.materialKindPdf") : t("plans.materialKindMarkdown");
@@ -368,12 +395,32 @@ function MaterialRow({ material, onReupload }: { material: Material; onReupload:
             <Upload className="w-3 h-3" aria-hidden="true" /> {t("plans.materialReuploadAction")}
           </button>
         </span>
-      ) : (
-        material.parseState === "pending" && (
-          <span className="pill pill-muted cursor-help flex-none" title={t("plans.parsePendingNote")}>
-            {t("plans.parsePending")}
+      ) : material.parseState === "failed" ? (
+        <span className="flex items-center gap-2 flex-none">
+          <span
+            className="pill tint-danger cursor-help"
+            title={t(PARSE_REASON_MESSAGE_KEY[material.parseFailureReason ?? "unknown"])}
+          >
+            {t("plans.parseFailed")}
           </span>
-        )
+          <button
+            type="button"
+            onClick={() => onRetryParse(material.id)}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline"
+          >
+            <RotateCw className="w-3 h-3" aria-hidden="true" /> {t("plans.parseRetry")}
+          </button>
+        </span>
+      ) : material.parseState === "parsing" ? (
+        <span className="pill pill-muted flex-none">{t("plans.parseParsing")}</span>
+      ) : material.parseState === "parsed" ? (
+        <span className="pill pill-mastered flex-none">
+          {t("plans.parseParsed", { n: material.sections.length })}
+        </span>
+      ) : (
+        <span className="pill pill-muted cursor-help flex-none" title={t("plans.parsePendingNote")}>
+          {t("plans.parsePending")}
+        </span>
       )}
     </div>
   );

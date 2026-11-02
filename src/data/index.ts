@@ -25,7 +25,10 @@ export {
   getMaterial,
   listMaterialsByPlan,
   listMaterialsByTask,
+  markMaterialParsing,
   registerMaterial,
+  setMaterialParseResult,
+  type MaterialParseResult,
   type RegisterMaterialInput,
 } from "./material-repository";
 export { createStudyTask, getTask, getTaskNode, listTasks } from "./task-repository";

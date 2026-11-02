@@ -32,6 +32,12 @@ export interface MaterialSection {
 
 export type ParseState = "pending" | "parsing" | "parsed" | "failed";
 
+/**
+ * Why a parse failed (reader parse(file) API, AD-7). Persisted on the Material
+ * (optional field — no schema change) so a failed row stays honest after a reload.
+ */
+export type ParseFailureReason = "corrupt" | "encrypted" | "empty" | "unknown";
+
 export interface Material {
   id: string;
   title: string;
@@ -41,6 +47,8 @@ export interface Material {
   planId: string | null;
   taskId: string | null;
   parseState: ParseState;
+  /** Set only while parseState is "failed" — the bilingual reason lives in i18n (NFR-5). */
+  parseFailureReason?: ParseFailureReason;
   sections: MaterialSection[];
   createdAt: string; // ISO 8601
 }

@@ -3,8 +3,8 @@
  * parse state, and the reader's bounded extracted section text. File bytes go
  * to the session-only registry (AD-4) and are deliberately NOT persisted.
  */
-import type { Material, MaterialSection, ParseState } from "@/domain/entities";
-import { loadDb, saveDb } from "./store";
+import type { Material, MaterialSection, ParseFailureReason, ParseState } from "@/domain/entities";
+import { loadDb, saveDb, updateDb } from "./store";
 import type { SessionBlobRegistry } from "./session-blobs";
 import { sessionBlobs } from "./session-blobs";
 
@@ -58,6 +58,37 @@ export function registerMaterial(input: RegisterMaterialInput): { material: Mate
 
 export function getMaterial(id: string): Material | undefined {
   return loadDb().materials.find((m) => m.id === id);
+}
+
+/** The reader's parse(file) outcome, as the repository accepts it (AD-7). */
+export interface MaterialParseResult {
+  sections: MaterialSection[];
+  state: "parsed" | "failed";
+  reason?: ParseFailureReason;
+}
+
+/** Parse state machine step: pending|failed → parsing (eager parse at attach, AD-7). */
+export function markMaterialParsing(materialId: string): void {
+  updateDb((db) => {
+    const material = db.materials.find((m) => m.id === materialId);
+    if (material) material.parseState = "parsing";
+  });
+}
+
+/**
+ * Write the parse outcome back: sections (bounded per-section, AD-4) + final
+ * parsed|failed state. A failure keeps the material's metadata and stores the
+ * reason; a success clears any previous failure. Unknown ids are a no-op (the
+ * material may have been deleted while parsing).
+ */
+export function setMaterialParseResult(materialId: string, result: MaterialParseResult): void {
+  updateDb((db) => {
+    const material = db.materials.find((m) => m.id === materialId);
+    if (!material) return;
+    material.parseState = result.state;
+    material.sections = result.sections.map((s) => ({ ...s, text: boundText(s.text) }));
+    material.parseFailureReason = result.state === "failed" ? (result.reason ?? "unknown") : undefined;
+  });
 }
 
 export function listMaterialsByPlan(planId: string): Material[] {

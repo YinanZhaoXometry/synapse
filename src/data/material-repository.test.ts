@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { STORAGE_KEY } from "./document";
-import { getMaterial, listMaterialsByPlan, registerMaterial } from "./material-repository";
+import {
+  getMaterial,
+  listMaterialsByPlan,
+  markMaterialParsing,
+  registerMaterial,
+  setMaterialParseResult,
+} from "./material-repository";
 import { createSessionBlobRegistry, sessionBlobs } from "./session-blobs";
 
 beforeEach(() => {
@@ -97,5 +103,94 @@ describe("material repository (seam: public API over real localStorage)", () => 
     const freshRegistry = createSessionBlobRegistry();
     expect(freshRegistry.has(material.id)).toBe(false);
     expect(getMaterial(material.id)?.title).toBe("Lecture 4");
+  });
+});
+
+describe("parse result write-back (reader T1: AD-7 state machine over real localStorage)", () => {
+  const registerPending = () =>
+    registerMaterial({
+      title: "Lecture 5.pdf",
+      kind: "pdf",
+      sizeBytes: 100,
+      planId: null,
+      taskId: null,
+      sections: [],
+      parseState: "pending",
+    }).material;
+
+  it("pending → parsing → parsed: the eager-parse transitions", () => {
+    const material = registerPending();
+    expect(getMaterial(material.id)?.parseState).toBe("pending");
+
+    markMaterialParsing(material.id);
+    expect(getMaterial(material.id)?.parseState).toBe("parsing");
+
+    setMaterialParseResult(material.id, {
+      sections: [{ id: "page-1", title: "Page 1", text: "z".repeat(5000) }],
+      state: "parsed",
+    });
+    const stored = getMaterial(material.id);
+    expect(stored?.parseState).toBe("parsed");
+    expect(stored?.parseFailureReason).toBeUndefined();
+    expect(stored?.sections[0].id).toBe("page-1");
+    expect(stored?.sections[0].text.length).toBeLessThanOrEqual(2000); // bounded on write-back (AD-4)
+  });
+
+  it("pending → parsing → failed: failure keeps metadata, records the reason, clears sections", () => {
+    const material = registerPending();
+    markMaterialParsing(material.id);
+    setMaterialParseResult(material.id, { sections: [], state: "failed", reason: "corrupt" });
+
+    const stored = getMaterial(material.id);
+    expect(stored?.parseState).toBe("failed");
+    expect(stored?.parseFailureReason).toBe("corrupt");
+    expect(stored?.sections).toEqual([]);
+    expect(stored?.title).toBe("Lecture 5.pdf"); // a failed parse is not data loss
+  });
+
+  it("retry: failed → parsing → parsed clears the reason and replaces the sections", () => {
+    const material = registerPending();
+    setMaterialParseResult(material.id, { sections: [], state: "failed", reason: "encrypted" });
+
+    markMaterialParsing(material.id); // retry re-enters parsing (only while bytes exist)
+    expect(getMaterial(material.id)?.parseState).toBe("parsing");
+
+    setMaterialParseResult(material.id, {
+      sections: [{ id: "page-1", title: "Page 1", text: "recovered" }],
+      state: "parsed",
+    });
+    const stored = getMaterial(material.id);
+    expect(stored?.parseState).toBe("parsed");
+    expect(stored?.parseFailureReason).toBeUndefined(); // the old reason never outlives a success
+    expect(stored?.sections[0].text).toBe("recovered");
+  });
+
+  it("reload simulation: sections + parseState + reason persist; blob bytes never reach the document", () => {
+    const sentinel = "RETRY_BYTES_STAY_SESSION_ONLY";
+    const blobs = createSessionBlobRegistry();
+    const { material } = registerMaterial({
+      title: "retry.pdf",
+      kind: "pdf",
+      sizeBytes: 10,
+      planId: null,
+      taskId: null,
+      blob: new Blob([sentinel]),
+      blobRegistry: blobs,
+      sections: [],
+      parseState: "pending",
+    });
+    setMaterialParseResult(material.id, { sections: [], state: "failed", reason: "unknown" });
+
+    const raw = localStorage.getItem(STORAGE_KEY) ?? "";
+    expect(raw).toContain("failed");
+    expect(raw).toContain("unknown"); // the reason survives the reload
+    expect(raw).not.toContain(sentinel); // bytes never do (AD-4)
+  });
+
+  it("unknown material ids are a no-op (the material may be deleted mid-parse)", () => {
+    expect(() => markMaterialParsing("no-such-material")).not.toThrow();
+    expect(() =>
+      setMaterialParseResult("no-such-material", { sections: [], state: "failed", reason: "empty" }),
+    ).not.toThrow();
   });
 });
