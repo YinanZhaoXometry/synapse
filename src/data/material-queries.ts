@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getMaterial,
+  listMaterials,
   listMaterialsByPlan,
   listMaterialsByTask,
   registerMaterial,
@@ -14,6 +15,11 @@ export function useMaterialQuery(materialId: string) {
     queryKey: queryKeys.materials.detail(materialId),
     queryFn: () => getMaterial(materialId),
   });
+}
+
+/** Every material across plans (Plans Home continue line, FR-25). */
+export function useAllMaterialsQuery() {
+  return useQuery({ queryKey: queryKeys.materials.all, queryFn: listMaterials });
 }
 
 export function usePlanMaterialsQuery(planId: string) {

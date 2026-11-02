@@ -25,6 +25,7 @@ import {
   usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlanQuery,
+  useReadingProgressQuery,
   useRegisterMaterialMutation,
 } from "@/data";
 import { cn } from "@/lib/utils";
@@ -362,7 +363,9 @@ function NodeRow({ view }: { view: NodeRowView }) {
  * `useSessionBlob` subscription, so the row itself re-renders when bytes are
  * attached or re-uploaded. Every row also opens the Immersive Reader
  * (/read/:materialId) — the reader hosts the honest state for whatever the
- * parse is doing (FR-8; T2).
+ * parse is doing (FR-8; T2). The link reads 继续阅读 when stored reading
+ * progress exists for the material, 打开 when not (FR-25 continue-reading
+ * entry points; the reader itself decides what the stored position restores).
  */
 function MaterialRow({
   material,
@@ -375,6 +378,9 @@ function MaterialRow({
 }) {
   const { t } = useLanguage();
   const needsReupload = !useSessionBlob(material.id);
+  const progressQuery = useReadingProgressQuery(material.id);
+  const hasProgress = !!progressQuery.data;
+  const openLabelKey = hasProgress ? "plans.continueReading" : "common.open";
   const kind = material.kind === "pdf" ? t("plans.materialKindPdf") : t("plans.materialKindMarkdown");
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -386,9 +392,9 @@ function MaterialRow({
       <Link
         to={`/read/${material.id}`}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
-        title={t("common.open")}
+        title={t(openLabelKey)}
       >
-        <BookOpen className="w-3 h-3" aria-hidden="true" /> {t("common.open")}
+        <BookOpen className="w-3 h-3" aria-hidden="true" /> {t(openLabelKey)}
       </Link>
       <span className="text-[10px] uppercase tracking-wide text-muted-foreground flex-none">{kind}</span>
       <span className="text-[10px] text-muted-foreground tabular-nums flex-none">

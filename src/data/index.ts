@@ -23,6 +23,7 @@ export {
 export {
   MATERIAL_SECTION_MAX_CHARS,
   getMaterial,
+  listMaterials,
   listMaterialsByPlan,
   listMaterialsByTask,
   markMaterialParsing,
@@ -37,6 +38,7 @@ export {
   getChatThread,
   getReadingProgress,
   isOnboardingComplete,
+  listReadingProgress,
   markOnboardingComplete,
   saveReadingProgress,
 } from "./progress-repository";
@@ -69,12 +71,14 @@ export {
   useRecordEvidenceMutation,
 } from "./quiz-queries";
 export {
+  useAllMaterialsQuery,
   useMaterialQuery,
   usePlanMaterialsQuery,
   useRegisterMaterialMutation,
   useTaskMaterialsQuery,
 } from "./material-queries";
 export {
+  useAllReadingProgressQuery,
   useAppendChatMessageMutation,
   useChatThreadQuery,
   useCreateTaskMutation,

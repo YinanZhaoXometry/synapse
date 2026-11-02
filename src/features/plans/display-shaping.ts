@@ -4,7 +4,16 @@
  * lives here; shaping only seeds nodes without evidence (uncovered = 0) and
  * picks the continue-hero plan.
  */
-import type { EvidenceRecord, KnowledgeNode, NodeState, Outcome, StudyPlan } from "@/domain/entities";
+import type {
+  EvidenceRecord,
+  KnowledgeNode,
+  Material,
+  NodeState,
+  Outcome,
+  ReadingLocator,
+  ReadingProgress,
+  StudyPlan,
+} from "@/domain/entities";
 import { computeNodeScore, computePlanRollup, getNodeState, MASTERY_CONFIG } from "@/domain/mastery";
 import { computeStreak } from "@/domain/streak";
 
@@ -158,4 +167,42 @@ export function planRecentActivity(
 /** Evidence-day streak (FR-25) — thin composition over the shipped domain rollup. */
 export function evidenceStreak(records: EvidenceRecord[], now: Date = new Date()): number {
   return computeStreak(records, now);
+}
+
+/** The continue hero's 「上次读到」 line (FR-25; T4): the most recent reading across plans. */
+export interface LatestReadingView {
+  material: Material;
+  locator: ReadingLocator;
+  /** The markdown locator's section title (material data); null for pdf pages. */
+  sectionTitle: string | null;
+  updatedAt: string;
+}
+
+/**
+ * The most recent RESUMABLE reading across all plans (FR-25): progress rows
+ * sorted newest-first, walked until one resolves against its material — a row
+ * whose material was deleted, lost its extraction (failed/pending parse
+ * cleared the sections), or points at a section id that no longer exists
+ * (slug drift after a re-parse) is stale and skipped, so the line never
+ * promises a destination the reader cannot land on. None resolvable → null
+ * (the line hides honestly).
+ */
+export function latestReading(progress: ReadingProgress[], materials: Material[]): LatestReadingView | null {
+  const byId = new Map(materials.map((m) => [m.id, m]));
+  const candidates = [...progress].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  for (const record of candidates) {
+    const material = byId.get(record.materialId);
+    if (!material) continue; // deleted material — no destination (AD-4 honesty)
+    const { locator } = record.position;
+    const sectionId = locator.kind === "pdf" ? `page-${Math.max(1, Math.floor(locator.page))}` : locator.sectionId;
+    const section = material.sections.find((s) => s.id === sectionId);
+    if (!section) continue; // extraction gone or the section id drifted — not resumable
+    return {
+      material,
+      locator,
+      sectionTitle: locator.kind === "markdown" ? section.title : null,
+      updatedAt: record.updatedAt,
+    };
+  }
+  return null;
 }

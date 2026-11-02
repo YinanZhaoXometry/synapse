@@ -10,6 +10,12 @@
  * a retry while the session bytes exist (T1's parse mutation); parsed-but-
  * byteless (post-reload) → the epic-2 re-upload affordance re-registers bytes
  * and re-runs the parse. An unknown material reads honestly as not-found.
+ *
+ * Reading position (FR-10; T4): the flows report the most-visible PDF page /
+ * scroll-spy'd Markdown section here; the tracker hook (use-reading-position)
+ * debounces persistence through the existing ReadingProgress mutation and
+ * flushes on unmount. On open, an anchor (?page=N / #section-id) wins over
+ * the stored position; with no anchor the stored page/section restores.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -31,13 +37,16 @@ import {
   sessionBlobs,
   useMaterialQuery,
   usePlanQuery,
+  useReadingProgressQuery,
 } from "@/data";
 import { cn } from "@/lib/utils";
 import { PARSE_REASON_MESSAGE_KEY } from "./parse";
 import { parseReaderHash, parseReaderSearchParams, type ReaderAnchor } from "./anchors";
+import { currentSection } from "./position-tracking";
 import { MarkdownFlow, type MarkdownFlowHandle } from "./MarkdownFlow";
 import { PdfPageFlow, type PdfFlowHandle } from "./PdfPageFlow";
 import { useParseMaterialMutation } from "./use-parse-material";
+import { useReadingPositionTracker } from "./use-reading-position";
 import { useSessionBytes } from "./use-session-bytes";
 import { stepPage } from "./pager";
 import { validateReupload } from "./reupload";
@@ -62,9 +71,13 @@ export default function ReaderPage() {
   const mdFlowRef = useRef<MarkdownFlowHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // The anchor parses ONCE on mount — later URL edits are T4's business, and
-  // the flags below must not move mid-read. ?page=N / ?hl=1 come from the
-  // search; #section-id (the Markdown branch of the channel) from the hash.
+  // The anchor parses ONCE on mount — the flags below must not move mid-read.
+  // ?page=N / ?hl=1 come from the search; #section-id (the Markdown branch of
+  // the channel) from the hash. ?hl=1 is transient and stripped below;
+  // ?page=N STAYS in the URL deliberately (T4 decision): it is the non-
+  // transient half of the anchor channel (AD-8), so a refresh or re-share
+  // re-lands on the anchored page — anchors win over stored progress, and
+  // once the reader moves, tracking persists normally.
   const location = useLocation();
   const anchorRef = useRef<ReaderAnchor | null>(null);
   if (anchorRef.current === null) {
@@ -87,8 +100,64 @@ export default function ReaderPage() {
 
   const material = materialQuery.data;
 
-  // Stable reports from the PDF flow → top-bar pager.
-  const handlePageChange = useCallback((page: number) => setCurrentPage(page), []);
+  // Stored progress (FR-10): the restore target when no anchor asks for one.
+  // The flows mount only once this query has settled (gate below), so the
+  // initial page/section is known before either flow's one-shot landing runs.
+  const progressQuery = useReadingProgressQuery(materialId ?? "");
+  const stored = progressQuery.data;
+  const storedPdfPage =
+    material?.kind === "pdf" && stored?.position.locator.kind === "pdf"
+      ? stored.position.locator.page
+      : null;
+  const storedSectionId =
+    material?.kind === "markdown" && stored?.position.locator.kind === "markdown"
+      ? stored.position.locator.sectionId
+      : null;
+
+  // The position tracker (FR-10): flows report page/section changes here; the
+  // hook debounces persistence and flushes on unmount. T5 surface: the
+  // CompanionPanel grounds on `currentPositionRef.current` (ReadingPosition |
+  // null — locator + bounded extracted text), read at chat time.
+  const { report: reportPosition, currentPositionRef } = useReadingPositionTracker(
+    materialId ?? "",
+    material ?? null,
+  );
+
+  // Markdown scroll-spy inputs: the rendered heading ids (to detect the intro
+  // section — it has no heading element, per T3) feed the pure selector with
+  // each viewport report. Reports before the headings resolve are ignored —
+  // boundaries don't exist yet and sections[0] would mislabel as the intro.
+  const resolvedHeadingIdsRef = useRef<string[]>([]);
+  const headingsResolvedRef = useRef(false);
+  const handleHeadingsResolved = useCallback((ids: string[]) => {
+    resolvedHeadingIdsRef.current = ids;
+    headingsResolvedRef.current = true;
+  }, []);
+  const materialRef = useRef(material);
+  useEffect(() => {
+    materialRef.current = material;
+  }, [material]);
+  const handleMarkdownViewport = useCallback(
+    (scrollTop: number) => {
+      const current = materialRef.current;
+      if (!current || !headingsResolvedRef.current) return;
+      const boundaries = mdFlowRef.current?.measureBoundaries() ?? [];
+      const first = current.sections[0];
+      const introId = first && !resolvedHeadingIdsRef.current.includes(first.id) ? first.id : null;
+      const sectionId = currentSection(boundaries, scrollTop, introId);
+      if (sectionId) reportPosition({ kind: "markdown", sectionId });
+    },
+    [reportPosition],
+  );
+
+  // Stable reports from the PDF flow → top-bar pager + position tracker.
+  const handlePageChange = useCallback(
+    (page: number) => {
+      setCurrentPage(page);
+      reportPosition({ kind: "pdf", page });
+    },
+    [reportPosition],
+  );
   const handleTotalPages = useCallback((total: number) => setTotalPages(total), []);
 
   // A deep link into a still-pending material self-heals: with session bytes
@@ -246,26 +315,36 @@ export default function ReaderPage() {
           ) : material.kind === "markdown" ? (
             // Markdown branch (FR-9): the full document from the session
             // bytes; the byteless post-reload contract is the re-upload card,
-            // exactly like the PDF branch.
+            // exactly like the PDF branch. Restore (FR-10): the anchor
+            // (#section-id) wins over the stored section when present; the
+            // mount gate below guarantees the stored value is known first.
             hasBytes ? (
-              <MarkdownFlow
-                ref={mdFlowRef}
-                blob={sessionBlobs.get(material.id)}
-                initialSection={anchor.section}
-                flashTarget={anchor.highlight}
-              />
+              progressQuery.isPending ? null : (
+                <MarkdownFlow
+                  ref={mdFlowRef}
+                  blob={sessionBlobs.get(material.id)}
+                  initialSection={anchor.section ?? storedSectionId}
+                  flashTarget={anchor.highlight}
+                  onHeadingsResolved={handleHeadingsResolved}
+                  onViewportScroll={handleMarkdownViewport}
+                />
+              )
             ) : (
               <ReuploadCard onReupload={() => fileInputRef.current?.click()} />
             )
           ) : hasBytes ? (
-            <PdfPageFlow
-              ref={flowRef}
-              blob={sessionBlobs.get(material.id)}
-              initialPage={anchor.page}
-              flashTarget={anchor.highlight}
-              onPageChange={handlePageChange}
-              onTotalPages={handleTotalPages}
-            />
+            progressQuery.isPending ? null : (
+              // Restore (FR-10): the anchor (?page=N) wins over the stored
+              // page when present; both are clamped by the flow on landing.
+              <PdfPageFlow
+                ref={flowRef}
+                blob={sessionBlobs.get(material.id)}
+                initialPage={anchor.page ?? storedPdfPage}
+                flashTarget={anchor.highlight}
+                onPageChange={handlePageChange}
+                onTotalPages={handleTotalPages}
+              />
+            )
           ) : (
             <ReuploadCard onReupload={() => fileInputRef.current?.click()} />
           )}

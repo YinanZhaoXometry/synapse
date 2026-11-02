@@ -30,6 +30,7 @@ export const queryKeys = {
     byPlan: (planId: string) => ["flashcards", "plan", planId] as const,
   },
   progress: {
+    all: ["progress"] as const,
     byMaterial: (materialId: string) => ["progress", materialId] as const,
   },
   chat: {

@@ -6,7 +6,9 @@
  * onHeadingsResolved reports the rendered section ids in document order;
  * measureBoundaries() measures each heading's offsetTop relative to the scroll
  * container (it is the headings' offsetParent — content coordinates, stable
- * under scroll); scrollToSection mirrors PdfFlowHandle.scrollToPage for
+ * under scroll); onViewportScroll reports raw scrollTops from real scroll
+ * events (rAF-throttled) for the pure scroll-spy selector;
+ * scrollToSection mirrors PdfFlowHandle.scrollToPage for
  * citation jumps (T5). react-markdown itself lives in markdown-view, which is
  * lazy-loaded here, so the markdown pipeline ships in its own chunk (AD-8,
  * same rule as pdfjs). Prose rendering is not component-tested beyond the
@@ -51,10 +53,16 @@ interface MarkdownFlowProps {
   flashTarget: boolean;
   /** The rendered section ids, in document order, once the document is in the DOM. */
   onHeadingsResolved?(ids: string[]): void;
+  /**
+   * Viewport scroll reports (position tracker, T4): scrollTop on scroll
+   * (rAF-throttled) plus once after the anchor/restore landing settles. The
+   * caller combines this with measureBoundaries() through the pure selector.
+   */
+  onViewportScroll?(scrollTop: number): void;
 }
 
 export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(function MarkdownFlow(
-  { blob, initialSection, flashTarget, onHeadingsResolved },
+  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll },
   ref,
 ) {
   const [text, setText] = useState<string | null>(null);
@@ -97,7 +105,9 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
 
   // Anchor landing (#section-id, AD-8): scroll once the headings are real in
   // the DOM, then flash the target once when ?hl=1 rode along. A stale hash —
-  // no such heading — honestly does nothing.
+  // no such heading — honestly does nothing. No viewport report here: the
+  // landing's own scroll event (and every user scroll after it) carries the
+  // settled scrollTop to the position tracker.
   useEffect(() => {
     if (anchoredRef.current || !resolved) return;
     anchoredRef.current = true;
@@ -112,6 +122,26 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
     // The anchor is consumed exactly once per mount; its parts are stable props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved]);
+
+  // Scroll reports for the position tracker (FR-10): raw scrollTop only — the
+  // section selection is the pure selector's job (position-tracking.ts).
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root || !onViewportScroll) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        onViewportScroll(root.scrollTop);
+      });
+    };
+    root.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      root.removeEventListener("scroll", onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [onViewportScroll]);
 
   const scrollToSection = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ block: "start", behavior: "auto" });

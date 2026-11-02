@@ -98,3 +98,8 @@ export function listMaterialsByPlan(planId: string): Material[] {
 export function listMaterialsByTask(taskId: string): Material[] {
   return loadDb().materials.filter((m) => m.taskId === taskId);
 }
+
+/** Every material across plans (continue-reading shaping, FR-25). */
+export function listMaterials(): Material[] {
+  return loadDb().materials;
+}

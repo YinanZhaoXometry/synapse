@@ -28,6 +28,11 @@ export function getReadingProgress(materialId: string): ReadingProgress | undefi
   return loadDb().readingProgress.find((r) => r.materialId === materialId);
 }
 
+/** Every ReadingProgress across materials (continue-reading shaping, FR-25). */
+export function listReadingProgress(): ReadingProgress[] {
+  return loadDb().readingProgress;
+}
+
 // -- chat threads -------------------------------------------------------------
 
 export function appendChatMessage(

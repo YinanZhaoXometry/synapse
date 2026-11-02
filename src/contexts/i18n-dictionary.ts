@@ -142,6 +142,9 @@ export const translations = {
       'plans.attachDropActive': '松开即可附上',
       'plans.materialReupload': '需重新上传',
       'plans.materialReuploadAction': '重新上传',
+      'plans.continueReading': '继续阅读',
+      'plans.lastReadPage': '上次读到 《{material}》 第 {n} 页',
+      'plans.lastReadSection': '上次读到 《{material}》 · {section}',
 
       'reader.backToPlan': '返回计划',
       'reader.notFoundBody': '它可能已被删除，或链接有误。',
@@ -611,6 +614,9 @@ export const translations = {
       'plans.attachDropActive': 'Drop to attach',
       'plans.materialReupload': 're-upload needed',
       'plans.materialReuploadAction': 'Re-upload',
+      'plans.continueReading': 'Continue reading',
+      'plans.lastReadPage': 'Last read: {material}, page {n}',
+      'plans.lastReadSection': 'Last read: {material} · {section}',
 
       'reader.backToPlan': 'Back to plan',
       'reader.notFoundBody': 'It may have been deleted, or the link is wrong.',

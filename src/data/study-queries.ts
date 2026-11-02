@@ -6,6 +6,7 @@ import {
   appendChatMessage,
   getChatThread,
   getReadingProgress,
+  listReadingProgress,
   saveReadingProgress,
 } from "./progress-repository";
 import { queryKeys } from "./query-keys";
@@ -40,6 +41,11 @@ export function useReadingProgressQuery(materialId: string) {
   });
 }
 
+/** Every ReadingProgress across materials (Plans Home continue line, FR-25). */
+export function useAllReadingProgressQuery() {
+  return useQuery({ queryKey: queryKeys.progress.all, queryFn: listReadingProgress });
+}
+
 export function useSaveReadingProgressMutation() {
   const qc = useQueryClient();
   return useMutation({
@@ -47,7 +53,9 @@ export function useSaveReadingProgressMutation() {
       saveReadingProgress(input.materialId, input.position);
     },
     onSuccess: (_data, input) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.progress.byMaterial(input.materialId) });
+      // ["progress"] prefix-matches, so this covers the per-material detail
+      // and the cross-material list (Plans Home continue line) in one sweep.
+      void qc.invalidateQueries({ queryKey: queryKeys.progress.all });
     },
   });
 }

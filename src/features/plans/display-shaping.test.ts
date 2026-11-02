@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { EvidenceRecord, KnowledgeNode, StudyPlan } from "@/domain/entities";
+import type {
+  EvidenceRecord,
+  KnowledgeNode,
+  Material,
+  ReadingProgress,
+  StudyPlan,
+} from "@/domain/entities";
 import {
   evidenceStreak,
+  latestReading,
   masteryRingVariant,
   mostRecentPlan,
   nodeRowViews,
@@ -185,5 +192,100 @@ describe("plan home shaping (ticket 03): streak composition", () => {
     ];
     expect(evidenceStreak(evidence, now)).toBe(2);
     expect(evidenceStreak([], now)).toBe(0);
+  });
+});
+
+describe("continue-hero shaping (ticket 04): latestReading across plans", () => {
+  const pdfMaterial = (id: string, pages: number[]): Material => ({
+    id,
+    title: `material-${id}`,
+    kind: "pdf",
+    sizeBytes: 10,
+    planId: "p1",
+    taskId: null,
+    parseState: "parsed",
+    sections: pages.map((n) => ({ id: `page-${n}`, title: `Page ${n}`, text: `page ${n} text` })),
+    createdAt: "2026-11-01T00:00:00Z",
+  });
+
+  const mdMaterial = (id: string, sectionIds: string[]): Material => ({
+    id,
+    title: `material-${id}`,
+    kind: "markdown",
+    sizeBytes: 10,
+    planId: "p1",
+    taskId: null,
+    parseState: "parsed",
+    sections: sectionIds.map((sid) => ({ id: sid, title: `节 ${sid}`, text: `${sid} text` })),
+    createdAt: "2026-11-01T00:00:00Z",
+  });
+
+  const progress = (
+    materialId: string,
+    updatedAt: string,
+    locator: ReadingProgress["position"]["locator"],
+  ): ReadingProgress => ({
+    materialId,
+    position: { locator, text: "grounded text" },
+    updatedAt,
+  });
+
+  it("no progress (or none resumable) → null — the line hides honestly", () => {
+    expect(latestReading([], [])).toBeNull();
+    expect(latestReading([], [pdfMaterial("m1", [1])])).toBeNull();
+    expect(latestReading([progress("gone", "2026-11-02T10:00:00Z", { kind: "pdf", page: 1 })], [])).toBeNull();
+  });
+
+  it("the most recent updatedAt wins, regardless of list order", () => {
+    const materials = [pdfMaterial("m1", [1, 2]), pdfMaterial("m2", [3])];
+    const records = [
+      progress("m1", "2026-11-01T10:00:00Z", { kind: "pdf", page: 2 }),
+      progress("m2", "2026-11-02T09:00:00Z", { kind: "pdf", page: 3 }),
+    ];
+    expect(latestReading(records, materials)?.material.id).toBe("m2");
+    expect(latestReading([...records].reverse(), materials)?.material.id).toBe("m2");
+  });
+
+  it("a pdf view carries the page locator and no section title; markdown carries the section title", () => {
+    const materials = [pdfMaterial("m1", [1, 2]), mdMaterial("m2", ["intro", "recap"])];
+    const pdf = latestReading(
+      [progress("m1", "2026-11-01T10:00:00Z", { kind: "pdf", page: 2 })],
+      materials,
+    );
+    expect(pdf?.locator).toEqual({ kind: "pdf", page: 2 });
+    expect(pdf?.sectionTitle).toBeNull();
+    const md = latestReading(
+      [progress("m2", "2026-11-01T10:00:00Z", { kind: "markdown", sectionId: "recap" })],
+      materials,
+    );
+    expect(md?.locator).toEqual({ kind: "markdown", sectionId: "recap" });
+    expect(md?.sectionTitle).toBe("节 recap");
+  });
+
+  it("deleted material: the row is skipped and an older resumable reading answers instead", () => {
+    const materials = [pdfMaterial("m1", [1])];
+    const records = [
+      progress("deleted", "2026-11-02T10:00:00Z", { kind: "pdf", page: 1 }),
+      progress("m1", "2026-11-01T10:00:00Z", { kind: "pdf", page: 1 }),
+    ];
+    expect(latestReading(records, materials)?.material.id).toBe("m1");
+    // only the deleted one → nothing to promise
+    expect(latestReading([records[0]], materials)).toBeNull();
+  });
+
+  it("stale material: extraction lost (failed parse cleared the sections) is not resumable", () => {
+    const failed = { ...pdfMaterial("m1", [1]), parseState: "failed" as const, sections: [] };
+    const records = [progress("m1", "2026-11-02T10:00:00Z", { kind: "pdf", page: 1 })];
+    expect(latestReading(records, [failed])).toBeNull();
+  });
+
+  it("slug drift: a markdown sectionId that no longer exists is skipped like stale progress", () => {
+    const records = [
+      progress("m2", "2026-11-02T10:00:00Z", { kind: "markdown", sectionId: "old-slug" }),
+      progress("m1", "2026-11-01T10:00:00Z", { kind: "pdf", page: 1 }), // older but resumable
+    ];
+    expect(latestReading(records, [mdMaterial("m2", ["intro", "recap"]), pdfMaterial("m1", [1])])?.material.id).toBe(
+      "m1",
+    );
   });
 });

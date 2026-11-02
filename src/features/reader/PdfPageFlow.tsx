@@ -1,10 +1,12 @@
 /**
  * The PDF page flow (FR-8): a continuous vertical flow of fit-width canvases
- * inside its own scroll container. Pages lazily render near the viewport
- * (IntersectionObserver) and far pages release — canvas pixels clear while the
- * container keeps its measured height, so scroll never jumps (pager.ts owns
- * the window math). The most-visible page is the current one and reports to
- * the top-bar pager; ←/→ steps pages; a deep link (?page=N) scrolls to its
+ * inside its own scroll container. Pages lazily render near the viewport and
+ * far pages release — canvas pixels clear while the container keeps its
+ * measured height, so scroll never jumps (pager.ts owns the window math). The
+ * most-visible page is the current one (FR-10): measured page rects + scrollTop
+ * feed the pure selector in position-tracking.ts, and the result reports to the
+ * top-bar pager and the position tracker; ←/→ steps pages; a deep link
+ * (?page=N — or the stored-progress restore, same channel) scrolls to its
  * target and, with ?hl=1, flashes it once in the citation tint (AD-8).
  * Canvas rendering itself is not component-tested (jsdom has no canvas).
  */
@@ -20,6 +22,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { READER_FLASH_MS } from "./anchors";
 import { clampPage, inRenderWindow, renderWindow, stepPage } from "./pager";
+import { mostVisiblePage, type MeasuredPageRect } from "./position-tracking";
 import { openPdfDocument, type OpenedPdfDocument } from "./pdf-render";
 
 /** Pages rendered either side of the current one; farther pages hold layout only. */
@@ -59,7 +62,6 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
   const scrollRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
-  const ratiosRef = useRef(new Map<number, number>());
   const anchoredRef = useRef(false);
 
   // Open once per blob identity — the blob is converted to its own bytes copy
@@ -112,35 +114,40 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
   );
 
   // Most-visible page (visibility-based tracking, UX spine "page follows
-  // scroll"): the intersecting page with the largest ratio wins. The full
-  // tracker selector (measured page rects) is T4's — this keeps the pager and
-  // render window honest for T2.
+  // scroll", FR-10): measured page rects + scrollTop feed the pure selector
+  // (position-tracking.ts) — the exact half-visible boundary between two equal
+  // pages flips the tracked page there. Page containers are all mounted (only
+  // canvases are windowed), so the rects are complete; rAF throttles the
+  // measurement to one pass per frame.
+  const updateCurrentFromViewport = useCallback(() => {
+    const root = scrollRef.current;
+    if (!root || !doc) return;
+    const rects: MeasuredPageRect[] = [];
+    for (const [page, element] of pageRefs.current) {
+      rects.push({ page, top: element.offsetTop, height: element.offsetHeight });
+    }
+    const page = mostVisiblePage(rects, root.scrollTop, root.clientHeight);
+    if (page !== null) reportCurrent(page);
+  }, [doc, reportCurrent]);
+
+  // Scroll listening feeds the selector — component wiring only, no math here.
   useEffect(() => {
     const root = scrollRef.current;
     if (!root || !doc) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const ratios = ratiosRef.current;
-        for (const entry of entries) {
-          const page = Number((entry.target as HTMLElement).dataset.page);
-          if (entry.isIntersecting) ratios.set(page, entry.intersectionRatio);
-          else if (ratios.get(page) !== undefined) ratios.delete(page);
-        }
-        let best = -1;
-        let bestRatio = 0;
-        for (const [page, ratio] of ratios) {
-          if (ratio > bestRatio) {
-            best = page;
-            bestRatio = ratio;
-          }
-        }
-        if (best > 0) reportCurrent(best);
-      },
-      { root, threshold: Array.from({ length: 11 }, (_, i) => i / 10) },
-    );
-    for (const element of pageRefs.current.values()) observer.observe(element);
-    return () => observer.disconnect();
-  }, [doc, columnWidth, reportCurrent]);
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        updateCurrentFromViewport();
+      });
+    };
+    root.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      root.removeEventListener("scroll", onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [doc, updateCurrentFromViewport]);
 
   const scrollToPage = useCallback(
     (page: number) => {
@@ -154,8 +161,10 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
 
   useImperativeHandle(ref, () => ({ scrollToPage }), [scrollToPage]);
 
-  // Anchor landing (?page=N, AD-8): scroll once the layout is real (doc open +
-  // column measured), then flash the target once when ?hl=1 rode along.
+  // Anchor landing (?page=N or a stored-progress restore, AD-8): scroll once
+  // the layout is real (doc open + column measured), then flash the target
+  // once when ?hl=1 rode along. With no target the tracker still takes its
+  // first reading (page 1 is the baseline).
   useEffect(() => {
     if (anchoredRef.current || !doc || columnWidth === null) return;
     anchoredRef.current = true;
@@ -167,6 +176,8 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
         setFlashPage(target);
         window.setTimeout(() => setFlashPage(null), READER_FLASH_MS);
       }
+    } else {
+      updateCurrentFromViewport();
     }
     // The anchor is consumed exactly once per mount; its parts are stable props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,7 +213,10 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto bg-secondary/50">
+    // `relative` makes the scroll container the pages' offsetParent, so their
+    // offsetTop/offsetHeight are content coordinates (same contract as
+    // MarkdownFlow's measured boundaries).
+    <div ref={scrollRef} className="relative flex-1 min-h-0 overflow-y-auto bg-secondary/50">
       <div ref={columnRef} className="mx-auto w-full max-w-[980px] px-4 md:px-8 py-6 md:py-8 flex flex-col gap-6">
         {!doc || columnWidth === null
           ? null
