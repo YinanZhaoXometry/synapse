@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProgressProvider } from "@/contexts/UserProgressContext";
@@ -23,6 +24,9 @@ import AchievementsPage from "@/pages/AchievementsPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
+
+// The reader route is lazy (AD-8): pdfjs-dist loads only when someone reads.
+const ReaderPage = lazy(() => import("@/features/reader/ReaderPage"));
 
 const queryClient = new QueryClient();
 
@@ -52,6 +56,14 @@ const App = () => (
                   <Route path="/plans" element={<PlansHomePage />} />
                   <Route path="/plan/new" element={<PlanCreatePage />} />
                   <Route path="/plan/:id" element={<PlanHomePage />} />
+                  <Route
+                    path="/read/:materialId"
+                    element={
+                      <Suspense fallback={null}>
+                        <ReaderPage />
+                      </Suspense>
+                    }
+                  />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/ai-tutor" element={<AITutorPage />} />
                   <Route path="/materials" element={<MaterialsPage />} />

@@ -129,6 +129,13 @@ export default {
           "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.3)" },
           "50%": { boxShadow: "0 0 0 8px hsl(var(--primary) / 0)" },
         },
+        // Reader citation flash (?hl=1, AD-8): the target page washes once in
+        // the citation tint, then clears. prefers-reduced-motion collapses it
+        // to an instant state change (the global media rule in index.css).
+        "reader-flash": {
+          "0%": { opacity: "0.75" },
+          "100%": { opacity: "0" },
+        },
         "confetti-fall": {
           "0%": { transform: "translateY(-10px) rotate(0deg)", opacity: "1" },
           "100%": { transform: "translateY(40px) rotate(360deg)", opacity: "0" },
@@ -141,6 +148,7 @@ export default {
         "slide-up": "slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
         "fade-in": "fade-in 0.4s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "reader-flash": "reader-flash 1.2s ease-out forwards",
         "confetti": "confetti-fall 0.8s ease-out forwards",
       },
     },

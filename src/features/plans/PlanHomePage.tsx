@@ -14,8 +14,8 @@
  * opens the real file picker.
  */
 import { useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Sparkles, Upload } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, BookOpen, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -360,7 +360,9 @@ function NodeRow({ view }: { view: NodeRowView }) {
  * (reload), the row names the contract — re-upload needed — with an affordance
  * that opens the picker for that row. Byte presence is a declarative
  * `useSessionBlob` subscription, so the row itself re-renders when bytes are
- * attached or re-uploaded.
+ * attached or re-uploaded. Every row also opens the Immersive Reader
+ * (/read/:materialId) — the reader hosts the honest state for whatever the
+ * parse is doing (FR-8; T2).
  */
 function MaterialRow({
   material,
@@ -378,6 +380,16 @@ function MaterialRow({
     <div className="flex items-center gap-3 px-4 py-3">
       <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
       <span className="text-sm truncate flex-1">{material.title}</span>
+      {/* Open in the Immersive Reader (FR-8; T2) — every state lands honestly
+          there: parsing shows the skeleton, failed the reason card, and a
+          byteless parsed material the re-upload affordance. */}
+      <Link
+        to={`/read/${material.id}`}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
+        title={t("common.open")}
+      >
+        <BookOpen className="w-3 h-3" aria-hidden="true" /> {t("common.open")}
+      </Link>
       <span className="text-[10px] uppercase tracking-wide text-muted-foreground flex-none">{kind}</span>
       <span className="text-[10px] text-muted-foreground tabular-nums flex-none">
         {t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}
