@@ -136,6 +136,8 @@ export interface MistakeEntry {
   userAnswer: string;
   /** FR-23: every mistake carries its source location. */
   sourceLocation: ReadingLocator;
+  /** 「看答案 = 放弃」 — graded wrong, no mastery credit (FR-18 stance). */
+  forfeited: boolean;
   createdAt: string;
 }
 

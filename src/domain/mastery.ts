@@ -21,13 +21,20 @@ function recentFirst(records: EvidenceRecord[]): EvidenceRecord[] {
   return [...records].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-/** round(100 × mean of the node's last-5 outcomes); 0 with no evidence. */
+/**
+ * round(100 × mean of the node's last-5 outcomes); 0 with no evidence.
+ * A node below the evidence gate caps at 99: score 100 must mean *verified*
+ * mastery, or the rollup could hit 100% on un-gated nodes — breaking AD-6's
+ * "rollup reaches 100 only when every node is mastered" (caught by TDD against
+ * the readiness contract; ADR-0001 §consequences amended 2026-11-02).
+ */
 export function computeNodeScore(records: EvidenceRecord[]): number {
   if (records.length === 0) return 0;
   const recent = recentFirst(records).slice(0, MASTERY_CONFIG.window);
   const values = recent.map((r) => MASTERY_CONFIG.outcomeValues[r.outcome]);
   const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  return Math.round(100 * mean);
+  const raw = Math.round(100 * mean);
+  return records.length >= MASTERY_CONFIG.evidenceGate ? raw : Math.min(raw, 99);
 }
 
 /** uncovered (no evidence) / partial / mastered (score ≥80 AND ≥3 total records). */

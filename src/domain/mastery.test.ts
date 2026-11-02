@@ -15,9 +15,9 @@ describe("node score (ADR-0001 windowed mean)", () => {
     expect(getNodeState([])).toBe("uncovered");
   });
 
-  it("one lucky correct answer scores 100 but does NOT master the node", () => {
+  it("one lucky correct answer caps at 99 — below the gate it can never read 100", () => {
     const records = [ev("correct", "2026-11-01T10:00:00Z")];
-    expect(computeNodeScore(records)).toBe(100);
+    expect(computeNodeScore(records)).toBe(99); // score-level gate cap (ADR-0001 amendment)
     expect(getNodeState(records)).toBe("partial"); // gate: needs ≥3 evidence
   });
 
@@ -54,12 +54,12 @@ describe("node score (ADR-0001 windowed mean)", () => {
 });
 
 describe("mastered gate (ADR-0001 anti-inflation)", () => {
-  it("two corrects score 100 but stay partial — the gate counts total evidence", () => {
+  it("two corrects cap at 99 and stay partial — the gate counts total evidence", () => {
     const records = [
       ev("correct", "2026-11-01T10:00:00Z"),
       ev("correct", "2026-11-02T10:00:00Z"),
     ];
-    expect(computeNodeScore(records)).toBe(100);
+    expect(computeNodeScore(records)).toBe(99);
     expect(getNodeState(records)).toBe("partial");
   });
 

@@ -39,6 +39,33 @@ export {
 } from "./progress-repository";
 export { createSessionBlobRegistry, sessionBlobs, type SessionBlobRegistry } from "./session-blobs";
 export {
+  createQuizSession,
+  getQuizSession,
+  listEvidence,
+  listEvidenceByNode,
+  recordEvidence,
+  type AnswerResult,
+  type QuestionInput,
+} from "./quiz-repository";
+export {
+  createFlashcards,
+  listFlashcardsByMaterial,
+  listFlashcardsByPlan,
+  rateFlashcard,
+  type FlashcardInput,
+} from "./flashcard-repository";
+export {
+  useAllEvidenceQuery,
+  useCreateFlashcardsMutation,
+  useCreateQuizSessionMutation,
+  useFlashcardsByMaterialQuery,
+  useFlashcardsByPlanQuery,
+  useNodeEvidenceQuery,
+  useQuizSessionQuery,
+  useRateFlashcardMutation,
+  useRecordEvidenceMutation,
+} from "./quiz-queries";
+export {
   useMaterialQuery,
   usePlanMaterialsQuery,
   useRegisterMaterialMutation,
