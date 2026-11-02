@@ -11,6 +11,7 @@ import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
 import PlanHomePage from "@/features/plans/PlanHomePage";
 import AppLayout from "@/components/layout/AppLayout";
+import PrototypeFinalSystemPage from "@/pages/PrototypeFinalSystemPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import AITutorPage from "@/pages/AITutorPage";
@@ -49,6 +50,8 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<EntryGate />} />
                 <Route element={<AppLayout />}>
+                  {/* PROTOTYPE (throwaway): final-system walkthrough, /prototype/final-system?scene=… */}
+                  <Route path="/prototype/final-system" element={<PrototypeFinalSystemPage />} />
                   <Route path="/plans" element={<PlansHomePage />} />
                   <Route path="/plan/new" element={<PlanCreatePage />} />
                   <Route path="/plan/:id" element={<PlanHomePage />} />
