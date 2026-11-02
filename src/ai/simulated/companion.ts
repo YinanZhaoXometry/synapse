@@ -7,14 +7,24 @@
 import type {
   CompanionIntent,
   CompanionReply,
+  GeneratedQuestion,
+  GradedAnswer,
   GroundedChatRequest,
   GuardrailRung,
+  MaterialRef,
   PlanStructureProposal,
   ProposedStage,
+  QuizMode,
   UiLanguage,
 } from "@/ai/types";
 import type { CompanionService } from "@/ai/companion-service";
+import type { ReadingLocator } from "@/domain/entities";
 import { planTemplateFor } from "./templates";
+import {
+  generateFlashcardsFromMaterials,
+  generateQuizFromMaterials,
+  gradeOpenAnswerFromKeywords,
+} from "./generation";
 
 /** Artificial delay (ms) — the "thinking" beat the UI's typing dots render. */
 const CHAT_DELAY = 600;
@@ -158,5 +168,34 @@ export class SimulatedCompanion implements CompanionService {
     ].join("\n");
     await emit(lines, onToken);
     return proposal;
+  }
+
+  async generateQuiz(input: {
+    materials: MaterialRef[];
+    nodeIds: string[];
+    mode: QuizMode;
+  }): Promise<GeneratedQuestion[]> {
+    // A "generating" beat so the UI's waiting state renders (Quiz: generating, EXPERIENCE.md).
+    await new Promise((r) => setTimeout(r, CHAT_DELAY));
+    return generateQuizFromMaterials(input);
+  }
+
+  async generateFlashcards(input: {
+    materials: MaterialRef[];
+  }): Promise<Array<{ front: string; back: string }>> {
+    await new Promise((r) => setTimeout(r, CHAT_DELAY));
+    return generateFlashcardsFromMaterials(input);
+  }
+
+  async gradeOpenAnswer(input: {
+    keywords: string[];
+    answer: string;
+    sourceText: string;
+    source: ReadingLocator;
+    language: UiLanguage;
+  }): Promise<GradedAnswer> {
+    // Grading wait: shimmer + 「对照材料评分中」 (EXPERIENCE.md quiz grading state).
+    await new Promise((r) => setTimeout(r, CHAT_DELAY));
+    return gradeOpenAnswerFromKeywords(input);
   }
 }

@@ -49,3 +49,32 @@ export interface PlanStructureProposal {
   stages: ProposedStage[];
   language: UiLanguage;
 }
+
+// -- generation + grading (AD-5) -----------------------------------------------
+
+/** The parsed-section content the simulated adapter templates from (reader's parse output as data). */
+export interface MaterialRef {
+  materialId: string;
+  sections: Array<{ id: string; title: string; text: string }>;
+}
+
+export type QuizMode = "open" | "choice" | "mix";
+
+/** Node-attributed question for the data layer's QuestionInput (AD-6). */
+export interface GeneratedQuestion {
+  prompt: string;
+  nodeId: string;
+  kind: "open" | "choice";
+  options?: string[];
+  correctOptionIndex?: number;
+  sourceMaterialId: string;
+  sourceSectionId: string;
+  keywords?: string[];
+  explanation: string;
+}
+
+export interface GradedAnswer {
+  outcome: "correct" | "partial" | "wrong";
+  rationale: string;
+  citation: Citation | null;
+}

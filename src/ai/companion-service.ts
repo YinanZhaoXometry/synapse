@@ -3,7 +3,17 @@
  * The static build ships the deterministic simulated adapter; FR-33's server
  * implementation replaces it here — components never touch a provider API.
  */
-import type { CompanionReply, GroundedChatRequest, PlanStructureProposal, UiLanguage } from "./types";
+import type {
+  CompanionReply,
+  GeneratedQuestion,
+  GradedAnswer,
+  GroundedChatRequest,
+  MaterialRef,
+  PlanStructureProposal,
+  QuizMode,
+  UiLanguage,
+} from "./types";
+import type { ReadingLocator } from "@/domain/entities";
 import { SimulatedCompanion } from "./simulated/companion";
 
 export interface CompanionService {
@@ -16,6 +26,25 @@ export interface CompanionService {
     language: UiLanguage,
     onToken?: (chunk: string) => void,
   ): Promise<PlanStructureProposal>;
+
+  /** Materials-sourced quiz generation; questions are node-attributed at generation (AD-6, FR-18). */
+  generateQuiz(input: {
+    materials: MaterialRef[];
+    nodeIds: string[];
+    mode: QuizMode;
+  }): Promise<GeneratedQuestion[]>;
+
+  /** Materials-sourced flashcard generation (FR-19): one card per section. */
+  generateFlashcards(input: { materials: MaterialRef[] }): Promise<Array<{ front: string; back: string }>>;
+
+  /** Open-answer grading against the source section (spec rule: ≥2 hits correct, 1 partial, 0 wrong). */
+  gradeOpenAnswer(input: {
+    keywords: string[];
+    answer: string;
+    sourceText: string;
+    source: ReadingLocator;
+    language: UiLanguage;
+  }): Promise<GradedAnswer>;
 }
 
 let instance: CompanionService | null = null;
