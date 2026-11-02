@@ -13,7 +13,9 @@ export const NAV_ROUTES = [
   { to: "/quiz", labelKey: "nav.quiz", icon: HelpCircle },
   { to: "/flashcards", labelKey: "nav.flashcards", icon: Layers },
   { to: "/mistakes", labelKey: "nav.mistakes", icon: BookmarkMinus },
-  { to: "/planner", labelKey: "nav.planner", icon: CalendarCheck },
+  // 学习计划 → Plans Home (AD-8 front door); /planner stays reachable by URL
+  // only and returns to the nav when FR-27 lands (Phase 2).
+  { to: "/plans", labelKey: "nav.planner", icon: CalendarCheck },
   { to: "/achievements", labelKey: "nav.achievements", icon: Award },
   { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
 ] as const;

@@ -64,9 +64,13 @@ export const translations = {
       'onboarding.pickOne': '先选至少一个目标。',
       'onboarding.readyEyebrow': '准备好了',
       'onboarding.readyTitle': '先从一个真实目标开始。',
-      'onboarding.readyBody': '下一步进入仪表盘。材料与进度只保存在这台设备上。',
-      'onboarding.enter': '进入仪表盘',
+      'onboarding.readyBody': '下一步进入学习计划。材料与进度只保存在这台设备上。',
+      'onboarding.enter': '进入学习计划',
       'onboarding.step': '第 {n} 步，共 3 步',
+
+      'plans.homeTitle': '学习计划',
+      'plans.createTitle': '创建学习计划',
+      'plans.planTitle': '计划主页',
 
       'dashboard.eyebrow': '仪表盘',
       'dashboard.greetingA': '早上好，',
@@ -430,9 +434,13 @@ export const translations = {
       'onboarding.pickOne': 'Pick at least one goal first.',
       'onboarding.readyEyebrow': 'You are set',
       'onboarding.readyTitle': 'Start with one real goal.',
-      'onboarding.readyBody': 'Next stop: your dashboard. Materials and progress stay on this device.',
-      'onboarding.enter': 'Enter dashboard',
+      'onboarding.readyBody': 'Next stop: your study plans. Materials and progress stay on this device.',
+      'onboarding.enter': 'Enter Study Plans',
       'onboarding.step': 'Step {n} of 3',
+
+      'plans.homeTitle': 'Study Plans',
+      'plans.createTitle': 'Create a study plan',
+      'plans.planTitle': 'Plan Home',
 
       'dashboard.eyebrow': 'Dashboard',
       'dashboard.greetingA': 'Good morning, ',
