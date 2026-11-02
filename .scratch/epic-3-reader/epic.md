@@ -1,6 +1,6 @@
 # Epic 3 — Immersive Reader + page-aware Companion (FR-8 · FR-9 · FR-10 · FR-11 · FR-12)
 
-Status: in-progress
+Status: done
 Milestone: Phase 1 — Nov 6 core
 
 ## Parent
@@ -33,3 +33,7 @@ UI reference: `docs/design/ux-synapse/mockups/key-reader-companion.html` (stale 
 ## Definition of done
 
 FR-8/9/10/11/12 acceptance · SM-2 satisfiable in a live demo by the simulated adapter (three consecutive answers visibly citing their source location) · gates green (`npx tsc -b`, `npm run lint`, `npm run test`) · grandfathered scaffold surfaces untouched (MaterialsPage stays demo; Dashboard untouched) · every ticket cites its AD ids (`docs/agents/workflow.md`) · reader/companion UI verified in light + dark and sunset/twilight/aurora.
+
+## Closure (2026-11-03)
+
+Shipped T1–T6 (`5e44386` → `65b244c`) + review-fix pass (`e720d82`). Two-axis review (spec-conformance + defects): **0 × P0, 3 × P1, 8 × P2 — all fixed** in `e720d82` (markdown short-doc never reported a position → Companion permanently disabled; canvas far-page release kept the backing store; citation chips not rendered mid-stream; pdfjs parse loadingTask leak; untracked landing-flash timers; silent persistence failures; deletePlan cascade; empty-heading id guard; reader public surface via `features/reader/index.ts`; scroll-mt alignment). **Deferred follow-ups** (deliberate, non-blocking): per-frame `measureBoundaries` caching (perf nit on very long docs); sheet/overlay unmount abandons an in-flight turn by design (candidate for persist-on-send); hook state reset on in-place `materialId` change (unreachable today); `text-white` on the brand gradient (grandfathered scaffold pattern). 236/236 tests, tsc/eslint/build clean; pdfjs 558 kB + markdown-view 31 kB + reader route 37 kB all lazy, out of the main bundle (AD-8 verified by grep).
