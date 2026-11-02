@@ -9,7 +9,7 @@ Who owns which stage of idea → code in this repo. **BMAD owns product thinking
 | Product idea | `/bmad-product-brief` | Product brief in `docs/product/brief-{name}/` — vision, users, problem, scope |
 | UX / product design | `/bmad-ux` | `DESIGN.md` + `EXPERIENCE.md` in `docs/design/` — flows, states, behavior, visual rules |
 | Technical architecture | `/bmad-architecture` | Architecture spine in `docs/architecture/` — boundaries, dependency rules, state mutation, shared-data ownership, each decision with a stable ID |
-| Requirements / tickets | `/grill-with-docs` (or `/grill-me`) → `/to-spec` → `/to-tickets` | Hardened decisions, implementation spec, vertical-slice tickets (GitHub Issues — see [issue-tracker.md](issue-tracker.md)) |
+| Requirements / tickets | `/grill-with-docs` (or `/grill-me`) → `/to-spec` → `/to-tickets` | Hardened decisions, implementation spec, vertical-slice tickets (local markdown tracker — see [issue-tracker.md](issue-tracker.md)) |
 | Build | `/tdd`, `/implement`, then `/code-review` | Test-first implementation and review |
 
 ## Pipeline
@@ -40,9 +40,9 @@ Phase reference: brief = Analysis; PRD + UX = Planning; architecture = Solutioni
 
 **Vocabulary.** The PRD owns the only phase tags — `[Phase 1]` (Nov 6 course deadline), `[Phase 2]`, `stretch` (pull into Phase 1 only if the core lands early). Never invent new phase names; a ticket's phase = its FRs' tags.
 
-**Phases = GitHub milestones.** One milestone per phase; every ticket gets exactly one. `stretch` FRs ride in the Phase-2 milestone until a Phase-1 checkpoint pulls them forward (re-milestone + one-line note on the epic). Created 2026-11-02: `Phase 1 — Nov 6 core` (due 2026-11-06) and `Phase 2 — post-deadline`.
+**Phases = a `Milestone:` line.** One milestone per phase; every epic and ticket file carries exactly one (`Milestone: Phase 1 — Nov 6 core` or `Milestone: Phase 2 — post-deadline`; created 2026-11-02). `stretch` FRs ride in the Phase-2 milestone until a Phase-1 checkpoint pulls them forward (re-milestone + one-line note on the epic).
 
-**Epics = capability slices, one spec pipeline each.** An epic is a GitHub tracking issue; its tickets are sub-issues; dependencies are native blocked-by edges (see [issue-tracker.md](issue-tracker.md)). Create the epic issue when its spec run starts — never pre-file empty shells. One epic = one `/grill-with-docs` → `/to-spec` → `/to-tickets` chain; don't run the chain per-ticket.
+**Epics = capability slices, one spec pipeline each.** An epic is a tracking doc in the feature's `.scratch/<feature>/epic.md`; its tickets are files under `issues/` with `Blocked by:` lines (see [issue-tracker.md](issue-tracker.md)). Create the epic doc when its spec run starts — never pre-file empty shells. One epic = one `/grill-with-docs` → `/to-spec` → `/to-tickets` chain; don't run the chain per-ticket.
 
 **Phase-1 slicing** (dependency-ordered, from the [gap analysis](../architecture/architecture-synapse/gap-analysis.md) §5):
 

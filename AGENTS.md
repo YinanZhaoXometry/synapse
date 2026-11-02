@@ -52,11 +52,11 @@ Playwright config (`playwright.config.ts`) imports `lovable-agent-playwright-con
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `YinanZhaoXometry/comp5241-project`; all operations via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live as local markdown under `.scratch/<feature>/` (solo-dev repo — GitHub Issues closed 2026-11-02, kept as archive; spec/ticket history: `.scratch/epic-1-foundation/`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), label strings equal to role names. See `docs/agents/triage-labels.md`.
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) as `Status:` lines in ticket files; `done` marks completed work. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
