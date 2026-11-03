@@ -1,6 +1,6 @@
 # Epic 3 (Phase 2) — Domain operations: the GraphQL surface for the Phase-1 data model
 
-Status: ready-for-agent (spec + tickets 2026-11-03; gate: epics 01+02 done)
+Status: done (2026-11-04 — branch epic/p2-3-domain-ops @ c9ebcdc, two-axis review 4P1/8P2 all fixed, 500/500 rspec, CI green, merged to main same day)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
