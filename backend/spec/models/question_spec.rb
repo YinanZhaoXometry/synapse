@@ -17,7 +17,10 @@ RSpec.describe Question, type: :model do
       user: user, session: session, node: node, kind: "open",
       prompt: "Why is the Mastery Score evidence-only?",
       source_material: source_material, source_section_id: "page-1",
-      explanation: "Marking is a claim; only graded evidence moves the score."
+      explanation: "Marking is a claim; only graded evidence moves the score.",
+      # NOT NULL on the ER — the generation order (P2-3 of the epic P2-3
+      # review); the command stamps real per-input indices.
+      position: 0
     }
   end
 
