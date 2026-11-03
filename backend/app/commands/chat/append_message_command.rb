@@ -49,7 +49,7 @@ module Chat
             thread = current_user.chat_threads.find_by!(material_id: material.id)
           end
         end
-        thread.update!(messages: thread.messages + [row], updated_at: row_timestamp(row))
+        thread.update!(messages: thread.messages + [ row ], updated_at: row_timestamp(row))
       end
       Success(message: row)
     end
