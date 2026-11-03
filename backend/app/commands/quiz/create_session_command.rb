@@ -57,6 +57,13 @@ module Quiz
       resolved = questions.map { |attrs| resolve_question(attrs) }
       return resolved.find(&:failure?) if resolved.any?(&:failure?)
 
+      # User-owned is not enough (the epic P2-3 review, P2-5): every
+      # question's node must also sit INSIDE the session's own scope, or a
+      # plan-A session could attribute plan-B's nodes. Out-of-scope →
+      # VALIDATION_FAILED, nothing written.
+      scope_failure = out_of_scope_node(resolved, plan.value!, task.value!)
+      return scope_failure if scope_failure
+
       session = nil
       created = nil
       ActiveRecord::Base.transaction do
@@ -216,6 +223,21 @@ module Quiz
 
       material = current_user.materials.find_by(id: material_id)
       material ? Success(material) : material_not_found
+    end
+
+    # The session scope bounds the attribution (P2-5): a plan-scoped session
+    # may only attribute that plan's nodes; a task-scoped session only the
+    # task's single auto-node.
+    def out_of_scope_node(resolved, plan_record, task_record)
+      offender = resolved.find do |result|
+        node = result.value![:node]
+        plan_record ? node.plan_id != plan_record.id : node.id != task_record.node_id
+      end
+      return unless offender
+
+      Failure(:VALIDATION_FAILED,
+              { message: "a question attributes a node outside the session's scope",
+                field: :questions })
     end
 
     def replay_success(session)
