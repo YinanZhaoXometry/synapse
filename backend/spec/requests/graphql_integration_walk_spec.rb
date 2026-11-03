@@ -705,5 +705,4 @@ RSpec.describe "GraphQL integration walk — the Phase-1 happy path as pure Grap
       plans: 1, materials: 2, tasks: 1, evidence: 2, messages: 3, cards: 2
     )
   end
-
 end
