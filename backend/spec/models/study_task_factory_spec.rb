@@ -8,6 +8,10 @@ require "rails_helper"
 # record and forgets the matching `user:` override, the triangle silently
 # goes cross-owner — this guard catches exactly that regression the way the
 # user-scoping roster catches scoping drift.
+#
+# Lives here, NOT in spec/factories/: factory_bot_rails loads every .rb file
+# under spec/factories as a factory DEFINITION at environment boot, and a
+# spec file there crashes db:prepare with LoadError (rails_helper).
 RSpec.describe "study_task factory default graph" do
   it "builds a single-owner triangle — task.user == material.user == node.user" do
     task = create(:study_task)
