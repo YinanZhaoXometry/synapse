@@ -6,7 +6,7 @@
       "streak": "frontend/src/domain/streak.ts",
       "note": "The TS implementation IS the source until the cutover retires it (AD-6/AD-14). The Ruby port pins itself to these vectors verbatim; ambiguities amend ADR-0001 first, both sides together."
     },
-    "generatedAtSourceCommit": "b8e5ad9296def583d2f4ef6d1f716c3f477f0196",
+    "generatedAtSourceCommit": "2fb3caf7fbbcbbea57e52c5225800ac687338a58",
     "generator": "frontend/scripts/generate-mastery-vectors.ts (pnpm run generate:mastery-vectors)",
     "fixtureEncoding": {
       "decimals": "Every mastery-derived numeric (scores, rollups, streaks, intermediate means) is a decimal STRING — parse on the Ruby side; never compare JSON number literals (AD-14).",
