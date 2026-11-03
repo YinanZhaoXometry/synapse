@@ -9,44 +9,6 @@ RSpec.describe "GraphQL evidence + quiz + flashcard operations (epic P2-3 ticket
   # have their own direct specs (spec/commands/quiz/, spec/commands/
   # flashcards/); this file pins the wire behavior.
 
-  around do |example|
-    original = ENV["JWT_SECRET"]
-    ENV["JWT_SECRET"] = "test-signing-secret"
-    example.run
-  ensure
-    if original.nil?
-      ENV.delete("JWT_SECRET")
-    else
-      ENV["JWT_SECRET"] = original
-    end
-  end
-
-  let(:password) { "known-password-123" }
-
-  def graphql(query, variables: {}, token: nil)
-    headers = token ? { "Authorization" => "Bearer #{token}" } : {}
-    post "/graphql", params: { query: query, variables: variables.to_json }, headers: headers
-    response.parsed_body
-  end
-
-  def error_code(result)
-    result.dig("errors", 0, "extensions", "code")
-  end
-
-  def token_for(email)
-    result = graphql(<<~GRAPHQL)
-      mutation {
-        login(input: { email: "#{email}", password: "#{password}" }) { token }
-      }
-    GRAPHQL
-    result.dig("data", "login", "token")
-  end
-
-  def user_with_token(email)
-    create(:user, email: email, password: password)
-    [ User.find_by!(email: email), token_for(email) ]
-  end
-
   describe "the auth guard on every quiz/evidence/flashcard operation (kickoff delta 8)" do
     it "answers UNAUTHORIZED without a token on all eight operations" do
       queries = [

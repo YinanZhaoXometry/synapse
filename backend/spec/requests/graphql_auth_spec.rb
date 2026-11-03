@@ -3,32 +3,6 @@
 require "rails_helper"
 
 RSpec.describe "GraphQL auth mutations (epic P2-2 ticket 02)", type: :request do
-  # The commands mint real JWTs (Accounts::TokenCodec reads JWT_SECRET from
-  # ENV, AD-12 posture) — pin a known secret for each example and restore
-  # whatever was there before.
-  around do |example|
-    original = ENV["JWT_SECRET"]
-    ENV["JWT_SECRET"] = "test-signing-secret"
-    example.run
-  ensure
-    if original.nil?
-      ENV.delete("JWT_SECRET")
-    else
-      ENV["JWT_SECRET"] = original
-    end
-  end
-
-  let(:password) { "known-password-123" }
-
-  def graphql(query, variables: {})
-    post "/graphql", params: { query: query, variables: variables }
-    response.parsed_body
-  end
-
-  def error_code(result)
-    result.dig("errors", 0, "extensions", "code")
-  end
-
   describe "register over HTTP" do
     it "creates the account and returns the token + user payload" do
       result = graphql(<<~GRAPHQL)
