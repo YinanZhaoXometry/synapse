@@ -10,7 +10,7 @@ module Types
     # Auth-guarded per delta 8 via CurrentUserGuard (the same seam the
     # mutations use). The Plans reads landed with epic P2-3 ticket 01; the
     # Tasks/Materials reads with ticket 02; the quiz/evidence/flashcard
-    # reads with ticket 03.
+    # reads with ticket 03; the chat/progress reads with ticket 04.
     include CurrentUserGuard
 
     field :health, String, null: false,
@@ -131,6 +131,33 @@ module Types
         current_user!.flashcards.joins(:material).where(materials: { plan_id: scoped_plan(plan_id).id })
                                 .order(:created_at)
       end
+    end
+
+    field :chat_thread, Types::ChatThreadType, null: true,
+      description: "One material's Companion transcript (the getChatThread mirror) — null when the conversation has not started yet. A foreign or unknown material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :material_id, String, required: true, description: "The anchored material's uuid."
+    end
+
+    def chat_thread(material_id:)
+      material = scoped_material(material_id)
+      current_user!.chat_threads.find_by(material_id: material.id)
+    end
+
+    field :reading_progress, Types::ReadingProgressType, null: true,
+      description: "One material's reading position (the getReadingProgress mirror) — null when the material was never opened. A foreign or unknown material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :material_id, String, required: true, description: "The read material's uuid."
+    end
+
+    def reading_progress(material_id:)
+      material = scoped_material(material_id)
+      current_user!.reading_progresses.find_by(material_id: material.id)
+    end
+
+    field :reading_progress_list, [ Types::ReadingProgressType ], null: false,
+      description: "Every reading position across the user's materials (the listReadingProgress mirror — the continue-reading shaping, FR-25). A plain list (AD-12)."
+
+    def reading_progress_list
+      current_user!.reading_progresses.order(:created_at)
     end
 
     private

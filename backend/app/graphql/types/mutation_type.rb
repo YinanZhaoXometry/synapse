@@ -5,8 +5,9 @@ module Types
   # classes). register/login landed with epic P2-2 ticket 02 — the first
   # schema movement; the Plans operations with epic P2-3 ticket 01; the
   # Tasks/Materials operations with ticket 02; the quiz/evidence/flashcard
-  # operations with ticket 03. No logout mutation by design (client-side
-  # token discard — epic-08).
+  # operations with ticket 03; the chat/progress/marking operations with
+  # ticket 04. No logout mutation by design (client-side token discard —
+  # epic-08).
   class MutationType < Types::BaseObject
     field :register, mutation: Mutations::Register
     field :login, mutation: Mutations::Login
@@ -26,5 +27,10 @@ module Types
 
     field :create_flashcards, mutation: Mutations::Flashcards::CreateFlashcards
     field :rate_flashcard, mutation: Mutations::Flashcards::RateFlashcard
+
+    field :append_chat_message, mutation: Mutations::Chat::AppendMessage
+    field :save_reading_progress, mutation: Mutations::Progress::SaveReadingProgress
+    field :claim_section, mutation: Mutations::Markings::ClaimSection
+    field :unclaim_section, mutation: Mutations::Markings::UnclaimSection
   end
 end
