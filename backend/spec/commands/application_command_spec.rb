@@ -42,5 +42,19 @@ RSpec.describe ApplicationCommand do
       expect(result.failure.context).to eq(message: "sign in first")
       expect(state[:call_ran]).to be(false)
     end
+
+    it "never raises — an unexpected exception in call becomes a typed INTERNAL failure" do
+      command_class = Class.new(ApplicationCommand) do
+        def call
+          raise "boom"
+        end
+      end
+
+      result = command_class.call
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:INTERNAL)
+      expect(result.failure.context[:message]).to include("RuntimeError").and include("boom")
+    end
   end
 end

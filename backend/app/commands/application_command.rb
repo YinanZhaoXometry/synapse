@@ -25,10 +25,19 @@ class ApplicationCommand
 
   class << self
     # Entry point: build the command from dry-initializer inputs, run the
-    # authorize hook, then call. Returns a dry-monads Result; never raises.
+    # authorize hook, then call. Returns a dry-monads Result; never raises —
+    # unexpected exceptions from authorize/call become typed INTERNAL
+    # failures (the exception class + message ride along as log context).
     def call(**args)
       command = new(**args)
       command.authorize.bind { command.call }
+    rescue StandardError => e
+      Dry::Monads::Failure.new(
+        ApplicationErrors::Failure.new(
+          code: :INTERNAL,
+          context: { message: "unexpected #{e.class.name}: #{e.message}" }
+        )
+      )
     end
   end
 
