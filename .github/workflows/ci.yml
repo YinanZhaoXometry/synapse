@@ -30,7 +30,12 @@ jobs:
       run:
         working-directory: frontend
     steps:
+      # Full history (not the default shallow clone): the mastery-vector fixture
+      # pins its source commit via `git log -1 -- <domain paths>`, which needs
+      # history beyond HEAD to resolve (see the anti-drift step below).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Version pinned explicitly, not read from package.json's packageManager
       # field (if the two ever disagree, this action fails loudly — that's
@@ -55,6 +60,17 @@ jobs:
         run: pnpm exec vitest run
       - name: Build
         run: pnpm exec vite build
+
+      # Anti-drift (AD-14): the TS domain (frontend/src/domain/mastery.ts + streak.ts)
+      # is the golden-vector source of truth until the cutover retires it. Regenerate
+      # the committed fixture and require a byte-identical result — a diff means the
+      # pinned mastery/streak behavior moved without regenerating the contract the
+      # Ruby port (backend/spec/fixtures/mastery_vectors.json, ticket 02's RSpec)
+      # pins itself against. This step retires with the TS side at cutover.
+      - name: Mastery vector anti-drift (regenerate + diff)
+        run: |
+          pnpm run generate:mastery-vectors
+          git -C .. diff --exit-code -- backend/spec/fixtures/mastery_vectors.json
 
   backend:
     name: backend (rubocop · rspec)
