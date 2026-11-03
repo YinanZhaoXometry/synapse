@@ -10,7 +10,7 @@ input AbandonSessionInput {
   """
   The session's uuid. Unknown, foreign, or malformed ids are NOT_FOUND.
   """
-  id: String!
+  sessionId: String!
 }
 
 """
