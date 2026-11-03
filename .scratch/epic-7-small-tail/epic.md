@@ -1,6 +1,6 @@
 # Epic 7 — Small tail: deploy, store reset, plan-first sidebar ordering (FR-35 · FR-36)
 
-Status: ready-for-human (T1 repo-side done — owner Pages-dashboard setup pending; T2/T3 implemented, T3 pending the orchestrator's post-merge visual pass)
+Status: ready-for-human (T2/T3 done — smoke + review closed; T1 repo-side done, owner Cloudflare-dashboard setup + 3 live-site ACs pending)
 Milestone: Phase 1 — Nov 6 core
 
 ## Parent
@@ -30,3 +30,11 @@ Cross-epic `Blocked by:` edges reference directories, not local ticket numbers �
 ## Definition of done
 
 FR-35 acceptance (shareable URL, live-demo-ready) · reset returns the app to first-run state · FR-36's three testable consequences pass **after** epics 5/6 land · gates green (`npx tsc -b`, `npm run lint`, `npm run test` — note pnpm layout: call binaries under `node_modules/.bin/`) · grandfathered scaffold surfaces untouched beyond what FR-36 re-points · every ticket cites its AD ids.
+
+## Closure (2026-11-03)
+
+Shipped T1–T3 (`f3b4d84` → `8baf500` → `bc9e569`) + review-fix pass (`834498f`) on the integration branch `epic/7-small-tail`. Two-axis review (spec-conformance + defects): **0 × P0, 4 × P1, 5 × P2 — all fixed** in `834498f` (reset handler unguarded `AppError` → try/catch + error toast, stale 「演示数据/刷新即重置」 section copy, stale epic/ticket/deploy-doc claims, deploy-doc build-command correction). Browser smoke (live dev server, orchestrator): first-run EntryGate → onboarding → `/plans` front door; reset flow lands on the first-run wizard with `synapse-db:v1` provably empty and prefs kept; sidebar order verified in dark/sunset + light×{sunset, twilight, aurora}; phone drawer + Pad rail + unchanged bottom-nav 5. 411/411 tests, tsc/eslint clean.
+
+**Remaining for FR-35 (owner):** connect Cloudflare Pages to `github.com/YinanZhaoXometry/synapse` per [docs/deploy.md](../../docs/deploy.md) (~2 min, git integration — no wrangler needed), then tick the three live-site ACs in [01](issues/01-deploy-fr35.md) (public URL, deep-route refresh, fresh-profile persistence). Everything repo-side is done; later epics redeploy by pushing to `main`.
+
+**Out-of-scope observation (owner):** AGENTS.md's storage-key names are stale — the language key on disk is `studyflow-lang` (not `synapse-lang`), and the theme keys (`synapse-theme`/`synapse-mode`/`synapse-motion`) are lazy-written (absent from storage until the user changes appearance). Docs-only fix, not taken in epic-7.
