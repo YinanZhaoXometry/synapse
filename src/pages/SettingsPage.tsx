@@ -14,6 +14,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { resetDb } from "@/data";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
@@ -203,7 +204,15 @@ export default function SettingsPage() {
                   className={PRIMARY_CTA}
                   onClick={() => {
                     resetAll();
+                    // AD-3/4: the real store dies through the adapter's public
+                    // surface — the whole versioned document resets to empty;
+                    // never a page-level localStorage.removeItem here.
+                    resetDb();
                     toast(t("common.resetDone"));
+                    // Fresh reload into the first-run entry state: `/` re-runs
+                    // the entry gate (onboarding flag is now false) with every
+                    // in-memory cache (Query + contexts) reborn empty.
+                    window.location.replace("/");
                   }}
                 >
                   {t("common.confirm")}

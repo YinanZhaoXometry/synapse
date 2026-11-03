@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "./errors";
-import { STORAGE_KEY } from "./document";
-import { loadDb, saveDb } from "./store";
+import { emptyDb, STORAGE_KEY } from "./document";
+import { loadDb, resetDb, saveDb } from "./store";
 
 describe("store failure paths (typed AppError, never silent)", () => {
   beforeEach(() => {
@@ -44,5 +44,24 @@ describe("store failure paths (typed AppError, never silent)", () => {
     expect(db.version).toBe(1);
     expect(db.plans).toEqual([]);
     expect(db.onboardingComplete).toBe(false);
+  });
+});
+
+describe("resetDb (reset semantics: study data wiped, document + UI prefs kept)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("resets to the empty document — version kept, key retained, nothing else in localStorage touched", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, onboardingComplete: true, plans: [{ id: "p1" }] }));
+    localStorage.setItem("synapse-lang", "zh");
+    localStorage.setItem("synapse-theme", "aurora");
+
+    resetDb();
+
+    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+    expect(loadDb()).toEqual(emptyDb());
+    expect(localStorage.getItem("synapse-lang")).toBe("zh");
+    expect(localStorage.getItem("synapse-theme")).toBe("aurora");
   });
 });
