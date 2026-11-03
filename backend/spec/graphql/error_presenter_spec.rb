@@ -38,4 +38,20 @@ RSpec.describe ErrorPresenter do
       expect(payload[:extensions][:code]).to eq(code.to_s)
     end
   end
+
+  # Boundary guard: input that bypassed the shape contract (anything but
+  # `result.failure`, e.g. a raw exception) must not crash the GraphQL layer
+  # with NoMethodError — it degrades to the INTERNAL payload.
+  it "maps a bypassed raw failure (not an ApplicationErrors::Failure) to the INTERNAL payload" do
+    payload = described_class.call(StandardError.new("boom"))
+
+    expect(payload).to eq(message: "internal error", extensions: { code: "INTERNAL" })
+  end
+
+  it "keeps the INTERNAL degradation for other wrong shapes (nil, bare symbol) too" do
+    aggregate_failures do
+      expect(described_class.call(nil)).to eq(message: "internal error", extensions: { code: "INTERNAL" })
+      expect(described_class.call(:NOT_FOUND)).to eq(message: "internal error", extensions: { code: "INTERNAL" })
+    end
+  end
 end
