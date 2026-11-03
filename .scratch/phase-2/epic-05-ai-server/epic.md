@@ -18,7 +18,7 @@ Milestone: Phase 2 — post-deadline
 
 ## Definition of done
 
-Quiz/flashcard/grade/proposal answered by commands over the adapter with node-attributed, materials-sourced output · cap trips at the boundary with CAP_REACHED · SSE endpoint streams the contract events and 401s bad tickets · no provider key anywhere in web/ · rubocop+rspec green · every ticket cites AD-16/AD-5.
+Quiz/flashcard/grade/proposal answered by commands over the adapter with node-attributed, materials-sourced output · cap trips at the boundary with CAP_REACHED · SSE endpoint streams the contract events and 401s bad tickets · no provider key anywhere in frontend/ · rubocop+rspec green · every ticket cites AD-16/AD-5.
 
 ## Coordination notes
 

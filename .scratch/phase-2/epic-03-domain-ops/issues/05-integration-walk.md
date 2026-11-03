@@ -11,4 +11,4 @@
 - [ ] The walk spec passes against factories, twice in a row (idempotency evidence)
 - [ ] Schema diff = exactly the ops from tickets 1–4 (+ epic-02 auth); no stray surface
 - [ ] `pnpm codegen` in web green against the new schema
-- [ ] rubocop + rspec green; epic closes with the dev-loop note (just up → walk spec) in `api/AGENTS.md`
+- [ ] rubocop + rspec green; epic closes with the dev-loop note (just up → walk spec) in `backend/AGENTS.md`

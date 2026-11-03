@@ -11,5 +11,5 @@
 - [ ] Factory for each entity; factories build valid full graphs without sequences colliding on client-supplied uuids
 - [ ] Shared context iterates every user-owned model and proves cross-user isolation (read side)
 - [ ] The context demonstrably fails when a model's scoping is broken (verify once by mutation, then revert)
-- [ ] Context is one `include` away for epics 02–08 — documented in `api/AGENTS.md`
+- [ ] Context is one `include` away for epics 02–08 — documented in `backend/AGENTS.md`
 - [ ] Full api gate suite green via `just spec`

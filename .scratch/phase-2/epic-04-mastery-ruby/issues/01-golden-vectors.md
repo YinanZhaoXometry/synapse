@@ -1,6 +1,6 @@
 # 01: Golden-vector generator + committed fixtures
 
-**What to build:** `web/scripts/generate-mastery-vectors.ts` (runs via the web toolchain) producing `api/spec/fixtures/mastery_vectors.json` from `domain/mastery.ts` + the streak rollup: every boundary in both directions (79↔80 score, 2↔3 evidence, window-5 edge, uncovered-node rollup, all-mastered 100, task single-node rollup, 99-cap), decimals as strings, timestamps timezone-tagged, streak day-boundary policy stated (A1: pin in ADR-0001 if Phase 1 left it implicit), rounding mode + operation order recorded in ADR-0001's terms. Deterministic output (sorted, stable keys). CI (web job) regenerates + diffs until the cutover retires the TS side.
+**What to build:** `frontend/scripts/generate-mastery-vectors.ts` (runs via the web toolchain) producing `backend/spec/fixtures/mastery_vectors.json` from `domain/mastery.ts` + the streak rollup: every boundary in both directions (79↔80 score, 2↔3 evidence, window-5 edge, uncovered-node rollup, all-mastered 100, task single-node rollup, 99-cap), decimals as strings, timestamps timezone-tagged, streak day-boundary policy stated (A1: pin in ADR-0001 if Phase 1 left it implicit), rounding mode + operation order recorded in ADR-0001's terms. Deterministic output (sorted, stable keys). CI (web job) regenerates + diffs until the cutover retires the TS side.
 
 **Blocked by:** None (needs only epic-00's layout).
 

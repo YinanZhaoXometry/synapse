@@ -11,7 +11,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 
 | # | Epic | Scope (FRs / ADs) | Gate (must be done first) | On critical path |
 | --- | --- | --- | --- | --- |
-| 00 | [monorepo](epic-00-monorepo/epic.md) *(done 2026-11-03 — branch epic/p2-0-monorepo @ 96eb1ea, merged to main same day)* | `web/` + `api/` + justfile + CI (AD-17) | — | ✅ |
+| 00 | [monorepo](epic-00-monorepo/epic.md) *(done 2026-11-03 — branch epic/p2-0-monorepo @ 96eb1ea, merged to main same day)* | `frontend/` + `backend/` + justfile + CI (AD-17; folders renamed from `web/`+`api/` 2026-11-04) | — | ✅ |
 | 01 | [api-foundation](epic-01-api-foundation/epic.md) | command core, closed error enum, full ER + migrations, scoping RSpec (AD-12/13) | 00 | ✅ |
 | 02 | [auth](epic-02-auth/epic.md) | bcrypt + JWT, register/login, `current_user` context, demo seed (AD-15, FR-30) | 01 | ✅ |
 | 03 | [domain-ops](epic-03-domain-ops/epic.md) | GraphQL read/mutation surface for the whole Phase-1 data model (AD-12/13) | 01, 02 | ✅ |
@@ -31,7 +31,7 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 
 ## Blockers vs non-blockers
 
-**Hard sequence (each gates everything behind it):** 00 → 01 → 02 → 03 → 05 → 08 → features. Nothing on this chain can be skipped, reordered, or parallelized away: 01 needs the monorepo's `api/` home; 02–07 all build on 01's models/commands; 05 needs auth'd context + domain ops to persist into; 08 turns the whole server on; every feature epic consumes post-cutover web.
+**Hard sequence (each gates everything behind it):** 00 → 01 → 02 → 03 → 05 → 08 → features. Nothing on this chain can be skipped, reordered, or parallelized away: 01 needs the monorepo's `backend/` home; 02–07 all build on 01's models/commands; 05 needs auth'd context + domain ops to persist into; 08 turns the whole server on; every feature epic consumes post-cutover web.
 
 **Blockers for the cutover only (parallelizable):** 04 (mastery port) and 06 (storage). Both hang off 01 alone, run in their own lanes, and must merely *finish* before 08 starts.
 
@@ -42,11 +42,11 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 
 ## Parallelism
 
-**After 00 lands (landed + merged to main 2026-11-03): single lane.** Only 01. (Owner-parallel: CF Pages initial configuration, root `web` — no re-point step, see deploy.md.)
+**After 00 lands (landed + merged to main 2026-11-03): single lane.** Only 01. (Owner-parallel: CF Pages initial configuration, root `frontend` — no re-point step, see deploy.md.)
 
 **After 01 lands: three lanes.**
 - Lane A: 02 auth → then 03 domain-ops (fine-grained overlap allowed: 03's command-level tickets may start against 02's branch-point models once 02's users table shape is stable — coordinate, don't race migrations).
-- Lane B: 04 mastery-ruby (golden-vector script even earlier — it lives in `web/` and only needs the Phase-1 suite).
+- Lane B: 04 mastery-ruby (golden-vector script even earlier — it lives in `frontend/` and only needs the Phase-1 suite).
 - Lane C: 06 storage-r2 (its owner ticket — R2 bucket + credentials — can be done any time from now; the code needs only 01).
 
 **After 02+03 land: two more lanes open.** 05 ai-server (critical path) ∥ 07 requeue; lanes B/C continue if unfinished.
@@ -59,7 +59,7 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 
 | When | Item | Feeds |
 | --- | --- | --- |
-| any time | CF Pages initial configuration (root `web` — owner confirmed 2026-11-03 Pages **not** yet deployed; no re-point step) | epic-00 close-out |
+| any time | CF Pages initial configuration (root `frontend` — Pages not yet deployed; folder renamed from `web` 2026-11-04; no re-point step) | epic-00 close-out |
 | any time | R2 bucket + access token | 06-T3 |
 | before 05-T1 | GLM provider terms verification (OQ-4 gate) | 05 |
 | during 05 | Render + Neon accounts, env values | 08-T6 |

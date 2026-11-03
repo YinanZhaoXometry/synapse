@@ -47,7 +47,7 @@ No GraphQL surface for the entities belongs here — types and operations are ep
 
 ## Out of Scope
 
-Auth/JWT (02) · GraphQL entity surface (03) · mastery (04) · AI (05) · blobs/ActiveStorage (06) · Solid Queue (07) · any web/ change.
+Auth/JWT (02) · GraphQL entity surface (03) · mastery (04) · AI (05) · blobs/ActiveStorage (06) · Solid Queue (07) · any frontend/ change.
 
 ## Further Notes
 

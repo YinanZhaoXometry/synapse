@@ -9,5 +9,5 @@
 **Bound by:** AD-19 (in-process; DB-backed; direct URL; no keep-alive; cold starts accepted), AD-12 (jobs are thin wrappers).
 
 - [ ] Queue runs in-process with puma in compose; one smoke recurring job fires on wake
-- [ ] Queue tables migrated; direct-URL posture documented in `api/AGENTS.md` + deploy doc
+- [ ] Queue tables migrated; direct-URL posture documented in `backend/AGENTS.md` + deploy doc
 - [ ] No ping/keep-alive code paths (grep-guard spec or rubocop custom cop — simplest that works)

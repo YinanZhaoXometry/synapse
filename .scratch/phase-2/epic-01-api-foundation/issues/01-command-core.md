@@ -11,4 +11,4 @@
 - [ ] `ApplicationCommand` base with dry-initializer + dry-monads; every `Failure` carries an enum code
 - [ ] Closed error enum as the single constant; presenter emits `extensions.code` payloads
 - [ ] Demo command: happy path returns Success, failure path returns a typed Failure — both asserted by direct RSpec
-- [ ] RuboCop clean; conventions (naming `Context::VerbNounCommand`, thin-resolver rule) documented in `api/AGENTS.md` alongside the code
+- [ ] RuboCop clean; conventions (naming `Context::VerbNounCommand`, thin-resolver rule) documented in `backend/AGENTS.md` alongside the code

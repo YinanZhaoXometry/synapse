@@ -13,7 +13,7 @@ AD-6 exists so the Mastery Score means one thing; the cutover would create two l
 
 ## Solution
 
-1. **Golden vectors (ticket 1, can start any time after 00 — lives in web):** a TS script generating fixture JSON from the existing `domain/mastery.ts` test corpus — every boundary in both directions (79/80, 2/3 evidence, 4/5 window edge, rollup-with-uncovered, task-node single rollup), decimals as strings, timestamps timezone-tagged, streak day-boundary policy stated, rounding mode + operation order pinned in ADR-0001's terms. Committed at `api/spec/fixtures/mastery_vectors.json`.
+1. **Golden vectors (ticket 1, can start any time after 00 — lives in web):** a TS script generating fixture JSON from the existing `domain/mastery.ts` test corpus — every boundary in both directions (79/80, 2/3 evidence, 4/5 window edge, rollup-with-uncovered, task-node single rollup), decimals as strings, timestamps timezone-tagged, streak day-boundary policy stated, rounding mode + operation order pinned in ADR-0001's terms. Committed at `backend/spec/fixtures/mastery_vectors.json`.
 2. **The Ruby port (ticket 2):** `Mastery` module — node score, plan rollup, task rollup, mastered predicate; RSpec consumes the fixtures with exact-equality comparison.
 3. **Scores on the wire (ticket 3):** resolver bodies for the score fields on KnowledgeNode/StudyPlan (placement per epic-03's recorded decision) + the streak rollup; the client renders, never recomputes.
 4. **Freshness/decay (ticket 4, separable):** NFR-8's decay rule as an **ADR-0001 amendment** — values, rationale, and vectors extended; may slip independently of the cutover (v1 = no decay, exactly like Phase 1).

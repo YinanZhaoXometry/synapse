@@ -10,17 +10,17 @@ Monorepo (two apps, one contract, one entrypoint):
 
 | Path | What it is |
 | --- | --- |
-| `web/` | The Vite SPA — React 18 + TypeScript + shadcn/ui + Tailwind 3, Vitest tests |
-| `api/` | The Rails 8.1 API-only service (GraphQL) — minimal bootable scaffold; see `api/AGENTS.md` |
+| `frontend/` | The Vite SPA — React 18 + TypeScript + shadcn/ui + Tailwind 3, Vitest tests |
+| `backend/` | The Rails 8.1 API-only service (GraphQL) — minimal bootable scaffold; see `backend/AGENTS.md` |
 | `justfile` | Root orchestrator: `just setup · dev · up · spec` |
 | `docs/` | Product brief + PRD, UX, architecture spine (AD-1…20), ADRs, agent handbooks |
 | `.scratch/` | Local issue tracker (specs + tickets per epic) |
 
-The only cross-stack contract is the api-committed `api/schema.graphql`, consumed by web's graphql-codegen.
+The only cross-stack contract is the api-committed `backend/schema.graphql`, consumed by frontend's graphql-codegen.
 
 ## Quickstart
 
-Prerequisites: **Node 24.22** (nvm — `web/.nvmrc`), **pnpm 10** (the only lockfile is `web/pnpm-lock.yaml`), **Docker** (Docker Desktop or colima) for the api containers, and **just**.
+Prerequisites: **Node 24.22** (nvm — `frontend/.nvmrc`), **pnpm 10** (the only lockfile is `frontend/pnpm-lock.yaml`), **Docker** (Docker Desktop or colima) for the backend containers, and **just**.
 
 ```bash
 just setup   # install web deps (pnpm frozen) + build/pull the api image
@@ -29,7 +29,7 @@ just up      # api stack (compose: postgres 17 + api) → api on http://localhos
 just spec    # all gates: web (tsc · eslint · vitest · build) + api (rubocop · rspec)
 ```
 
-Per-stack commands, the pnpm/nvm toolchain gotchas, the localStorage key inventory, and the architecture map live in [AGENTS.md](AGENTS.md) (the real project handbook). Api conventions and stack pins: [api/AGENTS.md](api/AGENTS.md).
+Per-stack commands, the pnpm/nvm toolchain gotchas, the localStorage key inventory, and the architecture map live in [AGENTS.md](AGENTS.md) (the real project handbook). Backend conventions and stack pins: [backend/AGENTS.md](backend/AGENTS.md).
 
 ## Documentation
 

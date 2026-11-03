@@ -9,5 +9,5 @@
 **Bound by:** AD-14 (verbatim port; ambiguities → amend ADR-0001 first, both sides together), AD-6 (no second vocabulary).
 
 - [ ] Fixture parity exact across the whole matrix — zero tolerance diffs
-- [ ] No scoring logic anywhere else in api (grep-guard or convention note in api/AGENTS.md)
+- [ ] No scoring logic anywhere else in api (grep-guard or convention note in backend/AGENTS.md)
 - [ ] RuboCop clean

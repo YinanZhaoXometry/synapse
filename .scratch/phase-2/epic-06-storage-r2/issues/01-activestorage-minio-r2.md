@@ -1,6 +1,6 @@
 # 01: ActiveStorage dual-env config — minio dev / R2 prod
 
-**What to build:** `aws-sdk-s3` + ActiveStorage service config selected by ENV (minio endpoint in dev, R2 endpoint in prod); **minio service added to `api/.dockerdev/compose.yaml`** (completing AD-20's local shape per epic-00 A7); `.env.example` grows `R2_ENDPOINT/BUCKET/ACCESS_KEY/SECRET`; a spike spec proving v4 presign works against minio before anything builds on it (A1).
+**What to build:** `aws-sdk-s3` + ActiveStorage service config selected by ENV (minio endpoint in dev, R2 endpoint in prod); **minio service added to `backend/.dockerdev/compose.yaml`** (completing AD-20's local shape per epic-00 A7); `.env.example` grows `R2_ENDPOINT/BUCKET/ACCESS_KEY/SECRET`; a spike spec proving v4 presign works against minio before anything builds on it (A1).
 
 **Blocked by:** None (epic gate: epic-01 done).
 
