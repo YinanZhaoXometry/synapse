@@ -48,6 +48,10 @@ module Types
     # Comments). Scoping rides the association path (the epic-03 reads
     # convention): this node was resolved through the caller's own plan/task
     # path, so its evidence_records are the caller's own evidence.
+    # `now: Time.current` engages the freshness cap (ADR-0001 amendment
+    # 2026-11-04, ticket 04): the wire's score/state semantics include
+    # freshness — a node whose latest evidence is more than 14 days old caps
+    # at 99 and never reads mastered.
     field :mastery_score, String,
           null: false,
           description: "The node's Mastery Score (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — computed by the api's Mastery module over this node's evidence records (the client renders, never recomputes, AD-14). \"0\" with no evidence."
@@ -57,11 +61,11 @@ module Types
           description: "The node's mastery state over the same evidence: \"uncovered\" (no evidence) | \"partial\" | \"mastered\" (score ≥ 80 AND ≥ 3 records) — Mastery's node-state vocabulary verbatim (AD-6)."
 
     def mastery_score
-      Mastery.compute_node_score(object.evidence_records).to_s
+      Mastery.compute_node_score(object.evidence_records, now: Time.current).to_s
     end
 
     def state
-      Mastery.node_state(object.evidence_records)
+      Mastery.node_state(object.evidence_records, now: Time.current)
     end
   end
 end
