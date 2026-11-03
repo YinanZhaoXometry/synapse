@@ -26,7 +26,7 @@ sources:
 
 **FR-33\*:** server-side AI binds as **deferred to Phase 2** by owner decision 2026-11-03 — Phase 1 ships the simulated adapter (AD-5) and the Nov-6 demo runs without a server; the server lands at the cutover (AD-16). This supersedes the PRD's `[Phase 1]` tag, which predates the static-first decision.
 
-**Scope line (owner, 2026-11-02; extended 2026-11-03):** Phase 1 = the static build — full interactive frontend, simulated AI behind an adapter, local persistence; ships 2026-11-06 unchanged. The 2026-11-03 update adds the **Phase-2 architecture**: a Rails GraphQL backend modeled on qc-center-api's conventions and the monorepo shape — **design now, implementation post-Nov-6** (Phase-2 epic-0 restructures the repo). FR-33 stays deferred for the Nov-6 demo.
+**Scope line (owner, 2026-11-02; extended 2026-11-03):** Phase 1 = the static build — full interactive frontend, simulated AI behind an adapter, local persistence; ships 2026-11-06 unchanged. The 2026-11-03 update adds the **Phase-2 architecture**: a Rails GraphQL backend modeled on qc-center-api's conventions and the monorepo shape — **design now, implementation post-Nov-6** (Phase-2 epic-0 restructures the repo). FR-33 stays deferred for the Nov-6 demo. **Owner amendment, 2026-11-03 (later same day):** epic-0 was implemented early at owner direction — shipped on branch `epic/p2-0-monorepo` (two-axis review clean, CI green) and merged to `main`. The owner has **not** configured Cloudflare Pages yet, so the "configure Pages this week against the old layout / re-point after merge" sequencing (Q3=b) is void — Pages is configured **fresh against the monorepo layout** (root directory `web`) whenever the owner deploys; no re-point step exists.
 
 **The cutover** — the single Phase-2 event where the backend turns on: the web app moves behind a login wall, local adapters retire, the server becomes authoritative. AD-1..11 bind everything **before** it (they ship Nov 6); AD-12..20 bind everything **after**. Cross-notes on the retired ADs mark the seam; IDs never renumber.
 
@@ -156,7 +156,7 @@ flowchart LR
 - **Prevents:** deploy-time surprises from client-side routing or env assumptions
 - **Rule:** `vite build` produces a static bundle; deploy to a static host with **SPA-fallback rewrite to `index.html`** and auto-deploy from `main`. No env vars, no server, no warm-up (NFR-6). **Vendor decided 2026-11-03: Cloudflare Pages** — `_redirects` SPA fallback; the full Phase-2 envelope is AD-20.
 
-**Phase-2 ADs (2026-11-03 update — backend + monorepo; implementation post-Nov-6, qc-center-api conventions adopted per the adopt/skip list in the memlog):**
+**Phase-2 ADs (2026-11-03 update — backend + monorepo; implementation post-Nov-6 — **amended same-day at owner direction: epic-0 landed early, see the scope-line amendment**; qc-center-api conventions adopted per the adopt/skip list in the memlog):**
 
 ### AD-12 — One Rails API: GraphQL-first, command-core
 
@@ -251,7 +251,7 @@ flowchart LR
 
 ## Structural Seed
 
-Target shape after the Phase-2 epic-0 restructure (until then the repo keeps its current flat shape and AD-2 paths are relative to the repo root):
+Target shape after the Phase-2 epic-0 restructure (landed 2026-11-03 — this shape IS the repo; AD-2 paths are `web/`-prefixed):
 
 ```text
 /                      # repo root
@@ -332,7 +332,7 @@ flowchart LR
 | FR-13/14/15 (stretch) | `features/reader` selection bar / marking | AD-7; detail at spec |
 | Square (FR-38/39, Phase 2) | api public-plan read path — the one AD-13 scoping exception, structure-only (NFR-7); adoption = fork w/ attribution (OQ-12) | AD-13 |
 | FR-46 plan-level Companion + FR-44/45 node-scoped grounding, section→node mapping | api AI adapter context assembly (plan scope, no Reading Position) + SSE stream | AD-16, AD-5 |
-| Monorepo restructure | Phase-2 epic-0 (mechanical move + CI + AGENTS.md ×2) | AD-17 |
+| Monorepo restructure | Phase-2 epic-0 (mechanical move + CI + AGENTS.md ×2) — **done 2026-11-03** (branch `epic/p2-0-monorepo`, merged to `main`) | AD-17 |
 
 ## Deferred
 

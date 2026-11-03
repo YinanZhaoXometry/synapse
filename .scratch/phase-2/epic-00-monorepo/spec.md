@@ -1,6 +1,6 @@
 # Spec: Epic 0 (Phase 2) — Monorepo restructure: `web/` + `api/` + justfile + CI (Phase-2 opener)
 
-Status: done (implemented 2026-11-03 on branch epic/p2-0-monorepo @ 96eb1ea; two-axis review 0P0/1P1/6P2 all fixed; main merge deferred post-Nov-6)
+Status: done (implemented 2026-11-03 on branch epic/p2-0-monorepo @ 96eb1ea; two-axis review 0P0/1P1/6P2 all fixed; merged to main 2026-11-03 at owner direction)
 Milestone: Phase 2 — post-deadline
 
 > Grill round closed 2026-11-03 — one frontier round, three questions (api scaffold depth · CI form ·
@@ -8,7 +8,7 @@ Milestone: Phase 2 — post-deadline
 > recommendations adopted ((a) minimal bootable api scaffold · (a) GitHub Actions · (b) owner configures
 > Pages now per the current deploy doc, this epic re-points it after landing). Assumption log in
 > Further Notes. **Implementation starts post-Nov-6** (spine: "design now, implementation post-Nov-6") —
-> this spec + tickets are the pre-Nov-6 deliverable.
+> this spec + tickets are the pre-Nov-6 deliverable. *(Superseded 2026-11-03 — see the Sequencing-constraint note in Further Notes: implemented early + merged same day at owner direction.)*
 
 ## Problem Statement
 
@@ -57,7 +57,7 @@ Restructure mechanically per AD-17 into **`web/` + `api/` + a root `justfile`**,
 - **CI (Q2=a)**: one workflow (or two jobs) on push/PR to main. Web job: pnpm frozen install → `tsc -b` → eslint → vitest run → `vite build`, Node pinned via `web/.nvmrc` (pin captured at implementation — A5). api job: RuboCop → RSpec (postgres as a service container or compose-based, whichever keeps the workflow simplest; decide at ticket time within "gates green, no flakiness").
 - **Codegen pipeline**: `web/` gets a `codegen.ts` + `codegen` script consuming `../api/schema.graphql`, emitting typed output into a gitignored/generated location; compile-level proof only (no runtime GraphQL client — that's AD-18's cutover epic).
 - **Docs pass**: root AGENTS.md rewrite (monorepo commands + gotchas: pnpm layout, nvm shim hijack, `npm run build` ≠ typecheck, dev port 8080, tsbuildinfo staleness, **corrected storage-key names** — closing epic-7's out-of-scope observation); `api/AGENTS.md` new (architecture contract: command-layer-first per AD-12, closed error enum ↔ `AppError.code` 1:1 via `extensions.code`, client-suppliable UUIDs, AD-16 AI server-side + SSE ticket contract, AD-19 jobs posture, naming conventions — each rule citing its AD id); deploy doc re-pointed (root directory `web`, build command, output `dist`) with an explicit note that the owner must edit the Pages project's root directory once after merge (Q3=b); README rewritten (product intro, structure map, `just` quickstart).
-- **Delivery process**: single integration branch off main (established pattern), implementation starts post-Nov-6, two-axis review (spec-conformance + defects) before merge, CI green pre-merge. Rollback = revert the merge.
+- **Delivery process**: single integration branch off main (established pattern), implementation starts post-Nov-6 *(amended same-day 2026-11-03: started early at owner direction, merged to main same day)*, two-axis review (spec-conformance + defects) before merge, CI green pre-merge. Rollback = revert the merge.
 
 ## Testing Decisions
 
@@ -90,4 +90,4 @@ Restructure mechanically per AD-17 into **`web/` + `api/` + a root `justfile`**,
 
 **Facts captured 2026-11-03**: remote re-pointed to `github.com/YinanZhaoXometry/synapse` (old `comp5241-project` remote still pushable; set-url was the standing recommendation); Docker 29.5.3 installed, daemon down at spec time (compose targets unaffected); local Ruby 3.2.6 (irrelevant — api runs in containers); repo has no `.nvmrc`; the nvm shim failure (`command not found: _nvm_lazy_load`) reproduced in-session.
 
-**Sequencing constraint**: implementation begins **after** the Nov-6 demo (spine line: "design now, implementation post-Nov-6"). Owner's CF Pages setup (epic-7 T1) proceeds this week against the *current* layout per Q3=(b).
+**Sequencing constraint**: implementation begins **after** the Nov-6 demo (spine line: "design now, implementation post-Nov-6"). Owner's CF Pages setup (epic-7 T1) proceeds this week against the *current* layout per Q3=(b). **Superseded 2026-11-03 (later same day, owner):** implemented early at owner direction and merged to `main` the same day. Owner confirmed Cloudflare Pages was **never configured**, so Q3=(b)'s configure-now/re-point-later sequencing is void — Pages gets configured fresh with root `web` (see docs/deploy.md "Deployment status").

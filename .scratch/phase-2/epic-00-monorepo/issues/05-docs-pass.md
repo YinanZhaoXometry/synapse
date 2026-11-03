@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (final web paths to describe), 02 (api reality to describe).
 
-**Status:** done 2026-11-03 — a57b580/173d842 + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6)
+**Status:** done 2026-11-03 — a57b580/173d842 + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (merged to main 2026-11-03)
 
 **Bound by:** AD-17 (AGENTS.md ×2 in the same change), AD-12/13/16/19 (the rules `api/AGENTS.md` encodes), AD-20 (deployment envelope values), AD-11 (Pages SPA fallback — unchanged).
 

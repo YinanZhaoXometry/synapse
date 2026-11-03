@@ -1,10 +1,10 @@
 # Deployment — Cloudflare Pages (AD-11, FR-35)
 
-Phase 1 ships as a static SPA. **AD-11 (2026-11-03):** `vite build` → static bundle → **Cloudflare Pages**, SPA-fallback rewrite to `index.html`, auto-deploy from `main`. No env vars, no server, no warm-up (NFR-6). The Phase-2 backend envelope (Render/Neon/R2) is AD-20 and does not apply to the web app. Since the monorepo restructure (AD-17) the SPA lives in **`web/`** — the Pages project's **Root directory is `web`** (see the owner action below).
+Phase 1 ships as a static SPA. **AD-11 (2026-11-03):** `vite build` → static bundle → **Cloudflare Pages**, SPA-fallback rewrite to `index.html`, auto-deploy from `main`. No env vars, no server, no warm-up (NFR-6). The Phase-2 backend envelope (Render/Neon/R2) is AD-20 and does not apply to the web app. Since the monorepo restructure (AD-17) the SPA lives in **`web/`** — the Pages project's **Root directory is `web`** (deployment status below).
 
-## ⚠️ Owner action after the monorepo epic merges (one-time)
+## Deployment status (2026-11-03)
 
-The Pages project was created against the **old flat layout** (repo root, `npm run build`, output `dist`). Once the `web/` restructure lands on `main`, that configuration breaks — **edit the Pages project once**: dashboard → the Pages project → **Settings → Builds & deployments** → **Root directory** → set to **`web`** → save. Nothing else changes (the build command/output below still apply; the next `main` push builds green). Until this edit lands, keep the pre-restructure deployment as the live demo (Pages keeps old deployments; roll back if needed).
+**The owner has not configured Cloudflare Pages yet** — there is no legacy project to migrate and no re-point step. The earlier plan ("configure this week against the old layout, flip Root directory after the restructure merges" — Q3=b) is **void**: when deploying, do the fresh setup below directly with the post-restructure values (**Root directory `web`**, `pnpm run build`, output `dist`), and auto-deploy from `main` just works.
 
 ## Repo-side (already in place)
 

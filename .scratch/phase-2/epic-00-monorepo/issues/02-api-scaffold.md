@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately; independent of ticket 01).
 
-**Status:** done 2026-11-03 — afbcfc3..6a905fe + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6)
+**Status:** done 2026-11-03 — afbcfc3..6a905fe + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (merged to main 2026-11-03)
 
 **Bound by:** AD-12 (thin GraphQL layer over a command core — conventions *documented* now, exercised later), AD-17 (compose dev DX, committed schema contract, `api/AGENTS.md` pattern), AD-19 (jobs posture documented, gem deferred — A9), AD-20 (dev envelope).
 

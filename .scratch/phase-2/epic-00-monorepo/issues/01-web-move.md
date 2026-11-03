@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** done 2026-11-03 — 3df9fb2 + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6)
+**Status:** done 2026-11-03 — 3df9fb2 + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (merged to main 2026-11-03)
 
 **Bound by:** AD-17 (repo shape, docs/.scratch stay put), AD-2 (feature-boundary paths gain the `web/` prefix, rules unchanged).
 

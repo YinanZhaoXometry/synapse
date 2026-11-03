@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (web layout exists), 02 (api stack + schema exist).
 
-**Status:** done 2026-11-03 — 4875eb0+ad04861 (merged 651a39a) + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6)
+**Status:** done 2026-11-03 — 4875eb0+ad04861 (merged 651a39a) + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (merged to main 2026-11-03)
 
 **Bound by:** AD-17 (just targets, no shared package, schema.graphql as the only contract), AD-18 boundary note (codegen is compile-level only — no runtime GraphQL client, that's the cutover epic).
 

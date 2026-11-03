@@ -11,7 +11,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 
 | # | Epic | Scope (FRs / ADs) | Gate (must be done first) | On critical path |
 | --- | --- | --- | --- | --- |
-| 00 | [monorepo](epic-00-monorepo/epic.md) *(done 2026-11-03 — branch epic/p2-0-monorepo @ 96eb1ea; main merge post-Nov-6)* | `web/` + `api/` + justfile + CI (AD-17) | — | ✅ |
+| 00 | [monorepo](epic-00-monorepo/epic.md) *(done 2026-11-03 — branch epic/p2-0-monorepo @ 96eb1ea, merged to main same day)* | `web/` + `api/` + justfile + CI (AD-17) | — | ✅ |
 | 01 | [api-foundation](epic-01-api-foundation/epic.md) | command core, closed error enum, full ER + migrations, scoping RSpec (AD-12/13) | 00 | ✅ |
 | 02 | [auth](epic-02-auth/epic.md) | bcrypt + JWT, register/login, `current_user` context, demo seed (AD-15, FR-30) | 01 | ✅ |
 | 03 | [domain-ops](epic-03-domain-ops/epic.md) | GraphQL read/mutation surface for the whole Phase-1 data model (AD-12/13) | 01, 02 | ✅ |
@@ -42,7 +42,7 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 
 ## Parallelism
 
-**After 00 lands (post-Nov-6): single lane.** Only 01. (Owner-parallel: the one-line CF Pages root-directory re-point from epic-00's docs pass.)
+**After 00 lands (landed + merged to main 2026-11-03): single lane.** Only 01. (Owner-parallel: CF Pages initial configuration, root `web` — no re-point step, see deploy.md.)
 
 **After 01 lands: three lanes.**
 - Lane A: 02 auth → then 03 domain-ops (fine-grained overlap allowed: 03's command-level tickets may start against 02's branch-point models once 02's users table shape is stable — coordinate, don't race migrations).
@@ -59,16 +59,16 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 
 | When | Item | Feeds |
 | --- | --- | --- |
-| any time | CF Pages root-directory re-point (`web`) | epic-00 close-out |
+| any time | CF Pages initial configuration (root `web` — owner confirmed 2026-11-03 Pages **not** yet deployed; no re-point step) | epic-00 close-out |
 | any time | R2 bucket + access token | 06-T3 |
 | before 05-T1 | GLM provider terms verification (OQ-4 gate) | 05 |
 | during 05 | Render + Neon accounts, env values | 08-T6 |
 | before a graded demo | Render/Neon paid upgrade for the demo window (AD-20) | ops |
 | before real users | mail provider (unblocks password reset), Neon backups | 14 |
 
-## Phase-2 kickoff checklist (post-Nov-6)
+## Phase-2 kickoff checklist (started 2026-11-03)
 
-1. Implement epic-00 (the only pre-spec'd epic — its tickets are already `ready-for-agent`).
+1. Implement epic-00 (the only pre-spec'd epic — its tickets are already `ready-for-agent`). — **done 2026-11-03**, merged to `main` at owner direction.
 2. Run the **PRD §6.2 ↔ 落地 diff check** (carry-over from the final-system prototype audit, 2026-11-03): walk §6.2's deferred list against what actually shipped in Phase 1; reconcile any drift into the epics below before opening them. Known from that audit: the only true product gaps were FR-44/45 — both now epic-10 tickets.
 3. Open epic-01; schedule lanes per the table above.
 4. Delta-review each feature epic (09–14) at its own kickoff, not before — assumptions age.
