@@ -1,6 +1,6 @@
 # Epic 5 — Study Tasks, plan-free study (FR-37)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 
 ## Parent
@@ -52,3 +52,30 @@ via direct `node_modules/.bin` binaries) · grandfathered scaffold surfaces
 untouched (Materials/Planner/Quiz/Dashboard stay demo) · every ticket cites its AD
 ids · new UI verified in light + dark × sunset/twilight/aurora ×
 desktop/tablet/mobile.
+
+## Closure (2026-11-03)
+
+Shipped T1–T4 (`eb23aa4` → `036f7b5`) + review-fix pass (`3d709eb`). Two-axis
+review (spec-conformance + standards): **0 × P0, 1 × P1, 9 × P2 — the P1 and 4
+P2s fixed** in `3d709eb` (Task Home material row clipped the re-upload controls
+at 390px — row now wraps, secondary chips drop at phone widths; orphan Material
+left registered when task creation failed mid-flow — retry now reuses the
+registered material; internal IDs leaked into user copy (「ADR-0001」/「epic-6」/
+「slice 4」) — plans + tasks copy rewritten, meaning kept; empty-state stray div).
+Spec axis: all 26 user stories, 9 implementation decisions, and the 4 pre-agreed
+test seams verified true; tickets' claimed ACs all genuine.
+
+**Deferred follow-ups** (deliberate, non-blocking): extract the shared
+MaterialRow + re-upload protocol (now in three features — plans/reader/tasks;
+next protocol change is shotgun surgery); reuse the plans `latestReading`
+locator→sectionId mapping inside `taskContinueTarget`; `plans.sliceCompanion`
+still says "slice 4" (same leak class, found post-fix); `OutcomeMark` vs
+GLOSSARY's Outcome avoid-term (grandfathered plans atom); Task Home's 「继续阅读」
+label links plain when no anchor resolves (within spec, slight over-promise).
+Browser smoke: a malformed persisted ReadingPosition crashed the Plans Home tree
+— epic-5's selector guards missing data correctly; the whole-tree exposure is the
+scaffold-wide no-error-boundary posture, not an epic-5 defect. 283/283 tests
+(36 files), tsc/eslint clean (10 pre-existing scaffold warnings); visual smoke
+2026-11-03 at 1440×900 / 390×844 × light+sunset / dark+twilight. Note: the
+branch also carries `8b2c895` (epic-6 spec-chain docs from the parallel planning
+session) — docs-only, flows to main with this merge.

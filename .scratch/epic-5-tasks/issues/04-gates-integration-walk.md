@@ -1,6 +1,6 @@
 # T4: Task-loop integration walk + responsive/theme/i18n pass + gates + epic close (AD-9/10)
 
-Status: in-progress — implemented 2026-11-03; flips to done at epic closure after the post-T4 code-review pass (closure AC below is written then, epic-3 convention)
+Status: done
 Milestone: Phase 1 — Nov 6 core
 Blocked by: 02-task-home.md, 03-plans-home-task-section.md
 
@@ -26,4 +26,4 @@ the three palettes, i18n parity, grandfathered-surface checks — and the gates.
 - [x] i18n sweep: no hardcoded user-facing strings in the new feature; zh/en parity across every new key (AD-9). — grep: all rendered strings go through `t()` (CJK hits are comments/test fixtures only); all 17 referenced `tasks.*` keys exist in both languages; durable guard added: `src/contexts/i18n-dictionary.test.ts` asserts tasks.* set parity zh↔en with non-empty copy.
 - [x] Grandfathered check: scaffold pages untouched; frozen progress context unwritten (grep-level verification). — `git diff 8b2c895..HEAD --stat -- src/pages/ src/contexts/UserProgressContext.tsx src/lib/demo-data.ts` empty; `useUserProgress`/`UserProgressContext` absent from `src/features/tasks/`.
 - [x] Gates green via direct `node_modules/.bin` binaries — `tsc -b`, eslint, `vitest run` (pnpm layout; `npm run` is broken in this environment). — vitest **36 files / 280 tests passed** (baseline 34/278), `tsc -b` clean, eslint `0 errors, 10 warnings` (all 10 pre-existing scaffold files: `src/components/ui/*`, `src/contexts/*Context`).
-- [ ] Epic closure section written in the epic doc (shipped tickets, fixes, deferred follow-ups — epic-3 format). — **deferred: written after the code-review pass** (epic-3 convention — closure records the review outcome).
+- [x] Epic closure section written in the epic doc (shipped tickets, fixes, deferred follow-ups — epic-3 format). — written at epic close (see [epic.md](../epic.md) Closure 2026-11-03).
