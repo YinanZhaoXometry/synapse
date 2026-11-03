@@ -156,5 +156,33 @@ RSpec.describe Chat::AppendMessageCommand do
       end
       expect(user.chat_threads.count).to eq(0)
     end
+
+    it "settles a unique-material_id race: the winner's thread takes the append (the savepoint backstop)" do
+      # The committed twin: the same user's concurrent request created the
+      # thread between our pre-check and our INSERT (the only possible racer
+      # — the thread is 1:1 per material across all users). Only the STALE
+      # pre-check is stubbed to miss; the INSERT then collides with the REAL
+      # unique index. The backstop must land the append on the winner's row —
+      # before the requires_new savepoint (the Rails create_or_find_by
+      # pattern) the failed INSERT aborted the enclosing Postgres transaction
+      # and the winner's-row read-back died with PG::InFailedSqlTransaction
+      # → INTERNAL.
+      winner = user.chat_threads.create!(material: material, messages: [])
+      pre_checks = 0
+      allow_any_instance_of(ChatThread.const_get(:ActiveRecord_Associations_CollectionProxy))
+        .to receive(:find_by).and_wrap_original do |orig, *args, &block|
+          pre_checks += 1
+          pre_checks == 1 ? nil : orig.call(*args, &block)
+        end
+
+      result = call(text: "the raced append")
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(user.chat_threads.count).to eq(1)
+        expect(result.value![:message]["text"]).to eq("the raced append")
+        expect(winner.reload.messages.map { |row| row["text"] }).to eq([ "the raced append" ])
+      end
+    end
   end
 end
