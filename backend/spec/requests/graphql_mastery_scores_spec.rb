@@ -147,6 +147,51 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
     end
   end
 
+  describe "the streak query (user-scoped, UTC days)" do
+    include ActiveSupport::Testing::TimeHelpers
+
+    around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
+
+    it "reads 0 with no evidence at all" do
+      _user, token = user_with_token("streak-empty@example.com")
+
+      expect(graphql("query { streak }", token: token).dig("data", "streak")).to eq(0)
+    end
+
+    it "reads 1 when every record sits on one UTC day (same-day evidence does not multiply)" do
+      user, token = user_with_token("streak-one-day@example.com")
+      node = create(:knowledge_node, user: user)
+      create(:evidence_record, user: user, node: node, outcome: "correct",
+                               created_at: Time.utc(2026, 11, 4, 8, 0, 0))
+      create(:evidence_record, user: user, node: node, outcome: "wrong",
+                               created_at: Time.utc(2026, 11, 4, 11, 0, 0))
+
+      expect(graphql("query { streak }", token: token).dig("data", "streak")).to eq(1)
+    end
+
+    it "reads 2 across yesterday→today, the boundary being UTC midnight (ADR-0001, amended 2026-11-04)" do
+      user, token = user_with_token("streak-two-days@example.com")
+      node = create(:knowledge_node, user: user)
+      # Either side of UTC midnight alone proves the boundary is the UTC day,
+      # not the container's local one.
+      create(:evidence_record, user: user, node: node, outcome: "correct",
+                               created_at: Time.utc(2026, 11, 3, 23, 59, 0))
+      create(:evidence_record, user: user, node: node, outcome: "correct",
+                               created_at: Time.utc(2026, 11, 4, 0, 1, 0))
+
+      expect(graphql("query { streak }", token: token).dig("data", "streak")).to eq(2)
+    end
+
+    it "reads 0 when the latest evidence day is 2 days back (the streak is broken)" do
+      user, token = user_with_token("streak-broken@example.com")
+      node = create(:knowledge_node, user: user)
+      create(:evidence_record, user: user, node: node, outcome: "correct",
+                               created_at: Time.utc(2026, 11, 2, 10, 0, 0))
+
+      expect(graphql("query { streak }", token: token).dig("data", "streak")).to eq(0)
+    end
+  end
+
   private
 
   # The rollup read (the plan's own masteryScore).
