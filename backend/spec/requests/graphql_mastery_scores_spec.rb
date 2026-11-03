@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03)", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   # Direct GraphQL execution over HTTP (AD-10, the epic-02 request-spec
   # pattern): factory evidence graphs answer the score fields, and every
   # expected value below is a hand-worked ADR-0001 example (the same math the
@@ -10,8 +12,18 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
   # code under test. The scoring engine has its own fixture-pinned specs
   # (spec/lib/mastery_spec.rb); this file pins the wire: fields exist, answer
   # through Mastery, move ONLY on evidence, and stay user-scoped (AD-13/14).
+  #
+  # The resolvers inject `now: Time.current` (the freshness cap is live on the
+  # wire — ADR-0001 amendment 2026-11-04, ticket 04), so every describe reading
+  # a score under the fixed Nov-2026 evidence corpus pins the clock with
+  # travel_to (Rails 8 forbids nesting block travel_to, so the pin sits at the
+  # describe level; the freshness examples travel to their own boundary
+  # instants instead). Without a pin the fixed-timestamp evidence would age
+  # past the 14-day window and the expectations would rot.
 
   describe "KnowledgeNodeType masteryScore + state (the plan detail's nodes)" do
+    around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
+
     it "reads an uncovered node as \"0\" + uncovered (no evidence ever reads green)" do
       user, token = user_with_token("mastery-uncovered@example.com")
       plan = create(:study_plan, user: user)
@@ -105,6 +117,8 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
   end
 
   describe "StudyPlanType masteryScore (the plan rollup)" do
+    around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
+
     it "reads \"0\" for a plan whose nodes hold no evidence" do
       user, token = user_with_token("rollup-zero@example.com")
       plan = create(:study_plan, user: user)
@@ -147,9 +161,73 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
     end
   end
 
-  describe "the streak query (user-scoped, UTC days)" do
-    include ActiveSupport::Testing::TimeHelpers
+  describe "freshness on the wire (ADR-0001 amendment 2026-11-04, ticket 04)" do
+    # The golden-vector decay boundary: newest record 2026-11-05T10:00:00Z,
+    # freshnessDays 14 → fresh through 2026-11-19T10:00:00Z, stale one second
+    # later. Each example travels to its own boundary instant — Time.current
+    # is what the resolvers inject into Mastery. Setup (login included) runs
+    # INSIDE the travel block: the JWT exp is minted relative to now, so a
+    # token minted at the real clock would be expired by the 15-day travel.
+    def create_correct_on(node, year, month, day)
+      create(:evidence_record, user: node.user, node: node, outcome: "correct",
+                               created_at: Time.utc(year, month, day, 10, 0, 0))
+    end
 
+    it "certifies a node whose latest evidence is exactly 14 days old (\"100\" + mastered, the fresh boundary)" do
+      travel_to(Time.utc(2026, 11, 19, 10, 0, 0)) do
+        user, token = user_with_token("freshness-fresh@example.com")
+        plan = create(:study_plan, user: user)
+        node = create(:knowledge_node, user: user, plan: plan)
+        create_correct_on(node, 2026, 11, 3)
+        create_correct_on(node, 2026, 11, 4)
+        create_correct_on(node, 2026, 11, 5)
+
+        node_result = score_query(token, plan.id).dig("data", "plan", "nodes").first
+        expect(node_result["masteryScore"]).to eq("100")
+        expect(node_result["state"]).to eq("mastered")
+      end
+    end
+
+    it "caps the same evidence one second past the window at \"99\" + partial (a stale score does not certify)" do
+      travel_to(Time.utc(2026, 11, 19, 10, 0, 1)) do
+        user, token = user_with_token("freshness-stale@example.com")
+        plan = create(:study_plan, user: user)
+        node = create(:knowledge_node, user: user, plan: plan)
+        create_correct_on(node, 2026, 11, 3)
+        create_correct_on(node, 2026, 11, 4)
+        create_correct_on(node, 2026, 11, 5)
+
+        node_result = score_query(token, plan.id).dig("data", "plan", "nodes").first
+        expect(node_result["masteryScore"]).to eq("99")
+        expect(node_result["state"]).to eq("partial")
+      end
+    end
+
+    it "holds the plan rollup below 100 when one node has decayed (a decayed node can never certify)" do
+      travel_to(Time.utc(2026, 11, 19, 10, 0, 1)) do
+        user, token = user_with_token("freshness-rollup@example.com")
+        plan = create(:study_plan, user: user)
+        fresh = create(:knowledge_node, user: user, plan: plan, title: "fresh", order: 0)
+        decayed = create(:knowledge_node, user: user, plan: plan, title: "decayed", order: 1)
+        create_correct_on(fresh, 2026, 11, 10)
+        create_correct_on(fresh, 2026, 11, 11)
+        create_correct_on(fresh, 2026, 11, 12)
+        create_correct_on(decayed, 2026, 10, 21)
+        create_correct_on(decayed, 2026, 10, 22)
+        create_correct_on(decayed, 2026, 10, 23)
+
+        result = rollup_query(token, plan.id)
+
+        # fresh node 7 days inside the window (100) + decayed node 27 days past it (99)
+        # → floor((100 + 99) / 2) = 99 — without freshness the rollup would read 100
+        # on a plan whose second node has not been touched for nearly a month.
+        expect(result.dig("data", "plan", "masteryScore")).to eq("99")
+        expect(result.dig("data", "plan", "nodes").map { |n| n["masteryScore"] }).to eq(%w[100 99])
+      end
+    end
+  end
+
+  describe "the streak query (user-scoped, UTC days)" do
     around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
 
     it "reads 0 with no evidence at all" do
@@ -193,6 +271,8 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
   end
 
   describe "a section claim never moves a score (FR-15, server-side)" do
+    around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
+
     it "leaves node, plan, and streak byte-identical across a claimSection write (a claim is never evidence)" do
       user, token = user_with_token("claim-never@example.com")
       plan = create(:study_plan, user: user)
@@ -218,6 +298,8 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
   end
 
   describe "cross-user scoping of the score-bearing reads (AD-13)" do
+    around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
+
     it "answers NOT_FOUND for a foreign plan id even with score fields selected (uniform NOT_FOUND, delta 2)" do
       owner, _owner_token = user_with_token("score-owner@example.com")
       _attacker, attacker_token = user_with_token("score-attacker@example.com")

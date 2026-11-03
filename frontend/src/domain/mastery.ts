@@ -14,7 +14,24 @@ export const MASTERY_CONFIG = {
   masteredThreshold: 80,
   /** …AND at least this many total evidence records (anti-inflation gate, SM-C2). */
   evidenceGate: 3,
+  /**
+   * Freshness window (ADR-0001 amendment 2026-11-04, ticket 04): a node whose
+   * LATEST evidence record is older than this many days caps at 99 and never
+   * reads mastered — a stale score does not certify (NFR-8). Tuning is one line.
+   */
+  freshnessDays: 14,
 } as const;
+
+/** A day in milliseconds — the freshness boundary arithmetic (exact on integral instants). */
+const DAY_MS = 86_400_000;
+
+/**
+ * The instant freshness is judged against. Optional everywhere: injected `now`
+ * engages the freshness cap (the api resolvers always inject; ADR-0001 amendment
+ * 2026-11-04); omitted `now` keeps the identical Phase-1 read (mirrors how
+ * computeStreak's dayBoundary default preserved Phase-1 behavior).
+ */
+type Now = Date | string;
 
 /** Recent evidence first: the window is over recency by createdAt, not insertion order. */
 function recentFirst(records: EvidenceRecord[]): EvidenceRecord[] {
@@ -22,27 +39,44 @@ function recentFirst(records: EvidenceRecord[]): EvidenceRecord[] {
 }
 
 /**
- * round(100 × mean of the node's last-5 outcomes); 0 with no evidence.
- * A node below the evidence gate caps at 99: score 100 must mean *verified*
- * mastery, or the rollup could hit 100% on un-gated nodes — breaking AD-6's
- * "rollup reaches 100 only when every node is mastered" (caught by TDD against
- * the readiness contract; ADR-0001 §consequences amended 2026-11-02).
+ * Freshness cap predicate (ADR-0001 amendment 2026-11-04, ticket 04): the node's
+ * LATEST evidence record (newest createdAt — the same recency the window reads)
+ * is strictly more than freshnessDays old. Exactly 14 days is fresh; 14 days +
+ * 1 second is stale. Never called with an empty list.
  */
-export function computeNodeScore(records: EvidenceRecord[]): number {
+function freshnessExpired(records: EvidenceRecord[], now: Now): boolean {
+  const latest = records.reduce((max, r) => (r.createdAt > max ? r.createdAt : max), records[0].createdAt);
+  return new Date(now).getTime() - new Date(latest).getTime() > MASTERY_CONFIG.freshnessDays * DAY_MS;
+}
+
+/**
+ * round(100 × mean of the node's last-5 outcomes); 0 with no evidence.
+ * A node caps at 99 — score 100 must mean *verified, current* mastery — on
+ * either of two "display at most 99" conditions, composed as the max cap:
+ * below the evidence gate (ADR-0001 amendment 2026-11-02; the rollup could
+ * otherwise hit 100% on un-gated nodes), or past the freshness window on the
+ * latest record (amendment 2026-11-04, ticket 04: a stale score does not
+ * certify; NFR-8). The cap never lowers a sub-99 score — only the 100/mastered
+ * seal expires.
+ */
+export function computeNodeScore(records: EvidenceRecord[], now?: Now): number {
   if (records.length === 0) return 0;
   const recent = recentFirst(records).slice(0, MASTERY_CONFIG.window);
   const values = recent.map((r) => MASTERY_CONFIG.outcomeValues[r.outcome]);
   const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
   const raw = Math.round(100 * mean);
-  return records.length >= MASTERY_CONFIG.evidenceGate ? raw : Math.min(raw, 99);
+  const gated = records.length < MASTERY_CONFIG.evidenceGate;
+  const stale = now !== undefined && freshnessExpired(records, now);
+  return gated || stale ? Math.min(raw, 99) : raw;
 }
 
-/** uncovered (no evidence) / partial / mastered (score ≥80 AND ≥3 total records). */
-export function getNodeState(records: EvidenceRecord[]): NodeState {
+/** uncovered (no evidence) / partial / mastered (score ≥80 AND ≥3 total records AND fresh). */
+export function getNodeState(records: EvidenceRecord[], now?: Now): NodeState {
   if (records.length === 0) return "uncovered";
-  const score = computeNodeScore(records);
+  const score = computeNodeScore(records, now);
   const gateMet = records.length >= MASTERY_CONFIG.evidenceGate;
-  return score >= MASTERY_CONFIG.masteredThreshold && gateMet ? "mastered" : "partial";
+  const stale = now !== undefined && freshnessExpired(records, now);
+  return score >= MASTERY_CONFIG.masteredThreshold && gateMet && !stale ? "mastered" : "partial";
 }
 
 export interface NodeSummary {
@@ -52,11 +86,11 @@ export interface NodeSummary {
 }
 
 /** Per-node surface contract (NodeRow / MasteryRing / EvidencePopover inputs). */
-export function summarizeNodes(evidenceByNode: Record<string, EvidenceRecord[]>): NodeSummary[] {
+export function summarizeNodes(evidenceByNode: Record<string, EvidenceRecord[]>, now?: Now): NodeSummary[] {
   return Object.entries(evidenceByNode).map(([nodeId, records]) => ({
     nodeId,
-    score: computeNodeScore(records),
-    state: getNodeState(records),
+    score: computeNodeScore(records, now),
+    state: getNodeState(records, now),
   }));
 }
 
@@ -68,9 +102,11 @@ export function summarizeNodes(evidenceByNode: Record<string, EvidenceRecord[]>)
  * every plan size ≥ 2). Floor makes 100 arithmetically reachable only when every
  * node scores 100 (⇔ every node mastered) — one rounding rule, monotone, no
  * all-mastered special case. Node-level rounding is unchanged (half-up, above).
+ * Freshness rides the node scores: with `now` injected a decayed node caps at 99
+ * and can never certify (amendment 2026-11-04, ticket 04).
  */
-export function computePlanRollup(evidenceByNode: Record<string, EvidenceRecord[]>): number {
-  const summaries = summarizeNodes(evidenceByNode);
+export function computePlanRollup(evidenceByNode: Record<string, EvidenceRecord[]>, now?: Now): number {
+  const summaries = summarizeNodes(evidenceByNode, now);
   if (summaries.length === 0) return 0;
   const total = summaries.reduce((sum, n) => sum + n.score, 0);
   return Math.floor(total / summaries.length);
@@ -80,6 +116,6 @@ export function computePlanRollup(evidenceByNode: Record<string, EvidenceRecord[
  * Study Task rollup (AD-6): exactly its single owned node's score —
  * no other rollup exists.
  */
-export function computeTaskRollup(records: EvidenceRecord[]): number {
-  return computeNodeScore(records);
+export function computeTaskRollup(records: EvidenceRecord[], now?: Now): number {
+  return computeNodeScore(records, now);
 }

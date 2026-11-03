@@ -56,7 +56,16 @@ const SOURCE_PATHS = [
 /** The pinned instant "today" for every streak case (never the host clock). */
 const STREAK_NOW = "2026-11-05T21:00:00Z";
 
-type VectorCategory = "node_score" | "rollup" | "task_rollup" | "streak" | "streak_divergence";
+/**
+ * The freshness boundary instants (ADR-0001 amendment 2026-11-04, ticket 04).
+ * The decay corpus's newest evidence record is 2026-11-05T10:00:00Z, so
+ * FRESH_NOW is exactly freshnessDays (14) later — fresh — and FRESH_NOW + 1s
+ * is the first stale instant (strictly-greater comparison).
+ */
+const FRESH_NOW = "2026-11-19T10:00:00Z";
+const STALE_NOW = "2026-11-19T10:00:01Z";
+
+type VectorCategory = "node_score" | "rollup" | "task_rollup" | "streak" | "streak_divergence" | "decay";
 
 interface VectorCase {
   id: string;
@@ -115,17 +124,19 @@ function nodeCase(
   id: string,
   description: string,
   evidence: EvidenceRecord[],
+  now?: string,
+  category: VectorCategory = "node_score",
 ): VectorCase {
   const mean = windowedMean(evidence);
   return {
     id,
-    category: "node_score",
+    category,
     description,
     call: "computeNodeScore",
-    input: { evidence: evidence.map((r) => ({ ...r })) },
+    input: { evidence: evidence.map((r) => ({ ...r })), ...(now ? { now } : {}) },
     expected: {
-      score: String(computeNodeScore(evidence)),
-      state: getNodeState(evidence),
+      score: String(computeNodeScore(evidence, now)),
+      state: getNodeState(evidence, now),
       meanOfWindowedValues: mean === null ? null : String(mean),
     },
   };
@@ -136,8 +147,10 @@ function rollupCase(
   description: string,
   evidenceByNode: Record<string, EvidenceRecord[]>,
   note?: string,
+  now?: string,
+  category: VectorCategory = "rollup",
 ): VectorCase {
-  const nodes = summarizeNodes(evidenceByNode)
+  const nodes = summarizeNodes(evidenceByNode, now)
     .sort((a, b) => (a.nodeId < b.nodeId ? -1 : a.nodeId > b.nodeId ? 1 : 0))
     .map((n) => ({ nodeId: n.nodeId, score: String(n.score), state: n.state }));
   const serialized: Record<string, EvidenceRecord[]> = {};
@@ -146,11 +159,11 @@ function rollupCase(
   }
   return {
     id,
-    category: "rollup",
+    category,
     description,
     call: "computePlanRollup",
-    input: { evidenceByNode: serialized },
-    expected: { rollup: String(computePlanRollup(evidenceByNode)), nodes },
+    input: { evidenceByNode: serialized, ...(now ? { now } : {}) },
+    expected: { rollup: String(computePlanRollup(evidenceByNode, now)), nodes },
     note,
   };
 }
@@ -177,6 +190,7 @@ function streakCase(
   evidence: EvidenceRecord[],
   dayBoundary: "local" | "utc",
   note?: string,
+  now: string = STREAK_NOW,
 ): VectorCase {
   return {
     id,
@@ -185,12 +199,12 @@ function streakCase(
     call: "computeStreak",
     input: {
       evidence: evidence.map((r) => ({ ...r })),
-      now: STREAK_NOW,
+      now,
       dayBoundary,
     },
     expected: {
       streak: String(
-        computeStreak(evidence, new Date(STREAK_NOW), { dayBoundary }),
+        computeStreak(evidence, new Date(now), { dayBoundary }),
       ),
     },
     note,
@@ -458,6 +472,85 @@ function buildDocument(): FixtureDocument {
     process.env.TZ = "UTC";
   }
 
+  // ── Freshness/decay boundary matrix (ADR-0001 amendment 2026-11-04, ticket 04) ──
+  // Every decay case injects `now` (the freshness cap engages only on injection;
+  // the 33 pre-existing cases above pass none and pin the Phase-1 posture).
+  // Boundary: the newest record below is 2026-11-05T10:00:00Z, so exactly-14-days
+  // is 2026-11-19T10:00:00Z (fresh) and +1s (2026-11-19T10:00:01Z) is stale.
+  const threeCorrect = (): EvidenceRecord[] => [
+    ev("correct", "2026-11-03T10:00:00Z"),
+    ev("correct", "2026-11-04T10:00:00Z"),
+    ev("correct", "2026-11-05T10:00:00Z"),
+  ];
+  const fiveCorrect = (): EvidenceRecord[] =>
+    [1, 2, 3, 4, 5].map((i) => ev("correct", `2026-11-0${i}T10:00:00Z`));
+  const twoCorrectOld = (): EvidenceRecord[] => [
+    ev("correct", "2026-10-21T10:00:00Z"),
+    ev("correct", "2026-10-22T10:00:00Z"),
+  ];
+
+  cases.push(
+    nodeCase(
+      "decay.boundary-exactly-14-days-fresh-certifies",
+      "Freshness boundary, fresh direction: the latest record is EXACTLY freshnessDays (14) old — strictly-greater comparison keeps it fresh, so the node certifies 100/mastered.",
+      threeCorrect(),
+      FRESH_NOW,
+      "decay",
+    ),
+    nodeCase(
+      "decay.boundary-14-days-plus-1s-caps-99-partial",
+      "Freshness boundary, stale direction: one second past the window the SAME evidence caps at 99 and reads partial — a stale score does not certify (NFR-8; ADR-0001 amendment 2026-11-04).",
+      threeCorrect(),
+      STALE_NOW,
+      "decay",
+    ),
+    nodeCase(
+      "decay.mastered-node-decays-to-partial",
+      "A mastered node decaying: the full-window 100/mastered node's state DROPS to partial with its score capped at 99 — the 100/mastered seal expires, the evidence stays.",
+      fiveCorrect(),
+      STALE_NOW,
+      "decay",
+    ),
+    nodeCase(
+      "decay.stale-sub-99-score-unchanged-partial",
+      "The cap never drifts a sub-99 score downward: stale 83 stays 83 (c,c,partial) and only mastery is withheld — freshness is a cap, not a percent decay (the rejected alternative).",
+      [
+        ev("correct", "2026-11-03T10:00:00Z"),
+        ev("correct", "2026-11-04T10:00:00Z"),
+        ev("partial", "2026-11-05T10:00:00Z"),
+      ],
+      STALE_NOW,
+      "decay",
+    ),
+    rollupCase(
+      "decay.rollup-one-decayed-node-holds-below-100",
+      "Rollup with one decayed node: fresh mastered (100, latest record 11 days old) + decayed (99, latest 27 days old) → floor(199/2) = 99 — a decayed node can never certify, so the plan cannot read 100 (rollup 100 ⇔ every node mastered survives the freshness layer).",
+      {
+        freshNode: [ev("correct", "2026-11-06T10:00:00Z"), ev("correct", "2026-11-07T10:00:00Z"), ev("correct", "2026-11-08T10:00:00Z")],
+        decayedNode: [ev("correct", "2026-10-21T10:00:00Z"), ev("correct", "2026-10-22T10:00:00Z"), ev("correct", "2026-10-23T10:00:00Z")],
+      },
+      "Generated with now injected (2026-11-19T10:00:01Z): the fresh node is 11 days inside the window, the decayed node 27 days past it.",
+      STALE_NOW,
+      "decay",
+    ),
+    nodeCase(
+      "decay.gate-cap-and-freshness-cap-both-99",
+      "Gate × freshness interplay: 2 records (gate unmet) AND 28 days stale — both caps are 'display at most 99', composed as the max cap → still 99, partial (no double-penalty beyond the shared cap).",
+      twoCorrectOld(),
+      STALE_NOW,
+      "decay",
+    ),
+    streakCase(
+      "decay.streak-own-rule-ignores-freshness",
+      "decay",
+      "The streak is untouched by the freshness layer: at 14 days + 1s past the only evidence day it reads 0 by the streak's OWN two-day-gap rule — decay adds no second break rule and no 99-cap vocabulary to the streak.",
+      [ev("correct", "2026-11-05T10:00:00Z")],
+      "utc",
+      "Generated at the freshness boundary instant (now 2026-11-19T10:00:01Z) to pin that computeStreak's contract is independent of freshnessDays.",
+      STALE_NOW,
+    ),
+  );
+
   // Stable + sorted: lexicographic id order, asserted below.
   cases.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
@@ -484,26 +577,35 @@ function buildDocument(): FixtureDocument {
       window: MASTERY_CONFIG.window,
       evidenceGate: MASTERY_CONFIG.evidenceGate,
       masteredThreshold: MASTERY_CONFIG.masteredThreshold,
+      freshnessDays: MASTERY_CONFIG.freshnessDays,
       outcomeValues: {
         correct: String(MASTERY_CONFIG.outcomeValues.correct),
         partial: String(MASTERY_CONFIG.outcomeValues.partial),
         wrong: String(MASTERY_CONFIG.outcomeValues.wrong),
       },
-      note: "Mirrors MASTERY_CONFIG verbatim (ADR-0001 consequences); the Ruby port's constants must match (ticket 02).",
+      note: "Mirrors MASTERY_CONFIG verbatim (ADR-0001 consequences); the Ruby port's constants must match (tickets 02 + 04).",
+    },
+    freshness: {
+      rule:
+        "ADR-0001 amendment 2026-11-04 (epic P2-4 ticket 04): a node whose LATEST evidence record (newest createdAt — the window's own recency) is strictly more than freshnessDays old caps its score at 99 and never reads mastered. Exactly freshnessDays old is fresh; one second past is stale. The windowed-mean math is untouched, and the cap composes with the <3-evidence gate as the max of two 'display at most 99' caps. A decayed node can never certify, so rollup 100 ⇔ every node mastered survives.",
+      injectionPosture:
+        "The freshness check engages only where the caller injects 'now' (the api's score resolvers always do — Time.current). Cases without input.now (the 33 pre-flight cases) pin the Phase-1 posture: no injection, no freshness; the decay cases (category 'decay') all inject input.now.",
+      streak:
+        "The streak has NO freshness rule — its own today/yesterday aliveness is its whole freshness story (pinned by decay.streak-own-rule-ignores-freshness).",
     },
     rounding: {
       mode:
         "Two pinned postures (ADR-0001, amended 2026-11-04): node score rounds with ECMAScript Math.round — half toward +infinity, a x.5 tie rounds UP (37.5 → 38); plan rollup FLOORS its mean — Math.floor, a x.5 tie rounds DOWN (99.5 → 99), which is what keeps 100 arithmetically reachable only when every node scores 100. Applied once per level; no intermediate rounding anywhere.",
       operationOrder: {
         nodeScore:
-          "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3): min(result, 99).",
+          "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3) OR (now injected AND the newest record is more than freshnessDays (14) old): min(result, 99).",
         planRollup:
-          "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.floor once (amendment 2026-11-04; half-up's 99.5 → 100 tie used to let one unverified 99-node read a 100% plan). No per-node re-rounding, no clamping — the floor IS the readiness invariant's arithmetic.",
+          "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.floor once (amendment 2026-11-04; half-up's 99.5 → 100 tie used to let one unverified 99-node read a 100% plan). No per-node re-rounding, no clamping — the floor IS the readiness invariant's arithmetic. Node scores carry freshness when now is injected (ticket 04).",
         taskRollup:
           "exactly computeNodeScore of the task's single owned node — no other rollup exists (AD-6).",
       },
       pinnedBy:
-        "ADR-0001, amendments 2026-11-04 (epic P2-4 tickets 01+02) — whatever domain/mastery.ts does is verbatim (delta-review item 6).",
+        "ADR-0001, amendments 2026-11-04 (epic P2-4 tickets 01+02+04) — whatever domain/mastery.ts does is verbatim (delta-review item 6).",
     },
     streak: {
       dayBoundaryPolicy:
@@ -517,6 +619,7 @@ function buildDocument(): FixtureDocument {
     notes: [
       "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
       "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99).",
+      "Freshness landed (ticket 04, amendment 2026-11-04): category 'decay' pins the freshness cap both directions at the 14-day boundary (exactly-14d fresh certifies; +1s stale caps 99/partial), the mastered→partial drop, cap-not-drift (stale 83 stays 83), the rollup-with-one-decayed-node hold below 100, the gate×freshness max-cap interplay, and the streak's independence. The 33 pre-flight cases inject no 'now' and are value-identical to their pre-decay expectations.",
     ],
   };
 
@@ -562,15 +665,25 @@ const KNOWN_ANSWERS: Record<string, string> = {
   "streak.local.simulated-utc.two-day-gap-broken": "0",
   "streak.divergence.utc-mode-counts-two-days": "2",
   "streak.divergence.local-mode-simulated-asia-shanghai-one-day": "1",
+  // Freshness/decay matrix (ADR-0001 amendment 2026-11-04, ticket 04) —
+  // hand-worked literals: exactly-14d fresh certifies, +1s stale caps 99.
+  "decay.boundary-exactly-14-days-fresh-certifies": "100",
+  "decay.boundary-14-days-plus-1s-caps-99-partial": "99",
+  "decay.mastered-node-decays-to-partial": "99",
+  "decay.stale-sub-99-score-unchanged-partial": "83",
+  "decay.rollup-one-decayed-node-holds-below-100": "99",
+  "decay.gate-cap-and-freshness-cap-both-99": "99",
+  "decay.streak-own-rule-ignores-freshness": "0",
 };
 
-/** The boundary matrix — the categories and case counts ticket 01's AC pins. */
+/** The boundary matrix — the categories and case counts tickets 01 + 04's ACs pin. */
 const EXPECTED_INVENTORY: Record<VectorCategory, number> = {
   node_score: 12,
   rollup: 7,
   task_rollup: 2,
   streak: 10,
   streak_divergence: 2,
+  decay: 7,
 };
 
 function fail(message: string): never {
@@ -616,6 +729,9 @@ function selfCheck(doc: FixtureDocument): void {
         if (!ISO_UTC.test(r.createdAt)) fail(`case ${c.id}: timestamp ${r.createdAt} is not Z-tagged ISO-8601`);
       }
     }
+    if (c.input.now !== undefined && !ISO_UTC.test(c.input.now)) {
+      fail(`case ${c.id}: injected 'now' ${c.input.now} is not Z-tagged ISO-8601`);
+    }
     if (c.call === "computeStreak" && !(c.input.now && ISO_UTC.test(c.input.now))) {
       fail(`case ${c.id}: streak 'now' missing or not Z-tagged`);
     }
@@ -632,9 +748,11 @@ function selfCheck(doc: FixtureDocument): void {
 
   // Intermediate-mean cross-check: for non-capped node cases the documented order
   // (round(mean × 100)) must reproduce the black-box score — catches drift between
-  // the documented operation order and the implementation's actual one.
+  // the documented operation order and the implementation's actual one. Covers the
+  // decay cases too (the freshness cap is part of the documented order since
+  // amendment 2026-11-04): a 99 score against a reproduced 100 is a cap, nothing else.
   for (const c of cases) {
-    if (c.category !== "node_score" || c.expected.meanOfWindowedValues === null) continue;
+    if (c.call !== "computeNodeScore" || c.expected.meanOfWindowedValues === null) continue;
     const mean = Number(c.expected.meanOfWindowedValues);
     const reproduced = String(Math.round(mean * 100));
     const score = String(c.expected.score);

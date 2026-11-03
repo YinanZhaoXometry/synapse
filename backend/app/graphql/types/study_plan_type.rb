@@ -47,7 +47,10 @@ module Types
     # floored mean. Scoping rides the association path (the epic-03 reads
     # convention): object came through the caller's own association path, so
     # its nodes and the evidence pinned to them (same user_id) are the
-    # caller's own.
+    # caller's own. `now: Time.current` carries freshness into the node
+    # scores (ADR-0001 amendment 2026-11-04, ticket 04): a decayed node caps
+    # at 99 and can never certify, so rollup 100 ⇔ every node mastered
+    # survives the freshness layer.
     field :mastery_score, String,
           null: false,
           description: "The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — the floored mean of its nodes' scores with uncovered nodes counting 0; computed by the api's Mastery module (the client renders, never recomputes, AD-14). Rollup 100 ⇔ every node mastered."
@@ -55,7 +58,7 @@ module Types
     def mastery_score
       nodes = object.knowledge_nodes.to_a
       records = EvidenceRecord.where(user_id: object.user_id, node_id: nodes.map(&:id)).group_by(&:node_id)
-      Mastery.compute_plan_rollup(nodes.to_h { |node| [ node.id, records.fetch(node.id, []) ] }).to_s
+      Mastery.compute_plan_rollup(nodes.to_h { |node| [ node.id, records.fetch(node.id, []) ] }, now: Time.current).to_s
     end
 
     # The listNodesByPlan mirror (frontend/src/data/plan-repository.ts):

@@ -6,7 +6,7 @@
       "streak": "frontend/src/domain/streak.ts",
       "note": "The TS implementation IS the source until the cutover retires it (AD-6/AD-14). The Ruby port pins itself to these vectors verbatim; ambiguities amend ADR-0001 first, both sides together."
     },
-    "generatedAtSourceCommit": "a5c5e7de72554f2976bfa9db44098ff362e14e3f",
+    "generatedAtSourceCommit": "0468faaedaa71eddcc4cc19468581447a428e7ea",
     "generator": "frontend/scripts/generate-mastery-vectors.ts (pnpm run generate:mastery-vectors)",
     "fixtureEncoding": {
       "decimals": "Every mastery-derived numeric (scores, rollups, streaks, intermediate means) is a decimal STRING — parse on the Ruby side; never compare JSON number literals (AD-14).",
@@ -18,21 +18,27 @@
       "window": 5,
       "evidenceGate": 3,
       "masteredThreshold": 80,
+      "freshnessDays": 14,
       "outcomeValues": {
         "correct": "1",
         "partial": "0.5",
         "wrong": "0"
       },
-      "note": "Mirrors MASTERY_CONFIG verbatim (ADR-0001 consequences); the Ruby port's constants must match (ticket 02)."
+      "note": "Mirrors MASTERY_CONFIG verbatim (ADR-0001 consequences); the Ruby port's constants must match (tickets 02 + 04)."
+    },
+    "freshness": {
+      "rule": "ADR-0001 amendment 2026-11-04 (epic P2-4 ticket 04): a node whose LATEST evidence record (newest createdAt — the window's own recency) is strictly more than freshnessDays old caps its score at 99 and never reads mastered. Exactly freshnessDays old is fresh; one second past is stale. The windowed-mean math is untouched, and the cap composes with the <3-evidence gate as the max of two 'display at most 99' caps. A decayed node can never certify, so rollup 100 ⇔ every node mastered survives.",
+      "injectionPosture": "The freshness check engages only where the caller injects 'now' (the api's score resolvers always do — Time.current). Cases without input.now (the 33 pre-flight cases) pin the Phase-1 posture: no injection, no freshness; the decay cases (category 'decay') all inject input.now.",
+      "streak": "The streak has NO freshness rule — its own today/yesterday aliveness is its whole freshness story (pinned by decay.streak-own-rule-ignores-freshness)."
     },
     "rounding": {
       "mode": "Two pinned postures (ADR-0001, amended 2026-11-04): node score rounds with ECMAScript Math.round — half toward +infinity, a x.5 tie rounds UP (37.5 → 38); plan rollup FLOORS its mean — Math.floor, a x.5 tie rounds DOWN (99.5 → 99), which is what keeps 100 arithmetically reachable only when every node scores 100. Applied once per level; no intermediate rounding anywhere.",
       "operationOrder": {
-        "nodeScore": "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3): min(result, 99).",
-        "planRollup": "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.floor once (amendment 2026-11-04; half-up's 99.5 → 100 tie used to let one unverified 99-node read a 100% plan). No per-node re-rounding, no clamping — the floor IS the readiness invariant's arithmetic.",
+        "nodeScore": "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3) OR (now injected AND the newest record is more than freshnessDays (14) old): min(result, 99).",
+        "planRollup": "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.floor once (amendment 2026-11-04; half-up's 99.5 → 100 tie used to let one unverified 99-node read a 100% plan). No per-node re-rounding, no clamping — the floor IS the readiness invariant's arithmetic. Node scores carry freshness when now is injected (ticket 04).",
         "taskRollup": "exactly computeNodeScore of the task's single owned node — no other rollup exists (AD-6)."
       },
-      "pinnedBy": "ADR-0001, amendments 2026-11-04 (epic P2-4 tickets 01+02) — whatever domain/mastery.ts does is verbatim (delta-review item 6)."
+      "pinnedBy": "ADR-0001, amendments 2026-11-04 (epic P2-4 tickets 01+02+04) — whatever domain/mastery.ts does is verbatim (delta-review item 6)."
     },
     "streak": {
       "dayBoundaryPolicy": "The pinned contract is the UTC calendar day (dayBoundary: 'utc'). The Phase-1 default stays browser-local ('local', behavior unchanged); the Ruby port implements UTC because a server cannot know a browser's local time — a per-user timezone stays a deferred row. ADR-0001, amended 2026-11-04.",
@@ -42,10 +48,322 @@
     },
     "notes": [
       "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
-      "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99)."
+      "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99).",
+      "Freshness landed (ticket 04, amendment 2026-11-04): category 'decay' pins the freshness cap both directions at the 14-day boundary (exactly-14d fresh certifies; +1s stale caps 99/partial), the mastered→partial drop, cap-not-drift (stale 83 stays 83), the rollup-with-one-decayed-node hold below 100, the gate×freshness max-cap interplay, and the streak's independence. The 33 pre-flight cases inject no 'now' and are value-identical to their pre-decay expectations."
     ]
   },
   "cases": [
+    {
+      "id": "decay.boundary-14-days-plus-1s-caps-99-partial",
+      "category": "decay",
+      "description": "Freshness boundary, stale direction: one second past the window the SAME evidence caps at 99 and reads partial — a stale score does not certify (NFR-8; ADR-0001 amendment 2026-11-04).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-118",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-119",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-120",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ],
+        "now": "2026-11-19T10:00:01Z"
+      },
+      "expected": {
+        "score": "99",
+        "state": "partial",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "decay.boundary-exactly-14-days-fresh-certifies",
+      "category": "decay",
+      "description": "Freshness boundary, fresh direction: the latest record is EXACTLY freshnessDays (14) old — strictly-greater comparison keeps it fresh, so the node certifies 100/mastered.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-115",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-116",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-117",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ],
+        "now": "2026-11-19T10:00:00Z"
+      },
+      "expected": {
+        "score": "100",
+        "state": "mastered",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "decay.gate-cap-and-freshness-cap-both-99",
+      "category": "decay",
+      "description": "Gate × freshness interplay: 2 records (gate unmet) AND 28 days stale — both caps are 'display at most 99', composed as the max cap → still 99, partial (no double-penalty beyond the shared cap).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-135",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-10-21T10:00:00Z"
+          },
+          {
+            "id": "rec-136",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-10-22T10:00:00Z"
+          }
+        ],
+        "now": "2026-11-19T10:00:01Z"
+      },
+      "expected": {
+        "score": "99",
+        "state": "partial",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "decay.mastered-node-decays-to-partial",
+      "category": "decay",
+      "description": "A mastered node decaying: the full-window 100/mastered node's state DROPS to partial with its score capped at 99 — the 100/mastered seal expires, the evidence stays.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-121",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-122",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-123",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-124",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-125",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ],
+        "now": "2026-11-19T10:00:01Z"
+      },
+      "expected": {
+        "score": "99",
+        "state": "partial",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "decay.rollup-one-decayed-node-holds-below-100",
+      "category": "decay",
+      "description": "Rollup with one decayed node: fresh mastered (100, latest record 11 days old) + decayed (99, latest 27 days old) → floor(199/2) = 99 — a decayed node can never certify, so the plan cannot read 100 (rollup 100 ⇔ every node mastered survives the freshness layer).",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "decayedNode": [
+            {
+              "id": "rec-132",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-10-21T10:00:00Z"
+            },
+            {
+              "id": "rec-133",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-10-22T10:00:00Z"
+            },
+            {
+              "id": "rec-134",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-10-23T10:00:00Z"
+            }
+          ],
+          "freshNode": [
+            {
+              "id": "rec-129",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-06T10:00:00Z"
+            },
+            {
+              "id": "rec-130",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-07T10:00:00Z"
+            },
+            {
+              "id": "rec-131",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-08T10:00:00Z"
+            }
+          ]
+        },
+        "now": "2026-11-19T10:00:01Z"
+      },
+      "expected": {
+        "rollup": "99",
+        "nodes": [
+          {
+            "nodeId": "decayedNode",
+            "score": "99",
+            "state": "partial"
+          },
+          {
+            "nodeId": "freshNode",
+            "score": "100",
+            "state": "mastered"
+          }
+        ]
+      },
+      "note": "Generated with now injected (2026-11-19T10:00:01Z): the fresh node is 11 days inside the window, the decayed node 27 days past it."
+    },
+    {
+      "id": "decay.stale-sub-99-score-unchanged-partial",
+      "category": "decay",
+      "description": "The cap never drifts a sub-99 score downward: stale 83 stays 83 (c,c,partial) and only mastery is withheld — freshness is a cap, not a percent decay (the rejected alternative).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-126",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-127",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-128",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "partial",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ],
+        "now": "2026-11-19T10:00:01Z"
+      },
+      "expected": {
+        "score": "83",
+        "state": "partial",
+        "meanOfWindowedValues": "0.8333333333333334"
+      }
+    },
+    {
+      "id": "decay.streak-own-rule-ignores-freshness",
+      "category": "decay",
+      "description": "The streak is untouched by the freshness layer: at 14 days + 1s past the only evidence day it reads 0 by the streak's OWN two-day-gap rule — decay adds no second break rule and no 99-cap vocabulary to the streak.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-137",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ],
+        "now": "2026-11-19T10:00:01Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "0"
+      },
+      "note": "Generated at the freshness boundary instant (now 2026-11-19T10:00:01Z) to pin that computeStreak's contract is independent of freshnessDays."
+    },
     {
       "id": "node-score.all-wrong-zero-but-partial",
       "category": "node_score",
