@@ -16,11 +16,18 @@ require "date"
 #     what makes 100 arithmetically reachable only when every node scores 100
 #   - streak: UTC calendar days only — a server cannot know a browser's local time
 #
+# Freshness (ADR-0001, amended 2026-11-04, ticket 04): a node whose LATEST
+# evidence record is strictly more than FRESHNESS_DAYS old caps at
+# UNVERIFIED_CAP and never reads mastered — but only where the caller injects
+# `now` (the score resolvers always do, Time.current). nil `now` keeps the
+# identical Phase-1 read; the streak has no freshness rule at all.
+#
 # The record seam is deliberately duck-typed so the golden-vector spec and the
-# eventual GraphQL resolvers (ticket 03) share it verbatim: an Enumerable of
-# objects responding to #outcome (String/Symbol from the closed { correct,
-# partial, wrong } vocabulary — EvidenceRecord's enum qualifies) and #created_at
-# (a Time). Everything is pure: no I/O, no clock, the streak's "now" is injected.
+# GraphQL resolvers share it verbatim: an Enumerable of objects responding to
+# #outcome (String/Symbol from the closed { correct, partial, wrong } vocabulary
+# — EvidenceRecord's enum qualifies) and #created_at (a Time). Everything is
+# pure: no I/O, no clock — both the streak's and the freshness check's "now" are
+# injected.
 module Mastery
   # Mirrors MASTERY_CONFIG (frontend/src/domain/mastery.ts) value for value —
   # the fixture's meta.config pins this equality in spec/lib/mastery_spec.rb.
@@ -28,10 +35,14 @@ module Mastery
   OUTCOME_VALUES = { "correct" => 1.0, "partial" => 0.5, "wrong" => 0.0 }.freeze
   MASTERED_THRESHOLD = 80
   EVIDENCE_GATE = 3
+  FRESHNESS_DAYS = 14
 
   # ADR-0001 amendment 2026-11-02: below the evidence gate a node's score caps
-  # here — 100 anywhere must mean verified mastery.
+  # here — 100 anywhere must mean verified mastery. Amendment 2026-11-04 adds
+  # the freshness cap to the same value: both are "display at most 99".
   UNVERIFIED_CAP = 99
+
+  SECONDS_PER_DAY = 86_400
 
   # The TS state vocabulary verbatim (AD-6: no second vocabulary).
   STATES = [ "uncovered", "partial", "mastered" ].freeze
@@ -46,12 +57,16 @@ module Mastery
 
   class << self
     # round(100 × mean of the node's last WINDOW outcomes); 0 with no evidence.
-    # Below EVIDENCE_GATE the score caps at UNVERIFIED_CAP (ADR-0001 amendment
-    # 2026-11-02: the gate caps the SCORE, not only the state).
-    def node_stats(records)
+    # Below EVIDENCE_GATE — or, with `now` injected, past the freshness window
+    # on the node's LATEST record — the score caps at UNVERIFIED_CAP (the two
+    # caps compose as the max of two "display at most 99" caps; ADR-0001
+    # amendments 2026-11-02 + 2026-11-04: the caps cap the SCORE, not only the
+    # state, so a stale node can never certify).
+    def node_stats(records, now: nil)
       records = records.to_a
       return NodeStats.new(score: 0, state: "uncovered", mean_of_windowed_values: nil) if records.empty?
 
+      stale = !now.nil? && freshness_expired?(records, now)
       values = recent_first(records).first(WINDOW).map { |r| OUTCOME_VALUES.fetch(r.outcome.to_s) }
       # Naive left-to-right summation — ECMAScript reduce's order, NOT
       # Array#sum's compensated one; the float path must be bit-identical
@@ -59,26 +74,28 @@ module Mastery
       # here, but the port pins the order anyway).
       mean = values.inject(0.0) { |sum, v| sum + v } / values.length
       raw = (100 * mean).round # Math.round semantics: ties toward +∞ for these non-negative values
-      score = records.length >= EVIDENCE_GATE ? raw : [ raw, UNVERIFIED_CAP ].min
+      score = records.length >= EVIDENCE_GATE && !stale ? raw : [ raw, UNVERIFIED_CAP ].min
 
-      NodeStats.new(score: score, state: state_for(records, score), mean_of_windowed_values: mean)
+      NodeStats.new(score: score, state: state_for(records, score, stale), mean_of_windowed_values: mean)
     end
 
-    # The node's displayed score (0..100).
-    def compute_node_score(records)
-      node_stats(records).score
+    # The node's displayed score (0..100). `now:` engages the freshness cap
+    # (nil keeps the Phase-1 read — ADR-0001 amendment 2026-11-04).
+    def compute_node_score(records, now: nil)
+      node_stats(records, now: now).score
     end
 
     # "uncovered" (no evidence) / "partial" / "mastered" (score ≥ threshold AND
-    # ≥ EVIDENCE_GATE total records — the anti-inflation gate, SM-C2).
-    def node_state(records)
-      node_stats(records).state
+    # ≥ EVIDENCE_GATE total records AND fresh — the anti-inflation gate, SM-C2,
+    # plus the freshness window; a decayed node never reads mastered).
+    def node_state(records, now: nil)
+      node_stats(records, now: now).state
     end
 
     # Per-node summaries in the hash's key order (the rollup's node rows).
-    def summarize_nodes(evidence_by_node)
+    def summarize_nodes(evidence_by_node, now: nil)
       evidence_by_node.map do |node_id, records|
-        stats = node_stats(records)
+        stats = node_stats(records, now: now)
         NodeSummary.new(node_id: node_id, score: stats.score, state: stats.state)
       end
     end
@@ -88,10 +105,13 @@ module Mastery
     # not half-up — is what restores the readiness invariant: (n·100−1)/n is
     # strictly below 100 for every n, so the rollup reads 100 only when every
     # node scores 100, and a node scores 100 only past the evidence gate — i.e.
-    # rollup 100 ⇔ every node mastered. Integer operands keep this exact (the
-    # TS Math.floor(total / count) is identical at any realistic plan size).
-    def compute_plan_rollup(evidence_by_node)
-      summaries = summarize_nodes(evidence_by_node)
+    # rollup 100 ⇔ every node mastered. With `now` injected the node scores
+    # carry freshness, so a decayed node caps at 99 and can never certify
+    # (amendment 2026-11-04, ticket 04) — the invariant survives the layer.
+    # Integer operands keep this exact (the TS Math.floor(total / count) is
+    # identical at any realistic plan size).
+    def compute_plan_rollup(evidence_by_node, now: nil)
+      summaries = summarize_nodes(evidence_by_node, now: now)
       return 0 if summaries.empty?
 
       total = summaries.sum(&:score)
@@ -100,8 +120,8 @@ module Mastery
 
     # Study Task rollup (AD-6): exactly its single owned node's score — no other
     # rollup exists.
-    def compute_task_rollup(records)
-      node_stats(records).score
+    def compute_task_rollup(records, now: nil)
+      node_stats(records, now: now).score
     end
 
     # Evidence-day streak (FR-25 / SM-C3): consecutive UTC calendar days with at
@@ -146,12 +166,22 @@ module Mastery
       end.map(&:first)
     end
 
-    def state_for(records, score)
-      if score >= MASTERED_THRESHOLD && records.length >= EVIDENCE_GATE
+    def state_for(records, score, stale)
+      if !stale && score >= MASTERED_THRESHOLD && records.length >= EVIDENCE_GATE
         "mastered"
       else
         "partial"
       end
+    end
+
+    # The freshness cap predicate (ADR-0001 amendment 2026-11-04, ticket 04):
+    # the node's LATEST record (newest created_at — the window's own recency
+    # key) is STRICTLY more than FRESHNESS_DAYS old. Exactly 14 days is fresh;
+    # 14 days + 1 second is stale. Plain Time subtraction keeps whole-second
+    # instants exact, matching the TS millisecond arithmetic bit for bit.
+    def freshness_expired?(records, now)
+      latest = records.map(&:created_at).max
+      (now - latest) > FRESHNESS_DAYS * SECONDS_PER_DAY
     end
 
     def utc_day_key(time)

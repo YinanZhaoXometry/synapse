@@ -42,6 +42,7 @@ RSpec.describe Mastery do
       expect(described_class::WINDOW).to eq(config.fetch("window"))
       expect(described_class::EVIDENCE_GATE).to eq(config.fetch("evidenceGate"))
       expect(described_class::MASTERED_THRESHOLD).to eq(config.fetch("masteredThreshold"))
+      expect(described_class::FRESHNESS_DAYS).to eq(config.fetch("freshnessDays"))
       expect(described_class::OUTCOME_VALUES).to eq(config.fetch("outcomeValues").transform_values { |v| Float(v) })
     end
 
@@ -53,15 +54,16 @@ RSpec.describe Mastery do
       expect(META.fetch("generatedAtSourceCommit")).to match(/\A[0-9a-f]{40}\z/)
     end
 
-    it "consumes the whole matrix — 33 cases across the five categories" do
+    it "consumes the whole matrix — 40 cases across the six categories" do
       counts = CASES.group_by { |c| c["category"] }.transform_values(&:length)
-      expect(CASES.length).to eq(33)
+      expect(CASES.length).to eq(40)
       expect(counts).to eq(
         "node_score" => 12,
         "rollup" => 7,
         "task_rollup" => 2,
         "streak" => 10,
         "streak_divergence" => 2,
+        "decay" => 7
       )
     end
 
@@ -152,6 +154,49 @@ RSpec.describe Mastery do
     it "refuses any day boundary other than the pinned UTC one" do
       expect { described_class.compute_streak([], now: Time.at(0), day_boundary: :local) }
         .to raise_error(ArgumentError, /UTC/)
+    end
+  end
+
+  # The freshness cap (ADR-0001 amendment 2026-11-04, epic P2-4 ticket 04): the
+  # node's LATEST record more than FRESHNESS_DAYS old caps the score at
+  # UNVERIFIED_CAP and withholds mastered — only where the caller injects `now`.
+  # Every decay case injects input.now; the 33 pre-flight cases above pass none
+  # and pin the Phase-1 posture (no injection, no freshness).
+  describe "decay cases (the freshness cap — boundary both directions + interplay)" do
+    CASES.select { |c| c["category"] == "decay" }.each do |c|
+      it c["id"] do
+        now = c["input"]["now"] ? Time.iso8601(c["input"]["now"]) : nil
+
+        case c["call"]
+        when "computeNodeScore"
+          stats = described_class.node_stats(records(c["input"]["evidence"]), now: now)
+
+          expect(stats.score.to_s).to eq(c.dig("expected", "score"))
+          expect(stats.state).to eq(c.dig("expected", "state"))
+          expect(js_number(stats.mean_of_windowed_values)).to eq(c.dig("expected", "meanOfWindowedValues"))
+        when "computePlanRollup"
+          by_node = c["input"]["evidenceByNode"].transform_values { |rs| records(rs) }
+
+          expect(described_class.compute_plan_rollup(by_node, now: now).to_s).to eq(c.dig("expected", "rollup"))
+
+          actual_nodes = described_class.summarize_nodes(by_node, now: now).sort_by(&:node_id)
+          expected_nodes = c.dig("expected", "nodes").sort_by { |n| n["nodeId"] }
+          expect(actual_nodes.map { |n| [ n.node_id, n.score.to_s, n.state ] })
+            .to eq(expected_nodes.map { |n| [ n["nodeId"], n["score"], n["state"] ] })
+        when "computeStreak"
+          expect(described_class.compute_streak(records(c["input"]["evidence"]), now: now).to_s)
+            .to eq(c.dig("expected", "streak"))
+        end
+      end
+    end
+
+    it "never applies freshness without an injected now (the Phase-1 posture stays reachable)" do
+      stale_evidence = CASES.find { |c| c["id"] == "decay.boundary-14-days-plus-1s-caps-99-partial" }
+
+      stats = described_class.node_stats(records(stale_evidence["input"]["evidence"]))
+
+      expect(stats.score.to_s).to eq("100")
+      expect(stats.state).to eq("mastered")
     end
   end
 end
