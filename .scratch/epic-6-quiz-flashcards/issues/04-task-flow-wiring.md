@@ -1,6 +1,6 @@
 # T4: Task-flow wiring — task launches, real tiles, tasks-key invalidation (FR-37 parity; AD-6/8) — coupling tail
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 Blocked by: 01-quiz-session-engine.md, 02-plan-flow-quiz-ui.md, 03-plan-flow-flashcards.md, epic-5 issues/02-task-home.md
 
@@ -24,8 +24,26 @@ parity is the point: nothing about the task loop is a lesser copy.
 
 ## Acceptance criteria
 
-- [ ] Both task routes exist under the app layout (AD-8) and behave identically to their plan-flow twins (launcher states, attempt gate, grading, results, keyboard), scoped to the task's single material and its auto-owned node.
-- [ ] Task evidence records attribute to the task's node (planId null), never a plan node — mastery never bleeds between plans and tasks (AD-6; epic-5 spec decision 2).
-- [ ] Task Home's quiz/flashcard tiles are real and enabled; the placeholder disabled-with-reason state is gone.
-- [ ] After a task quiz completes, Task Home's ring and Plans Home's Study Tasks section show the updated score without a stale cache (tasks-key invalidation verified in a test).
-- [ ] i18n zh/en parity; semantic tokens only (AD-9); responsive correctness; tests cover the task-loop walk including the invalidation; gates green via direct `node_modules/.bin` binaries.
+- [x] Both task routes exist under the app layout (AD-8) and behave identically to their plan-flow twins (launcher states, attempt gate, grading, results, keyboard), scoped to the task's single material and its auto-owned node.
+- [x] Task evidence records attribute to the task's node (planId null), never a plan node — mastery never bleeds between plans and tasks (AD-6; epic-5 spec decision 2).
+- [x] Task Home's quiz/flashcard tiles are real and enabled; the placeholder disabled-with-reason state is gone.
+- [x] After a task quiz completes, Task Home's ring and Plans Home's Study Tasks section show the updated score without a stale cache (tasks-key invalidation verified in a test).
+- [x] i18n zh/en parity; semantic tokens only (AD-9); responsive correctness; tests cover the task-loop walk including the invalidation; gates green via direct `node_modules/.bin` binaries.
+
+## Implementation notes (for epic close)
+
+- Zero forks: T2/T3 session pages extracted into shared shells
+  (`quiz-session-page.tsx` / `flashcards-page.tsx`); plan pages are now thin
+  context compositions (215→45 / 77→42 lines) with all T2/T3 tests passing
+  unchanged. Task pages = thin task-scoped compositions.
+- tasks-key invalidation is conditional: task-owned sessions sweep
+  `queryKeys.tasks.all`; plan-owned sessions keep touching only plan keys
+  (asserted both ways in tests).
+- Placeholder keys `tasks.sliceQuiz` / `tasks.sliceFlashcards` deleted from both
+  dictionaries.
+- **T6 sweep candidate:** a Task Home *dialog* launch shows the 「从第 1 题继续」
+  resume note (the shared shell can't distinguish a fresh dialog launch from a
+  reload; identical to T2's landed Plan Home dialog behavior — consistent twin
+  parity, revisit only if the sweep finds it confusing).
+- Verified 2026-11-03: tsc 0 errors, eslint 0 errors (10 pre-existing warnings),
+  vitest 380/380 (+14). Commit `c1526c0`.
