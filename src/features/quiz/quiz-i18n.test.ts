@@ -46,4 +46,24 @@ describe("i18n dictionary — quiz.* zh/en parity (AD-9)", () => {
       expect(translations.en[key as keyof typeof translations.en], `en ${key}`).toBeTruthy();
     }
   });
+
+  it("the T5 /quiz demo additions are present (picker, owner labels, honest empty/not-found edges)", () => {
+    const required = [
+      "quiz.demo.pickTitle",
+      "quiz.demo.pickSubtitle",
+      "quiz.demo.fromPlan",
+      "quiz.demo.fromTask",
+      "quiz.demo.emptyTitle",
+      "quiz.demo.emptyBody",
+      "quiz.demo.createPlan",
+      "quiz.demo.createTask",
+      "quiz.demo.backToPicker",
+      "quiz.demo.materialNotFound",
+      "quiz.demo.notQuizable",
+    ];
+    for (const key of required) {
+      expect(translations.zh[key as keyof typeof translations.zh], `zh ${key}`).toBeTruthy();
+      expect(translations.en[key as keyof typeof translations.en], `en ${key}`).toBeTruthy();
+    }
+  });
 });

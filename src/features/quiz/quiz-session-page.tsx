@@ -13,9 +13,13 @@
  * 再来一轮 = a fresh generated session with the SAME launch params (kept only
  * for this mount — after a reload the terminal card offers the launcher
  * instead). The surface composes this with its own context: plan lookup vs
- * task lookup, back targets, and the honest not-found copy.
+ * task lookup, back targets, and the honest not-found copy. T5's /quiz demo
+ * reuses the same shell by DERIVING the owner context (plan or task) from the
+ * picked material / the session itself, with `scopeLocked` + `launchHeader`
+ * for its picker-instead-of-fixed-materials shape (AD-6 ownership unchanged:
+ * a session still attributes to exactly one plan or task).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CircleAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +49,14 @@ export interface QuizSessionContext {
   lostLabelKey: string;
   /** The not-found copy — plans.notFound / tasks.notFound. */
   notFoundKey: string;
+  /**
+   * T5 (the /quiz demo surface): the surface has already fixed the quiz scope
+   * (its picker picked the single material carried in `materials`) — the
+   * inline launcher renders the mode select only. Plans/tasks never set it.
+   */
+  scopeLocked?: boolean;
+  /** Optional context strip above the inline launcher (demo: the picked material + its owner label). */
+  launchHeader?: ReactNode;
 }
 
 /** The launch record for 再来一轮: the exact start input + the 「来自 N 份材料」 count. */
@@ -221,11 +233,13 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
     <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="quiz-launch-page">
       {backLink}
       <div className="mt-6 rounded-2xl border border-border-soft bg-card p-6 md:p-8 shadow-raised">
+        {context.launchHeader}
         <QuizLauncher
           planId={context.kind === "plan" ? context.ownerId : null}
           taskId={context.kind === "task" ? context.ownerId : null}
           nodeIds={context.nodes.map((n) => n.id)}
           materials={context.materials}
+          scopeLocked={context.scopeLocked}
           onStarted={(sessionId, input) => {
             launchRef.current = { input, materialCount: input.materials.length };
             setSearchParams(new URLSearchParams({ session: sessionId }));

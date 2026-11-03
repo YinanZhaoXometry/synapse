@@ -8,6 +8,9 @@
  * results numbers flow through (AD-6). T4 extracts the shared route shell
  * (QuizSessionPage) so /plan/:id/quiz and /task/:id/quiz are thin
  * context-scoped compositions — twin parity by construction, not copy-paste.
+ * T5 re-points /quiz at the same shell with a DERIVED owner context (the
+ * demo's material picker picks the material; its owning plan/task owns the
+ * session), plus the quizable-material selector the picker shapes with.
  */
 export {
   abandonRun,
@@ -34,3 +37,4 @@ export { QuizLauncher } from "./QuizLauncher";
 export { QuizRunner } from "./QuizRunner";
 export { QuizResults } from "./QuizResults";
 export { QuizSessionPage, type QuizSessionContext } from "./quiz-session-page";
+export { quizableMaterials } from "./display-shaping";

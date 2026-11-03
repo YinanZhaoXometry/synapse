@@ -14,6 +14,11 @@
  * taskId` set (mastery never bleeds between plans and tasks), and the scope
  * picker is dropped: a task is trivially scoped to its single material (its
  * only possible scope), so only the mode select remains.
+ *
+ * T5 (the /quiz demo surface): `scopeLocked` drops the scope picker the same
+ * way a task surface does, while ownership stays plan OR task — the demo's
+ * material picker has already fixed the scope (the picked material is passed
+ * as the only entry of `materials`), so 「整个计划」 would be a lie there.
  */
 import { useEffect, useRef, useState } from "react";
 import { CircleAlert, FileText, Layers, ListChecks, Loader2, PenLine, Sparkles } from "lucide-react";
@@ -34,6 +39,8 @@ export interface QuizLauncherProps {
   nodeIds: string[];
   /** The owner's attached materials (already loaded); quizable ones shape the scopes. */
   materials: Material[];
+  /** The surface has already fixed the scope (task single material / demo picker) — mode select only. */
+  scopeLocked?: boolean;
   /**
    * Called once a session EXISTS (persisted, first question ready). The exact
    * QuizStartInput rides along so the surface can offer 再来一轮 with the same
@@ -48,7 +55,7 @@ const MODES = [
   { value: "mix", labelKey: "quiz.launcher.modeMix", descKey: "quiz.launcher.modeMixDesc", icon: Layers },
 ] as const;
 
-export function QuizLauncher({ planId, taskId, nodeIds, materials, onStarted }: QuizLauncherProps) {
+export function QuizLauncher({ planId, taskId, nodeIds, materials, scopeLocked, onStarted }: QuizLauncherProps) {
   const { t } = useLanguage();
   const driver = useQuizSession();
   const [mode, setMode] = useState<QuizMode>("mix");
@@ -58,9 +65,10 @@ export function QuizLauncher({ planId, taskId, nodeIds, materials, onStarted }: 
   const inputRef = useRef<QuizStartInput | null>(null);
 
   const quizable = quizableMaterials(materials);
-  // A task surface has exactly one scope — its single material — so the scope
-  // select is not rendered and generation always covers every quizable material.
-  const scopedMaterials = taskId ? quizable : scope === "plan" ? quizable : quizable.filter((m) => m.id === scope);
+  // A task surface (or a scope-locked surface — T5's demo picker) has exactly
+  // one scope — the material(s) the surface passed — so the scope select is
+  // not rendered and generation always covers every quizable material.
+  const scopedMaterials = taskId || scopeLocked ? quizable : scope === "plan" ? quizable : quizable.filter((m) => m.id === scope);
 
   // Generation landed: hand the session id + params to the surface (page → ?session=…).
   useEffect(() => {
@@ -156,9 +164,10 @@ export function QuizLauncher({ planId, taskId, nodeIds, materials, onStarted }: 
         </div>
       </div>
 
-      {/* Task surfaces skip the scope select: the single material IS the scope
-          (T4) — 「整个计划」 would be a lie on a task surface. */}
-      {!taskId && (
+      {/* Task surfaces and scope-locked surfaces (T5's demo picker) skip the
+          scope select: the material(s) the surface passed ARE the scope —
+          「整个计划」 would be a lie when the caller already fixed it. */}
+      {!taskId && !scopeLocked && (
         <div className="mt-4">
           <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2">
             {t("quiz.launcher.scopeLabel")}
