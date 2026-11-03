@@ -28,9 +28,13 @@ class ApplicationCommand
     # authorize hook, then call. Returns a dry-monads Result; never raises —
     # unexpected exceptions from authorize/call become typed INTERNAL
     # failures (the exception class + message ride along as log context).
+    # The one deliberate exception: ApplicationErrors::InvalidCodeError
+    # re-raises (infrastructure misuse fails fast at the seam).
     def call(**args)
       command = new(**args)
       command.authorize.bind { command.call }
+    rescue ApplicationErrors::InvalidCodeError
+      raise
     rescue StandardError => e
       Dry::Monads::Failure.new(
         ApplicationErrors::Failure.new(
@@ -50,11 +54,19 @@ class ApplicationCommand
   private
 
   # Failure factory: the only sanctioned way to build a failure inside a
-  # command. Wraps a closed-enum code + free-form context into the typed
-  # value object (ApplicationErrors::Failure).
+  # command. The code MUST be one of ApplicationErrors::CODES — anything else
+  # raises ApplicationErrors::InvalidCodeError (an ArgumentError): that is
+  # infrastructure misuse, not a domain outcome, so it fails fast instead of
+  # masquerading as a Failure.
   #
   # rubocop:disable Naming/MethodName -- mirrors dry-monads' capitalized factories
   def Failure(code, context = {})
+    unless ApplicationErrors::CODES.include?(code)
+      raise ApplicationErrors::InvalidCodeError,
+            "#{code.inspect} is not a closed-enum error code " \
+            "(#{ApplicationErrors::CODES.map(&:inspect).join(', ')})"
+    end
+
     Dry::Monads::Failure.new(ApplicationErrors::Failure.new(code: code, context: context))
   end
   # rubocop:enable Naming/MethodName

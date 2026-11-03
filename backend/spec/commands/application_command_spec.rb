@@ -56,5 +56,17 @@ RSpec.describe ApplicationCommand do
       expect(result.failure.code).to eq(:INTERNAL)
       expect(result.failure.context[:message]).to include("RuntimeError").and include("boom")
     end
+
+    it "fails fast when a command emits a code outside the closed enum — even through .call" do
+      command_class = Class.new(ApplicationCommand) do
+        def call
+          Failure(:oops)
+        end
+      end
+
+      # Infrastructure misuse, not a domain outcome: the guard's
+      # ArgumentError deliberately escapes the never-raise rescue.
+      expect { command_class.call }.to raise_error(ApplicationErrors::InvalidCodeError, /:oops/)
+    end
   end
 end
