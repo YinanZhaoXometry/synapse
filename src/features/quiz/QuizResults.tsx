@@ -56,6 +56,10 @@ export function QuizResults({
   const nodeRows = quizNodeRows(results, nodes, evidence, sessionId);
   const breakdown = quizBreakdownRows(results, materials);
   const mistakes = quizMistakeViews(results, materials);
+  // Review P2-1: the evidence claim derives from the real records this screen
+  // already holds (queried fresh after the mutation lands) — never from the
+  // machine's in-memory results, so a failed write can never show a logged lie.
+  const sessionEvidenceCount = evidence.filter((e) => e.sessionId === sessionId).length;
 
   return (
     <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="quiz-results">
@@ -71,10 +75,14 @@ export function QuizResults({
               {t("quiz.resultsSub", { c: score.correct, p: score.partial, n: score.total })}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="pill pill-mastered">
-                <Check className="h-[13px] w-[13px]" aria-hidden="true" />
-                {t("quiz.evidenceLogged", { n: score.total })}
-              </span>
+              {sessionEvidenceCount > 0 ? (
+                <span className="pill pill-mastered">
+                  <Check className="h-[13px] w-[13px]" aria-hidden="true" />
+                  {t("quiz.evidenceLogged", { n: sessionEvidenceCount })}
+                </span>
+              ) : (
+                <span className="pill pill-muted">{t("quiz.evidencePending")}</span>
+              )}
             </div>
           </div>
         </div>

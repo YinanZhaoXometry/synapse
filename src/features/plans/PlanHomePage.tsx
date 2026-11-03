@@ -20,8 +20,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { QuizLauncher } from "@/features/quiz";
-import { quizableMaterials } from "@/features/quiz/display-shaping";
+import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import {
   sessionBlobs,

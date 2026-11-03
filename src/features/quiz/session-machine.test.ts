@@ -9,6 +9,7 @@ import {
   forfeitCurrent,
   hydrateQuizRun,
   quizResults,
+  releaseGrading,
   requestHint,
   selectOption,
   startQuizRun,
@@ -436,5 +437,37 @@ describe("hydrate (T2 resumption) — active only", () => {
     } catch (e) {
       expect((e as AppError).code).toBe("QUIZ_RUN_EMPTY");
     }
+  });
+});
+
+describe("releaseGrading — the grading-failure escape (review P2-2)", () => {
+  it("releases the open question back to answering, draft intact, resubmittable to completion", () => {
+    let state = startQuizRun({ mode: "open", sessionId: "s-1", questions: [openQ()] });
+    state = typeOpenAnswer(state, "my kept draft");
+    state = submitCurrent(state);
+    expect(state.views[0]?.status).toBe("grading");
+    state = releaseGrading(state);
+    expect(state.views[0]?.status).toBe("answering");
+    const active = state.views[0];
+    expect(active && "draftAnswer" in active ? active.draftAnswer : null).toBe("my kept draft");
+    // the run still completes: resubmit → grading → seam result lands
+    state = submitCurrent(state);
+    expect(state.views[0]?.status).toBe("grading");
+    state = applyOpenGrading(state, graded("correct"));
+    expect(state.status).toBe("completed");
+  });
+
+  it("is a no-op outside the grading wait (answering / terminal)", () => {
+    let state = startQuizRun({ mode: "open", sessionId: "s-1", questions: [openQ()] });
+    expect(releaseGrading(state)).toBe(state); // answering — nothing to release
+    state = applyOpenGrading(submitCurrent(state), graded("correct"));
+    expect(releaseGrading(state)).toBe(state); // completed terminal
+  });
+
+  it("the attempt gate still holds after a release — nothing was revealed", () => {
+    let state = startQuizRun({ mode: "open", sessionId: "s-1", questions: [openQ()] });
+    state = typeOpenAnswer(state, "draft");
+    state = releaseGrading(submitCurrent(state));
+    expectWholeStateGateHolds(state);
   });
 });

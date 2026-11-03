@@ -357,6 +357,21 @@ export function applyOpenGrading(state: QuizRunState, graded: GradedAnswer): Qui
 }
 
 /**
+ * Grading-failure escape (AD-5 seam rejection): release the open question
+ * from the grading wait back to answering, draft intact for resubmission.
+ * Outcome-neutral — nothing is recorded. Refused unless the active question
+ * is the open one in the grading wait.
+ */
+export function releaseGrading(state: QuizRunState): QuizRunState {
+  const active = activeMaskedView(state);
+  if (!active || active.kind !== "open" || active.status !== "grading") return state;
+  const views = state.views.map((v) =>
+    v.id === active.id && isMasked(v) ? { ...v, status: "answering" as const } : v,
+  );
+  return { ...state, views };
+}
+
+/**
  * 「看答案」 — forfeit before submit: revealed as wrong, outcome 0 (ADR-0001),
  * correct answer + rationale now visible. Refused once submitted (grading
  * wait included) — forfeit is a pre-submit exit only.

@@ -16,6 +16,7 @@
  * (ADR-0001).
  */
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Eye, Info, Layers } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRateFlashcardMutation } from "@/data";
@@ -78,10 +79,16 @@ export function FlashcardStudy({ cards, materials, backLabelKey = "flashcards.su
     setFlipped(false);
   };
 
-  /** Persist the self-rating, THEN advance (rating the last card ends the queue). */
+  /** Persist the self-rating, THEN advance (rating the last card ends the queue).
+   * A failed write keeps the card flipped for retry — nothing is lost. */
   const rate = async (difficulty: Difficulty) => {
     if (done || !card) return;
-    await rateCard.mutateAsync({ id: card.id, difficulty }); // self-rating only — no evidence (ADR-0001)
+    try {
+      await rateCard.mutateAsync({ id: card.id, difficulty }); // self-rating only — no evidence (ADR-0001)
+    } catch {
+      toast.error(t("flashcards.rateSaveFailed"));
+      return;
+    }
     setSavedRatings((prev) => ({ ...prev, [card.id]: difficulty }));
     goNext();
   };

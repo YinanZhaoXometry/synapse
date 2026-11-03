@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { createQuizSession, getQuizSession, listEvidence, loadDb, registerMaterial } from "@/data";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { getCompanionService } from "@/ai/companion-service";
 import type { MaterialSection } from "@/domain/entities";
 import { useQuizSession } from "./use-quiz-session";
 
@@ -288,5 +289,45 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
 
     // a completed session is terminal — hydrate refuses it
     expect(result.current.hydrate(session.id)).toBe(false);
+  });
+});
+
+describe("useQuizSession — the grading-failure escape (review P2-2)", () => {
+  it("a seam rejection releases the question back to answering with the draft kept; resubmission completes", async () => {
+    const material = seedMaterial();
+    const gradeSpy = vi.spyOn(getCompanionService(), "gradeOpenAnswer")
+      .mockRejectedValueOnce(new Error("seam down"))
+      .mockResolvedValueOnce({
+        outcome: "correct",
+        rationale: "graded against the material",
+        citation: { locator: { kind: "markdown", sectionId: "sec-1" }, quote: "集成测试关注组件之间的交互。" },
+      });
+    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+
+    await act(async () => {
+      await result.current.start(startInput(material.id, "open", [sections[0]]));
+    });
+    expect(result.current.phase).toBe("active");
+
+    act(() => result.current.typeAnswer("关于契约验证的草稿"));
+    act(() => result.current.submit()); // → grading wait
+    expect(result.current.grading).toBe(true);
+
+    // the seam rejects → driver catches: released to answering, nothing recorded
+    await flushGrading();
+    expect(result.current.grading).toBe(false);
+    const released = result.current.run?.views[0];
+    expect(released?.status).toBe("answering");
+    expect(released && "draftAnswer" in released ? released.draftAnswer : "").toContain("契约验证");
+    expect(listEvidence()).toHaveLength(0); // no evidence mid-flight — the session is still active
+
+    // resubmission rides the recovered seam and completes the run
+    act(() => result.current.submit());
+    await flushGrading();
+    expect(result.current.phase).toBe("completed");
+    expect(gradeSpy).toHaveBeenCalledTimes(2);
+    await flushWrites();
+    expect(listEvidence()).toHaveLength(1);
+    gradeSpy.mockRestore();
   });
 });

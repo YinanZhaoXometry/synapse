@@ -11,6 +11,7 @@
  * refuses terminal ones. Headless — no UI, no routes (later tickets own those).
  */
 import { useCallback, useRef, useState } from "react";
+import { toast } from "sonner";
 import { getCompanionService } from "@/ai/companion-service";
 import type { MaterialRef, QuizMode } from "@/ai/types";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -30,6 +31,7 @@ import {
   forfeitCurrent,
   hydrateQuizRun,
   quizResults,
+  releaseGrading,
   requestHint,
   selectOption,
   startQuizRun,
@@ -63,7 +65,7 @@ export interface QuizStartInput {
 export const QUIZ_FRESH_LAUNCH_KEY = "synapse-quiz-fresh-launch";
 
 export function useQuizSession() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [run, setRun] = useState<QuizRunState | null>(null);
   const [generating, setGenerating] = useState(false);
   // Ref mirror: transitions are synchronous user events; the mirror keeps
@@ -97,20 +99,27 @@ export function useQuizSession() {
       if (next.status === "completed" && prev.status !== "completed") {
         const results = quizResults(next);
         if (results && next.sessionId) {
-          void recordEvidence.mutateAsync({
-            sessionId: next.sessionId,
-            results: results.map((r) => ({
-              questionId: r.questionId,
-              outcome: r.outcome,
-              userAnswer: r.userAnswer,
-              forfeited: r.forfeited,
-            })),
-          });
+          void recordEvidence
+            .mutateAsync({
+              sessionId: next.sessionId,
+              results: results.map((r) => ({
+                questionId: r.questionId,
+                outcome: r.outcome,
+                userAnswer: r.userAnswer,
+                forfeited: r.forfeited,
+              })),
+            })
+            .catch(() => {
+              // Quota/write failure (AppError STORAGE_WRITE_FAILED): the results
+              // screen's evidence pill derives from the live evidence query, so
+              // it honestly stays 记录中 — the toast names the failure.
+              toast.error(t("quiz.evidenceSaveFailed"));
+            });
         }
       }
       return next;
     },
-    [recordEvidence, setRunState],
+    [recordEvidence, setRunState, t],
   );
 
   /** The in-flight open grading: seam call in the driver (user's language),
@@ -122,16 +131,24 @@ export function useQuizSession() {
       if (!question) return;
       const material = getMaterial(question.sourceMaterialId);
       const section = material?.sections.find((s) => s.id === question.sourceSectionId);
-      const graded = await getCompanionService().gradeOpenAnswer({
-        keywords: question.keywords ?? [],
-        answer,
-        sourceText: section?.text ?? "",
-        source: questionSourceLocator(question),
-        language,
-      });
-      applyTransition((prev) => applyOpenGrading(prev, graded));
+      try {
+        const graded = await getCompanionService().gradeOpenAnswer({
+          keywords: question.keywords ?? [],
+          answer,
+          sourceText: section?.text ?? "",
+          source: questionSourceLocator(question),
+          language,
+        });
+        applyTransition((prev) => applyOpenGrading(prev, graded));
+      } catch {
+        // AD-5 seam rejection (the simulated adapter never throws; a Phase-2
+        // LLM behind the interface can). Release the question back to answering
+        // with the draft intact so the user can resubmit — no dead-end wait.
+        toast.error(t("quiz.gradingFailed"));
+        applyTransition((prev) => releaseGrading(prev));
+      }
     },
-    [applyTransition, language],
+    [applyTransition, language, t],
   );
 
   const start = useCallback(
@@ -219,9 +236,11 @@ export function useQuizSession() {
     if (next === prev) return;
     setRunState(next);
     if (prev.status === "running" && next.sessionId) {
-      void abandonSession.mutateAsync({ sessionId: next.sessionId });
+      void abandonSession
+        .mutateAsync({ sessionId: next.sessionId })
+        .catch(() => toast.error(t("quiz.abandonSaveFailed")));
     }
-  }, [abandonSession, setRunState]);
+  }, [abandonSession, setRunState, t]);
 
   /** T2 resumption: revive an ACTIVE repository session. Terminal sessions
    * (completed/abandoned — not resumable) return false and change nothing. */
