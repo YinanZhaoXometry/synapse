@@ -126,6 +126,23 @@ RSpec.describe Quiz::CreateSessionCommand do
       expect(user.questions.count).to eq(2)
     end
 
+    it "stamps generation order into position and reads back by it (not (created_at, id) luck)" do
+      result = call
+      first, second = result.value![:questions]
+
+      # Demote the first-generated question by position alone — a
+      # (created_at, id) read-back could never move it (same-microsecond
+      # timestamps, arbitrary uuid tie-break; the epic P2-3 review's latent
+      # flake). The stamped index must be what orders the read-back.
+      expect(first.position).to eq(0)
+      expect(second.position).to eq(1)
+      first.update!(position: 9)
+
+      replay = call # the idempotent replay reads back through the same order clause
+
+      expect(replay.value![:questions].map(&:id)).to eq([ second.id, first.id ])
+    end
+
     it "fails VALIDATION_FAILED when the client uuid belongs to another user (never silently link, FR-4)" do
       other = create(:user)
       foreign_session = create(:quiz_session, user: other)

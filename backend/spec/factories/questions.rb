@@ -14,5 +14,10 @@ FactoryBot.define do
     prompt { "How is every user-owned row scoped?" }
     explanation { "By a user_id foreign key on the row itself (AD-13)." }
     source_section_id { "sec-1" }
+    # NOT NULL on the ER (the P2-3 review's position column — the generation
+    # order). The command stamps real per-input indices; a factory row is a
+    # direct row, so a constant satisfies the constraint (read-back ties fall
+    # through to created_at/id, the pre-position order).
+    position { 0 }
   end
 end

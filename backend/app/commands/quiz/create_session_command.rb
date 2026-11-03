@@ -73,7 +73,7 @@ module Quiz
           task_id: task.value!&.id,
           mode: mode
         )
-        created = resolved.map do |result|
+        created = resolved.map.with_index do |result, index|
           attrs = result.value!
           current_user.questions.create!(
             session: session,
@@ -85,7 +85,10 @@ module Quiz
             source_material: attrs[:material],
             source_section_id: attrs[:source_section_id],
             keywords: attrs[:keywords],
-            explanation: attrs[:explanation]
+            explanation: attrs[:explanation],
+            # The generation order, ER-backed (the epic P2-3 review, P2-3 —
+            # the uuid tie-break on (created_at, id) is not insertion order).
+            position: index
           )
         end
       end
@@ -241,7 +244,7 @@ module Quiz
     end
 
     def replay_success(session)
-      Success(session: session, questions: session.questions.order(:created_at, :id))
+      Success(session: session, questions: session.questions.order(:position, :created_at, :id))
     end
 
     def uuid_shape_failure
