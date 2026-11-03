@@ -301,7 +301,7 @@ function buildDocument(): FixtureDocument {
     ),
     rollupCase(
       "rollup.rounding-mean-of-scores-83",
-      "Corpus case: (100 + 100 + 50)/3 = 83.33… → 83 — the rollup rounds its mean exactly once.",
+      "Corpus case: (100 + 100 + 50)/3 = 83.33… → 83 — the rollup floors its mean exactly once (ADR-0001 amendment 2026-11-04).",
       { alphaMastered: mastered(), betaMastered: mastered(), gammaHalf: half() },
     ),
     rollupCase(
@@ -310,10 +310,10 @@ function buildDocument(): FixtureDocument {
       { alphaMastered: mastered(), betaMastered: mastered(), gammaMastered: mastered() },
     ),
     rollupCase(
-      "rollup.cap-two-node-tie-reaches-100",
-      "99-cap interplay, verbatim (FLAGGED — see note): one mastered node (100) + one perfect-but-unverified node (99) → mean 99.5 → rounds half-up to 100. The plan reads 100% while a node is partial: the rounding tie outweighs the cap at this plan size. Generated verbatim per AD-14/delta-review item 6 — flagged for the ADR-0001 consequences wording in ticket 01's Comments, never quietly 'fixed'.",
+      "rollup.cap-two-node-tie-floors-below-100",
+      "99-cap interplay, resolved direction: one mastered node (100) + one perfect-but-unverified node (99) → mean 99.5 → the floored rollup reads 99, NOT 100. The pre-amendment half-up rounding turned this tie into 100 (ticket 01's flagged finding); ADR-0001 amended 2026-11-04 floors the rollup mean, restoring '100% only when every node is mastered'. Generated verbatim per AD-14/delta-review item 6.",
       { alphaMastered: mastered(), betaPerfectUnverified: perfectUnverified() },
-      "Verbatim behavior: Math.round((100+99)/2) = Math.round(99.5) = 100. If the owner wants 100 to require every node mastered, that is an ADR-0001 amendment first, then both implementations together (AD-14).",
+      "Floored behavior: Math.floor((100+99)/2) = Math.floor(99.5) = 99. The pre-amendment half-up tie read 100 (ticket 01's rollup.cap-two-node-tie-reaches-100); the amendment (ticket 02, both sides together per AD-14) floors the rollup so the tie rounds DOWN.",
     ),
     rollupCase(
       "rollup.cap-two-unverified-hold-below-100",
@@ -493,17 +493,17 @@ function buildDocument(): FixtureDocument {
     },
     rounding: {
       mode:
-        "ECMAScript Math.round — half toward +infinity: a x.5 tie rounds UP (37.5 → 38, 99.5 → 100). Applied once per level; no intermediate rounding anywhere.",
+        "Two pinned postures (ADR-0001, amended 2026-11-04): node score rounds with ECMAScript Math.round — half toward +infinity, a x.5 tie rounds UP (37.5 → 38); plan rollup FLOORS its mean — Math.floor, a x.5 tie rounds DOWN (99.5 → 99), which is what keeps 100 arithmetically reachable only when every node scores 100. Applied once per level; no intermediate rounding anywhere.",
       operationOrder: {
         nodeScore:
           "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3): min(result, 99).",
         planRollup:
-          "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.round once. No per-node re-rounding, no clamping — see the flagged rollup.cap-* cases for the rounding-tie consequence.",
+          "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.floor once (amendment 2026-11-04; half-up's 99.5 → 100 tie used to let one unverified 99-node read a 100% plan). No per-node re-rounding, no clamping — the floor IS the readiness invariant's arithmetic.",
         taskRollup:
           "exactly computeNodeScore of the task's single owned node — no other rollup exists (AD-6).",
       },
       pinnedBy:
-        "ADR-0001, amendment 2026-11-04 (epic P2-4 ticket 01) — whatever domain/mastery.ts does is verbatim (delta-review item 6).",
+        "ADR-0001, amendments 2026-11-04 (epic P2-4 tickets 01+02) — whatever domain/mastery.ts does is verbatim (delta-review item 6).",
     },
     streak: {
       dayBoundaryPolicy:
@@ -516,7 +516,7 @@ function buildDocument(): FixtureDocument {
     },
     notes: [
       "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
-      "FLAGGED (ticket 01 Comments): the rollup can read 100 while a node is partial — a perfect-but-unverified 99 node does not always hold the plan below 100, because Math.round's half-up tie (99.5 → 100) outweighs the cap at small plan sizes. See rollup.cap-two-node-tie-reaches-100 (verbatim 100) vs rollup.cap-two-unverified-hold-below-100 (holds at 99). Any change here amends ADR-0001 first, both sides together (AD-14).",
+      "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99).",
     ],
   };
 
@@ -545,7 +545,7 @@ const KNOWN_ANSWERS: Record<string, string> = {
   "rollup.uncovered-node-counts-zero": "50",
   "rollup.rounding-mean-of-scores-83": "83",
   "rollup.all-mastered-exactly-100": "100",
-  "rollup.cap-two-node-tie-reaches-100": "100",
+  "rollup.cap-two-node-tie-floors-below-100": "99",
   "rollup.cap-two-unverified-hold-below-100": "99",
   "rollup.single-node-plan-is-node-score": "83",
   "task.empty-task-rollup-zero": "0",
