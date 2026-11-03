@@ -42,6 +42,8 @@ Phase reference: brief = Analysis; PRD + UX = Planning; architecture = Solutioni
 
 **Phases = a `Milestone:` line.** One milestone per phase; every epic and ticket file carries exactly one (`Milestone: Phase 1 — Nov 6 core` or `Milestone: Phase 2 — post-deadline`; created 2026-11-02). `stretch` FRs ride in the Phase-2 milestone until a Phase-1 checkpoint pulls them forward (re-milestone + one-line note on the epic).
 
+**Directory slugs carry the phase too (2026-11-03).** Phase-2 epic dirs are named `epic-p2-<N>-<slug>` (first: `epic-p2-0-monorepo`), so the two eras never share one numeric namespace at a glance; the `Milestone:` line remains the authoritative phase marker. Phase-1's shipped `epic-1…7` dirs keep their names — closed history, not migrated. Un-prefixed `epic-<N>` references in prose mean Phase-1.
+
 **Epics = capability slices, one spec pipeline each.** An epic is a tracking doc in the feature's `.scratch/<feature>/epic.md`; its tickets are files under `issues/` with `Blocked by:` lines (see [issue-tracker.md](issue-tracker.md)). Create the epic doc when its spec run starts — never pre-file empty shells. One epic = one `/grill-with-docs` → `/to-spec` → `/to-tickets` chain; don't run the chain per-ticket.
 
 **Phase-1 slicing** (dependency-ordered, from the [gap analysis](../architecture/architecture-synapse/gap-analysis.md) §5):
