@@ -1,0 +1,30 @@
+source "https://rubygems.org"
+
+# Rails 8.1 API-only (AD-12); exact patch pin per the spine stack table (≥ 8.1.4).
+gem "rails", "8.1.4"
+# Postgres 17 everywhere (AD-13)
+gem "pg", "~> 1.7.0"
+# Spine stack table: puma 7.x
+gem "puma", "~> 7.2.1"
+# GraphQL-first api surface (AD-12); spine stack table: graphql-ruby 2.5.x
+gem "graphql", "~> 2.5.26"
+# Safe-migration guard on every schema change (AD-13)
+gem "strong_migrations", "~> 2.8.0"
+
+# Windows does not include zoneinfo files, so bundle the tzinfo-data gem
+gem "tzinfo-data", platforms: %i[ windows jruby ]
+
+# Reduces boot times through caching; required in config/boot.rb
+gem "bootsnap", require: false
+
+group :development, :test do
+  # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
+  gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+
+  # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
+  gem "rubocop-rails-omakase", require: false
+
+  # Spine stack table: rspec-rails + factory_bot_rails
+  gem "rspec-rails", "~> 8.0.4"
+  gem "factory_bot_rails", "~> 6.5.1"
+end

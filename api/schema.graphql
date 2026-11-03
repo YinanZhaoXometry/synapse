@@ -1,0 +1,6 @@
+type Query {
+  """
+  Liveness probe: the api is up and answering queries.
+  """
+  health: String!
+}
