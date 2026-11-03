@@ -4,11 +4,31 @@
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Bound by:** AD-15 (seeded demo account = NFR-6's post-login story), AD-13 (seed rows are user-scoped like any other).
 
-- [ ] Seed runs twice → no duplicates (idempotent by stable uuids/email)
-- [ ] Demo user can log in via the ticket-02 mutations
-- [ ] `.env.example` + compose carry the demo ENV values
-- [ ] RuboCop clean; seeds covered by one RSpec smoke
+- [x] Seed runs twice → no duplicates (idempotent by stable uuids/email)
+- [x] Demo user can log in via the ticket-02 mutations
+- [x] `.env.example` + compose carry the demo ENV values
+- [x] RuboCop clean; seeds covered by one RSpec smoke
+
+## Comments
+
+Built 2026-11-04 on `epic/p2-2-t03-seed` (base `epic/p2-2-auth` @ `789c55b`, final merge no-op). Gates: rspec **230 examples, 0 failures** (218 baseline + 12 new), rubocop **130 files, no offenses** (127 baseline). `schema.graphql` byte-identical (schema_dump_spec re-dump passed — no GraphQL surface this ticket). No `frontend/` changes. Verified live too: `bin/rails db:seed` run twice in the dev container (development env, compose-carried ENV) → 1 user, 1 plan, 2 nodes after both runs.
+
+**Shape:** all logic lives in `app/lib/demo_seed.rb` → `DemoSeed` (autoloaded, same `app/lib/` posture as `Accounts::TokenCodec` — not a use case, so not an ApplicationCommand); `db/seeds.rb` is a one-line caller (`DemoSeed.call`) so the committed seeds artifact stays the single entrypoint. Dataset (demo garnish only, AD-20): one `StudyPlan` (`topic` "Software engineering interview prep", `goal` set, `visibility: "private"` per FR-38) + two `KnowledgeNode`s under it (`stage`/`title`/`order` 1–2, garnish titles) — all owned by the demo user (AD-13).
+
+**Stable-uuid scheme (the kickoff-delta-7 choice):** **UUIDv5** (RFC 4122 §4.3, SHA-1 over a fixed 16-byte namespace + stable name) derived via `DemoSeed.stable_uuid(name)` from a fixed Synapse demo namespace (`DemoSeed::NAMESPACE`, minted once as a random v4, frozen forever — changing it orphans already-seeded rows). Chosen over plain fixed uuid constants: the derivation documents itself (recompute any uuid with `stable_uuid`), it cannot collide with `gen_random_uuid()` in practice, and epic-08's import can mint further demo/seed uuids from the same namespace without inventing new magic constants. Golden vectors (pinned in the spec as independent literals; the algorithm itself is proven against the DNS-namespace oracle — `uuid5(NAMESPACE_DNS, "example.com")` = `cfbff0d1-9375-5685-968c-48ce8b15ae17`): user `2e5fdb85-4076-52b6-ad4a-c47ce5b87157`, plan `58b6083b-1e27-5eee-b35b-7086c144a361`, nodes `0b44ea76-…-b324` / `d5828003-…-f692` (names `synapse-demo-user`, `synapse-demo-plan`, `synapse-demo-node-<order>`).
+
+**Idempotency mechanics:** content rows (plan, nodes) are `find_or_initialize_by(id: stable_uuid)` → assign attrs → `save! if changed?` — update-or-skip by uuid: a missing row is created WITH the stable id (client-suppliable ids are the AD-12 import-idempotency mechanism), an existing row is written only when an attribute actually differs, so a matching rerun issues zero writes (pinned by `updated_at` equality). The demo **user** is keyed by its unique email instead: the seed creates it with the stable uuid only when absent; a pre-existing row (e.g. registered through the mutations, or seeded with an older password) is **adopted** — credentials re-keyed to the current `DEMO_PASSWORD` (the seed owns the demo account), everything else untouched. AC proof: run twice → `User.count == 1`, `StudyPlan.count == 1`, `KnowledgeNode.count == 2`, same uuids, same `updated_at`s.
+
+**ENV contract (delta 6):** `DEMO_EMAIL`/`DEMO_PASSWORD` read from ENV at call time (AD-12, no settings gem); absent/blank → documented dev/test defaults `demo@synapse.test` / `demo-password`; in **production** the seed fails fast with `DemoSeed::MissingDemoEnvError` naming the missing var (no invented demo credentials — same posture as `TokenCodec::MissingSecretError`). A resolved password shorter than the register command's minimum is rejected in every environment (`ShortDemoPasswordError`, register-command parity per delta 4). Provided emails are downcased before create. `.env.example` documents both vars (with the fallback + fail-fast rules); `.dockerdev/compose.yaml` wires the dev values (`demo@synapse.test` / `demo-password`) next to the existing dev `JWT_SECRET`.
+
+**Login-proof (the interlock AC):** `spec/requests/graphql_demo_seed_login_spec.rb` loads the real `db/seeds.rb` (the exact artifact `db:seed` runs — not a re-implementation) with pinned ENV values, then drives `POST /graphql` → `login(input: { email:, password: })` → asserts token + `{ id, email, createdAt }` payload, decodes the token (`Accounts::TokenCodec`, `sub` = the seeded row's uuid) and asserts the seeded row owns exactly the shape-stub dataset (1 private plan + 2 nodes — AD-13). One login per spec = one limiter slot (per T02's note; the suite resets the store between examples anyway).
+
+**Test-only seeding note:** no hook needed — specs invoke the seed directly (`DemoSeed.call`, or `load Rails.root.join("db/seeds.rb")` for the entrypoint-proof) inside the example, and `use_transactional_fixtures` rolls every example back, so each spec starts from a clean DB (no global seeding hook, no `db:seed` in rails_helper). The JWT/ENV around-hooks follow the T01/T02 pattern (pin → run → restore).
+
+**Deviation — latent model fix (beyond the ticket text, on the AC's path):** the seed's ownership proof drove `StudyPlan#knowledge_nodes` for the first time ever and exposed that all three plan-side `has_many` associations (`knowledge_nodes`, `materials`, `quiz_sessions`) inferred a nonexistent `study_plan_id` FK — every child table's real column is `plan_id` (`t.references :plan`). `app/models/study_plan.rb` now declares `foreign_key: :plan_id` explicitly on all three (comment in place). No migration, no contract change; epic-03 would have hit the same crash on its first plan-structure read.
+
+**For epic-08 (import/cutover):** demo uuids are deterministic — mint any future seed row's id as `DemoSeed.stable_uuid("synapse-demo-<name>")` from `DemoSeed::NAMESPACE` and the rerun-safe upsert (`find_or_initialize_by(id:)` + changed?-gated save) extends as-is; keep names namespaced (`synapse-demo-*`) so grep finds them all. The real demo content seeding (AD-20, closer to the graded window) should ride the same `DemoSeed`/stable-uuid pattern rather than a second mechanism. The demo user's password lives in ENV — rotating `DEMO_PASSWORD` re-keys the account on the next `db:seed` (adopted-row path). If the graphql pin ever moves past 2.6.8 nothing here changes — the seed touches no GraphQL surface.
