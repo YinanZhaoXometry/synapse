@@ -1,6 +1,6 @@
 # Epic 2 (Phase 2) — Accounts: email+password JWT, current_user context, demo seed
 
-Status: ready-for-agent (spec + tickets 2026-11-03; gate: epic-01 done)
+Status: done (2026-11-04 — branch epic/p2-2-auth @ 8cbfc47, CI green run 41706564212 after CI-red fix 41703745968, two-axis review 0P0/2P1/10P2 all fixed, merged to main same day)
 Milestone: Phase 2 — post-deadline
 
 ## Parent

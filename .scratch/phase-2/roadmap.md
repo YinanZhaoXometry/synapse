@@ -13,7 +13,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 | --- | --- | --- | --- | --- |
 | 00 | [monorepo](epic-00-monorepo/epic.md) *(done 2026-11-03 — branch epic/p2-0-monorepo @ 96eb1ea, merged to main same day)* | `frontend/` + `backend/` + justfile + CI (AD-17; folders renamed from `web/`+`api/` 2026-11-04) | — | ✅ |
 | 01 | [api-foundation](epic-01-api-foundation/epic.md) *(done 2026-11-04 — branch epic/p2-1-api-foundation @ c0c89b0, CI 41690050139, merged to main same day)* | command core, closed error enum, full ER + migrations, scoping RSpec (AD-12/13) | 00 | ✅ |
-| 02 | [auth](epic-02-auth/epic.md) | bcrypt + JWT, register/login, `current_user` context, demo seed (AD-15, FR-30) | 01 | ✅ |
+| 02 | [auth](epic-02-auth/epic.md) *(done 2026-11-04 — branch epic/p2-2-auth @ 8cbfc47, CI 41706564212, merged to main same day)* | bcrypt + JWT, register/login, `current_user` context, demo seed (AD-15, FR-30) | 01 | ✅ |
 | 03 | [domain-ops](epic-03-domain-ops/epic.md) | GraphQL read/mutation surface for the whole Phase-1 data model (AD-12/13) | 01, 02 | ✅ |
 | 04 | [mastery-ruby](epic-04-mastery-ruby/epic.md) | golden vectors, Ruby port, server scores + streak (AD-14/6, FR-3/20) | 01 | cutover blocker, parallel lane |
 | 05 | [ai-server](epic-05-ai-server/epic.md) | provider adapter, AI mutations, SSE + tickets, cost cap (AD-16/5, FR-33/34) | 01, 02, 03 | ✅ |
