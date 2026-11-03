@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import {
+  createFlashcards,
   createQuizSession,
   createStudyTask,
   getReadingProgress,
@@ -19,14 +20,17 @@ import type { MaterialSection, Outcome, ParseState } from "@/domain/entities";
 import TaskHomePage from "./TaskHomePage";
 
 /**
- * TaskHomePage observable states (T2; spec testing seam 4 — component render
- * seam): unknown-id not-found, the normal uncovered home (breadcrumb, reader
- * link, ring + state glyph + label, disabled slice tiles with their reason),
- * the three node states (uncovered/partial/mastered — evidence recorded through
- * the real repository write path, `recordEvidence`, so the ADR-0001 numbers
- * arrive via the production seam), and the byteless re-upload state after a
- * reload through the reader's re-upload contract. Expected copy reads the copy
- * deck directly (independent source, never recomputed); stub routes capture
+ * TaskHomePage observable states (T2 + T4; spec testing seam 4 — component
+ * render seam): unknown-id not-found, the normal uncovered home (breadcrumb,
+ * reader link, ring + state glyph + label), the REAL quick tiles (T4 — quiz
+ * tile opens the QuizLauncher dialog with mode select only, flashcard tile
+ * opens the launcher dialog without cards or navigates straight to the study
+ * with an existing deck; the epic-5 disabled placeholders are gone), the three
+ * node states (uncovered/partial/mastered — evidence recorded through the real
+ * repository write path, `recordEvidence`, so the ADR-0001 numbers arrive via
+ * the production seam), and the byteless re-upload state after a reload
+ * through the reader's re-upload contract. Expected copy reads the copy deck
+ * directly (independent source, never recomputed); stub routes capture
  * navigation instead of mounting the reader/pdfjs.
  */
 
@@ -59,6 +63,12 @@ function PlansLanding() {
 function ReaderLanding() {
   return <p data-testid="reader-landing" />;
 }
+function QuizLanding() {
+  return <p data-testid="quiz-landing" />;
+}
+function FlashcardsLanding() {
+  return <p data-testid="flashcards-landing" />;
+}
 
 function renderTaskHome(taskId: string) {
   const client = new QueryClient({
@@ -71,6 +81,9 @@ function renderTaskHome(taskId: string) {
           <Toaster />
           <Routes>
             <Route path="/task/:id" element={<TaskHomePage />} />
+            {/* stubs for the T4 launches — navigation is the assertion */}
+            <Route path="/task/:id/quiz" element={<QuizLanding />} />
+            <Route path="/task/:id/flashcards" element={<FlashcardsLanding />} />
             <Route path="/plans" element={<PlansLanding />} />
             <Route path="/read/:materialId" element={<ReaderLanding />} />
           </Routes>
@@ -140,7 +153,7 @@ describe("TaskHomePage (FR-37; ADR-0001; AD-6/8)", () => {
     expect(screen.getByRole("button", { name: zh("tasks.backToPlans") })).toBeInTheDocument();
   });
 
-  it("uncovered home: breadcrumb works, material row opens the reader, ring reads 0 with the glyph label, slice tiles are disabled placeholders", async () => {
+  it("uncovered home: breadcrumb works, material row opens the reader, ring reads 0 with the glyph label, quick tiles are real and enabled", async () => {
     const { task, material } = seedTask({ withBytes: true });
     const { container } = renderTaskHome(task.id);
 
@@ -159,19 +172,59 @@ describe("TaskHomePage (FR-37; ADR-0001; AD-6/8)", () => {
     // no evidence → the em-dash display contract, never a fabricated 0% row
     expect(screen.getByText("—")).toBeInTheDocument();
 
-    // epic-6 placeholders: visible, disabled, with a reason; no companion twin here
-    expect(screen.getByRole("button", { name: zh("plans.quickQuiz") })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("button", { name: zh("plans.quickFlashcards") })).toHaveAttribute("aria-disabled", "true");
+    // T4: the epic-5 disabled placeholders are gone — the tiles are real and
+    // enabled (a parsed material can serve both); no companion twin here
+    expect(screen.getByTestId("task-quiz-tile")).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByTestId("task-flashcards-tile")).toHaveAttribute("aria-disabled", "false");
     expect(screen.queryByRole("button", { name: zh("plans.quickCompanion") })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: zh("plans.quickQuiz") }));
-    expect(await screen.findByText(zh("tasks.sliceQuiz"))).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: zh("plans.quickFlashcards") }));
-    expect(await screen.findByText(zh("tasks.sliceFlashcards"))).toBeInTheDocument();
 
     // breadcrumb back to Plans Home works (the task is never a trap) — asserted
     // last because it navigates away from the page under test
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.backToPlans") }));
     expect(await screen.findByTestId("plans-landing")).toBeInTheDocument();
+  });
+
+  it("quiz tile: opens the QuizLauncher dialog — mode select only, the single material IS the scope (no scope picker)", async () => {
+    const { task } = seedTask({ withBytes: true });
+    renderTaskHome(task.id);
+
+    fireEvent.click(await screen.findByTestId("task-quiz-tile"));
+    expect(await screen.findByTestId("quiz-launcher")).toBeInTheDocument();
+    // the plan twin's mode radios are all here…
+    expect(screen.getByTestId("quiz-mode-open")).toBeInTheDocument();
+    expect(screen.getByTestId("quiz-mode-choice")).toBeInTheDocument();
+    expect(screen.getByTestId("quiz-mode-mix")).toBeInTheDocument();
+    // …but the scope picker is not: 「整个计划」 would be a lie on a task surface
+    expect(screen.queryByTestId("quiz-scope-plan")).not.toBeInTheDocument();
+    expect(screen.getByTestId("quiz-launcher-start")).toBeInTheDocument();
+  });
+
+  it("flashcards tile, no cards yet: opens the FlashcardLauncher dialog (generation entry)", async () => {
+    const { task } = seedTask({ withBytes: true });
+    renderTaskHome(task.id);
+
+    fireEvent.click(await screen.findByTestId("task-flashcards-tile"));
+    expect(await screen.findByTestId("flashcards-launcher")).toBeInTheDocument();
+    expect(screen.getByTestId("flashcards-launcher-start")).toBeInTheDocument();
+    // navigation was NOT the tile's answer — the dialog keeps the user on Task Home
+    expect(screen.queryByTestId("flashcards-landing")).not.toBeInTheDocument();
+  });
+
+  it("flashcards tile with an existing deck: 「继续学习」 goes straight to the study route (no silent duplication)", async () => {
+    const { task, material } = seedTask({ withBytes: true });
+    createFlashcards({
+      materialId: material.id,
+      nodeId: null,
+      cards: [{ front: "deck-one-a", back: "back-one-a" }],
+    });
+    renderTaskHome(task.id);
+
+    // the tile re-labels to the continue state (T3's policy mirrored)
+    const tile = await screen.findByTestId("task-flashcards-tile");
+    expect(tile.textContent).toContain(zh("flashcards.tileContinue"));
+    expect(tile.textContent).toContain(zhN("flashcards.tileContinueDesc", 1));
+    fireEvent.click(tile);
+    expect(await screen.findByTestId("flashcards-landing")).toBeInTheDocument();
   });
 
   it("evidence popover on a fresh task names the honest empty state and the shared rule", async () => {

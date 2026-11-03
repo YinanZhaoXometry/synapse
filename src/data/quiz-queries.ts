@@ -66,6 +66,12 @@ export function useRecordEvidenceMutation() {
         void qc.invalidateQueries({ queryKey: queryKeys.plans.all });
         void qc.invalidateQueries({ queryKey: queryKeys.plans.detail(session.planId) });
       }
+      if (session?.taskId) {
+        // T4 (the deferred epic-5 obligation): task evidence refreshes every
+        // tasks-keyed surface — Task Home's ring AND Plans Home's Study Tasks
+        // section. The ["tasks"] prefix sweeps detail + node keys in one call.
+        void qc.invalidateQueries({ queryKey: queryKeys.tasks.all });
+      }
     },
   });
 }

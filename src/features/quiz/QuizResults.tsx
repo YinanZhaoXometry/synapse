@@ -28,17 +28,29 @@ export interface QuizResultsProps {
   results: QuizAnswerResult[];
   sessionId: string | null;
   nodes: KnowledgeNode[];
-  /** The plan's materials — section titles for the source excerpts. */
+  /** The owner's materials — section titles for the source excerpts. */
   materials: Material[];
   /** Evidence queried AFTER the evidence mutation landed (fresh numbers). */
   evidence: EvidenceRecord[];
   /** 再来一轮 — only offered when this mount knows the launch params. */
   canRetake: boolean;
+  /** The exit label — 「返回计划」 on plans, 「返回任务」 on tasks (T4). */
+  backLabelKey?: string;
   onBackToPlan: () => void;
   onRetake: () => void;
 }
 
-export function QuizResults({ results, sessionId, nodes, materials, evidence, canRetake, onBackToPlan, onRetake }: QuizResultsProps) {
+export function QuizResults({
+  results,
+  sessionId,
+  nodes,
+  materials,
+  evidence,
+  canRetake,
+  backLabelKey = "quiz.backToPlan",
+  onBackToPlan,
+  onRetake,
+}: QuizResultsProps) {
   const { t } = useLanguage();
   const score = quizScoreSummary(results);
   const nodeRows = quizNodeRows(results, nodes, evidence, sessionId);
@@ -85,7 +97,7 @@ export function QuizResults({ results, sessionId, nodes, materials, evidence, ca
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-[var(--glass-4)] px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-[var(--glass-solid)] active:scale-[0.97] cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t("quiz.backToPlan")}
+            {t(backLabelKey)}
           </button>
         </div>
         {canRetake && (

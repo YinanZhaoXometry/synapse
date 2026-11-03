@@ -1,28 +1,35 @@
 /**
- * Task Home — /task/:id (T2; FR-37; AD-6/8): the single-material twin of Plan
- * Home, the task's stable home address beyond the reader. Breadcrumb back to
- * Plans Home (the task is never a trap); the material row opens the Immersive
- * Reader and offers re-upload when the session-only bytes are gone after a
- * reload — through the reader's own re-upload contract (kind-matched
+ * Task Home — /task/:id (T2 + T4; FR-37; AD-6/8): the single-material twin of
+ * Plan Home, the task's stable home address beyond the reader. Breadcrumb back
+ * to Plans Home (the task is never a trap); the material row opens the
+ * Immersive Reader and offers re-upload when the session-only bytes are gone
+ * after a reload — through the reader's own re-upload contract (kind-matched
  * validateReupload + sessionBlobs.put, pending/failed re-parse; AD-7); the
  * Mastery Ring shows the task rollup — exactly its single owned node's score
  * via `computeTaskRollup` through pure display-shaping selectors, never a
  * share-of-mastered collapse (ADR-0001) — with the shared state vocabulary
  * (uncovered/partial/mastered, glyph + label) and an evidence popover that
- * names what moved the number, including the cap-99-below-gate behavior. Quiz
- * and flashcard tiles are visible, disabled placeholders pointing at epic-6
- * (Plan Home parity); Companion is reached via the reader — no duplicate
- * surface here. No upload zone: a task is strictly 1:1 with its material.
+ * names what moved the number, including the cap-99-below-gate behavior. The
+ * quiz and flashcard quick tiles are REAL launches (T4, the epic-5
+ * placeholders gone): the quiz tile opens the QuizLauncher dialog (mode
+ * select — the task's single material IS the scope; session created with
+ * planId null, taskId set, AD-6), the flashcard tile opens the study directly
+ * when the task's deck exists (「继续学习」) or the FlashcardLauncher dialog
+ * when it doesn't (T3's no-silent-duplication policy). Companion is reached
+ * via the reader — no duplicate surface here. No upload zone: a task is
+ * strictly 1:1 with its material.
  */
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, FileText, Layers, ListChecks, RotateCw, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
+  useFlashcardsByMaterialQuery,
   useReadingProgressQuery,
   useTaskMaterialsQuery,
   useTaskNodeQuery,
@@ -32,6 +39,9 @@ import { cn } from "@/lib/utils";
 import type { KnowledgeNode, Material } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
 import { ContractNote, MasteryRing, OutcomeMark, OUTCOME_LABEL_KEY, StateGlyph, useSessionBlob } from "@/features/plans";
+import { QuizLauncher } from "@/features/quiz";
+import { quizableMaterials } from "@/features/quiz/display-shaping";
+import { FlashcardLauncher } from "@/features/flashcards";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation, validateReupload } from "@/features/reader";
 import { taskMasteryView, type TaskMasteryView } from "./display-shaping";
 
@@ -43,15 +53,30 @@ export default function TaskHomePage() {
   const nodeQuery = useTaskNodeQuery(id ?? "");
   const materialsQuery = useTaskMaterialsQuery(id ?? "");
   const evidenceQuery = useAllEvidenceQuery();
+  // T4: the flashcards entry reads the task's persisted deck — cards exist →
+  // the tile opens the study directly; none → the launcher dialog generates.
+  const cardsQuery = useFlashcardsByMaterialQuery(taskQuery.data?.materialId ?? "");
   const parseMaterial = useParseMaterialMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // T4: the launcher dialogs (Plan Home's quick-action pattern).
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [flashcardsOpen, setFlashcardsOpen] = useState(false);
 
-  if (taskQuery.isPending || nodeQuery.isPending || materialsQuery.isPending || evidenceQuery.isPending) return null;
+  if (
+    taskQuery.isPending ||
+    nodeQuery.isPending ||
+    materialsQuery.isPending ||
+    evidenceQuery.isPending ||
+    cardsQuery.isPending
+  )
+    return null;
   const task = taskQuery.data;
   const node = nodeQuery.data;
   const materials = materialsQuery.data ?? [];
   const material = materials[0]; // strictly 1:1 (StudyTask ||--|| Material) — no upload zone
   const evidence = evidenceQuery.data ?? [];
+  const taskCards = cardsQuery.data ?? [];
+  const hasCards = taskCards.length > 0;
 
   const backLink = (
     <button
@@ -93,11 +118,38 @@ export default function TaskHomePage() {
     }
   };
 
-  // Epic-6 placeholders (spec decision 1): visible, disabled, with a reason —
-  // the material is always attached here, so the reason is the slice, never a gate.
+  // T4 quick actions — the Plan Home policy mirrored on the single material:
+  // quiz generation needs parsed sections (FR-18 sourcing honesty); the
+  // flashcards tile opens the existing study directly when the deck exists
+  // (「继续学习」), the launcher dialog when it doesn't (T3's policy — cards
+  // are never silently duplicated).
+  const quizable = quizableMaterials(materials);
   const tiles = [
-    { icon: ListChecks, label: t("plans.quickQuiz"), desc: t("plans.quickQuizDesc"), reason: "tasks.sliceQuiz" },
-    { icon: Layers, label: t("plans.quickFlashcards"), desc: t("plans.quickFlashcardsDesc"), reason: "tasks.sliceFlashcards" },
+    {
+      icon: ListChecks,
+      label: t("plans.quickQuiz"),
+      desc: t("plans.quickQuizDesc"),
+      testId: "task-quiz-tile",
+      off: quizable.length === 0,
+      run: () => setQuizOpen(true),
+    },
+    hasCards
+      ? {
+          icon: Layers,
+          label: t("flashcards.tileContinue"),
+          desc: t("flashcards.tileContinueDesc", { n: taskCards.length }),
+          testId: "task-flashcards-tile",
+          off: false, // an existing deck opens without parsed sections
+          run: () => navigate(`/task/${task.id}/flashcards`),
+        }
+      : {
+          icon: Layers,
+          label: t("plans.quickFlashcards"),
+          desc: t("plans.quickFlashcardsDesc"),
+          testId: "task-flashcards-tile",
+          off: quizable.length === 0,
+          run: () => setFlashcardsOpen(true),
+        },
   ] as const;
 
   return (
@@ -151,7 +203,7 @@ export default function TaskHomePage() {
           </section>
         </div>
 
-        {/* right zone: epic-6 placeholders */}
+        {/* right zone: quick actions — the real launches (T4) */}
         <div className="space-y-4">
           <div className="bg-card border border-border-soft rounded-2xl shadow-raised p-4">
             <h2 className="eyebrow mb-3">{t("plans.quickActions")}</h2>
@@ -160,11 +212,19 @@ export default function TaskHomePage() {
                 <button
                   key={tile.label}
                   type="button"
+                  data-testid={tile.testId}
                   aria-label={tile.label}
-                  aria-disabled="true"
-                  title={t(tile.reason)}
-                  onClick={() => toast(t(tile.reason))}
-                  className="text-left rounded-xl border border-border-soft p-3 transition-colors cursor-pointer opacity-50"
+                  aria-disabled={tile.off}
+                  title={tile.off ? t("plans.needMaterial") : undefined}
+                  onClick={() => {
+                    // Gated tiles name the gate (a parsed material), never the roadmap.
+                    if (tile.off) toast(t("plans.needMaterial"));
+                    else tile.run();
+                  }}
+                  className={cn(
+                    "text-left rounded-xl border border-border-soft p-3 transition-colors cursor-pointer",
+                    tile.off ? "opacity-50" : "hover:bg-[var(--glass-2)]",
+                  )}
                 >
                   <tile.icon className="w-4 h-4 text-accent-ink" aria-hidden="true" />
                   <p className="text-[13px] font-semibold mt-1.5">{tile.label}</p>
@@ -175,6 +235,49 @@ export default function TaskHomePage() {
           </div>
         </div>
       </div>
+
+      {/* T4: the quiz launcher — mode select only (the single material IS the
+          scope). On success the route carries the session id (resumable); the
+          session is created with planId null, taskId set (AD-6). */}
+      <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
+        <DialogContent className="max-w-lg rounded-2xl border border-border-soft bg-card max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">{t("quiz.launcher.title")}</DialogTitle>
+          </DialogHeader>
+          {task && node && (
+            <QuizLauncher
+              taskId={task.id}
+              nodeIds={[node.id]}
+              materials={materials}
+              onStarted={(sessionId) => {
+                setQuizOpen(false);
+                navigate(`/task/${task.id}/quiz?session=${sessionId}`);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* T4: the flashcards launcher — 「来自 N 份材料 · 正在生成闪卡」
+          cancellable, failure toast; on success the study route takes over.
+          A task that already has cards never reaches this dialog (the tile
+          opens the existing study directly — no silent deck duplication). */}
+      <Dialog open={flashcardsOpen} onOpenChange={setFlashcardsOpen}>
+        <DialogContent className="max-w-lg rounded-2xl border border-border-soft bg-card max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">{t("flashcards.launcher.title")}</DialogTitle>
+          </DialogHeader>
+          {task && (
+            <FlashcardLauncher
+              materials={materials}
+              onCreated={() => {
+                setFlashcardsOpen(false);
+                navigate(`/task/${task.id}/flashcards`);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

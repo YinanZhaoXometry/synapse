@@ -30,4 +30,17 @@ describe("i18n dictionary — tasks.* zh/en parity (AD-9)", () => {
       expect(translations.en[key as keyof typeof translations.en], `en copy for ${key}`).toBeTruthy();
     }
   });
+
+  it("the epic-6 T4 additions are present (task-flow back copy; the placeholder reasons are gone)", () => {
+    // the task-flow routes' back label (返回任务 / Back to task)
+    for (const key of ["tasks.backToTask"]) {
+      expect(translations.zh[key as keyof typeof translations.zh], `zh ${key}`).toBeTruthy();
+      expect(translations.en[key as keyof typeof translations.en], `en ${key}`).toBeTruthy();
+    }
+    // the epic-5 disabled-placeholder reasons must not linger — the tiles are real
+    expect(translations.zh["tasks.sliceQuiz" as keyof typeof translations.zh]).toBeUndefined();
+    expect(translations.zh["tasks.sliceFlashcards" as keyof typeof translations.zh]).toBeUndefined();
+    expect(translations.en["tasks.sliceQuiz" as keyof typeof translations.en]).toBeUndefined();
+    expect(translations.en["tasks.sliceFlashcards" as keyof typeof translations.en]).toBeUndefined();
+  });
 });

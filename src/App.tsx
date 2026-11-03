@@ -13,6 +13,8 @@ import PlanCreatePage from "@/features/plans/PlanCreatePage";
 import PlanHomePage from "@/features/plans/PlanHomePage";
 import PlanQuizPage from "@/pages/PlanQuizPage";
 import PlanFlashcardsPage from "@/pages/PlanFlashcardsPage";
+import TaskQuizPage from "@/pages/TaskQuizPage";
+import TaskFlashcardsPage from "@/pages/TaskFlashcardsPage";
 import AppLayout from "@/components/layout/AppLayout";
 import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -84,6 +86,13 @@ const App = () => (
                       </Suspense>
                     }
                   />
+                  {/* The task-flow quiz session page (epic-6 T4; AD-8) — the
+                      plan twin's contract scoped to the task's single material
+                      and its auto-owned node (AD-6: planId null, taskId set). */}
+                  <Route path="/task/:id/quiz" element={<TaskQuizPage />} />
+                  {/* The task-flow flashcards study page (epic-6 T4; AD-8) —
+                      the plan twin's contract over the task's single deck. */}
+                  <Route path="/task/:id/flashcards" element={<TaskFlashcardsPage />} />
                   <Route
                     path="/read/:materialId"
                     element={

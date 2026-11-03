@@ -505,9 +505,10 @@ export const translations = {
       'tasks.notFound': '找不到这个学习任务。',
       'tasks.rollupNote': '掌握度 = 该任务唯一知识节点的最近表现',
       'tasks.nodeSection': '知识节点',
-      'tasks.sliceQuiz': '出题功能即将上线。',
-      'tasks.sliceFlashcards': '闪卡功能即将上线。',
       'tasks.cap99Note': '证据不足 {n} 条 · 分数封顶 99%',
+
+      // Study Tasks (epic-6 T4 — task-flow quiz/flashcards routes, FR-37 parity)
+      'tasks.backToTask': '返回任务',
 
       // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
       'tasks.pitch': '只想搞懂一份文档？不需要计划 — 直接开始。',
@@ -1102,9 +1103,10 @@ export const translations = {
       'tasks.notFound': "This study task couldn't be found.",
       'tasks.rollupNote': "Mastery = recent evidence on this task's single node",
       'tasks.nodeSection': 'Knowledge node',
-      'tasks.sliceQuiz': 'Quiz generation is coming soon.',
-      'tasks.sliceFlashcards': 'Flashcards are coming soon.',
       'tasks.cap99Note': 'Under the {n}-evidence gate · capped at 99%',
+
+      // Study Tasks (epic-6 T4 — task-flow quiz/flashcards routes, FR-37 parity)
+      'tasks.backToTask': 'Back to task',
 
       // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
       'tasks.pitch': 'Just one document to crack? Skip the plan — start a Study Task.',

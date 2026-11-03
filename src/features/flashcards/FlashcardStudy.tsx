@@ -24,11 +24,13 @@ import type { Flashcard, Material } from "@/domain/entities";
 import { flashcardSourceTitle, ratingBreakdown } from "./display-shaping";
 
 export interface FlashcardStudyProps {
-  /** The plan's deck in creation order (= material section order, AD-6). */
+  /** The owner's deck in creation order (= material section order, AD-6). */
   cards: Flashcard[];
-  /** The plan's materials — the cards' source line resolves against them. */
+  /** The owner's materials — the cards' source line resolves against them. */
   materials: Material[];
-  /** Exit to the plan: Esc mid-deck and the summary's back-to-plan action. */
+  /** The summary's exit label — 「返回计划」 on plans, 「返回任务」 on tasks (T4). */
+  backLabelKey?: string;
+  /** Exit to the owner's home: Esc mid-deck and the summary's exit action. */
   onExit: () => void;
 }
 
@@ -40,7 +42,7 @@ const TRIO = [
   { value: "easy", labelKey: "flashcards.study.easy", className: "diff-easy", testId: "flashcards-rate-easy" },
 ] as const;
 
-export function FlashcardStudy({ cards, materials, onExit }: FlashcardStudyProps) {
+export function FlashcardStudy({ cards, materials, backLabelKey = "flashcards.summary.backToPlan", onExit }: FlashcardStudyProps) {
   const { t } = useLanguage();
   const rateCard = useRateFlashcardMutation();
   const [index, setIndex] = useState(0);
@@ -153,7 +155,7 @@ export function FlashcardStudy({ cards, materials, onExit }: FlashcardStudyProps
               onClick={onExit}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-[var(--glass-4)] px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-[var(--glass-solid)] active:scale-[0.97] cursor-pointer"
             >
-              {t("flashcards.summary.backToPlan")}
+              {t(backLabelKey)}
             </button>
           </div>
         </div>

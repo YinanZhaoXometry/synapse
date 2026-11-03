@@ -55,6 +55,8 @@ export interface QuizRunnerProps {
   resumed: boolean;
   /** 再来一轮 — offered only when this mount knows the launch params. */
   canRetake: boolean;
+  /** The results' exit label — forwarded to QuizResults (T4 task parity). */
+  backLabelKey?: string;
   onRetake: () => void;
   onBackToPlan: () => void;
   /** Exit-leave: the driver has abandoned the session; navigate away. */
@@ -65,7 +67,19 @@ function isRevealed(view: RevealedQuestionView | MaskedQuestionView): view is Re
   return view.status === "submitted" || view.status === "graded" || view.status === "forfeited";
 }
 
-export function QuizRunner({ driver, run, materials, nodes, evidence, resumed, canRetake, onRetake, onBackToPlan, onAbandoned }: QuizRunnerProps) {
+export function QuizRunner({
+  driver,
+  run,
+  materials,
+  nodes,
+  evidence,
+  resumed,
+  canRetake,
+  backLabelKey,
+  onRetake,
+  onBackToPlan,
+  onAbandoned,
+}: QuizRunnerProps) {
   const { t } = useLanguage();
   const [exitOpen, setExitOpen] = useState(false);
   // The verdict pacing step: the machine auto-advances on reveal; the runner
@@ -165,6 +179,7 @@ export function QuizRunner({ driver, run, materials, nodes, evidence, resumed, c
         materials={materials}
         evidence={evidence}
         canRetake={canRetake}
+        backLabelKey={backLabelKey}
         onBackToPlan={onBackToPlan}
         onRetake={onRetake}
       />

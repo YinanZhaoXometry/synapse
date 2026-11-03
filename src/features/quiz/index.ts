@@ -5,7 +5,9 @@
  * else reaches into the machine's module internals. T2 adds the plan-flow UI:
  * QuizLauncher (Plan Home dialog + the route's inline start) and QuizRunner
  * (question → paced verdict → results), plus the display-shaping selectors the
- * results numbers flow through (AD-6).
+ * results numbers flow through (AD-6). T4 extracts the shared route shell
+ * (QuizSessionPage) so /plan/:id/quiz and /task/:id/quiz are thin
+ * context-scoped compositions — twin parity by construction, not copy-paste.
  */
 export {
   abandonRun,
@@ -31,3 +33,4 @@ export { useQuizSession, type QuizSessionPhase, type QuizStartInput } from "./us
 export { QuizLauncher } from "./QuizLauncher";
 export { QuizRunner } from "./QuizRunner";
 export { QuizResults } from "./QuizResults";
+export { QuizSessionPage, type QuizSessionContext } from "./quiz-session-page";
