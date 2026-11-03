@@ -90,6 +90,15 @@ GEM
       reline (>= 0.3.8)
     diff-lcs (1.6.2)
     drb (2.2.3)
+    dry-core (1.2.0)
+      concurrent-ruby (~> 1.0)
+      logger
+      zeitwerk (~> 2.6)
+    dry-initializer (3.2.0)
+    dry-monads (1.11.0)
+      concurrent-ruby (~> 1.0)
+      dry-core (~> 1.1)
+      zeitwerk (~> 2.6)
     erb (6.0.7)
     erubi (1.13.1)
     factory_bot (6.6.0)
@@ -306,6 +315,8 @@ PLATFORMS
 DEPENDENCIES
   bootsnap
   debug
+  dry-initializer (~> 3.2)
+  dry-monads (~> 1.11)
   factory_bot_rails (~> 6.5.1)
   graphql (~> 2.5.26)
   pg (~> 1.7.0)

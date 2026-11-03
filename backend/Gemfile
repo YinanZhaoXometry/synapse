@@ -11,6 +11,11 @@ gem "puma", "~> 7.2.1"
 gem "graphql", "~> 2.5.26"
 # Safe-migration guard on every schema change (AD-13)
 gem "strong_migrations", "~> 2.8.0"
+# Command layer (AD-12): dry-initializer options + dry-monads Result.
+# Runtime deps — default group, not dev/test. Spine stack table: "current
+# stable at scaffold" (floor pins; Gemfile.lock holds the exact versions).
+gem "dry-initializer", "~> 3.2"
+gem "dry-monads", "~> 1.11"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
