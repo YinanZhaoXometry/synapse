@@ -66,7 +66,8 @@ jobs:
       # RSpec is DB-backed since epic P2-1 ticket 02 (2026-11-04): the spine ER
       # landed as migrations + models and model specs pin real rows. Mirror the
       # dev compose (postgres:17-alpine, postgres/postgres); backend_test
-      # matches config/database.yml's test entry and the db:prepare below.
+      # matches config/database.yml's test entry and the db:create db:migrate
+      # below.
       postgres:
         image: postgres:17-alpine
         env:
@@ -99,7 +100,13 @@ jobs:
           working-directory: backend
 
       - name: Prepare database
-        run: RAILS_ENV=test bundle exec rails db:prepare
+        # db:create db:migrate, deliberately NOT db:prepare: db:prepare
+        # auto-runs db:seed on a freshly created database (Rails behavior),
+        # and this job's service container presents exactly that state on
+        # every run — the demo account would be committed before the suite.
+        # The backend test suite runs against an unseeded schema; this
+        # guarantees that deterministically.
+        run: RAILS_ENV=test bundle exec rails db:create db:migrate
       - name: Lint
         run: bundle exec rubocop
       - name: Test
