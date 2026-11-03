@@ -23,13 +23,16 @@ require 'rspec/rails'
 # directory. Alternatively, in the individual `*_spec.rb` files, manually
 # require only the support files necessary.
 #
-# Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
+Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
 
 RSpec.configure do |config|
-  # The scaffold specs are DB-free (no models yet, no fixtures), so keep
-  # transactional fixtures off: that is what stops Rails from opening a
-  # database connection in every example (TestFixtures#setup_transactional_fixtures
-  # pins a pooled connection when use_transactional_tests is true).
+  # The suite is DB-backed as of epic P2-1 ticket 02 (2026-11-04): the spine ER
+  # landed as migrations + models, and model specs pin real rows. Postgres is
+  # now a guaranteed part of every spec run (the compose gate starts the db
+  # service and prepares the test database via a DATABASE_URL override; CI runs
+  # a postgres 17 service container), so transactional fixtures are the correct
+  # isolation posture: every example runs inside a transaction that is rolled
+  # back — fast and leak-free.
   #
   # Note: do NOT set `config.use_active_record = false` here. In rspec-rails
   # 8.0.x, that setting makes FixtureSupport skip the `included do` block that
@@ -37,9 +40,10 @@ RSpec.configure do |config|
   # ActiveRecord's default `use_transactional_tests = true` and pin a DB
   # connection anyway, just through a path the flag can't reach (observed
   # 2026-11-03: `ActiveRecord::ConnectionAdapters::ConnectionPool#pin_connection!`
-  # firing under `--no-deps` gate runs with no postgres). With no models and no
-  # fixtures, leaving AR support on costs nothing and the flag below lands.
-  config.use_transactional_fixtures = false
+  # firing under `--no-deps` gate runs with no postgres). The trap is harmless
+  # now that a database is guaranteed, but it still holds — leave
+  # use_active_record at its default.
+  config.use_transactional_fixtures = true
 
   # RSpec Rails uses metadata to mix in different behaviours to your tests,
   # for example enabling you to call `get` and `post` in request specs. e.g.:
