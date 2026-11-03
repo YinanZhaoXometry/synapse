@@ -28,6 +28,10 @@ services:
     environment:
       RAILS_ENV: development
       DATABASE_URL: postgres://postgres:postgres@db:5432/backend_development
+      # Dev-only session-token signing secret (Accounts::TokenCodec, AD-15).
+      # Fixed so minted tokens survive container restarts; outside dev, set a
+      # real random secret (backend/.env.example documents the contract).
+      JWT_SECRET: dev-only-insecure-secret-change-me
     depends_on:
       db:
         condition: service_healthy

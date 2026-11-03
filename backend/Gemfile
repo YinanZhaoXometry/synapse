@@ -16,6 +16,11 @@ gem "strong_migrations", "~> 2.8.0"
 # stable at scaffold" (floor pins; Gemfile.lock holds the exact versions).
 gem "dry-initializer", "~> 3.2"
 gem "dry-monads", "~> 1.11"
+# Auth primitives (AD-15): bcrypt backs has_secure_password; jwt mints the
+# stateless HS256 session tokens. Runtime deps — default group, not dev/test.
+# "Current stable at scaffold" floor pins; Gemfile.lock holds the exact versions.
+gem "bcrypt", "~> 3.1.22"
+gem "jwt", "~> 3.3.0"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
