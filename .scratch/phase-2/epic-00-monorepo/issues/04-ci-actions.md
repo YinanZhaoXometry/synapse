@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (web paths to run the web job against), 02 (api stack for the api job).
 
-**Status:** done 2026-11-03 — a25a2a6 + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6; green run pending first CI run on the branch)
+**Status:** done 2026-11-03 — a25a2a6 + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6; CI green — run 41659874455, web 1m15s + api 1m4s)
 
 **Bound by:** AD-17 (CI in the same change as the restructure; gates composition), AD-12 (no provider secrets needed at this stage — the api has no AI).
 
