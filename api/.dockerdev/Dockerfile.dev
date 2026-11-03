@@ -1,7 +1,7 @@
 # Dev image for the Synapse api (AD-17: the api runs in containers only).
 # System deps only — gems live in the compose `bundle-cache` volume so a
 # `bundle install` inside compose survives container restarts.
-FROM ruby:3.4-slim
+FROM ruby:3.4.12-slim
 
 ENV LANG=C.UTF-8 \
     BUNDLE_JOBS=4 \

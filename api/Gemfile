@@ -1,6 +1,7 @@
 source "https://rubygems.org"
 
-# Rails 8.1 API-only (AD-12); exact patch pin per the spine stack table (≥ 8.1.4).
+# Rails 8.1 API-only (AD-12). Other gems floor-pin (~>); Gemfile.lock holds
+# the exact versions. Rails is pinned exact at scaffold per the spine stack table (≥ 8.1.4).
 gem "rails", "8.1.4"
 # Postgres 17 everywhere (AD-13)
 gem "pg", "~> 1.7.0"

@@ -8,9 +8,9 @@ A **minimal, bootable Rails 8.1 API-only scaffold** (epic-00 T02): GraphQL endpo
 
 ## Stack pins
 
-Pinned in `api/Gemfile` (exact patch pins per the spine stack table):
+Pinned in `api/Gemfile` (floor pins `~>` — `Gemfile.lock` holds the exact versions; rails pinned exact at scaffold per the spine stack table):
 
-- Rails **8.1.4** (API-only), Ruby **3.4.12** (`api/.ruby-version`; the dev image is `ruby:3.4-slim` — your local Ruby is irrelevant)
+- Rails **8.1.4** (API-only), Ruby **3.4.12** (`api/.ruby-version`; the dev image is `ruby:3.4.12-slim` — your local Ruby is irrelevant)
 - graphql-ruby **~> 2.5.26** (AD-12)
 - puma **~> 7.2.1**, pg **~> 1.7.0**
 - strong_migrations **~> 2.8.0** (AD-13)
@@ -34,7 +34,7 @@ docker compose -f api/.dockerdev/compose.yaml run api bundle exec rubocop
 docker compose -f api/.dockerdev/compose.yaml down
 ```
 
-Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bundle (`bundle-cache` volume), runs `db:prepare`, and starts the db service, so the same form works from cold. **`RAILS_ENV=test` is required for rspec** — the service env defaults to `development` and request specs then 403 on HostAuthorization (development-only middleware). The compose entrypoint (`bin/docker-dev-entrypoint`) runs `bundle check || bundle install` + `db:prepare` before every `run` command, so even the DB-free-in-spirit specs need a reachable postgres today (Rails 8.1's `TestFixtures` pins a connection at example setup). Grep-level truth over stale claims: re-verify commands against this file's `compose.yaml` when touching tooling.
+Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bundle (`bundle-cache` volume), runs `db:prepare`, and starts the db service, so the same form works from cold — and the entrypoint's `db:prepare` does want postgres up, which is why gate runs go through `run --no-deps --entrypoint ""` with a bundle guard (root justfile). The specs themselves are **DB-free**: `spec/rails_helper.rb` sets `use_transactional_fixtures = false` (ad04861; `use_active_record` must stay on — see the comment there), so no example pins a postgres connection, and CI runs rspec with no postgres service. **`RAILS_ENV=test` is required for rspec** — the service env defaults to `development` and request specs then 403 on HostAuthorization (development-only middleware). Grep-level truth over stale claims: re-verify commands against this file's `compose.yaml` when touching tooling.
 
 ## GraphQL is the only web-facing surface (AD-12)
 
