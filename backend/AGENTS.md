@@ -4,7 +4,7 @@ Rules for everything under `backend/`. Every rule cites its spine decision ID ([
 
 ## What this is
 
-A **minimal, bootable Rails 8.1 API-only scaffold** (epic-00 T02): GraphQL endpoint with one `health` query, `schema.graphql` dumped and committed as the cross-stack contract, colocated RSpec + RuboCop green, and `.dockerdev/compose.yaml` (postgres 17 + api) so `just up` boots a working api. **It intentionally has no business logic** — no commands, no models beyond `ApplicationRecord`, no auth, no AI, no jobs, no ActiveStorage. Later backend epics extend this scaffold and own those surfaces; they inherit the conventions below instead of re-deriving them.
+A **minimal, bootable Rails 8.1 API-only scaffold** (epic-00 T02): GraphQL endpoint with one `health` query, `schema.graphql` dumped and committed as the cross-stack contract, colocated RSpec + RuboCop green, and `.dockerdev/compose.yaml` (postgres 17 + api) so `just up` boots a working api. **It intentionally has no business logic** — the only command code is the AD-12 command core (`ApplicationCommand` + the `System::PingCommand` exemplar, epic P2-1 ticket 01), there are no models beyond `ApplicationRecord`, no auth, no AI, no jobs, no ActiveStorage. Later backend epics extend this scaffold and own those surfaces; they inherit the conventions below instead of re-deriving them.
 
 ## Stack pins
 
@@ -12,6 +12,7 @@ Pinned in `backend/Gemfile` (floor pins `~>` — `Gemfile.lock` holds the exact 
 
 - Rails **8.1.4** (API-only), Ruby **3.4.12** (`backend/.ruby-version`; the dev image is `ruby:3.4.12-slim` — your local Ruby is irrelevant)
 - graphql-ruby **~> 2.5.26** (AD-12)
+- dry-initializer **~> 3.2** + dry-monads **~> 1.11** (AD-12 command core; runtime deps in the default group)
 - puma **~> 7.2.1**, pg **~> 1.7.0**
 - strong_migrations **~> 2.8.0** (AD-13)
 - rspec-rails **~> 8.0.4** + factory_bot_rails **~> 6.5.1** (AD-10: specs colocated, commands and GraphQL operations tested directly)
@@ -46,12 +47,13 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 - Every use case is an **`ApplicationCommand`** class (dry-initializer + dry-monads `Result`): resolvers/mutations **parse args → authorize → call the command → map the Result**; jobs are thin wrappers that load a record and call a command.
 - **Business logic never raises** — failures are `Failure` values. Exceptions are for infrastructure faults, not domain outcomes.
-- The scaffold has no `app/commands/` yet — the first business epic creates it and this rule becomes load-bearing. Do not introduce a second service-object style next to it.
+- The core landed 2026-11-04 (epic P2-1 ticket 01): `app/commands/application_command.rb`. `Context::VerbNounCommand` subclasses declare dry-initializer `option`s, override the `#authorize` hook when needed (default allow; deny with `Failure(:UNAUTHORIZED, …)`), and implement `#call` returning a Result. `.call(**args)` wires authorize → call and **never raises**: an unexpected `StandardError` becomes a typed `Failure(:INTERNAL, context: { message: "unexpected <Class>: <msg>" })`. The one deliberate exception: the `Failure(code, context)` factory raises `ApplicationErrors::InvalidCodeError` (an `ArgumentError`) for a code outside the closed enum, and that raise escapes the never-raise rescue — misuse fails fast at the seam instead of masquerading as a domain outcome. `System::PingCommand` (`app/commands/system/`) is the pattern exemplar; its spec is the template for direct command testing (AD-10). Do not introduce a second service-object style next to it.
 
 ## Closed error enum ↔ web `AppError.code` 1:1 (AD-12 + AD-9)
 
-- GraphQL error `extensions.code` is a **closed enum**, defined in `backend/`:
+- GraphQL error `extensions.code` is a **closed enum**, defined once in `backend/` as `ApplicationErrors::CODES` (`app/commands/application_errors.rb`; frozen symbols, this exact order):
   `UNAUTHORIZED | FORBIDDEN | NOT_FOUND | VALIDATION_FAILED | RATE_LIMITED | CAP_REACHED | INTERNAL`
+- `ErrorPresenter` (`app/graphql/error_presenter.rb`) maps an unwrapped command failure (`result.failure`, an `ApplicationErrors::Failure` — `code` symbol + free-form `context` hash) into the error payload `{ message:, extensions: { code: "<CODE>" } }`; resolvers/mutations feed that to `GraphQL::ExecutionError.new(payload[:message], extensions: payload[:extensions])`. `message` comes from `context[:message]` (an English log line, AD-9) and falls back to the code string; the rest of the context is never copied into the payload.
 - Frontend mirrors it as `AppError.code` (`frontend/src/data/errors.ts`), mapping **1:1 via `extensions.code`**. **Adding a code touches both sides in the same change** (AD-17's one-contract rule applied to errors).
 - The api is **not user-facing** — its strings are error codes and English log lines, never rendered verbatim (AD-9). The web maps codes to `t()` keys and shows bilingual toasts; it never renders server strings.
 
@@ -108,4 +110,4 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 ## Deliberately absent (each arrives with the epic that owns it)
 
-Auth/JWT (AD-15) · AI adapter + SSE (AD-16) · commands + domain models (AD-12/13) · ActiveStorage + R2/minio (AD-13, A7) · Solid Queue (AD-19, A9) · mastery computation (AD-14) · anything beyond the `health` query in the schema. If a ticket needs one of these, the epic owns installing it — don't smuggle infrastructure into an unrelated change.
+Auth/JWT (AD-15) · AI adapter + SSE (AD-16) · domain models (AD-13) · business commands (the AD-12 command core exists; real commands arrive with their epics) · ActiveStorage + R2/minio (AD-13, A7) · Solid Queue (AD-19, A9) · mastery computation (AD-14) · anything beyond the `health` query in the schema. If a ticket needs one of these, the epic owns installing it — don't smuggle infrastructure into an unrelated change.
