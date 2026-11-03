@@ -59,6 +59,10 @@ export function useQuizSession() {
   // The persisted questions (full shape incl. keywords) — the driver's private
   // grading input; the machine's masked OUTPUTS stay the UI's only window.
   const questionsRef = useRef<Question[]>([]);
+  // T2 (flagged, additive): monotonically increasing generation id. cancelStart
+  // bumps it so an in-flight start becomes stale and creates NO session — the
+  // launcher's cancellable-until-first-question contract (UX spine).
+  const startGenRef = useRef(0);
   const createSession = useCreateQuizSessionMutation();
   const recordEvidence = useRecordEvidenceMutation();
   const abandonSession = useAbandonQuizSessionMutation();
@@ -119,6 +123,7 @@ export function useQuizSession() {
 
   const start = useCallback(
     async (input: QuizStartInput) => {
+      const genId = ++startGenRef.current;
       setGenerating(true);
       try {
         const generated = await getCompanionService().generateQuiz({
@@ -126,20 +131,38 @@ export function useQuizSession() {
           nodeIds: input.nodeIds,
           mode: input.mode,
         });
+        // cancelled mid-generation → stale: no session is created, ever
+        if (startGenRef.current !== genId) return;
         const { session, questions } = await createSession.mutateAsync({
           planId: input.planId ?? null,
           taskId: input.taskId ?? null,
           mode: input.mode,
           questions: generated,
         });
+        if (startGenRef.current !== genId) {
+          // cancelled inside the persist tick — the session must not surface
+          // as an active orphan: mark it abandoned (no evidence) and stop.
+          await abandonSession.mutateAsync({ sessionId: session.id });
+          return;
+        }
         questionsRef.current = questions;
         setRunState(startQuizRun({ mode: session.mode, sessionId: session.id, questions }));
       } finally {
-        setGenerating(false);
+        // only the CURRENT generation may clear the flag — a cancelled start
+        // leaves it to cancelStart, a newer start leaves it running
+        if (startGenRef.current === genId) setGenerating(false);
       }
     },
-    [createSession, setRunState],
+    [abandonSession, createSession, setRunState],
   );
+
+  /** T2 (UX spine 「Quiz: generating」): cancel allowed until the first
+   * question renders. Stales any in-flight start — at most an abandoned,
+   * evidence-less session row can exist, never a live one. */
+  const cancelStart = useCallback(() => {
+    startGenRef.current += 1;
+    setGenerating(false);
+  }, []);
 
   const select = useCallback(
     (optionIndex: number) => void applyTransition((prev) => selectOption(prev, optionIndex)),
@@ -224,6 +247,7 @@ export function useQuizSession() {
     /** Non-null exactly when phase === "completed" — ordered per-answer results. */
     results: run ? quizResults(run) : null,
     start,
+    cancelStart,
     select,
     typeAnswer,
     hint,

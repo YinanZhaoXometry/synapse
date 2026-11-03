@@ -127,6 +127,13 @@ export interface QuizAnswerResult {
   sourceMaterialId: string;
   sourceSectionId: string;
   correctOptionIndex: number | null;
+  /**
+   * T2 addition (flagged, additive): the choice options themselves so the
+   * results screen can render 你的答案 vs 正确答案 as TEXT (scaffold
+   * MistakeCompareCard contract) without re-reading the repository. Revealed
+   * only after the gate is open — the masked views never carry it.
+   */
+  options: string[];
   explanation: string;
   grading: GradedAnswer | null;
 }
@@ -402,6 +409,7 @@ export function quizResults(state: QuizRunState): QuizAnswerResult[] | null {
       sourceMaterialId: revealed.sourceMaterialId,
       sourceSectionId: revealed.sourceSectionId,
       correctOptionIndex: revealed.correctOptionIndex,
+      options: revealed.options,
       explanation: revealed.explanation,
       grading: revealed.grading,
     };

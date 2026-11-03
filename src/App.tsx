@@ -11,6 +11,7 @@ import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entr
 import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
 import PlanHomePage from "@/features/plans/PlanHomePage";
+import PlanQuizPage from "@/pages/PlanQuizPage";
 import AppLayout from "@/components/layout/AppLayout";
 import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -59,6 +60,9 @@ const App = () => (
                   <Route path="/plans" element={<PlansHomePage />} />
                   <Route path="/plan/new" element={<PlanCreatePage />} />
                   <Route path="/plan/:id" element={<PlanHomePage />} />
+                  {/* The plan-flow quiz session page (epic-6 T2; AD-8) — the
+                      session id rides in the URL so a reload resumes. */}
+                  <Route path="/plan/:id/quiz" element={<PlanQuizPage />} />
                   <Route
                     path="/task/new"
                     element={

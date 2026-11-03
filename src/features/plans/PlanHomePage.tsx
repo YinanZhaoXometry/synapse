@@ -18,7 +18,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { QuizLauncher } from "@/features/quiz";
+import { quizableMaterials } from "@/features/quiz/display-shaping";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
@@ -60,6 +63,9 @@ export default function PlanHomePage() {
   // that row's session bytes (FR-29 contract — metadata persists, bytes do not).
   const pickerTargetRef = useRef<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Epic-6 T2: the quiz quick action opens the QuizLauncher dialog (mode +
+  // scope) instead of the placeholder toast — when quizable materials exist.
+  const [quizOpen, setQuizOpen] = useState(false);
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -134,12 +140,33 @@ export default function PlanHomePage() {
   const metrics = planCardMetrics(nodes, evidence);
   const activity = planRecentActivity(nodes, evidence);
   const hasMaterials = materials.length > 0;
+  // Quiz generation needs parsed sections (FR-18 sourcing honesty) — pending/
+  // failed/empty materials cannot serve a quiz, so they don't unlock the tile.
+  const quizable = quizableMaterials(materials);
 
   const actions = [
-    { icon: ListChecks, label: t("plans.quickQuiz"), desc: t("plans.quickQuizDesc"), off: !hasMaterials, slice: "plans.sliceQuiz" },
-    { icon: Layers, label: t("plans.quickFlashcards"), desc: t("plans.quickFlashcardsDesc"), off: !hasMaterials, slice: "plans.sliceFlashcards" },
-    { icon: Upload, label: t("plans.quickUpload"), desc: t("plans.quickUploadDesc"), off: false, slice: null },
-    { icon: MessageCircle, label: t("plans.quickCompanion"), desc: t("plans.quickCompanionDesc"), off: false, slice: "plans.sliceCompanion" },
+    {
+      icon: ListChecks,
+      label: t("plans.quickQuiz"),
+      desc: t("plans.quickQuizDesc"),
+      off: quizable.length === 0,
+      run: () => setQuizOpen(true),
+    },
+    {
+      icon: Layers,
+      label: t("plans.quickFlashcards"),
+      desc: t("plans.quickFlashcardsDesc"),
+      off: !hasMaterials,
+      run: () => toast(t("plans.sliceFlashcards")),
+    },
+    { icon: Upload, label: t("plans.quickUpload"), desc: t("plans.quickUploadDesc"), off: false, run: () => openPicker() },
+    {
+      icon: MessageCircle,
+      label: t("plans.quickCompanion"),
+      desc: t("plans.quickCompanionDesc"),
+      off: false,
+      run: () => toast(t("plans.sliceCompanion")),
+    },
   ] as const;
 
   return (
@@ -265,11 +292,9 @@ export default function PlanHomePage() {
                   aria-disabled={action.off}
                   title={action.off ? t("plans.needMaterial") : undefined}
                   onClick={() => {
-                    // Gated tiles name the gate (attach a material), never the
-                    // roadmap; ungated slice tiles keep their slice explanation.
+                    // Gated tiles name the gate (attach a material), never the roadmap.
                     if (action.off) toast(t("plans.needMaterial"));
-                    else if (action.slice) toast(t(action.slice));
-                    else openPicker();
+                    else action.run();
                   }}
                   className={cn(
                     "text-left rounded-xl border border-border-soft p-3 transition-colors cursor-pointer",
@@ -304,6 +329,25 @@ export default function PlanHomePage() {
           </div>
         </div>
       </div>
+
+      {/* Epic-6 T2: the quiz launcher — mode + scope, generating cancellable,
+          failure toast. On success the route carries the session id (resumable). */}
+      <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
+        <DialogContent className="max-w-lg rounded-2xl border border-border-soft bg-card max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">{t("quiz.launcher.title")}</DialogTitle>
+          </DialogHeader>
+          <QuizLauncher
+            planId={plan.id}
+            nodeIds={nodes.map((n) => n.id)}
+            materials={materials}
+            onStarted={(sessionId) => {
+              setQuizOpen(false);
+              navigate(`/plan/${plan.id}/quiz?session=${sessionId}`);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

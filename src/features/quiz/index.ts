@@ -1,9 +1,11 @@
 /**
  * The quiz feature's public surface (epic-6; AD-2, tasks/index.ts precedent):
- * the session state machine is the epic's one new seam — T2's runner,
- * launcher, and results surfaces consume it (via the useQuizSession driver)
- * and nothing else reaches into the machine's module internals. No UI lives
- * here yet (T1 is headless; pages stay reachable from App.tsx directly).
+ * the session state machine is the epic's one new seam — the launcher, runner,
+ * and results surfaces consume it (via the useQuizSession driver) and nothing
+ * else reaches into the machine's module internals. T2 adds the plan-flow UI:
+ * QuizLauncher (Plan Home dialog + the route's inline start) and QuizRunner
+ * (question → paced verdict → results), plus the display-shaping selectors the
+ * results numbers flow through (AD-6).
  */
 export {
   abandonRun,
@@ -26,3 +28,6 @@ export {
   type RevealedStatus,
 } from "./session-machine";
 export { useQuizSession, type QuizSessionPhase, type QuizStartInput } from "./use-quiz-session";
+export { QuizLauncher } from "./QuizLauncher";
+export { QuizRunner } from "./QuizRunner";
+export { QuizResults } from "./QuizResults";
