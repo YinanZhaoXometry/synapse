@@ -171,4 +171,36 @@ RSpec.describe "GraphQL auth mutations (epic P2-2 ticket 02)", type: :request do
       expect(error_code(result)).to eq("RATE_LIMITED")
     end
   end
+
+  describe "the epic-01 scoping surface re-proven with a JWT-backed user (epic DoD)" do
+    it "logins over HTTP, resolves the token through the context resolver, and scopes associations to that user" do
+      user = create(:user, email: "scoping@example.com", password: password)
+      own_plan = create(:study_plan, user: user)
+      other = create(:user)
+      foreign_plan = create(:study_plan, user: other)
+
+      result = graphql(<<~GRAPHQL)
+        mutation {
+          login(input: { email: "scoping@example.com", password: "#{password}" }) {
+            token
+          }
+        }
+      GRAPHQL
+
+      token = result.dig("data", "login", "token")
+      expect(token).to be_present
+
+      # The exact object GraphqlController wires into the context: the HTTP
+      # response's bearer token resolves to the authenticated user, and that
+      # user's association surface behaves like the epic-01 "user-scoped"
+      # contract (list / find_by / find).
+      current_user = CurrentUserResolver.new("Bearer #{token}").user
+      expect(current_user.id).to eq(user.id)
+
+      expect(current_user.study_plans.to_a).to eq([ own_plan ])
+      expect(current_user.study_plans.find_by(id: foreign_plan.id)).to be_nil
+      expect { current_user.study_plans.find(foreign_plan.id) }
+        .to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
 end

@@ -11,8 +11,11 @@ class GraphqlController < ApplicationController
     query = params[:query]
     operation_name = params[:operationName]
     context = {
-      # Query context goes here, for example:
-      # current_user: current_user,
+      # The request-scoped current_user resolver (AD-15, epic P2-2 ticket 02):
+      # lazy + memoized — the auth guard
+      # (Mutations::BaseMutation#current_user!) resolves it only when an
+      # operation actually demands authentication, at most once per request.
+      current_user: CurrentUserResolver.new(request.headers["Authorization"])
     }
     result = ApiSchema.execute(query, variables: variables, context: context, operation_name: operation_name)
     render json: result
