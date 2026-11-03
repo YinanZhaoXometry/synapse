@@ -27,8 +27,11 @@ require 'rspec/rails'
 
 RSpec.configure do |config|
   # The scaffold specs are DB-free (no models yet); turn off ActiveRecord
-  # support entirely so RSpec never needs a database connection.
+  # support entirely so RSpec never needs a database connection. Transactional
+  # fixtures stay off too: Rails' shared-connection-pool setup would otherwise
+  # open a database connection in every request-spec example.
   config.use_active_record = false
+  config.use_transactional_fixtures = false
 
   # RSpec Rails uses metadata to mix in different behaviours to your tests,
   # for example enabling you to call `get` and `post` in request specs. e.g.:
