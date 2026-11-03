@@ -31,6 +31,7 @@ just up      # compose: postgres 17 + api (api on port 3000)
 just spec    # web gates + api gates
 
 # Web gates (from web/ — two true invocation forms):
+# (sequence kept in sync with the justfile spec recipe + ci.yml web job)
 cd web && node_modules/.bin/tsc -b          # typecheck (no `typecheck` script exists)
 cd web && node_modules/.bin/eslint .        # eslint 9 flat config
 cd web && node_modules/.bin/vitest run      # tests (watch: pnpm run test:watch)
@@ -38,13 +39,10 @@ cd web && node_modules/.bin/vite build      # build only — does NOT typecheck
 # …or through pnpm directly: ~/Library/pnpm/pnpm --dir web run <script>
 
 # Api gates (dev containers only — your local Ruby is irrelevant):
-docker compose -f api/.dockerdev/compose.yaml run -e RAILS_ENV=test api bundle exec rspec
-docker compose -f api/.dockerdev/compose.yaml run api bundle exec rubocop
-# bring the api stack down when done:
-docker compose -f api/.dockerdev/compose.yaml down
+# the api's compose command forms, gate notes, and architecture contract all
+# live in api/AGENTS.md — `just spec` (above) is the local entrypoint for them.
 ```
 
-Api-gate notes (both verified green): compose's `run` (without `--no-deps`) bootstraps everything — bundle install into the `bundle-cache` volume, `db:prepare`, and the db service itself. `RAILS_ENV=test` on the rspec run is **required**: the compose service env defaults to `development`, and request specs then 403 on Rails' development-only HostAuthorization. Plain `rspec`/`rubocop` against a cold daemon fails: the compose entrypoint preps the db before every command, so a reachable postgres is part of the recipe even though the specs themselves don't assert on db content.
 
 Tests (web): Vitest, jsdom env, globals on, setup in `web/src/test/setup.ts` (jest-dom + a `matchMedia` mock); place tests as `web/src/**/*.{test,spec}.{ts,tsx}`.
 
