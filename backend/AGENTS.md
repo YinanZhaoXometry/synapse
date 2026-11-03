@@ -13,6 +13,7 @@ Pinned in `backend/Gemfile` (floor pins `~>` — `Gemfile.lock` holds the exact 
 - Rails **8.1.4** (API-only), Ruby **3.4.12** (`backend/.ruby-version`; the dev image is `ruby:3.4.12-slim` — your local Ruby is irrelevant)
 - graphql-ruby **~> 2.5.26** (AD-12)
 - dry-initializer **~> 3.2** + dry-monads **~> 1.11** (AD-12 command core; runtime deps in the default group)
+- bcrypt **~> 3.1.22** + jwt **~> 3.3.0** (AD-15: `has_secure_password` + the HS256 session-token codec; runtime deps, epic P2-2 ticket 01)
 - puma **~> 7.2.1**, pg **~> 1.7.0**
 - strong_migrations **~> 2.8.0** (AD-13)
 - rspec-rails **~> 8.0.4** + factory_bot_rails **~> 6.5.1** (AD-10: specs colocated, commands and GraphQL operations tested directly)
@@ -100,7 +101,7 @@ Notes, verified 2026-11-04: the specs are **DB-backed** since epic P2-1 ticket 0
 
 ## Config: ENV only (AD-12 / AD-20)
 
-- `DATABASE_URL`, `JWT_SECRET`, `PROVIDER_KEY`, `R2_*`, `CORS_ORIGIN`, cap values — documented in `backend/.env.example`; the dev compose sets what the scaffold needs today (`DATABASE_URL`, `RAILS_ENV`). No settings gem.
+- `DATABASE_URL`, `JWT_SECRET`, `PROVIDER_KEY`, `R2_*`, `CORS_ORIGIN`, cap values — documented in `backend/.env.example`; the dev compose sets what the scaffold needs today (`DATABASE_URL`, `RAILS_ENV`, and `JWT_SECRET` as a fixed dev-only default since epic P2-2 ticket 01). No settings gem.
 - CORS stays origin-allowlisted to the web origin only (GraphQL + SSE). The generated `config/initializers/cors.rb` is still commented out — wire it when web first calls cross-origin (AD-20).
 
 ## Naming conventions (spine Consistency Conventions)
@@ -111,4 +112,4 @@ Notes, verified 2026-11-04: the specs are **DB-backed** since epic P2-1 ticket 0
 
 ## Deliberately absent (each arrives with the epic that owns it)
 
-Auth/JWT (AD-15) · AI adapter + SSE (AD-16) · business commands (the AD-12 command core exists; real commands arrive with their epics) · ActiveStorage + R2/minio (AD-13, A7) · Solid Queue (AD-19, A9) · mastery computation (AD-14) · anything beyond the `health` query in the schema. If a ticket needs one of these, the epic owns installing it — don't smuggle infrastructure into an unrelated change.
+The GraphQL auth surface — mutations + `current_user` context + login rate limiting (AD-15, epic P2-2 ticket 02; the primitives — bcrypt + `has_secure_password`, the `Accounts::TokenCodec` JWT codec under `app/lib/accounts/`, and `Accounts::RegisterUserCommand`/`Accounts::LoginUserCommand` under `app/commands/accounts/` — landed with ticket 01) · AI adapter + SSE (AD-16) · business commands beyond Accounts (the AD-12 command core exists; real commands arrive with their epics) · ActiveStorage + R2/minio (AD-13, A7) · Solid Queue (AD-19, A9) · mastery computation (AD-14) · anything beyond the `health` query in the schema. If a ticket needs one of these, the epic owns installing it — don't smuggle infrastructure into an unrelated change.
