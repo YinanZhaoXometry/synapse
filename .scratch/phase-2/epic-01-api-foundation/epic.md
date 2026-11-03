@@ -1,6 +1,6 @@
 # Epic 1 (Phase 2) — API foundation: command core, error contract, the full ER
 
-Status: ready-for-agent (spec + tickets 2026-11-03; gate: epic-00 done)
+Status: done (2026-11-04 — branch epic/p2-1-api-foundation @ c0c89b0, CI green run 41690050139, two-axis review 0P0/2P1/7P2 all fixed, merged to main same day)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
