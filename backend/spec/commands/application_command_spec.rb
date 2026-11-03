@@ -57,6 +57,30 @@ RSpec.describe ApplicationCommand do
       expect(result.failure.context[:message]).to include("RuntimeError").and include("boom")
     end
 
+    it "never raises for authorize either — an unexpected exception there is INTERNAL too" do
+      command_class = Class.new(ApplicationCommand) do
+        define_method(:authorize) do
+          raise "auth blew up"
+        end
+      end
+
+      result = command_class.call
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:INTERNAL)
+      expect(result.failure.context[:message]).to include("RuntimeError").and include("auth blew up")
+    end
+
+    it "fails fast on construction misuse — a raising dry-initializer default proc escapes .call" do
+      command_class = Class.new(ApplicationCommand) do
+        option :config, default: proc { raise "bad default" }
+      end
+
+      # Construction sits outside the never-raise rescue region: programmer
+      # misuse at the seam raises instead of masquerading as INTERNAL.
+      expect { command_class.call }.to raise_error(RuntimeError, /bad default/)
+    end
+
     it "fails fast when a command emits a code outside the closed enum — even through .call" do
       command_class = Class.new(ApplicationCommand) do
         def call

@@ -15,6 +15,11 @@ require "dry/monads"
 # - Commands never raise: `.call` converts any unexpected StandardError from
 #   authorize/call into a typed INTERNAL failure. Failures are values, not
 #   exceptions — domain outcomes must always be `Failure(code, context)`.
+#   The deliberate exceptions (infrastructure misuse fails fast at the seam):
+#   ApplicationErrors::InvalidCodeError re-raises, and construction misuse —
+#   an exception from `new(**args)` itself (e.g. a raising dry-initializer
+#   `default:` proc) — raises out of `.call` instead of being swallowed into
+#   INTERNAL (the instance is built before the rescue region; see `run`).
 # - Every Failure carries a closed-enum code (ApplicationErrors::CODES), and
 #   the `Failure` factory below is the only way to build one.
 #
@@ -30,8 +35,24 @@ class ApplicationCommand
     # failures (the exception class + message ride along as log context).
     # The one deliberate exception: ApplicationErrors::InvalidCodeError
     # re-raises (infrastructure misuse fails fast at the seam).
+    #
+    # Construction happens BEFORE the rescue region on purpose: a method-level
+    # rescue covers its whole body, so `new(**args)` is delegated to a private
+    # method that runs `.call` with no rescue of its own. A raising
+    # dry-initializer `default:` proc (or any other construction misuse) is a
+    # programmer error at the seam — it propagates out of `.call` instead of
+    # masquerading as a domain INTERNAL failure. Only authorize/call run under
+    # the never-raise rescue (in `run`).
     def call(**args)
-      command = new(**args)
+      run(new(**args))
+    end
+
+    private
+
+    # The rescue region: authorize + call only. A Failure built with a code
+    # outside the closed enum re-raises (ApplicationErrors::InvalidCodeError),
+    # and any other StandardError becomes a typed INTERNAL failure.
+    def run(command)
       command.authorize.bind { command.call }
     rescue ApplicationErrors::InvalidCodeError
       raise
