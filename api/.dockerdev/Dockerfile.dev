@@ -1,0 +1,21 @@
+# Dev image for the Synapse api (AD-17: the api runs in containers only).
+# System deps only — gems live in the compose `bundle-cache` volume so a
+# `bundle install` inside compose survives container restarts.
+FROM ruby:3.4-slim
+
+ENV LANG=C.UTF-8 \
+    BUNDLE_JOBS=4 \
+    BUNDLE_RETRY=3
+
+RUN apt-get update -qq \
+  && apt-get install -y --no-install-recommends \
+       build-essential \
+       curl \
+       git \
+       libpq-dev \
+       pkg-config \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace/api
+
+CMD ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]

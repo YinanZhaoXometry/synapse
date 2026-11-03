@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+# Gems live in the compose bundle-cache volume; install on first boot or
+# after the Gemfile changes.
+bundle check || bundle install
+
+# Prepare the database (create/migrate as needed), then hand off to CMD.
+bundle exec rails db:prepare
+
+exec "$@"
