@@ -28,7 +28,7 @@ class ApplicationCommand
     # authorize hook, then call. Returns a dry-monads Result; never raises.
     def call(**args)
       command = new(**args)
-      command.call
+      command.authorize.bind { command.call }
     end
   end
 
@@ -37,4 +37,16 @@ class ApplicationCommand
   def authorize
     Success()
   end
+
+  private
+
+  # Failure factory: the only sanctioned way to build a failure inside a
+  # command. Wraps a closed-enum code + free-form context into the typed
+  # value object (ApplicationErrors::Failure).
+  #
+  # rubocop:disable Naming/MethodName -- mirrors dry-monads' capitalized factories
+  def Failure(code, context = {})
+    Dry::Monads::Failure.new(ApplicationErrors::Failure.new(code: code, context: context))
+  end
+  # rubocop:enable Naming/MethodName
 end

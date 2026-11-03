@@ -20,5 +20,27 @@ RSpec.describe ApplicationCommand do
       expect(result.success?).to be(true)
       expect(result.value!).to eq(greeting: "hi")
     end
+
+    it "runs the authorize hook first — its typed Failure wins and call never runs" do
+      state = { call_ran: false }
+
+      command_class = Class.new(ApplicationCommand) do
+        define_method(:authorize) do
+          Failure(:UNAUTHORIZED, { message: "sign in first" })
+        end
+
+        define_method(:call) do
+          state[:call_ran] = true
+          Success(:never)
+        end
+      end
+
+      result = command_class.call
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:UNAUTHORIZED)
+      expect(result.failure.context).to eq(message: "sign in first")
+      expect(state[:call_ran]).to be(false)
+    end
   end
 end
