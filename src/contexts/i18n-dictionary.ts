@@ -501,6 +501,14 @@ export const translations = {
       'tasks.confirm': '开始学习',
       'tasks.creating': '正在创建任务…',
 
+      // Study Tasks (epic-5 T2 — task home /task/:id, FR-37; ADR-0001)
+      'tasks.notFound': '找不到这个学习任务。',
+      'tasks.rollupNote': 'Rollup = 该任务唯一节点的掌握度（ADR-0001）',
+      'tasks.nodeSection': '知识节点',
+      'tasks.sliceQuiz': '出题是下一阶段（epic-6）的功能。',
+      'tasks.sliceFlashcards': '闪卡是下一阶段（epic-6）的功能。',
+      'tasks.cap99Note': '证据不足 {n} 条 · 分数封顶 99%',
+
       // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
       'errors.storageReadFailed': '无法读取本地存储',
       'errors.storageCorrupt': '本地数据已损坏 · 重置后可恢复',
@@ -1011,6 +1019,14 @@ export const translations = {
       'tasks.nameLabel': 'Task name (defaults to the filename — editable)',
       'tasks.confirm': 'Start studying',
       'tasks.creating': 'Creating your task…',
+
+      // Study Tasks (epic-5 T2 — task home /task/:id, FR-37; ADR-0001)
+      'tasks.notFound': "This study task couldn't be found.",
+      'tasks.rollupNote': "Rollup = the task's single node's mastery (ADR-0001)",
+      'tasks.nodeSection': 'Knowledge node',
+      'tasks.sliceQuiz': 'Quiz generation lands in the next slice (epic-6).',
+      'tasks.sliceFlashcards': 'Flashcards land in the next slice (epic-6).',
+      'tasks.cap99Note': 'Under the {n}-evidence gate · capped at 99%',
 
       // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
       'errors.storageReadFailed': 'Could not read local storage',
