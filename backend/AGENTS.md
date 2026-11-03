@@ -101,7 +101,7 @@ Notes, verified 2026-11-04: the specs are **DB-backed** since epic P2-1 ticket 0
 
 ## Config: ENV only (AD-12 / AD-20)
 
-- `DATABASE_URL`, `JWT_SECRET`, `PROVIDER_KEY`, `R2_*`, `CORS_ORIGIN`, cap values — documented in `backend/.env.example`; the dev compose sets what the scaffold needs today (`DATABASE_URL`, `RAILS_ENV`, and `JWT_SECRET` as a fixed dev-only default since epic P2-2 ticket 01). No settings gem.
+- `DATABASE_URL`, `JWT_SECRET`, `LOGIN_RATE_LIMIT_THRESHOLD`/`LOGIN_RATE_LIMIT_WINDOW_SECONDS` (epic P2-2 ticket 02), `DEMO_EMAIL`/`DEMO_PASSWORD` (epic P2-2 ticket 03), `PROVIDER_KEY`, `R2_*`, `CORS_ORIGIN`, cap values — documented in `backend/.env.example`; the dev compose sets what the scaffold needs today (`DATABASE_URL`, `RAILS_ENV`, and `JWT_SECRET` as a fixed dev-only default since epic P2-2 ticket 01, plus `DEMO_EMAIL`/`DEMO_PASSWORD` at the documented dev defaults since ticket 03). No settings gem.
 - CORS stays origin-allowlisted to the web origin only (GraphQL + SSE). The generated `config/initializers/cors.rb` is still commented out — wire it when web first calls cross-origin (AD-20).
 
 ## Naming conventions (spine Consistency Conventions)
