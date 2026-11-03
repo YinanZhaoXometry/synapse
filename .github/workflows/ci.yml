@@ -1,0 +1,82 @@
+# CI — the gates the project already trusts, made real (AD-17, Q2=a):
+# web: pnpm frozen install → tsc -b → eslint → vitest → vite build (from web/)
+# api: RuboCop → RSpec (from api/)
+#
+# No repository secrets are used — the scaffold has no AI/providers (AD-12).
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      # epic/** is deliberate: the epic's AC "green run on the integration
+      # branch before merge" is satisfied by pushing epic/p2-0-monorepo.
+      - 'epic/**'
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web (tsc · eslint · vitest · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version pinned explicitly, not read from package.json's packageManager
+      # field (if the two ever disagree, this action fails loudly — that's
+      # the intended guardrail).
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm exec tsc -b
+      - name: Lint
+        run: pnpm exec eslint .
+      - name: Test
+        run: pnpm exec vitest run
+      - name: Build
+        run: pnpm exec vite build
+
+  api:
+    name: api (rubocop · rspec)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+
+      # pg compiles from source — libpq headers needed on the runner.
+      - name: Install libpq-dev (pg gem native build)
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev
+
+      # No postgres service container: the specs are DB-free (verified in
+      # T02 with compose --no-deps), so the simplest non-flaky form wins.
+      # .ruby-version is read from api/ (working-directory below).
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+          working-directory: api
+
+      - name: Lint
+        run: bundle exec rubocop
+      - name: Test
+        run: bundle exec rspec
