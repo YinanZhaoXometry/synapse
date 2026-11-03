@@ -652,6 +652,13 @@ type KnowledgeNode {
   id: String!
 
   """
+  The node's Mastery Score (ADR-0001) as a string carrying the integer percent
+  "0".."100" — computed by the api's Mastery module over this node's evidence
+  records (the client renders, never recomputes, AD-14). "0" with no evidence.
+  """
+  masteryScore: String!
+
+  """
   Position within the plan's node tree (the Phase-1 TS field name, verbatim).
   """
   order: Int!
@@ -665,6 +672,13 @@ type KnowledgeNode {
   The stage grouping from the plan structure (e.g. 基础/核心/进阶/应用).
   """
   stage: String
+
+  """
+  The node's mastery state over the same evidence: "uncovered" (no evidence) |
+  "partial" | "mastered" (score ≥ 80 AND ≥ 3 records) — Mastery's node-state
+  vocabulary verbatim (AD-6).
+  """
+  state: String!
 
   """
   The owning Study Task's uuid (null on a plan node, AD-6).
@@ -1218,6 +1232,14 @@ type Query {
   readingProgressList: [ReadingProgress!]!
 
   """
+  The current user's evidence-day streak: consecutive UTC calendar days with at
+  least one EvidenceRecord, ending at the latest evidence day — alive only while
+  that day is today or yesterday (UTC), otherwise 0. Computed by the api's
+  Mastery module; the boundary is UTC by contract (ADR-0001, amended 2026-11-04).
+  """
+  streak: Int!
+
+  """
   One study task by id, with its auto-owned node readable off it. A foreign or
   unknown id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence).
   """
@@ -1760,6 +1782,14 @@ type StudyPlan {
   The plan's uuid. Ids are plain UUID strings — no GlobalID (AD-12).
   """
   id: String!
+
+  """
+  The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer
+  percent "0".."100" — the floored mean of its nodes' scores with uncovered
+  nodes counting 0; computed by the api's Mastery module (the client renders,
+  never recomputes, AD-14). Rollup 100 ⇔ every node mastered.
+  """
+  masteryScore: String!
 
   """
   The plan's attached materials (the Phase-1 materialIds array, realized as the

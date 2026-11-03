@@ -8,9 +8,9 @@ module Types
   # the materials ticket); visibility is the backend-only passthrough
   # (FR-38 — the TS shape has none).
   #
-  # NO masteryScore — the epic-03 kickoff delta 1 pins the mastery fields out
-  # of this epic's contract entirely; epic-04's ticket 3 adds them (fields +
-  # resolver bodies) to this type. No placeholder nulls.
+  # masteryScore (the rollup) landed with epic P2-4 ticket 03, per the
+  # epic-03 ticket-1 placement decision — marshaled through Mastery, never
+  # computed here (AD-6/AD-14).
   class StudyPlanType < Types::BaseObject
     description "A study plan (AD-3): the system gives the plan, never content."
 
@@ -41,6 +41,22 @@ module Types
     field :materials, [ Types::MaterialType ],
           null: false,
           description: "The plan's attached materials (the Phase-1 materialIds array, realized as the association — deferred from ticket 01 to the materials ticket)."
+
+    # The plan rollup (epic P2-4 ticket 03): marshals every node's evidence —
+    # the uncovered ones included, counting 0 (AD-6) — into Mastery's
+    # floored mean. Scoping rides the association path (the epic-03 reads
+    # convention): object came through the caller's own association path, so
+    # its nodes and the evidence pinned to them (same user_id) are the
+    # caller's own.
+    field :mastery_score, String,
+          null: false,
+          description: "The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — the floored mean of its nodes' scores with uncovered nodes counting 0; computed by the api's Mastery module (the client renders, never recomputes, AD-14). Rollup 100 ⇔ every node mastered."
+
+    def mastery_score
+      nodes = object.knowledge_nodes.to_a
+      records = EvidenceRecord.where(user_id: object.user_id, node_id: nodes.map(&:id)).group_by(&:node_id)
+      Mastery.compute_plan_rollup(nodes.to_h { |node| [ node.id, records.fetch(node.id, []) ] }).to_s
+    end
 
     # The listNodesByPlan mirror (frontend/src/data/plan-repository.ts):
     # order is the sort key, verbatim.

@@ -111,6 +111,18 @@ module Types
       current_user!.evidence_records.where(node_id: scoped_node(node_id).id).order(:created_at)
     end
 
+    # The evidence-day streak (epic P2-4 ticket 03, FR-25 / SM-C3): marshals
+    # the caller's own evidence into Mastery — the only scorer (AD-14) — with
+    # "now" injected at the request. The boundary is UTC by contract
+    # (ADR-0001, amended 2026-11-04: a server cannot know a browser's local
+    # time; a per-user timezone stays a deferred row).
+    field :streak, Int, null: false,
+      description: "The current user's evidence-day streak: consecutive UTC calendar days with at least one EvidenceRecord, ending at the latest evidence day — alive only while that day is today or yesterday (UTC), otherwise 0. Computed by the api's Mastery module; the boundary is UTC by contract (ADR-0001, amended 2026-11-04)."
+
+    def streak
+      Mastery.compute_streak(current_user!.evidence_records, now: Time.current)
+    end
+
     field :flashcards, [ Types::FlashcardType ], null: false,
       description: "The current user's flashcards — scoped to one material (the listFlashcardsByMaterial mirror) or one plan (the listFlashcardsByPlan mirror, through the plan's materials). The Phase-1 repo exposes no unscoped list, so exactly one scope is required." do
       argument :material_id, String, required: false, description: "Scope to a material's deck."
