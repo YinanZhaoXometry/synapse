@@ -5,7 +5,16 @@
 # "node: command not found". We put the pinned Node (web/.nvmrc) on PATH
 # ourselves; recipes call pnpm — never npm/npx (A4: pnpm is the only
 # lockfile-honest package manager).
-node_bin := `echo "$HOME"/.nvm/versions/node/v"$(cat web/.nvmrc)"*/bin | head -n1`
+# Resolve the pinned Node (web/.nvmrc) to its bin dir, failing fast with a
+# clear message when nothing is installed under that glob — an unexpanded glob
+# would silently land on PATH and every recipe would die later with an opaque
+# "node: command not found".
+node_bin := `bin=$(echo "$HOME"/.nvm/versions/node/v"$(cat web/.nvmrc)"*/bin | head -n1)
+if [ ! -d "$bin" ]; then
+  echo "just: node v$(cat web/.nvmrc) (web/.nvmrc) is not installed under ~/.nvm/versions/node — run: nvm install $(cat web/.nvmrc)" >&2
+  exit 1
+fi
+echo "$bin"`
 export PATH := node_bin + ":" + env_var("HOME") + "/Library/pnpm:" + env_var("PATH")
 
 compose := "docker compose -f api/.dockerdev/compose.yaml"
@@ -40,6 +49,8 @@ up:
 
 # Every gate for both stacks; any failure exits nonzero.
 # Web: tsc -b → eslint → vitest run → vite build
+#   (web-gate sequence: keep in sync with .github/workflows/ci.yml web job
+#    and the Web gates block in AGENTS.md)
 # Api: rubocop → rspec — DB-free, so the runs use --no-deps and bypass the dev
 # entrypoint (its db:prepare would need postgres); a bundle check/install guard
 # keeps the gate runs self-sufficient on a cold bundle-cache volume. Gate runs

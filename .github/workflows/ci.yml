@@ -1,6 +1,8 @@
 # CI — the gates the project already trusts, made real (AD-17, Q2=a):
 # web: pnpm frozen install → tsc -b → eslint → vitest → vite build (from web/)
 # api: RuboCop → RSpec (from api/)
+# (gate sequences: keep in sync with the root justfile spec recipe and the
+#  Web gates block in AGENTS.md)
 #
 # No repository secrets are used — the scaffold has no AI/providers (AD-12).
 name: CI
