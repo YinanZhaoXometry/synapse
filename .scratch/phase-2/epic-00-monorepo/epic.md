@@ -1,6 +1,6 @@
 # Epic 0 (Phase 2) — Monorepo restructure: `web/` + `api/` + justfile + CI (Phase-2 opener)
 
-Status: ready-for-agent (spec + tickets published 2026-11-03; implementation starts **post-Nov-6**)
+Status: done (2026-11-03 — all 5 tickets implemented + two-axis review fixed on branch epic/p2-0-monorepo @ 96eb1ea; main merge deferred post-Nov-6)
 Milestone: Phase 2 — post-deadline
 
 ## Parent

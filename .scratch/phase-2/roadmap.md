@@ -11,7 +11,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 
 | # | Epic | Scope (FRs / ADs) | Gate (must be done first) | On critical path |
 | --- | --- | --- | --- | --- |
-| 00 | [monorepo](epic-00-monorepo/epic.md) *(spec'd 2026-11-03, impl post-Nov-6)* | `web/` + `api/` + justfile + CI (AD-17) | — | ✅ |
+| 00 | [monorepo](epic-00-monorepo/epic.md) *(done 2026-11-03 — branch epic/p2-0-monorepo @ 96eb1ea; main merge post-Nov-6)* | `web/` + `api/` + justfile + CI (AD-17) | — | ✅ |
 | 01 | [api-foundation](epic-01-api-foundation/epic.md) | command core, closed error enum, full ER + migrations, scoping RSpec (AD-12/13) | 00 | ✅ |
 | 02 | [auth](epic-02-auth/epic.md) | bcrypt + JWT, register/login, `current_user` context, demo seed (AD-15, FR-30) | 01 | ✅ |
 | 03 | [domain-ops](epic-03-domain-ops/epic.md) | GraphQL read/mutation surface for the whole Phase-1 data model (AD-12/13) | 01, 02 | ✅ |

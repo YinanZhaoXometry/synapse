@@ -4,13 +4,13 @@
 
 **Blocked by:** None (can start immediately; independent of ticket 01).
 
-**Status:** ready-for-agent
+**Status:** done 2026-11-03 — afbcfc3..6a905fe + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6)
 
 **Bound by:** AD-12 (thin GraphQL layer over a command core — conventions *documented* now, exercised later), AD-17 (compose dev DX, committed schema contract, `api/AGENTS.md` pattern), AD-19 (jobs posture documented, gem deferred — A9), AD-20 (dev envelope).
 
-- [ ] Rails 8.1 API-only (≥ 8.1.4 per spine verification 2026-11-03), puma, pg, graphql-ruby 2.5.x, rspec-rails + factory_bot_rails + rubocop + strong_migrations — gems pinned per the spine stack table
-- [ ] `.dockerdev/compose.yaml` with postgres 17 + the api service; the api runs in containers only (local Ruby version irrelevant)
-- [ ] Exactly one health query; it answers ok over HTTP from a fresh `compose up`
-- [ ] `schema.graphql` dumped and committed; a re-dump produces no diff (idempotent contract)
-- [ ] Colocated RSpec green (health + schema idempotency specs — the scaffold's seed of the colocated-spec convention); RuboCop clean
-- [ ] Scope guard: `git diff` shows no commands/, models/, auth, AI adapter, ActiveStorage, or Solid Queue code
+- [x] Rails 8.1 API-only (≥ 8.1.4 per spine verification 2026-11-03), puma, pg, graphql-ruby 2.5.x, rspec-rails + factory_bot_rails + rubocop + strong_migrations — gems pinned per the spine stack table
+- [x] `.dockerdev/compose.yaml` with postgres 17 + the api service; the api runs in containers only (local Ruby version irrelevant)
+- [x] Exactly one health query; it answers ok over HTTP from a fresh `compose up`
+- [x] `schema.graphql` dumped and committed; a re-dump produces no diff (idempotent contract)
+- [x] Colocated RSpec green (health + schema idempotency specs — the scaffold's seed of the colocated-spec convention); RuboCop clean
+- [x] Scope guard: `git diff` shows no commands/, models/, auth, AI adapter, ActiveStorage, or Solid Queue code

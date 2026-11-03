@@ -4,14 +4,14 @@
 
 **Blocked by:** 01 (web layout exists), 02 (api stack + schema exist).
 
-**Status:** ready-for-agent
+**Status:** done 2026-11-03 — 4875eb0+ad04861 (merged 651a39a) + review fixes f7d610f..96eb1ea, merged into epic/p2-0-monorepo (main merge post-Nov-6)
 
 **Bound by:** AD-17 (just targets, no shared package, schema.graphql as the only contract), AD-18 boundary note (codegen is compile-level only — no runtime GraphQL client, that's the cutover epic).
 
-- [ ] `just setup`: web package install + api dev image build/pull
-- [ ] `just dev`: web Vite only (the api has no web-facing behavior until cutover — deliberate, A7-adjacent)
-- [ ] `just up`: compose postgres + api; health query answers afterwards
-- [ ] `just spec`: web gates + api gates in one command; a forced failure in either stack makes it exit nonzero
-- [ ] Every web-invoking target calls the pnpm toolchain — no bare `npm`/`npx` anywhere in the justfile (A4)
-- [ ] `codegen` script in web emits typed output against the api schema with zero errors; generated output location is gitignored or clearly generated
-- [ ] minio absent (A7 — joins with the ActiveStorage/R2 epic)
+- [x] `just setup`: web package install + api dev image build/pull
+- [x] `just dev`: web Vite only (the api has no web-facing behavior until cutover — deliberate, A7-adjacent)
+- [x] `just up`: compose postgres + api; health query answers afterwards
+- [x] `just spec`: web gates + api gates in one command; a forced failure in either stack makes it exit nonzero
+- [x] Every web-invoking target calls the pnpm toolchain — no bare `npm`/`npx` anywhere in the justfile (A4)
+- [x] `codegen` script in web emits typed output against the api schema with zero errors; generated output location is gitignored or clearly generated
+- [x] minio absent (A7 — joins with the ActiveStorage/R2 epic)
