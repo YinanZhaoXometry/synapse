@@ -1,6 +1,6 @@
-# api/AGENTS.md — the api's architecture contract
+# backend/AGENTS.md — the backend's architecture contract
 
-Rules for everything under `api/`. Every rule cites its spine decision ID ([`docs/architecture/architecture-synapse/architecture-synapse.md`](../docs/architecture/architecture-synapse/architecture-synapse.md)) — tickets cite this doc; this doc cites the spine.
+Rules for everything under `backend/`. Every rule cites its spine decision ID ([`docs/architecture/architecture-synapse/architecture-synapse.md`](../docs/architecture/architecture-synapse/architecture-synapse.md)) — tickets cite this doc; this doc cites the spine.
 
 ## What this is
 
@@ -8,14 +8,14 @@ A **minimal, bootable Rails 8.1 API-only scaffold** (epic-00 T02): GraphQL endpo
 
 ## Stack pins
 
-Pinned in `api/Gemfile` (floor pins `~>` — `Gemfile.lock` holds the exact versions; rails pinned exact at scaffold per the spine stack table):
+Pinned in `backend/Gemfile` (floor pins `~>` — `Gemfile.lock` holds the exact versions; rails pinned exact at scaffold per the spine stack table):
 
-- Rails **8.1.4** (API-only), Ruby **3.4.12** (`api/.ruby-version`; the dev image is `ruby:3.4.12-slim` — your local Ruby is irrelevant)
+- Rails **8.1.4** (API-only), Ruby **3.4.12** (`backend/.ruby-version`; the dev image is `ruby:3.4.12-slim` — your local Ruby is irrelevant)
 - graphql-ruby **~> 2.5.26** (AD-12)
 - puma **~> 7.2.1**, pg **~> 1.7.0**
 - strong_migrations **~> 2.8.0** (AD-13)
 - rspec-rails **~> 8.0.4** + factory_bot_rails **~> 6.5.1** (AD-10: specs colocated, commands and GraphQL operations tested directly)
-- rubocop-rails-omakase (house style; `api/.rubocop.yml` inherits it)
+- rubocop-rails-omakase (house style; `backend/.rubocop.yml` inherits it)
 - Postgres **17** everywhere — dev compose runs `postgres:17-alpine`; production is Neon Postgres 17 (AD-13 local/prod parity)
 
 Not adopted from the reference (AD-12): settings gem (ENV only), Sidekiq/Redis (AD-19), OTel/Sentry/Yabeda, SCIM, multi-tenancy (single product; per-user scoping suffices — AD-13).
@@ -26,19 +26,19 @@ The api runs **only inside its dev containers** — never bare `rails`/`bundle` 
 
 ```bash
 # Boot the stack (postgres 17 + api on port 3000) — or: just up
-docker compose -f api/.dockerdev/compose.yaml up -d
+docker compose -f backend/.dockerdev/compose.yaml up -d
 # Gates — or: just spec
-docker compose -f api/.dockerdev/compose.yaml run -e RAILS_ENV=test api bundle exec rspec
-docker compose -f api/.dockerdev/compose.yaml run api bundle exec rubocop
+docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test api bundle exec rspec
+docker compose -f backend/.dockerdev/compose.yaml run api bundle exec rubocop
 # Done working on the api? Stack down.
-docker compose -f api/.dockerdev/compose.yaml down
+docker compose -f backend/.dockerdev/compose.yaml down
 ```
 
 Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bundle (`bundle-cache` volume), runs `db:prepare`, and starts the db service, so the same form works from cold — and the entrypoint's `db:prepare` does want postgres up, which is why gate runs go through `run --no-deps --entrypoint ""` with a bundle guard (root justfile). The specs themselves are **DB-free**: `spec/rails_helper.rb` sets `use_transactional_fixtures = false` (ad04861; `use_active_record` must stay on — see the comment there), so no example pins a postgres connection, and CI runs rspec with no postgres service. **`RAILS_ENV=test` is required for rspec** — the service env defaults to `development` and request specs then 403 on HostAuthorization (development-only middleware). Grep-level truth over stale claims: re-verify commands against this file's `compose.yaml` when touching tooling.
 
 ## GraphQL is the only web-facing surface (AD-12)
 
-- One surface: `POST /graphql` → `GraphqlController#execute` (`config/routes.rb`). The AD-16 SSE endpoint (`/api/stream`) is the **only** sanctioned future non-GraphQL surface; presigned R2 URLs (AD-13) point at R2, never at the api.
+- One surface: `POST /graphql` → `GraphqlController#execute` (`config/routes.rb`). The AD-16 SSE endpoint (`/api/stream`) is the **only** sanctioned future non-GraphQL surface; presigned R2 URLs (AD-13) point at R2, never at the backend.
 - Depth/complexity limits + Dataloader batching stay on: `ApiSchema` mounts `GraphQL::Dataloader`, `max_query_string_tokens(5000)`, `validate_max_errors(100)`.
 - **No Relay/node identification**: the install generator's node/connection scaffolding was removed; ids are plain UUID strings (below). Add Relay-style connections only when a list actually paginates.
 
@@ -50,9 +50,9 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 ## Closed error enum ↔ web `AppError.code` 1:1 (AD-12 + AD-9)
 
-- GraphQL error `extensions.code` is a **closed enum**, defined in `api/`:
+- GraphQL error `extensions.code` is a **closed enum**, defined in `backend/`:
   `UNAUTHORIZED | FORBIDDEN | NOT_FOUND | VALIDATION_FAILED | RATE_LIMITED | CAP_REACHED | INTERNAL`
-- Web mirrors it as `AppError.code` (`web/src/data/errors.ts`), mapping **1:1 via `extensions.code`**. **Adding a code touches both sides in the same change** (AD-17's one-contract rule applied to errors).
+- Frontend mirrors it as `AppError.code` (`frontend/src/data/errors.ts`), mapping **1:1 via `extensions.code`**. **Adding a code touches both sides in the same change** (AD-17's one-contract rule applied to errors).
 - The api is **not user-facing** — its strings are error codes and English log lines, never rendered verbatim (AD-9). The web maps codes to `t()` keys and shows bilingual toasts; it never renders server strings.
 
 ## Ids: plain UUID strings (AD-12 / AD-15)
@@ -65,9 +65,9 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 - Return plain lists by default. Relay connections are added only when a list actually paginates — the first candidate is evidence history. Don't preempt.
 
-## The contract: `api/schema.graphql` (AD-17 / AD-18)
+## The contract: `backend/schema.graphql` (AD-17 / AD-18)
 
-- `api/schema.graphql` is **the only cross-stack artifact** — committed, IDL-only, dumped with `bin/rails graphql:schema:dump` (inside the api container; the custom rake task in `lib/tasks/graphql.rake`). The dump is **idempotent**: `spec/graphql/schema_dump_spec.rb` re-dumps twice and asserts byte-identity with the committed file — keep it green.
+- `backend/schema.graphql` is **the only cross-stack artifact** — committed, IDL-only, dumped with `bin/rails graphql:schema:dump` (inside the api container; the custom rake task in `lib/tasks/graphql.rake`). The dump is **idempotent**: `spec/graphql/schema_dump_spec.rb` re-dumps twice and asserts byte-identity with the committed file — keep it green.
 - **A contract change touches both stacks in the same change**: api mutation/resolver + `schema.graphql` dump + web codegen regeneration land together (AD-17's no-shared-package rule; web consumes the schema via graphql-codegen).
 - IDL-only is deliberate: graphql-ruby 2.5's introspection-JSON dump is broken against the json gem 3.x bundled with Ruby 3.4 (quirks_mode), and the web contract only needs the IDL.
 
@@ -97,14 +97,14 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 ## Config: ENV only (AD-12 / AD-20)
 
-- `DATABASE_URL`, `JWT_SECRET`, `PROVIDER_KEY`, `R2_*`, `CORS_ORIGIN`, cap values — documented in `api/.env.example`; the dev compose sets what the scaffold needs today (`DATABASE_URL`, `RAILS_ENV`). No settings gem.
+- `DATABASE_URL`, `JWT_SECRET`, `PROVIDER_KEY`, `R2_*`, `CORS_ORIGIN`, cap values — documented in `backend/.env.example`; the dev compose sets what the scaffold needs today (`DATABASE_URL`, `RAILS_ENV`). No settings gem.
 - CORS stays origin-allowlisted to the web origin only (GraphQL + SSE). The generated `config/initializers/cors.rb` is still commented out — wire it when web first calls cross-origin (AD-20).
 
 ## Naming conventions (spine Consistency Conventions)
 
 - Commands: `Context::VerbNounCommand` (e.g. `Plans::CreatePlanCommand`), one directory per context under `app/commands/`.
 - Types/files PascalCase; GraphQL fields camelCase; entities/files match the ER names verbatim (no renames at cutover, AD-13/14).
-- Specs colocated in `api/spec/`, `type:` metadata per rspec-rails; factories via factory_bot when the first model lands (AD-10).
+- Specs colocated in `backend/spec/`, `type:` metadata per rspec-rails; factories via factory_bot when the first model lands (AD-10).
 
 ## Deliberately absent (each arrives with the epic that owns it)
 

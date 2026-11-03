@@ -1,6 +1,6 @@
 # CI — the gates the project already trusts, made real (AD-17, Q2=a):
-# web: pnpm frozen install → tsc -b → eslint → vitest → vite build (from web/)
-# api: RuboCop → RSpec (from api/)
+# frontend: pnpm frozen install → tsc -b → eslint → vitest → vite build (from frontend/)
+# backend: RuboCop → RSpec (from backend/)
 # (gate sequences: keep in sync with the root justfile spec recipe and the
 #  Web gates block in AGENTS.md)
 #
@@ -23,12 +23,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  web:
-    name: web (tsc · eslint · vitest · build)
+  frontend:
+    name: frontend (tsc · eslint · vitest · build)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -41,9 +41,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: web/.nvmrc
+          node-version-file: frontend/.nvmrc
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -56,12 +56,12 @@ jobs:
       - name: Build
         run: pnpm exec vite build
 
-  api:
-    name: api (rubocop · rspec)
+  backend:
+    name: backend (rubocop · rspec)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: api
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
@@ -71,12 +71,12 @@ jobs:
 
       # No postgres service container: the specs are DB-free (verified in
       # T02 with compose --no-deps), so the simplest non-flaky form wins.
-      # .ruby-version is read from api/ (working-directory below).
+      # .ruby-version is read from backend/ (working-directory below).
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-          working-directory: api
+          working-directory: backend
 
       - name: Lint
         run: bundle exec rubocop

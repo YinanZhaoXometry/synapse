@@ -1,4 +1,4 @@
-# Dev image for the Synapse api (AD-17: the api runs in containers only).
+# Dev image for the Synapse backend (AD-17: the backend runs in containers only).
 # System deps only — gems live in the compose `bundle-cache` volume so a
 # `bundle install` inside compose survives container restarts.
 FROM ruby:3.4.12-slim
@@ -16,6 +16,6 @@ RUN apt-get update -qq \
        pkg-config \
   && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspace/api
+WORKDIR /workspace/backend
 
 CMD ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]

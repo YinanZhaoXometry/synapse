@@ -1,4 +1,4 @@
-name: synapse-api
+name: synapse-backend
 
 services:
   db:
@@ -6,32 +6,32 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: api_development
+      POSTGRES_DB: backend_development
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d api_development"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d backend_development"]
       interval: 2s
       timeout: 3s
       retries: 30
 
-  api:
+  backend:
     build:
       context: ..
       dockerfile: .dockerdev/Dockerfile.dev
-    working_dir: /workspace/api
+    working_dir: /workspace/backend
     volumes:
-      - ..:/workspace/api
+      - ..:/workspace/backend
       - bundle-cache:/usr/local/bundle
     ports:
       - "3000:3000"
     environment:
       RAILS_ENV: development
-      DATABASE_URL: postgres://postgres:postgres@db:5432/api_development
+      DATABASE_URL: postgres://postgres:postgres@db:5432/backend_development
     depends_on:
       db:
         condition: service_healthy
-    entrypoint: ["/workspace/api/bin/docker-dev-entrypoint"]
+    entrypoint: ["/workspace/backend/bin/docker-dev-entrypoint"]
     command: ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
     tty: true
     stdin_open: true

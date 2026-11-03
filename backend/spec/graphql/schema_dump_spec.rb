@@ -8,7 +8,7 @@ RSpec.describe "GraphQL schema contract", type: :task do
     Rails.application.load_tasks
   end
 
-  it "re-dumps byte-identical to the committed api/schema.graphql" do
+  it "re-dumps byte-identical to the committed backend/schema.graphql" do
     committed = Rails.root.join("schema.graphql").read
 
     dump_task = Rake::Task["graphql:schema:dump"]
