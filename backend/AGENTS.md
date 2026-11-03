@@ -28,9 +28,9 @@ The api runs **only inside its dev containers** — never bare `rails`/`bundle` 
 ```bash
 # Boot the stack (postgres 17 + backend on port 3000) — or: just up
 docker compose -f backend/.dockerdev/compose.yaml up -d
-# Gates — or: just spec
-docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test -e DATABASE_URL=postgres://postgres:postgres@db:5432/backend_test backend sh -c 'bundle exec rspec'
+# Gates — or: just spec (rubocop first, matching the justfile/CI order)
 docker compose -f backend/.dockerdev/compose.yaml run --no-deps --entrypoint "" -e RAILS_ENV=test backend sh -c 'bundle check || bundle install && bundle exec rubocop'
+docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test -e DATABASE_URL=postgres://postgres:postgres@db:5432/backend_test backend sh -c 'bundle exec rspec'
 # Done working on the api? Stack down.
 docker compose -f backend/.dockerdev/compose.yaml down
 ```
