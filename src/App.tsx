@@ -12,6 +12,7 @@ import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
 import PlanHomePage from "@/features/plans/PlanHomePage";
 import PlanQuizPage from "@/pages/PlanQuizPage";
+import PlanFlashcardsPage from "@/pages/PlanFlashcardsPage";
 import AppLayout from "@/components/layout/AppLayout";
 import OnboardingPage from "@/pages/OnboardingPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -63,6 +64,10 @@ const App = () => (
                   {/* The plan-flow quiz session page (epic-6 T2; AD-8) — the
                       session id rides in the URL so a reload resumes. */}
                   <Route path="/plan/:id/quiz" element={<PlanQuizPage />} />
+                  {/* The plan-flow flashcards study page (epic-6 T3; AD-8) —
+                      deliberately stateless across reloads: ratings persist
+                      per card as they happen, a refresh restarts the queue. */}
+                  <Route path="/plan/:id/flashcards" element={<PlanFlashcardsPage />} />
                   <Route
                     path="/task/new"
                     element={

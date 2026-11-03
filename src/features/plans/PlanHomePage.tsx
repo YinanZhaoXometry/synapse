@@ -22,9 +22,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QuizLauncher } from "@/features/quiz";
 import { quizableMaterials } from "@/features/quiz/display-shaping";
+import { FlashcardLauncher } from "@/features/flashcards";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
+  useFlashcardsByPlanQuery,
   usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlanQuery,
@@ -56,6 +58,10 @@ export default function PlanHomePage() {
   const nodesQuery = usePlanNodesQuery(id ?? "");
   const materialsQuery = usePlanMaterialsQuery(id ?? "");
   const evidenceQuery = useAllEvidenceQuery();
+  // Epic-6 T3: the flashcards entry reads the plan's persisted deck — cards
+  // exist → the tile opens the study directly (「继续学习」); none → the
+  // FlashcardLauncher dialog generates through the AI seam.
+  const flashcardsQuery = useFlashcardsByPlanQuery(id ?? "");
   const registerMaterial = useRegisterMaterialMutation();
   const parseMaterial = useParseMaterialMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +72,9 @@ export default function PlanHomePage() {
   // Epic-6 T2: the quiz quick action opens the QuizLauncher dialog (mode +
   // scope) instead of the placeholder toast — when quizable materials exist.
   const [quizOpen, setQuizOpen] = useState(false);
+  // Epic-6 T3: the flashcards quick action — the FlashcardLauncher dialog when
+  // the plan has no cards yet.
+  const [flashcardsOpen, setFlashcardsOpen] = useState(false);
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -112,11 +121,13 @@ export default function PlanHomePage() {
     );
   };
 
-  if (planQuery.isPending || nodesQuery.isPending || materialsQuery.isPending || evidenceQuery.isPending) return null;
+  if (planQuery.isPending || nodesQuery.isPending || materialsQuery.isPending || evidenceQuery.isPending || flashcardsQuery.isPending) return null;
   const plan = planQuery.data;
   const nodes = nodesQuery.data ?? [];
   const materials = materialsQuery.data ?? [];
   const evidence = evidenceQuery.data ?? [];
+  const planCards = flashcardsQuery.data ?? [];
+  const hasCards = planCards.length > 0;
 
   const backLink = (
     <button
@@ -154,10 +165,13 @@ export default function PlanHomePage() {
     },
     {
       icon: Layers,
-      label: t("plans.quickFlashcards"),
-      desc: t("plans.quickFlashcardsDesc"),
-      off: !hasMaterials,
-      run: () => toast(t("plans.sliceFlashcards")),
+      label: hasCards ? t("flashcards.tileContinue") : t("plans.quickFlashcards"),
+      desc: hasCards ? t("flashcards.tileContinueDesc", { n: planCards.length }) : t("plans.quickFlashcardsDesc"),
+      // Generation needs parsed sections; an existing deck opens without them.
+      off: !hasCards && quizable.length === 0,
+      run: hasCards
+        ? () => navigate(`/plan/${plan.id}/flashcards`)
+        : () => setFlashcardsOpen(true),
     },
     { icon: Upload, label: t("plans.quickUpload"), desc: t("plans.quickUploadDesc"), off: false, run: () => openPicker() },
     {
@@ -344,6 +358,25 @@ export default function PlanHomePage() {
             onStarted={(sessionId) => {
               setQuizOpen(false);
               navigate(`/plan/${plan.id}/quiz?session=${sessionId}`);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Epic-6 T3: the flashcards launcher — 「来自 N 份材料 · 正在生成闪卡」
+          cancellable, failure toast; on success the study route takes over.
+          A plan that already has cards never reaches this dialog (the tile
+          opens the existing study directly — no silent deck duplication). */}
+      <Dialog open={flashcardsOpen} onOpenChange={setFlashcardsOpen}>
+        <DialogContent className="max-w-lg rounded-2xl border border-border-soft bg-card max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">{t("flashcards.launcher.title")}</DialogTitle>
+          </DialogHeader>
+          <FlashcardLauncher
+            materials={materials}
+            onCreated={() => {
+              setFlashcardsOpen(false);
+              navigate(`/plan/${plan.id}/flashcards`);
             }}
           />
         </DialogContent>
