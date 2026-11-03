@@ -6,7 +6,7 @@
       "streak": "frontend/src/domain/streak.ts",
       "note": "The TS implementation IS the source until the cutover retires it (AD-6/AD-14). The Ruby port pins itself to these vectors verbatim; ambiguities amend ADR-0001 first, both sides together."
     },
-    "generatedAtSourceCommit": "2fb3caf7fbbcbbea57e52c5225800ac687338a58",
+    "generatedAtSourceCommit": "a5c5e7de72554f2976bfa9db44098ff362e14e3f",
     "generator": "frontend/scripts/generate-mastery-vectors.ts (pnpm run generate:mastery-vectors)",
     "fixtureEncoding": {
       "decimals": "Every mastery-derived numeric (scores, rollups, streaks, intermediate means) is a decimal STRING — parse on the Ruby side; never compare JSON number literals (AD-14).",
@@ -26,13 +26,13 @@
       "note": "Mirrors MASTERY_CONFIG verbatim (ADR-0001 consequences); the Ruby port's constants must match (ticket 02)."
     },
     "rounding": {
-      "mode": "ECMAScript Math.round — half toward +infinity: a x.5 tie rounds UP (37.5 → 38, 99.5 → 100). Applied once per level; no intermediate rounding anywhere.",
+      "mode": "Two pinned postures (ADR-0001, amended 2026-11-04): node score rounds with ECMAScript Math.round — half toward +infinity, a x.5 tie rounds UP (37.5 → 38); plan rollup FLOORS its mean — Math.floor, a x.5 tie rounds DOWN (99.5 → 99), which is what keeps 100 arithmetically reachable only when every node scores 100. Applied once per level; no intermediate rounding anywhere.",
       "operationOrder": {
         "nodeScore": "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3): min(result, 99).",
-        "planRollup": "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.round once. No per-node re-rounding, no clamping — see the flagged rollup.cap-* cases for the rounding-tie consequence.",
+        "planRollup": "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.floor once (amendment 2026-11-04; half-up's 99.5 → 100 tie used to let one unverified 99-node read a 100% plan). No per-node re-rounding, no clamping — the floor IS the readiness invariant's arithmetic.",
         "taskRollup": "exactly computeNodeScore of the task's single owned node — no other rollup exists (AD-6)."
       },
-      "pinnedBy": "ADR-0001, amendment 2026-11-04 (epic P2-4 ticket 01) — whatever domain/mastery.ts does is verbatim (delta-review item 6)."
+      "pinnedBy": "ADR-0001, amendments 2026-11-04 (epic P2-4 tickets 01+02) — whatever domain/mastery.ts does is verbatim (delta-review item 6)."
     },
     "streak": {
       "dayBoundaryPolicy": "The pinned contract is the UTC calendar day (dayBoundary: 'utc'). The Phase-1 default stays browser-local ('local', behavior unchanged); the Ruby port implements UTC because a server cannot know a browser's local time — a per-user timezone stays a deferred row. ADR-0001, amended 2026-11-04.",
@@ -42,7 +42,7 @@
     },
     "notes": [
       "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
-      "FLAGGED (ticket 01 Comments): the rollup can read 100 while a node is partial — a perfect-but-unverified 99 node does not always hold the plan below 100, because Math.round's half-up tie (99.5 → 100) outweighs the cap at small plan sizes. See rollup.cap-two-node-tie-reaches-100 (verbatim 100) vs rollup.cap-two-unverified-hold-below-100 (holds at 99). Any change here amends ADR-0001 first, both sides together (AD-14)."
+      "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99)."
     ]
   },
   "cases": [
@@ -670,9 +670,9 @@
       }
     },
     {
-      "id": "rollup.cap-two-node-tie-reaches-100",
+      "id": "rollup.cap-two-node-tie-floors-below-100",
       "category": "rollup",
-      "description": "99-cap interplay, verbatim (FLAGGED — see note): one mastered node (100) + one perfect-but-unverified node (99) → mean 99.5 → rounds half-up to 100. The plan reads 100% while a node is partial: the rounding tie outweighs the cap at this plan size. Generated verbatim per AD-14/delta-review item 6 — flagged for the ADR-0001 consequences wording in ticket 01's Comments, never quietly 'fixed'.",
+      "description": "99-cap interplay, resolved direction: one mastered node (100) + one perfect-but-unverified node (99) → mean 99.5 → the floored rollup reads 99, NOT 100. The pre-amendment half-up rounding turned this tie into 100 (ticket 01's flagged finding); ADR-0001 amended 2026-11-04 floors the rollup mean, restoring '100% only when every node is mastered'. Generated verbatim per AD-14/delta-review item 6.",
       "call": "computePlanRollup",
       "input": {
         "evidenceByNode": {
@@ -723,7 +723,7 @@
         }
       },
       "expected": {
-        "rollup": "100",
+        "rollup": "99",
         "nodes": [
           {
             "nodeId": "alphaMastered",
@@ -737,7 +737,7 @@
           }
         ]
       },
-      "note": "Verbatim behavior: Math.round((100+99)/2) = Math.round(99.5) = 100. If the owner wants 100 to require every node mastered, that is an ADR-0001 amendment first, then both implementations together (AD-14)."
+      "note": "Floored behavior: Math.floor((100+99)/2) = Math.floor(99.5) = 99. The pre-amendment half-up tie read 100 (ticket 01's rollup.cap-two-node-tie-reaches-100); the amendment (ticket 02, both sides together per AD-14) floors the rollup so the tie rounds DOWN."
     },
     {
       "id": "rollup.cap-two-unverified-hold-below-100",
@@ -847,7 +847,7 @@
     {
       "id": "rollup.rounding-mean-of-scores-83",
       "category": "rollup",
-      "description": "Corpus case: (100 + 100 + 50)/3 = 83.33… → 83 — the rollup rounds its mean exactly once.",
+      "description": "Corpus case: (100 + 100 + 50)/3 = 83.33… → 83 — the rollup floors its mean exactly once (ADR-0001 amendment 2026-11-04).",
       "call": "computePlanRollup",
       "input": {
         "evidenceByNode": {
