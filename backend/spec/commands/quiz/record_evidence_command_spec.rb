@@ -207,6 +207,29 @@ RSpec.describe Quiz::RecordEvidenceCommand do
       expect(user.evidence_records.count).to eq(0)
     end
 
+    it "fails VALIDATION_FAILED for a duplicate question within one batch, writing nothing" do
+      # The same questionId twice would write two EvidenceRecords (and two
+      # MistakeEntries) for one answer — double-counting epic-04's mastery.
+      result = described_class.call(
+        current_user: user,
+        session_id: session.id,
+        results: [
+          answer(question, "correct"),
+          answer(question, "wrong", user_answer: "dup", forfeited: false)
+        ]
+      )
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:VALIDATION_FAILED)
+      expect(result.failure.context[:message]).to include("duplicate question ids")
+      aggregate_failures do
+        expect(user.evidence_records.count).to eq(0)
+        expect(user.mistake_entries.count).to eq(0)
+        expect(session.reload.status).to eq("active")
+        expect(session.completed_at).to be_nil
+      end
+    end
+
     it "completes the session with an empty batch and no evidence (the Phase-1 mirror)" do
       result = call(results: [])
 

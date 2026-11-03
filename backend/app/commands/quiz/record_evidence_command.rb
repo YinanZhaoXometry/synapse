@@ -90,6 +90,16 @@ module Quiz
           return Failure(:VALIDATION_FAILED, { message: "outcome is invalid", field: :results })
         end
       end
+      # Intra-batch duplicate questions are refused (the epic P2-3 review,
+      # P2-2): a repeated questionId would write TWO EvidenceRecords (and two
+      # MistakeEntries) for one answer, double-counting epic-04's mastery.
+      # Same law as CreateFlashcardsCommand's intra-batch clientUuid refusal —
+      # the whole batch is refused before anything is written.
+      question_ids = results.map { |result| result[:question_id] }
+      if question_ids.uniq.size != question_ids.size
+        return Failure(:VALIDATION_FAILED,
+                       { message: "duplicate question ids within one batch", field: :results })
+      end
       nil
     end
 
