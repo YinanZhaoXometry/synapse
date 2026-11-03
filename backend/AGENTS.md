@@ -4,7 +4,7 @@ Rules for everything under `backend/`. Every rule cites its spine decision ID ([
 
 ## What this is
 
-A **minimal, bootable Rails 8.1 API-only scaffold** (epic-00 T02): GraphQL endpoint with one `health` query, `schema.graphql` dumped and committed as the cross-stack contract, colocated RSpec + RuboCop green, and `.dockerdev/compose.yaml` (postgres 17 + api) so `just up` boots a working api. **It intentionally has no business logic** — the only command code is the AD-12 command core (`ApplicationCommand` + the `System::PingCommand` exemplar, epic P2-1 ticket 01), there are no models beyond `ApplicationRecord`, no auth, no AI, no jobs, no ActiveStorage. Later backend epics extend this scaffold and own those surfaces; they inherit the conventions below instead of re-deriving them.
+A **minimal, bootable Rails 8.1 API-only scaffold** (epic-00 T02): GraphQL endpoint with one `health` query, `schema.graphql` dumped and committed as the cross-stack contract, colocated RSpec + RuboCop green, and `.dockerdev/compose.yaml` (postgres 17 + backend) so `just up` boots a working api. **It intentionally has no business logic** — the only command code is the AD-12 command core (`ApplicationCommand` + the `System::PingCommand` exemplar, epic P2-1 ticket 01); the data layer is the AD-13 spine ER (users + the 13 spine entities as migrations/models, user-scoped, uuid PKs — epic P2-1 ticket 02), with no auth, no AI, no jobs, no ActiveStorage, and no business commands yet. Later backend epics extend this scaffold and own those surfaces; they inherit the conventions below instead of re-deriving them.
 
 ## Stack pins
 
@@ -26,16 +26,16 @@ Not adopted from the reference (AD-12): settings gem (ENV only), Sidekiq/Redis (
 The api runs **only inside its dev containers** — never bare `rails`/`bundle` on the host.
 
 ```bash
-# Boot the stack (postgres 17 + api on port 3000) — or: just up
+# Boot the stack (postgres 17 + backend on port 3000) — or: just up
 docker compose -f backend/.dockerdev/compose.yaml up -d
 # Gates — or: just spec
-docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test api bundle exec rspec
-docker compose -f backend/.dockerdev/compose.yaml run api bundle exec rubocop
+docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test -e DATABASE_URL=postgres://postgres:postgres@db:5432/backend_test backend sh -c 'bundle exec rspec'
+docker compose -f backend/.dockerdev/compose.yaml run --no-deps --entrypoint "" -e RAILS_ENV=test backend sh -c 'bundle check || bundle install && bundle exec rubocop'
 # Done working on the api? Stack down.
 docker compose -f backend/.dockerdev/compose.yaml down
 ```
 
-Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bundle (`bundle-cache` volume), runs `db:prepare`, and starts the db service, so the same form works from cold — and the entrypoint's `db:prepare` does want postgres up, which is why gate runs go through `run --no-deps --entrypoint ""` with a bundle guard (root justfile). The specs themselves are **DB-free**: `spec/rails_helper.rb` sets `use_transactional_fixtures = false` (ad04861; `use_active_record` must stay on — see the comment there), so no example pins a postgres connection, and CI runs rspec with no postgres service. **`RAILS_ENV=test` is required for rspec** — the service env defaults to `development` and request specs then 403 on HostAuthorization (development-only middleware). Grep-level truth over stale claims: re-verify commands against this file's `compose.yaml` when touching tooling.
+Notes, verified 2026-11-04: the specs are **DB-backed** since epic P2-1 ticket 02 — the spine ER + model specs pin real rows, `spec/rails_helper.rb` sets `use_transactional_fixtures = true` (every example rolls back inside a transaction; `use_active_record` stays at its default — see the comment there for the rspec-rails 8 trap), and every rspec run therefore needs postgres: the compose `run` (no `--no-deps`) starts the db service, and the dev entrypoint bundle-installs and runs `db:prepare` before handing off. **Override `DATABASE_URL` to a test database** (`postgres://postgres:postgres@db:5432/backend_test`) on every rspec run — without it the entrypoint's `db:prepare` would prepare the development database instead, and the spec run would sit on it. RuboCop stays DB-free (`run --no-deps --entrypoint ""` + bundle guard). CI mirrors this: a `postgres:17-alpine` service container + `DATABASE_URL` + a `db:prepare` step before rspec. **`RAILS_ENV=test` is required for rspec** — the service env defaults to `development` and request specs then 403 on HostAuthorization (development-only middleware). Grep-level truth over stale claims: re-verify commands against this file's `compose.yaml` when touching tooling.
 
 ## GraphQL is the only web-facing surface (AD-12)
 
@@ -92,7 +92,7 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 ## Data model & migrations (AD-13)
 
-- ActiveRecord entities follow the spine ER, one model per entity, **no renames** at the entity-ownership cutover (AD-14 moves mastery computation to Ruby then; its rules are ADR-0001 verbatim, verified by golden vectors from the TS suite).
+- ActiveRecord entities follow the spine ER, one model per entity, **no renames** at the entity-ownership cutover (AD-14 moves mastery computation to Ruby then; its rules are ADR-0001 verbatim, verified by golden vectors from the TS suite). **The ER landed 2026-11-04** (epic P2-1 ticket 02): users + 13 spine entities — uuid PKs (`gen_random_uuid()` server default, client-suppliable on create), `user_id` FK (indexed) on every user-owned row, enum-ish strings pinned by model `enum` + DB check constraints, field-level decisions in the ticket's `## Comments` (`.scratch/phase-2/epic-01-api-foundation/issues/02-er-migrations.md`).
 - **Postgres 17 parity**: Neon in production, `postgres:17-alpine` in the dev compose. Don't introduce a feature the prod database can't run.
 - **strong_migrations is on** (`config/initializers/strong_migrations.rb`); plain schema migrations — no data-migration split, no logidze, no soft delete.
 - **Material files** go to object storage via ActiveStorage → **Cloudflare R2** (Render disk is ephemeral): original file to R2, extracted sections/text to Postgres, parsing stays client-side (AD-7). Uploads presign via `createMaterialUpload` (GraphQL → R2 presigned PUT; the browser PUTs directly to R2; the ActiveStorage direct-uploads REST route is never mounted); downloads are short-lived presigned GETs exposed as GraphQL fields. **minio joins the dev compose in the storage epic** (A7) as the R2 stand-in — until then the scaffold has no ActiveStorage.
@@ -106,8 +106,8 @@ Notes, verified 2026-11-03: compose's `run` (no `--no-deps`) bootstraps the bund
 
 - Commands: `Context::VerbNounCommand` (e.g. `Plans::CreatePlanCommand`), one directory per context under `app/commands/`.
 - Types/files PascalCase; GraphQL fields camelCase; entities/files match the ER names verbatim (no renames at cutover, AD-13/14).
-- Specs colocated in `backend/spec/`, `type:` metadata per rspec-rails; factories via factory_bot when the first model lands (AD-10).
+- Specs colocated in `backend/spec/`, `type:` metadata per rspec-rails; factories via factory_bot land with epic P2-1 ticket 03 (models are in since ticket 02, factories are not).
 
 ## Deliberately absent (each arrives with the epic that owns it)
 
-Auth/JWT (AD-15) · AI adapter + SSE (AD-16) · domain models (AD-13) · business commands (the AD-12 command core exists; real commands arrive with their epics) · ActiveStorage + R2/minio (AD-13, A7) · Solid Queue (AD-19, A9) · mastery computation (AD-14) · anything beyond the `health` query in the schema. If a ticket needs one of these, the epic owns installing it — don't smuggle infrastructure into an unrelated change.
+Auth/JWT (AD-15) · AI adapter + SSE (AD-16) · business commands (the AD-12 command core exists; real commands arrive with their epics) · factories + the shared scoping context (epic P2-1 ticket 03) · ActiveStorage + R2/minio (AD-13, A7) · Solid Queue (AD-19, A9) · mastery computation (AD-14) · anything beyond the `health` query in the schema. If a ticket needs one of these, the epic owns installing it — don't smuggle infrastructure into an unrelated change.

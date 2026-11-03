@@ -62,6 +62,28 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      # RSpec is DB-backed since epic P2-1 ticket 02 (2026-11-04): the spine ER
+      # landed as migrations + models and model specs pin real rows. Mirror the
+      # dev compose (postgres:17-alpine, postgres/postgres); backend_test
+      # matches config/database.yml's test entry and the db:prepare below.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backend_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      # database.yml defaults are dev-compose-shaped; in CI this points at the
+      # service container above (localhost, mapped port).
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/backend_test
     steps:
       - uses: actions/checkout@v4
 
@@ -69,8 +91,6 @@ jobs:
       - name: Install libpq-dev (pg gem native build)
         run: sudo apt-get update && sudo apt-get install -y libpq-dev
 
-      # No postgres service container: the specs are DB-free (verified in
-      # T02 with compose --no-deps), so the simplest non-flaky form wins.
       # .ruby-version is read from backend/ (working-directory below).
       - uses: ruby/setup-ruby@v1
         with:
@@ -78,7 +98,9 @@ jobs:
           bundler-cache: true
           working-directory: backend
 
+      - name: Prepare database
+        run: RAILS_ENV=test bundle exec rails db:prepare
       - name: Lint
         run: bundle exec rubocop
       - name: Test
-        run: bundle exec rspec
+        run: RAILS_ENV=test bundle exec rspec

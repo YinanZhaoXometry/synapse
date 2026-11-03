@@ -51,10 +51,13 @@ up:
 # Frontend: tsc -b → eslint → vitest run → vite build
 #   (gate sequence: keep in sync with .github/workflows/ci.yml frontend job
 #    and the frontend gates block in AGENTS.md)
-# Backend: rubocop → rspec — DB-free, so the runs use --no-deps and bypass the dev
-# entrypoint (its db:prepare would need postgres); a bundle check/install guard
-# keeps the gate runs self-sufficient on a cold bundle-cache volume. Gate runs
-# force RAILS_ENV=test — the compose service default (development) would trip
+# Backend: rubocop → rspec. RuboCop is DB-free: --no-deps + the dev entrypoint
+# bypassed, with a bundle check/install guard keeping the run self-sufficient
+# on a cold bundle-cache volume. RSpec is DB-backed since epic P2-1 ticket 02
+# (the spine ER + model specs pin real rows): it runs WITH the db service and
+# THROUGH the dev entrypoint, which bundle-installs and runs db:prepare against
+# the test database selected by the DATABASE_URL override. Both runs force
+# RAILS_ENV=test — the compose service default (development) would trip
 # request specs' Host Authorization and other dev-only behavior.
 spec:
     pnpm --dir frontend exec tsc -b && \
@@ -62,7 +65,7 @@ spec:
     pnpm --dir frontend exec vitest run && \
     pnpm --dir frontend exec vite build && \
     {{compose}} run --no-deps --entrypoint "" -e RAILS_ENV=test backend sh -c 'bundle check || bundle install && bundle exec rubocop' && \
-    {{compose}} run --no-deps --entrypoint "" -e RAILS_ENV=test backend sh -c 'bundle check || bundle install && bundle exec rspec'
+    {{compose}} run -e RAILS_ENV=test -e DATABASE_URL=postgres://postgres:postgres@db:5432/backend_test backend sh -c 'bundle exec rspec'
 
 # Stop the backend stack (images stay cached).
 down:
