@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
 class ApiSchema < GraphQL::Schema
-  # MutationType wires in with the first mutation (AD-12 command core);
-  # until then the contract exposes exactly one query: health.
+  # MutationType wires in with the first mutation (AD-12 command core):
+  # register/login landed with epic P2-2 ticket 02.
   query(Types::QueryType)
+  mutation(Types::MutationType)
 
   # For batch-loading (see https://graphql-ruby.org/dataloader/overview.html)
   use GraphQL::Dataloader
