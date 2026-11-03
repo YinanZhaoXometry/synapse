@@ -37,6 +37,28 @@ describe("grounded chat (seam: CompanionService interface)", () => {
     expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 });
   });
 
+  it("honors a direct request even with no keyword overlap — the ladder is never a wall (epic-4 port)", async () => {
+    const reply = await svc.chat({
+      question: "直接告诉我答案",
+      position,
+      language: "zh",
+    });
+    expect(reply.intent).toBe("direct");
+    expect(reply.rung).toBe("answer");
+    expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 }); // anchored, still cited
+  });
+
+  it("anchors the 解释 starter on the page even with no keyword overlap (epic-4 port)", async () => {
+    const reply = await svc.chat({
+      question: "解释这一页",
+      position,
+      language: "zh",
+    });
+    expect(reply.intent).toBe("explain");
+    expect(reply.rung).toBe("hint");
+    expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 });
+  });
+
   it("says so honestly when the page cannot answer (NFR-1)", async () => {
     const reply = await svc.chat({
       question: "量子计算在业界的发展现状如何？",

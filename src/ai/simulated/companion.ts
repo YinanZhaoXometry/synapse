@@ -52,7 +52,7 @@ const COPY = {
 
 /** Direct-answer requests get honored (escalation always reachable). */
 const DIRECT = /直接|答案|直接告诉我|tell me|direct|the answer/i;
-const EXPLAIN = /为什么|为何|怎么会|why|how come|explain/i;
+const EXPLAIN = /为什么|解释|为何|怎么会|why|how come|explain/i;
 const QUIZ_ME = /考(一)?考|考考|quiz|test me/i;
 /** The FR-11 summarizer starter — like quiz-me, inherently about the open page. */
 const SUMMARIZE = /总结|小结|summar/i;
@@ -118,6 +118,22 @@ export class SimulatedCompanion implements CompanionService {
       rung = "hint";
       quote ??= firstSentence(position.text);
       text = copy.quizMe(quote);
+    } else if (DIRECT.test(question)) {
+      // Page-anchored intents route BEFORE the overlap gate (epic-4 fix): a
+      // direct request must be honored even with no keyword overlap — the
+      // ladder is never a wall. The page itself is the answer, anchored to
+      // its opening when no sentence matches.
+      intent = "direct";
+      rung = "answer";
+      quote ??= firstSentence(position.text);
+      text = copy.answer(quote);
+    } else if (EXPLAIN.test(question)) {
+      // Explain is page-anchored like quiz-me: with no keyword overlap, anchor
+      // to the page's opening instead of the honesty fallback.
+      intent = "explain";
+      rung = "hint";
+      quote ??= firstSentence(position.text);
+      text = copy.hint(quote);
     } else if (SUMMARIZE.test(question)) {
       // The summarizer starter (FR-11) is also inherently about the open page —
       // grounded like quiz-me, at the low-friction reference rung.
@@ -130,14 +146,6 @@ export class SimulatedCompanion implements CompanionService {
       intent = "beyond-material";
       rung = "answer";
       text = copy.beyond;
-    } else if (DIRECT.test(question)) {
-      intent = "direct";
-      rung = "answer";
-      text = copy.answer(quote);
-    } else if (EXPLAIN.test(question)) {
-      intent = "explain";
-      rung = "hint";
-      text = copy.hint(quote);
     } else {
       intent = "reference";
       rung = "answer";
