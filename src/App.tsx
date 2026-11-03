@@ -27,6 +27,8 @@ import NotFound from "@/pages/NotFound";
 
 // The reader route is lazy (AD-8): pdfjs-dist loads only when someone reads.
 const ReaderPage = lazy(() => import("@/features/reader/ReaderPage"));
+// The task-creation route is lazy too (same rule — it pulls the reader's parse API).
+const TaskCreatePage = lazy(() => import("@/features/tasks/TaskCreatePage"));
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,14 @@ const App = () => (
                   <Route path="/plans" element={<PlansHomePage />} />
                   <Route path="/plan/new" element={<PlanCreatePage />} />
                   <Route path="/plan/:id" element={<PlanHomePage />} />
+                  <Route
+                    path="/task/new"
+                    element={
+                      <Suspense fallback={null}>
+                        <TaskCreatePage />
+                      </Suspense>
+                    }
+                  />
                   <Route
                     path="/read/:materialId"
                     element={

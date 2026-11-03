@@ -488,6 +488,19 @@ export const translations = {
       'command.groupActions': '操作',
       'command.toggleLanguage': '切换到 English',
 
+      // Study Tasks (epic-5 T1 — task creation flow, FR-37)
+      'tasks.eyebrow': '学习任务',
+      'tasks.createTitle': '创建学习任务',
+      'tasks.backToPlans': '返回所有计划',
+      'tasks.uploadCta': '选择一份文档，直接开始学习',
+      'tasks.uploadHint': 'PDF 或 Markdown · 不超过 20 MB',
+      'tasks.dropActive': '松开以选择文件',
+      'tasks.sizeMb': '{n} MB',
+      'tasks.rechoose': '重选文件',
+      'tasks.nameLabel': '任务名称（默认取自文件名，可修改）',
+      'tasks.confirm': '开始学习',
+      'tasks.creating': '正在创建任务…',
+
       // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
       'errors.storageReadFailed': '无法读取本地存储',
       'errors.storageCorrupt': '本地数据已损坏 · 重置后可恢复',
@@ -985,6 +998,19 @@ export const translations = {
       'command.noResults': 'No matching results',
       'command.groupActions': 'Actions',
       'command.toggleLanguage': 'Switch to 中文',
+
+      // Study Tasks (epic-5 T1 — task creation flow, FR-37)
+      'tasks.eyebrow': 'Study Tasks',
+      'tasks.createTitle': 'Create a study task',
+      'tasks.backToPlans': 'All plans',
+      'tasks.uploadCta': 'Choose a document and start studying',
+      'tasks.uploadHint': 'PDF or Markdown · up to 20 MB',
+      'tasks.dropActive': 'Drop to choose the file',
+      'tasks.sizeMb': '{n} MB',
+      'tasks.rechoose': 'Choose another file',
+      'tasks.nameLabel': 'Task name (defaults to the filename — editable)',
+      'tasks.confirm': 'Start studying',
+      'tasks.creating': 'Creating your task…',
 
       // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
       'errors.storageReadFailed': 'Could not read local storage',
