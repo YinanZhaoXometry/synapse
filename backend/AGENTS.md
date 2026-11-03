@@ -36,6 +36,20 @@ docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test -e DATAB
 docker compose -f backend/.dockerdev/compose.yaml down
 ```
 
+**The integration seam (epic P2-3 close-out, 2026-11-04):** `just up` boots the stack, and
+`spec/requests/graphql_integration_walk_spec.rb` is the cross-aggregate proof that it stays booted —
+one walk executing the Phase-1 happy path (FR-1→FR-20 main line) purely as GraphQL ops, then a second
+pass replaying the idempotent client uuids (non-idempotent ops pinned by their typed refusals).
+Run just it, without the whole suite:
+
+```bash
+docker compose -f backend/.dockerdev/compose.yaml run -e RAILS_ENV=test \
+  -e DATABASE_URL=postgres://postgres:postgres@db:5432/backend_test backend \
+  sh -c 'bundle exec rspec spec/requests/graphql_integration_walk_spec.rb'
+```
+
+New surface should keep the walk green unchanged — it consumes the schema, it never grows with it.
+
 Notes, verified 2026-11-04: the specs are **DB-backed** since epic P2-1 ticket 02 — the spine ER + model specs pin real rows, `spec/rails_helper.rb` sets `use_transactional_fixtures = true` (every example rolls back inside a transaction; `use_active_record` stays at its default — see the comment there for the rspec-rails 8 trap), and every rspec run therefore needs postgres: the compose `run` (no `--no-deps`) starts the db service, and the dev entrypoint bundle-installs and runs `db:prepare` before handing off. **Override `DATABASE_URL` to a test database** (`postgres://postgres:postgres@db:5432/backend_test`) on every rspec run — without it the entrypoint's `db:prepare` would prepare the development database instead, and the spec run would sit on it. RuboCop stays DB-free (`run --no-deps --entrypoint ""` + bundle guard). CI mirrors this with a `postgres:17-alpine` service container + `DATABASE_URL` + a **`db:create db:migrate`** step before rspec — deliberately **not** `db:prepare`: on a freshly created (or empty) database `db:prepare` auto-runs `db:seed` (Rails behavior), and CI's service container presents exactly that state on every run, which would commit the demo account before the suite. The local dev entrypoint keeps `db:prepare`: the persistent volume means it normally migrates an existing database instead of creating one (and the demo-seed specs are seed-state-agnostic regardless). **`RAILS_ENV=test` is required for rspec** — the service env defaults to `development` and request specs then 403 on HostAuthorization (development-only middleware). Grep-level truth over stale claims: re-verify commands against this file's `compose.yaml` when touching tooling.
 
 ## GraphQL is the only web-facing surface (AD-12)
