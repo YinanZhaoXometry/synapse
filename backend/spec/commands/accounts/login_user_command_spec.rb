@@ -82,4 +82,31 @@ RSpec.describe Accounts::LoginUserCommand do
       expect(nil_password.failure.code).to eq(:UNAUTHORIZED)
     end
   end
+
+  describe ".call rate limiting (epic P2-2 ticket 02)" do
+    it "fails RATE_LIMITED before credential verification once the window is tripped" do
+      email = "rate-limited@example.com"
+      create(:user, email: email, password: "known-password-123")
+
+      # Trip the window for this email through the limiter's own decision
+      # API — the command's pre-check must then deny without even looking at
+      # the credentials (the correct password below proves the ordering).
+      Accounts::LoginRateLimiter::DEFAULT_THRESHOLD.times do
+        expect(Accounts::LoginRateLimiter.attempt(email)).to be(true)
+      end
+
+      result = described_class.call(email: email, password: "known-password-123")
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:RATE_LIMITED)
+    end
+
+    it "still authenticates normally while the window is under the threshold" do
+      create(:user, email: "under-limit@example.com", password: "known-password-123")
+
+      result = described_class.call(email: "under-limit@example.com", password: "known-password-123")
+
+      expect(result.success?).to be(true)
+    end
+  end
 end
