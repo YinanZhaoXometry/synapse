@@ -44,10 +44,13 @@ export {
 } from "./progress-repository";
 export { createSessionBlobRegistry, sessionBlobs, type SessionBlobRegistry } from "./session-blobs";
 export {
+  abandonQuizSession,
   createQuizSession,
   getQuizSession,
   listEvidence,
   listEvidenceByNode,
+  listQuestionsBySession,
+  questionSourceLocator,
   recordEvidence,
   type AnswerResult,
   type QuestionInput,
@@ -60,6 +63,7 @@ export {
   type FlashcardInput,
 } from "./flashcard-repository";
 export {
+  useAbandonQuizSessionMutation,
   useAllEvidenceQuery,
   useCreateFlashcardsMutation,
   useCreateQuizSessionMutation,

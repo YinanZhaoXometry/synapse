@@ -5,7 +5,7 @@
  * mistake-logging, and the only way scores ever move.
  */
 import type { EvidenceRecord, MistakeEntry, Outcome, Question, QuizSession } from "@/domain/entities";
-import { loadDb, saveDb } from "./store";
+import { loadDb, saveDb, updateDb } from "./store";
 import { AppError } from "./errors";
 
 export interface QuestionInput {
@@ -62,8 +62,30 @@ export function getQuizSession(id: string): QuizSession | undefined {
   return loadDb().sessions.find((s) => s.id === id);
 }
 
-/** The locator a MistakeEntry carries, resolved from the question's material source. */
-function sourceLocator(question: Question): MistakeEntry["sourceLocation"] {
+/** The session's questions, in the session's own questionIds order (hydration). */
+export function listQuestionsBySession(sessionId: string): Question[] {
+  const session = loadDb().sessions.find((s) => s.id === sessionId);
+  if (!session) return [];
+  const byId = new Map(loadDb().questions.filter((q) => q.sessionId === sessionId).map((q) => [q.id, q]));
+  return session.questionIds.map((id) => byId.get(id)).filter((q): q is Question => Boolean(q));
+}
+
+/**
+ * Exit path (FR-18 story 15): marks an ACTIVE session abandoned, terminal and
+ * not resumable. No evidence is written; already-completed sessions are never
+ * demoted.
+ */
+export function abandonQuizSession(sessionId: string): void {
+  updateDb((db) => {
+    const session = db.sessions.find((s) => s.id === sessionId);
+    if (session && session.status === "active") {
+      session.status = "abandoned";
+    }
+  });
+}
+
+/** The locator a MistakeEntry carries (and the open-answer grader cites), resolved from the question's material source. */
+export function questionSourceLocator(question: Question): MistakeEntry["sourceLocation"] {
   const material = loadDb().materials.find((m) => m.id === question.sourceMaterialId);
   if (material?.kind === "markdown") {
     return { kind: "markdown", sectionId: question.sourceSectionId };
@@ -114,7 +136,7 @@ export function recordEvidence(input: {
         sessionId: input.sessionId,
         nodeId: question.nodeId,
         userAnswer: r.userAnswer,
-        sourceLocation: sourceLocator(question),
+        sourceLocation: questionSourceLocator(question),
         forfeited: r.forfeited,
         createdAt: now,
       });

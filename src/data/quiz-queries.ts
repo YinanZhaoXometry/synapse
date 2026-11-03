@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EvidenceRecord } from "@/domain/entities";
 import {
+  abandonQuizSession,
   createQuizSession,
   getQuizSession,
   listEvidence,
@@ -65,6 +66,19 @@ export function useRecordEvidenceMutation() {
         void qc.invalidateQueries({ queryKey: queryKeys.plans.all });
         void qc.invalidateQueries({ queryKey: queryKeys.plans.detail(session.planId) });
       }
+    },
+  });
+}
+
+/** Exit path (FR-18 story 15): terminal `abandoned` — no evidence moves. */
+export function useAbandonQuizSessionMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { sessionId: string }) => {
+      abandonQuizSession(input.sessionId);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.quiz.all });
     },
   });
 }
