@@ -509,6 +509,10 @@ export const translations = {
       'tasks.sliceFlashcards': '闪卡是下一阶段（epic-6）的功能。',
       'tasks.cap99Note': '证据不足 {n} 条 · 分数封顶 99%',
 
+      // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
+      'tasks.pitch': '只想搞懂一份文档？不需要计划 — 直接开始。',
+      'tasks.createEntry': '开始学习任务',
+
       // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
       'errors.storageReadFailed': '无法读取本地存储',
       'errors.storageCorrupt': '本地数据已损坏 · 重置后可恢复',
@@ -1027,6 +1031,10 @@ export const translations = {
       'tasks.sliceQuiz': 'Quiz generation lands in the next slice (epic-6).',
       'tasks.sliceFlashcards': 'Flashcards land in the next slice (epic-6).',
       'tasks.cap99Note': 'Under the {n}-evidence gate · capped at 99%',
+
+      // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
+      'tasks.pitch': 'Just one document to crack? Skip the plan — start a Study Task.',
+      'tasks.createEntry': 'Start a Study Task',
 
       // Adapter error toasts (AppError messageKeys — data layer, AD-3/AD-4)
       'errors.storageReadFailed': 'Could not read local storage',

@@ -6,8 +6,9 @@
  * node may reach the display, so plan (or sibling-task) evidence never moves
  * a task's number.
  */
-import type { EvidenceRecord, KnowledgeNode, NodeState, Outcome } from "@/domain/entities";
+import type { EvidenceRecord, KnowledgeNode, Material, NodeState, Outcome, ReadingProgress, StudyTask } from "@/domain/entities";
 import { computeTaskRollup, getNodeState, MASTERY_CONFIG } from "@/domain/mastery";
+import { readerAnchorHref, readerSectionHref } from "@/features/reader";
 
 /** The task's own evidence only (AD-6): records attributed to its single node. */
 export function taskOwnEvidence(node: KnowledgeNode | undefined, evidence: EvidenceRecord[]): EvidenceRecord[] {
@@ -48,5 +49,49 @@ export function taskMasteryView(node: KnowledgeNode | undefined, evidence: Evide
     hasEvidence: records.length > 0,
     lastOutcomes: window.reverse(),
     belowGate: records.length > 0 && records.length < MASTERY_CONFIG.evidenceGate,
+  };
+}
+
+// -- Plans Home Study Tasks section (T3; FR-37) ------------------------------
+
+/** The Study Tasks section's row order: newest createdAt first. */
+export function tasksNewestFirst(tasks: StudyTask[]): StudyTask[] {
+  return [...tasks].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+/** Where a task row's continue-reading link points (FR-10) + its honest label split. */
+export interface TaskContinueTarget {
+  href: string;
+  /**
+   * True when a stored position resolved into a deep link → 「继续阅读」;
+   * false when the link is the plain reader fallback → 「打开」.
+   */
+  resumable: boolean;
+}
+
+/**
+ * The continue-reading target for a task's material (FR-10; FR-25's
+ * single-material twin): the latest stored position deep-links through the
+ * reader's anchor channel (?page=N / #section-id) when it still resolves
+ * against the material's extraction — a stale section id (re-parse drift or a
+ * lost extraction) falls back to the plain reader link, never promising a
+ * destination the reader cannot land on (the plans `latestReading` rule).
+ * No stored position → the plain link (resumable: false).
+ */
+export function taskContinueTarget(material: Material, progress: ReadingProgress[]): TaskContinueTarget {
+  const plain: TaskContinueTarget = { href: `/read/${encodeURIComponent(material.id)}`, resumable: false };
+  const record = [...progress]
+    .filter((p) => p.materialId === material.id)
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0];
+  if (!record) return plain;
+  const { locator } = record.position;
+  const sectionId = locator.kind === "pdf" ? `page-${Math.max(1, Math.floor(locator.page))}` : locator.sectionId;
+  if (!material.sections.some((s) => s.id === sectionId)) return plain;
+  return {
+    href:
+      locator.kind === "pdf"
+        ? readerAnchorHref(material.id, locator.page)
+        : readerSectionHref(material.id, locator.sectionId),
+    resumable: true,
   };
 }

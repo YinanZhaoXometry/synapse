@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BookOpen, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,8 +9,12 @@ import {
   usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlansQuery,
+  useTaskMaterialsQuery,
+  useTaskNodeQuery,
+  useTasksQuery,
 } from "@/data";
-import type { EvidenceRecord, StudyPlan } from "@/domain/entities";
+import type { EvidenceRecord, ReadingProgress, StudyPlan, StudyTask } from "@/domain/entities";
+import { taskContinueTarget, taskMasteryView, tasksNewestFirst } from "@/features/tasks";
 import { latestReading, mostRecentPlan, planCardMetrics, type LatestReadingView } from "./display-shaping";
 import { localeTag } from "./locale";
 import { MasteryRing, StateMiniBar } from "./atoms";
@@ -18,21 +22,29 @@ import CreationChat from "./CreationChat";
 
 /**
  * Plans Home (AD-8; FR-1; Q3/Q5) — the front door. Empty state: the creation
- * chat is the primary surface (SM-1, no seeded demo data). Returning state:
- * continue hero for the most recent plan (rollup + recency) + the 「上次读到」
- * line from the most recent reading across plans (FR-25; epic-2's deferral
- * closes here) + plan cards with honest rollup chips and node-state mini bars
- * + a create-new action. No task section — Study Tasks land in slice 5.
+ * chat is the primary surface (SM-1, no seeded demo data) with the Study Task
+ * pitch beside it (FR-37/UJ-6 — the second door is visible from the first
+ * visit). Returning state: continue hero for the most recent plan (rollup +
+ * recency) + the 「上次读到」 line from the most recent reading across plans
+ * (FR-25; epic-2's deferral closes here) + plan cards with honest rollup chips
+ * and node-state mini bars + create-new and create-task actions persisting
+ * side by side. When ≥ 1 task exists, a Study Tasks section renders (FR-37;
+ * T3): rows of title + single-node Mastery Ring + a continue-reading deep
+ * link, newest first; at zero tasks it renders nothing — no empty chrome.
  */
 export default function PlansHomePage() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const plansQuery = usePlansQuery();
   const evidenceQuery = useAllEvidenceQuery();
+  const tasksQuery = useTasksQuery();
+  const progressQuery = useAllReadingProgressQuery();
 
-  if (plansQuery.isPending || evidenceQuery.isPending) return null;
+  if (plansQuery.isPending || evidenceQuery.isPending || tasksQuery.isPending || progressQuery.isPending) return null;
   const plans = plansQuery.data ?? [];
   const evidence = evidenceQuery.data ?? [];
+  const tasks = tasksQuery.data ?? [];
+  const progress = progressQuery.data ?? [];
   const isEmpty = plans.length === 0;
 
   return (
@@ -42,18 +54,37 @@ export default function PlansHomePage() {
           <p className="eyebrow">{t("plans.eyebrow")}</p>
           <h1 className="page-title mt-1.5">{isEmpty ? t("plans.emptyTitle") : t("plans.returningTitle")}</h1>
         </div>
-        {!isEmpty && (
-          <Button variant="outline" onClick={() => navigate("/plan/new")}>
-            <Plus className="w-4 h-4 mr-1.5" /> {t("plans.createNew")}
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {!isEmpty && (
+            <>
+              <Button variant="outline" onClick={() => navigate("/plan/new")}>
+                <Plus className="w-4 h-4 mr-1.5" /> {t("plans.createNew")}
+              </Button>
+              {/* the Study Task action persists beside create-new (UX spine PlansHome row) */}
+              <Button variant="outline" onClick={() => navigate("/task/new")}>
+                <BookOpen className="w-4 h-4 mr-1.5" /> {t("tasks.createEntry")}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {isEmpty ? (
-        <CreationChat />
+        <>
+          <div className="glass-panel rounded-2xl shadow-raised p-4 mt-4 flex flex-wrap items-center gap-3">
+            <BookOpen className="w-4 h-4 text-accent-ink flex-none" aria-hidden="true" />
+            <p className="text-sm font-medium leading-[1.5] flex-1 min-w-[220px]">{t("tasks.pitch")}</p>
+            <Button variant="outline" size="sm" className="flex-none" onClick={() => navigate("/task/new")}>
+              {t("tasks.createEntry")}
+            </Button>
+          </div>
+          <CreationChat />
+        </>
       ) : (
         <ReturningHome plans={plans} evidence={evidence} language={language} />
       )}
+
+      <TaskSection tasks={tasks} evidence={evidence} progress={progress} />
     </div>
   );
 }
@@ -170,5 +201,79 @@ function PlanCard({ plan, evidence }: { plan: StudyPlan; evidence: EvidenceRecor
         {nodes.length} {t("plans.nodesUnit")} · {(materialsQuery.data ?? []).length} {t("plans.materialsUnit")}
       </p>
     </button>
+  );
+}
+
+/**
+ * The Study Tasks section (FR-37; T3): the learner's plan-free library. Absent
+ * entirely at zero tasks — no empty chrome. Rows newest first; every number
+ * and link target arrives through the tasks feature's pure selectors.
+ */
+function TaskSection({
+  tasks,
+  evidence,
+  progress,
+}: {
+  tasks: StudyTask[];
+  evidence: EvidenceRecord[];
+  progress: ReadingProgress[];
+}) {
+  const { t } = useLanguage();
+  if (tasks.length === 0) return null;
+  return (
+    <section className="mt-8">
+      <h2 className="eyebrow mb-2">{t("tasks.eyebrow")}</h2>
+      <div className="space-y-2">
+        {tasksNewestFirst(tasks).map((task) => (
+          <TaskRow key={task.id} task={task} evidence={evidence} progress={progress} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One task row: title + single-node Mastery Ring deep-linking to the task home
+ * route, plus the continue-reading link into the reader at the stored position
+ * (FR-10) — plain 打开 when no position, 继续 over the reader's anchor channel
+ * when there is one (label split from the selector, never recomputed here).
+ */
+function TaskRow({
+  task,
+  evidence,
+  progress,
+}: {
+  task: StudyTask;
+  evidence: EvidenceRecord[];
+  progress: ReadingProgress[];
+}) {
+  const { t } = useLanguage();
+  const nodeQuery = useTaskNodeQuery(task.id);
+  const materialsQuery = useTaskMaterialsQuery(task.id);
+  const node = nodeQuery.data;
+  const material = materialsQuery.data?.[0]; // strictly 1:1 (StudyTask ||--|| Material)
+  const view = taskMasteryView(node, evidence); // the ONLY path numbers take (AD-6)
+  const title = material?.title ?? node?.title ?? "";
+  const target = material ? taskContinueTarget(material, progress) : null;
+  return (
+    <div className="bg-card border border-border-soft rounded-2xl shadow-raised px-4 py-3 flex items-center gap-4">
+      <Link
+        to={`/task/${task.id}`}
+        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+      >
+        <MasteryRing value={view.score} size={44} />
+        <span className="text-sm font-semibold truncate">{title}</span>
+      </Link>
+      {target && (
+        <Link
+          to={target.href}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
+          title={t(target.resumable ? "plans.continueReading" : "common.open")}
+        >
+          <BookOpen className="w-3 h-3" aria-hidden="true" />
+          {t(target.resumable ? "plans.continueReading" : "common.open")}
+        </Link>
+      )}
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { EvidenceRecord, KnowledgeNode } from "@/domain/entities";
+import type { EvidenceRecord, KnowledgeNode, Material, ReadingLocator, ReadingProgress, StudyTask } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
-import { taskMasteryView, taskOwnEvidence } from "./display-shaping";
+import { taskContinueTarget, taskMasteryView, taskOwnEvidence, tasksNewestFirst } from "./display-shaping";
 
 /**
  * Task Home display shaping (T2; spec testing seam 2 — pure display-shaping):
@@ -100,5 +100,112 @@ describe("task mastery view (AD-6/ADR-0001: the single owned node's score)", () 
       ev("n1", "partial", "2026-11-03T10:00:00Z"),
     ];
     expect(taskOwnEvidence(taskNode("n1"), records)).toEqual([records[0], records[2]]);
+  });
+});
+
+/**
+ * Study Tasks section selectors (T3; FR-37; spec testing seam 2 — pure
+ * display-shaping): newest-first ordering, the empty-section rule at the seam,
+ * and the continue-reading target. Expected hrefs are independent literals
+ * cross-checked against the reader's own anchor tests (anchors.test.ts:
+ * readerAnchorHref("m1", 7) === "/read/m1?page=7", readerSectionHref
+ * ("m1", "getting-started") === "/read/m1#getting-started") — never recomputed.
+ */
+const taskAt = (id: string, createdAt: string): StudyTask => ({
+  id,
+  materialId: `m-${id}`,
+  nodeId: `n-${id}`,
+  createdAt,
+});
+
+const pdfMaterial: Material = {
+  id: "m-pdf",
+  title: "paper",
+  kind: "pdf",
+  sizeBytes: 1024,
+  planId: null,
+  taskId: "t1",
+  parseState: "parsed",
+  sections: [
+    { id: "page-1", title: "p1", text: "" },
+    { id: "page-3", title: "p3", text: "" },
+  ],
+  createdAt: "2026-11-01T09:00:00Z",
+};
+
+const mdMaterial: Material = {
+  id: "m-md",
+  title: "notes",
+  kind: "markdown",
+  sizeBytes: 1024,
+  planId: null,
+  taskId: "t1",
+  parseState: "parsed",
+  sections: [
+    { id: "intro", title: "Intro", text: "" },
+    { id: "recap", title: "Recap", text: "" },
+  ],
+  createdAt: "2026-11-01T09:00:00Z",
+};
+
+const progressAt = (materialId: string, locator: ReadingLocator, updatedAt: string): ReadingProgress => ({
+  materialId,
+  position: { locator, text: "extracted text" },
+  updatedAt,
+});
+
+describe("tasksNewestFirst (FR-37: newest-first rows)", () => {
+  it("orders newest createdAt first", () => {
+    const tasks = [taskAt("t-old", "2026-11-01T10:00:00Z"), taskAt("t-new", "2026-11-02T10:00:00Z")];
+    expect(tasksNewestFirst(tasks)).toEqual([tasks[1], tasks[0]]);
+  });
+
+  it("createdAt order wins over array order (a later task listed first still sorts last)", () => {
+    const tasks = [taskAt("t-new", "2026-11-02T10:00:00Z"), taskAt("t-old", "2026-11-01T10:00:00Z")];
+    expect(tasksNewestFirst(tasks)).toEqual([tasks[0], tasks[1]]);
+  });
+
+  it("zero tasks shapes to [] — the empty-section rule's seam (no rows, no chrome)", () => {
+    expect(tasksNewestFirst([])).toEqual([]);
+  });
+});
+
+describe("taskContinueTarget (FR-10: deep link at the stored position)", () => {
+  it("no stored position falls back to the plain reader link, not resumable", () => {
+    expect(taskContinueTarget(pdfMaterial, [])).toEqual({ href: "/read/m-pdf", resumable: false });
+    expect(taskContinueTarget(mdMaterial, [])).toEqual({ href: "/read/m-md", resumable: false });
+  });
+
+  it("a pdf position deep-links ?page=N through the reader's anchor channel", () => {
+    const progress = [progressAt("m-pdf", { kind: "pdf", page: 3 }, "2026-11-02T10:00:00Z")];
+    expect(taskContinueTarget(pdfMaterial, progress)).toEqual({ href: "/read/m-pdf?page=3", resumable: true });
+  });
+
+  it("a markdown position deep-links #section-id", () => {
+    const progress = [progressAt("m-md", { kind: "markdown", sectionId: "intro" }, "2026-11-02T10:00:00Z")];
+    expect(taskContinueTarget(mdMaterial, progress)).toEqual({ href: "/read/m-md#intro", resumable: true });
+  });
+
+  it("a stale pdf page (extraction gone) falls back to the plain link — never a dead deep link", () => {
+    const progress = [progressAt("m-pdf", { kind: "pdf", page: 9 }, "2026-11-02T10:00:00Z")];
+    expect(taskContinueTarget(pdfMaterial, progress)).toEqual({ href: "/read/m-pdf", resumable: false });
+  });
+
+  it("a drifted markdown section id falls back to the plain link", () => {
+    const progress = [progressAt("m-md", { kind: "markdown", sectionId: "gone" }, "2026-11-02T10:00:00Z")];
+    expect(taskContinueTarget(mdMaterial, progress)).toEqual({ href: "/read/m-md", resumable: false });
+  });
+
+  it("other materials' progress never leaks into this task's link", () => {
+    const progress = [progressAt("m-other", { kind: "pdf", page: 3 }, "2026-11-03T10:00:00Z")];
+    expect(taskContinueTarget(mdMaterial, progress)).toEqual({ href: "/read/m-md", resumable: false });
+  });
+
+  it("the newest position wins when a material has several stored records", () => {
+    const progress = [
+      progressAt("m-pdf", { kind: "pdf", page: 1 }, "2026-11-01T10:00:00Z"),
+      progressAt("m-pdf", { kind: "pdf", page: 3 }, "2026-11-02T10:00:00Z"),
+    ];
+    expect(taskContinueTarget(pdfMaterial, progress)).toEqual({ href: "/read/m-pdf?page=3", resumable: true });
   });
 });
