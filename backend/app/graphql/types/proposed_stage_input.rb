@@ -13,7 +13,7 @@ module Types
              required: true,
              description: "The stage name."
 
-    argument :node_titles, [String, null: false],
+    argument :node_titles, [ String, null: false ],
              required: true,
              description: "The stage's node titles, in proposal order."
   end

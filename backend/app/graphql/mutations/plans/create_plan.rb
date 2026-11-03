@@ -26,7 +26,7 @@ module Mutations
                required: false,
                description: "\"private\" (default) or \"public\" (FR-38)."
 
-      argument :nodes, [Types::PlanNodeInput],
+      argument :nodes, [ Types::PlanNodeInput ],
                required: true,
                description: "The plan's nodes in order — order is derived from the list position."
 
@@ -34,7 +34,7 @@ module Mutations
             null: false,
             description: "The created (or replayed) plan."
 
-      field :nodes, [Types::KnowledgeNodeType],
+      field :nodes, [ Types::KnowledgeNodeType ],
             null: false,
             description: "The plan's nodes, in order."
 

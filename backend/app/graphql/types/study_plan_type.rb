@@ -34,7 +34,7 @@ module Types
           null: false,
           description: "When the plan was created."
 
-    field :nodes, [Types::KnowledgeNodeType],
+    field :nodes, [ Types::KnowledgeNodeType ],
           null: false,
           description: "The plan's node tree (the Phase-1 nodeIds array, realized as the association)."
 

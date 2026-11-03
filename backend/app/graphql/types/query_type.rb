@@ -18,7 +18,7 @@ module Types
       "ok"
     end
 
-    field :plans, [Types::StudyPlanType], null: false,
+    field :plans, [ Types::StudyPlanType ], null: false,
       description: "The current user's study plans — a plain list (AD-12: Relay connections only when a list truly paginates)."
 
     def plans

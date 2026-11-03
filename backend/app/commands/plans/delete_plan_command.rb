@@ -17,6 +17,13 @@ module Plans
     option :id
 
     def call
+      # A non-uuid id addresses no row — the same uniform NOT_FOUND a foreign
+      # id gets (a malformed address must not degrade into an INTERNAL 500
+      # from the uuid column comparison).
+      unless id.to_s.match?(Accounts::UUID_REGEX)
+        return Failure(:NOT_FOUND, { message: "plan not found" })
+      end
+
       plan = current_user.study_plans.find_by(id: id)
       return Failure(:NOT_FOUND, { message: "plan not found" }) unless plan
 

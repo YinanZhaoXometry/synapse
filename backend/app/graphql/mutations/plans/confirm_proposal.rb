@@ -27,7 +27,7 @@ module Mutations
                required: false,
                description: "\"private\" (default) or \"public\" (FR-38)."
 
-      argument :stages, [Types::ProposedStageInput],
+      argument :stages, [ Types::ProposedStageInput ],
                required: true,
                description: "The proposal's stages with their node titles, in proposal order."
 
@@ -35,7 +35,7 @@ module Mutations
             null: false,
             description: "The created (or replayed) plan."
 
-      field :nodes, [Types::KnowledgeNodeType],
+      field :nodes, [ Types::KnowledgeNodeType ],
             null: false,
             description: "The confirmed nodes, stage-then-title flattened into one order."
 
