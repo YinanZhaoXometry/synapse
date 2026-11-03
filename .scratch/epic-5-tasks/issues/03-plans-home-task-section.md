@@ -1,6 +1,6 @@
 # T3: Plans Home task section + create-task entries in both states (FR-37; AD-8/9)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 Blocked by: 02-task-home.md
 
@@ -22,11 +22,11 @@ existing Plans Home behavior regresses.
 
 ## Acceptance criteria
 
-- [ ] Empty Plans Home state shows the pitch copy and a create-task entry alongside the creation chat; the entry navigates to the creation route (spine: both states persist the action).
-- [ ] Plans-exist state shows the create-task entry persisting next to create-new.
-- [ ] With ≥ 1 task, a Study Tasks section renders rows of title + single-node mastery ring + continue-reading deep link into the reader at the stored position, newest first.
-- [ ] Task rows link to the task home route — no dead links (this ticket is gated on task home existing).
-- [ ] With zero tasks the section renders nothing (no empty-section chrome).
-- [ ] Section numbers flow through pure display-shaping selectors over real queries; entry-decision logic and existing Plans Home behaviors are unchanged (existing plans-home tests stay green).
-- [ ] Pitch and all new copy are i18n keys with zh/en parity (AD-9); semantic tokens only; dark mode verified.
-- [ ] Selector tests (ordering, empty-section rule, ring values) + component tests for both Plans Home states; gates green via direct `node_modules/.bin` binaries.
+- [x] Empty Plans Home state shows the pitch copy and a create-task entry alongside the creation chat; the entry navigates to the creation route (spine: both states persist the action).
+- [x] Plans-exist state shows the create-task entry persisting next to create-new.
+- [x] With ≥ 1 task, a Study Tasks section renders rows of title + single-node mastery ring + continue-reading deep link into the reader at the stored position, newest first.
+- [x] Task rows link to the task home route — no dead links (this ticket is gated on task home existing).
+- [x] With zero tasks the section renders nothing (no empty-section chrome).
+- [x] Section numbers flow through pure display-shaping selectors over real queries; entry-decision logic and existing Plans Home behaviors are unchanged (existing plans-home tests stay green).
+- [x] Pitch and all new copy are i18n keys with zh/en parity (AD-9); semantic tokens only; dark mode verified.
+- [x] Selector tests (ordering, empty-section rule, ring values) + component tests for both Plans Home states; gates green via direct `node_modules/.bin` binaries.
