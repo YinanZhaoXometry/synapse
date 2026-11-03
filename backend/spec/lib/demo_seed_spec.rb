@@ -25,12 +25,17 @@ RSpec.describe DemoSeed do
     end
   end
 
-  # Independent golden vectors — computed once outside this suite (scratch
-  # script) and pinned here verbatim. The derivation algorithm itself is
-  # proven against the DNS-namespace oracle in the first example below; these
-  # pin the demo namespace + stable-name wiring.
+  # Independent golden vectors — computed once outside this suite (an
+  # independent RFC 4122 v5 implementation, Python's uuid.uuid5, over this
+  # module's namespace) and pinned here verbatim. The derivation algorithm
+  # itself is proven against the DNS-namespace oracle in the first example
+  # below; these pin the demo namespace + stable-name wiring. The USER
+  # uuids derive from the normalized demo email (one demo account per email
+  # — see DemoSeed.seed_user!), so they are pinned per email: the default
+  # demo email and the downcase example's email.
   STABLE_UUIDS = {
-    user: "2e5fdb85-4076-52b6-ad4a-c47ce5b87157",
+    user: "5a1b1f1b-973d-581c-926c-b1f71532c8f7",
+    alt_email_user: "abcf3da9-1b8e-5b57-bf67-37919af3f0b7",
     plan: "58b6083b-1e27-5eee-b35b-7086c144a361",
     node_1: "0b44ea76-710a-565b-8da6-f21d01dcb324",
     node_2: "d5828003-d825-5a68-812d-b254a0c8f692"
@@ -46,7 +51,8 @@ RSpec.describe DemoSeed do
     end
 
     it "pins the demo dataset's golden-vector uuids" do
-      expect(described_class.stable_uuid("synapse-demo-user")).to eq(STABLE_UUIDS[:user])
+      expect(described_class.stable_uuid("user:demo@synapse.test")).to eq(STABLE_UUIDS[:user])
+      expect(described_class.stable_uuid("user:seed.user@example.com")).to eq(STABLE_UUIDS[:alt_email_user])
       expect(described_class.stable_uuid("synapse-demo-plan")).to eq(STABLE_UUIDS[:plan])
       expect(described_class.stable_uuid("synapse-demo-node-1")).to eq(STABLE_UUIDS[:node_1])
       expect(described_class.stable_uuid("synapse-demo-node-2")).to eq(STABLE_UUIDS[:node_2])
@@ -85,24 +91,36 @@ RSpec.describe DemoSeed do
 
       described_class.call
 
-      expect(User.count).to eq(1)
-      expect(StudyPlan.count).to eq(1)
-      expect(KnowledgeNode.count).to eq(2)
+      # Assertions scoped to the demo dataset (the demo email + the rows it
+      # owns), not the whole table — a test database may legitimately already
+      # carry rows (e.g. a fresh CI database auto-seeds before the suite).
+      expect(User.where(email: "demo@synapse.test").count).to eq(1)
       expect(User.find_by(email: "demo@synapse.test").id).to eq(first_user.id)
-      expect(StudyPlan.first.id).to eq(first_plan.id)
-      expect(KnowledgeNode.order(:order).map(&:id)).to eq(first_nodes.map(&:id))
+      expect(first_user.reload.study_plans.count).to eq(1)
+      expect(first_user.study_plans.first.id).to eq(first_plan.id)
+      expect(first_user.study_plans.first.knowledge_nodes.count).to eq(2)
+      expect(first_user.study_plans.first.knowledge_nodes.order(:order).map(&:id)).to eq(first_nodes.map(&:id))
       # No-churn proof: the second run skipped every write instead of
-      # rewriting the rows in place.
-      expect(StudyPlan.first.updated_at).to eq(first_plan.updated_at)
-      expect(KnowledgeNode.order(:order).map(&:updated_at)).to eq(first_nodes.map(&:updated_at))
+      # rewriting the rows in place (first_plan / first_nodes carry the
+      # pre-second-run timestamps).
+      expect(first_user.study_plans.first.updated_at).to eq(first_plan.updated_at)
+      expect(first_user.study_plans.first.knowledge_nodes.order(:order).map(&:updated_at)).to eq(first_nodes.map(&:updated_at))
     end
 
     it "adopts a pre-registered demo user instead of duplicating it" do
-      existing = create(:user, email: "demo@synapse.test", password: "handmade-password-1")
+      # Seed-state-agnostic setup: the database may already carry the demo
+      # row (e.g. a fresh CI database auto-seeds before the suite). Either
+      # way this example starts from exactly one demo-email row whose
+      # credentials are NOT the seed's, so the adoption + re-key contract is
+      # exercised identically.
+      existing = User.find_by(email: "demo@synapse.test") ||
+                 create(:user, email: "demo@synapse.test")
+      existing.update!(password: "handmade-password-1")
+      expect(existing.authenticate("demo-password")).to be_falsey
 
       described_class.call
 
-      expect(User.count).to eq(1)
+      expect(User.where(email: "demo@synapse.test").count).to eq(1)
       expect(User.find_by(email: "demo@synapse.test").id).to eq(existing.id)
       # The seed owns the demo account's credentials: the adopted row is
       # re-keyed to the current password so the login AC holds everywhere.
@@ -118,7 +136,12 @@ RSpec.describe DemoSeed do
     it "downcases a provided email before create" do
       described_class.call(email: "Seed.User@Example.com", password: "provided-password-1")
 
-      expect(User.find_by(email: "seed.user@example.com")).to be_present
+      user = User.find_by(email: "seed.user@example.com")
+      expect(user).to be_present
+      # The stable uuid derives from the NORMALIZED email: the downcased
+      # address feeds the derivation, so this row can coexist with any other
+      # demo email in the same database (no primary-key collision).
+      expect(user.id).to eq(STABLE_UUIDS[:alt_email_user])
       expect(User.find_by(email: "Seed.User@Example.com")).to be_nil
     end
 
@@ -132,18 +155,18 @@ RSpec.describe DemoSeed do
     it "fails fast in production when DEMO_EMAIL is absent" do
       production
 
-      expect { described_class.call }
-        .to raise_error(DemoSeed::MissingDemoEnvError, /DEMO_EMAIL/)
-      expect(User.count).to eq(0)
+      expect_error_and_no_user_write(DemoSeed::MissingDemoEnvError, /DEMO_EMAIL/) do
+        described_class.call
+      end
     end
 
     it "fails fast in production when DEMO_PASSWORD is absent" do
       production
       ENV["DEMO_EMAIL"] = "demo@synapse.test"
 
-      expect { described_class.call }
-        .to raise_error(DemoSeed::MissingDemoEnvError, /DEMO_PASSWORD/)
-      expect(User.count).to eq(0)
+      expect_error_and_no_user_write(DemoSeed::MissingDemoEnvError, /DEMO_PASSWORD/) do
+        described_class.call
+      end
     end
 
     it "treats a blank ENV value as absent in production" do
@@ -156,9 +179,9 @@ RSpec.describe DemoSeed do
     end
 
     it "rejects a too-short password in every environment (register-command parity)" do
-      expect { described_class.call(password: "short") }
-        .to raise_error(DemoSeed::ShortDemoPasswordError, /8 characters/)
-      expect(User.count).to eq(0)
+      expect_error_and_no_user_write(DemoSeed::ShortDemoPasswordError, /8 characters/) do
+        described_class.call(password: "short")
+      end
     end
   end
 
@@ -166,5 +189,16 @@ RSpec.describe DemoSeed do
 
   def production
     allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
+  end
+
+  # The failed seed must raise the expected error AND write no user row.
+  # Stated as a no-change contract on the users table rather than
+  # "zero users": a test database may legitimately already hold rows
+  # (e.g. a fresh CI database auto-seeds before the suite), and the contract
+  # under test is that the FAILED call adds nothing.
+  def expect_error_and_no_user_write(error, message)
+    user_count = User.count
+    expect { yield }.to raise_error(error, message)
+    expect(User.count).to eq(user_count)
   end
 end

@@ -18,11 +18,15 @@ require "digest"
 # that uuid (never duplicate): a missing row is created with the stable id
 # (client-suppliable ids are the AD-12 import-idempotency mechanism); an
 # existing row is written only when an attribute actually differs. The demo
-# USER is keyed by its unique email instead (its row carries the stable uuid
-# only when the seed creates it): a pre-existing row — e.g. registered
-# through the mutations, or seeded with an older password — is adopted and
-# its credentials re-keyed to the current DEMO_PASSWORD, so the login
-# contract holds on every rerun.
+# USER is keyed by its unique email instead, and its stable uuid derives
+# from that normalized email (`user:#{email}` — one demo account per email,
+# so a database that already holds one demo account absorbs a
+# differently-configured DEMO_EMAIL without a primary-key collision; the
+# original fixed "synapse-demo-user" name collided there). The row carries
+# the stable uuid only when the seed creates it: a pre-existing row — e.g.
+# registered through the mutations, or seeded with an older password — is
+# adopted and its credentials re-keyed to the current DEMO_PASSWORD, so the
+# login contract holds on every rerun.
 #
 # ENV contract (AD-12, no settings gem): DEMO_EMAIL/DEMO_PASSWORD are read
 # from ENV at call time; absent/blank falls back to documented dev/test
@@ -119,14 +123,19 @@ module DemoSeed
       default
     end
 
-    # Keyed by the unique email; the row's uuid is the stable one when the
-    # seed creates it. An existing row is adopted: credentials re-keyed to
-    # the current password (the seed owns the demo account), everything else
-    # untouched. `changed?` gates the write — a matching rerun is a no-op.
+    # Keyed by the unique email; the row's uuid derives from that normalized
+    # email (`user:#{email}`) when the seed creates it — one demo account per
+    # email, so a second demo email seeded into a database that already holds
+    # one demo account gets its own uuid instead of colliding on the users
+    # primary key (the fixed "synapse-demo-user" name collided there). An
+    # existing row is adopted: credentials re-keyed to the current password
+    # (the seed owns the demo account), everything else untouched — a
+    # pre-registered row keeps its own id. `changed?` gates the write — a
+    # matching rerun is a no-op.
     def seed_user!(email, password)
       user = User.find_by(email: email)
       if user.nil?
-        user = User.new(email: email, password: password, id: stable_uuid("synapse-demo-user"))
+        user = User.new(email: email, password: password, id: stable_uuid("user:#{email}"))
       elsif !user.authenticate(password)
         user.password = password
       end
@@ -134,6 +143,10 @@ module DemoSeed
       user
     end
 
+    # Plans/nodes keep fixed-name uuids — they are per-DB demo garnish keyed
+    # by id, so two different demo emails in one DB share the plan uuid with
+    # a different user_id (the upsert reassigns ownership). Accepted: one
+    # demo account per DB is the reality this garnish serves.
     def seed_plan!(user)
       upsert_row!(StudyPlan, stable_uuid("synapse-demo-plan"),
                   user_id: user.id,
