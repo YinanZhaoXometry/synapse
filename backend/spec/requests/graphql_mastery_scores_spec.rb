@@ -104,10 +104,61 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
     end
   end
 
+  describe "StudyPlanType masteryScore (the plan rollup)" do
+    it "reads \"0\" for a plan whose nodes hold no evidence" do
+      user, token = user_with_token("rollup-zero@example.com")
+      plan = create(:study_plan, user: user)
+      create(:knowledge_node, user: user, plan: plan)
+      create(:knowledge_node, user: user, plan: plan, title: "second node", order: 1)
+
+      result = rollup_query(token, plan.id)
+
+      expect(result.dig("data", "plan", "masteryScore")).to eq("0")
+    end
+
+    it "rolls up mixed nodes floored: 100 + 99 + uncovered 0 → \"66\" (uncovered counts zero, AD-6)" do
+      user, token = user_with_token("rollup-mixed@example.com")
+      plan = create(:study_plan, user: user)
+      mastered = create(:knowledge_node, user: user, plan: plan, title: "mastered", order: 0)
+      gated = create(:knowledge_node, user: user, plan: plan, title: "gated", order: 1)
+      create(:knowledge_node, user: user, plan: plan, title: "uncovered", order: 2)
+      record_outcomes(mastered, %w[correct correct correct correct correct]) # → 100
+      record_outcomes(gated, %w[correct correct]) # → 99 (below the evidence gate)
+
+      result = rollup_query(token, plan.id)
+
+      # floor((100 + 99 + 0) / 3) = floor(66.33…) = 66.
+      expect(result.dig("data", "plan", "masteryScore")).to eq("66")
+    end
+
+    it "floors the 100+99 tie to \"99\" (rollup 100 ⇔ every node mastered, ADR-0001 amendment 2026-11-04)" do
+      user, token = user_with_token("rollup-tie@example.com")
+      plan = create(:study_plan, user: user)
+      full = create(:knowledge_node, user: user, plan: plan, title: "full", order: 0)
+      capped = create(:knowledge_node, user: user, plan: plan, title: "capped", order: 1)
+      record_outcomes(full, %w[correct correct correct correct correct]) # → 100
+      record_outcomes(capped, %w[correct correct]) # → 99
+
+      result = rollup_query(token, plan.id)
+
+      # floor((100 + 99) / 2) = floor(99.5) = 99 — half-up would have read 100
+      # on an unverified node; the golden vectors pin this exact tie.
+      expect(result.dig("data", "plan", "masteryScore")).to eq("99")
+    end
+  end
+
   private
 
-  # The score-bearing plan detail read the node specs share (the plan's own
-  # masteryScore joins the selection with the rollup specs below).
+  # The rollup read (the plan's own masteryScore).
+  def rollup_query(token, plan_id)
+    graphql(
+      "query($id: String!) { plan(id: $id) { masteryScore nodes { masteryScore } } }",
+      variables: { id: plan_id },
+      token: token
+    )
+  end
+
+  # The score-bearing plan detail read the node specs share.
   def score_query(token, plan_id)
     graphql(
       "query($id: String!) { plan(id: $id) { nodes { id masteryScore state } } }",
