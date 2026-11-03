@@ -26,11 +26,19 @@ require 'rspec/rails'
 # Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
 
 RSpec.configure do |config|
-  # The scaffold specs are DB-free (no models yet); turn off ActiveRecord
-  # support entirely so RSpec never needs a database connection. Transactional
-  # fixtures stay off too: Rails' shared-connection-pool setup would otherwise
-  # open a database connection in every request-spec example.
-  config.use_active_record = false
+  # The scaffold specs are DB-free (no models yet, no fixtures), so keep
+  # transactional fixtures off: that is what stops Rails from opening a
+  # database connection in every example (TestFixtures#setup_transactional_fixtures
+  # pins a pooled connection when use_transactional_tests is true).
+  #
+  # Note: do NOT set `config.use_active_record = false` here. In rspec-rails
+  # 8.0.x, that setting makes FixtureSupport skip the `included do` block that
+  # copies `use_transactional_fixtures` onto example groups — groups then keep
+  # ActiveRecord's default `use_transactional_tests = true` and pin a DB
+  # connection anyway, just through a path the flag can't reach (observed
+  # 2026-11-03: `ActiveRecord::ConnectionAdapters::ConnectionPool#pin_connection!`
+  # firing under `--no-deps` gate runs with no postgres). With no models and no
+  # fixtures, leaving AR support on costs nothing and the flag below lands.
   config.use_transactional_fixtures = false
 
   # RSpec Rails uses metadata to mix in different behaviours to your tests,
