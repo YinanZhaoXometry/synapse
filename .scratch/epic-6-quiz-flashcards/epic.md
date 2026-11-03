@@ -59,3 +59,79 @@ exactly per ADR-0001 (window 5, cap-99 below the 3-evidence gate, mastered =
 `node_modules/.bin` binaries) · frozen scaffold context untouched · every
 ticket cites its AD ids · all new surfaces verified in light + dark ×
 sunset/twilight/aurora × desktop/tablet/mobile, i18n zh/en parity throughout.
+
+## Deferred follow-ups (Phase 2 + backlog)
+
+Consolidated at T6 from the T1–T5 implementation notes and [spec.md](spec.md)
+Out of Scope (the governing record — nothing here is a regression or a cut
+corner; every item was a decision).
+
+**Quiz**
+- **Quiz hub (FR-42):** session history listing + past-quiz retake. Needs
+  persisted grading views first (T2 note): completed results are not
+  reconstructible after a reload — grading rationale/citation are not persisted
+  and the machine refuses non-active hydration, so a completed `?session`
+  shows the honest "already complete" card.
+- **Multi-select choice questions** (spec decision 2's deliberate Phase-1 cut;
+  single-select is the governing reading, the entity contract and keyboard map
+  are single-select shaped).
+- **Node-level quiz scope** (UX spine marks Phase 2; the launcher scopes whole
+  plan / one material; tasks are trivially their single material).
+- **Mistakes Notebook surface (FR-23)** — entries already auto-log silently
+  beneath it (the evidence mutation's atomic tail); the surface reads the
+  existing store. **Adaptive weak-spot targeting (FR-21)** and **Quick Test
+  (FR-14)** stay out per spec.
+- **Generator improvement (T2 seam quirk — honest but suboptimal):** the
+  simulated generator's node round-robin runs over ALL candidate sections
+  before the mode filter, so choice-only runs attribute every question to the
+  same node(s). Round-robin after the mode filter (or per-kind) distributes
+  concentration runs across nodes. Attribution stays honest either way; Mix
+  demos already distribute.
+- **Hint budgeting / timer / gamified quiz mechanics** beyond the UX spine
+  (deliberately out).
+
+**Flashcards**
+- **SRS / re-queue scheduling (FR-24):** zero scheduling shipped; the persisted
+  难 / 中 / 易 self-ratings are the future scheduling input.
+- **Flashcards hub (FR-41)** — and with it the post-hoc-materials gap (T3
+  note): materials attached to a plan AFTER its first generation get no cards
+  until Phase 2 (a 补充生成 pass or the hub's per-material generation).
+- **Regeneration / deep-linked retake polish** (T3 policy: generation is
+  offered only when the plan has no cards; 「继续学习」 opens the existing deck;
+  再学一轮 restarts the same queue).
+- **Scaffold `/flashcards` demo re-point** (spec decision 10 keeps it
+  untouched — it writes no mastery lies).
+
+**Demo + polish**
+- **`/quiz` terminal-card deep-link** (T5 note): after a reload the completed
+  session's card offers 重新出题 → the picker; deep-linking back to the SAME
+  material was deferred.
+- **Dialog-launch resume-note polish (T4 note)** — resolved in T6: a
+  per-tab sessionStorage marker (`synapse-quiz-fresh-launch`, written by
+  QuizLauncher, consumed once by the session shell) suppresses the 「已恢复」
+  note on deliberate dialog launches; genuine reloads keep it.
+
+## Closure skeleton (final numbers + smoke filled by the orchestrator)
+
+Shipped T1–T6 (`7782b24` → T6's fix commit). Verification at close:
+- Gates: `tsc -b` 0 errors · eslint 0 errors (10 pre-existing scaffold
+  warnings) · vitest **<N>/<N> tests, <M> files** (T5 left 391/391; T6 adds
+  2 — the plan-loop retake chain walk and the task dialog-launch marker test).
+- Walks (the epic's number-truth anchors):
+  - `src/test/plan-quiz-loop.integration.test.tsx` — Plan Home dialog → mix
+    run → atomic evidence → exact ADR-0001 numbers (round 75%, n1 99 capped,
+    n2 50, cap note ×2) → reload honesty; plus the T6 retake chain: 99 capped
+    → 100 mastered at the 3-record gate → the last-5 window evicts
+    (100→60 / 75→50) → 4 auto-logged mistakes.
+  - `src/test/task-quiz-loop.integration.test.tsx` — Task Home dialog → choice
+    run → evidence on the task's node only → tasks-key invalidation → Task
+    Home ring + Plans Home task section fresh → sibling plan untouched →
+    flashcards leg (ratings persist, zero evidence).
+- Sweeps (T6, code level): semantic tokens clean (only the scaffold-accepted
+  `text-white`-on-`bg-gradient-hero` convention) · i18n zh/en parity tests
+  green + no hardcoded user-facing strings · sonner-only toasts · keyboard
+  maps wired (quiz 1–4/Enter/Esc, flashcards Space/←→/Esc) · responsive
+  ladder present on every surface (max-w containers, flex-wrap footers,
+  sm:/md:/lg: breakpoints).
+- Browser smoke 双主题双视口 + ticket/epic `Status:` flips: **orchestrator,
+  after review**.
