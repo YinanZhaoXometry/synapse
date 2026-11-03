@@ -38,10 +38,20 @@ module Types
           null: false,
           description: "The plan's node tree (the Phase-1 nodeIds array, realized as the association)."
 
+    field :materials, [ Types::MaterialType ],
+          null: false,
+          description: "The plan's attached materials (the Phase-1 materialIds array, realized as the association — deferred from ticket 01 to the materials ticket)."
+
     # The listNodesByPlan mirror (frontend/src/data/plan-repository.ts):
     # order is the sort key, verbatim.
     def nodes
       object.knowledge_nodes.order(:order)
+    end
+
+    # The plan-scoped material listing (frontend/src/data/material-repository.ts
+    # listMaterialsByPlan), in attach order.
+    def materials
+      object.materials.order(:created_at)
     end
   end
 end
