@@ -62,7 +62,7 @@ After epic 1 lands, epics 2–6 can run two lanes in parallel (that's what AD-2'
 
 **Definition of done (Phase-1 epic):** FR acceptance criteria pass · gates green (`npx tsc -b`, `npm run lint`, `npm run test` — AD-10) · grandfathered scaffold surfaces untouched unless the epic's FR re-points them · every ticket cites its AD ids.
 
-**Phase 2 is not planned yet.** The architecture spine's Deferred table is its parking lot; a row's "revisit when" trigger is what starts that epic's spec run. The hub stand-ins (`/quiz` `/flashcards` `/mistakes` `/planner` scaffold pages) stand until then.
+**Phase 2 is planned (2026-11-03).** The full board — 15 epics (00 monorepo through 14 small-tail), each with spec + tickets — lives under `.scratch/phase-2/`, indexed by [`.scratch/phase-2/roadmap.md`](../../.scratch/phase-2/roadmap.md) (dependency graph, parallel lanes, owner-side windows, kickoff checklist). The spine's Deferred table remains the trigger registry for anything *not* on the board; the hub stand-ins (`/quiz` `/flashcards` `/mistakes` `/planner` scaffold pages) stand until epic-09 re-points them. Feature epics (09–14) carry a **delta-grill at kickoff** line — a light re-validation of their specs' open assumptions, honoring one-spec-chain-per-epic without re-running the pipeline.
 
 ## Rules
 
