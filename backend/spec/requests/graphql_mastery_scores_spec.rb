@@ -192,7 +192,57 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
     end
   end
 
+  describe "a section claim never moves a score (FR-15, server-side)" do
+    it "leaves node, plan, and streak byte-identical across a claimSection write (a claim is never evidence)" do
+      user, token = user_with_token("claim-never@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan)
+      create(:material, user: user, plan: plan)
+      record_outcomes(node, %w[correct correct correct correct correct])
+      before = mastery_snapshot(token, plan.id)
+
+      claim = graphql(
+        <<~GRAPHQL, token: token
+          mutation {
+            claimSection(input: { materialId: "#{user.materials.first.id}", sectionId: "sec-1" }) {
+              sectionMarking { id sectionId }
+            }
+          }
+        GRAPHQL
+      )
+
+      expect(claim.dig("data", "claimSection", "sectionMarking", "sectionId")).to eq("sec-1")
+      expect(mastery_snapshot(token, plan.id)).to eq(before)
+      expect(user.evidence_records.count).to eq(5)
+    end
+  end
+
+  describe "cross-user scoping of the score-bearing reads (AD-13)" do
+    it "answers NOT_FOUND for a foreign plan id even with score fields selected (uniform NOT_FOUND, delta 2)" do
+      owner, _owner_token = user_with_token("score-owner@example.com")
+      _attacker, attacker_token = user_with_token("score-attacker@example.com")
+      plan = create(:study_plan, user: owner)
+      node = create(:knowledge_node, user: owner, plan: plan)
+      record_outcomes(node, %w[correct correct correct])
+
+      result = rollup_query(attacker_token, plan.id)
+
+      expect(result.dig("data", "plan")).to be_nil
+      expect(error_code(result)).to eq("NOT_FOUND")
+    end
+  end
+
   private
+
+  # Everything the FR-15 pin compares: the node's score + state, the plan
+  # rollup, the streak — one hash, one deep equality.
+  def mastery_snapshot(token, plan_id)
+    {
+      node: score_query(token, plan_id).dig("data", "plan", "nodes", 0).slice("masteryScore", "state"),
+      plan_rollup: rollup_query(token, plan_id).dig("data", "plan", "masteryScore"),
+      streak: graphql("query { streak }", token: token).dig("data", "streak")
+    }
+  end
 
   # The rollup read (the plan's own masteryScore).
   def rollup_query(token, plan_id)
