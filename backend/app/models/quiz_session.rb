@@ -8,7 +8,11 @@ class QuizSession < ApplicationRecord
   belongs_to :plan, class_name: "StudyPlan", optional: true
   belongs_to :task, class_name: "StudyTask", optional: true
 
-  has_many :questions
+  # The child table's foreign key is `session_id` (t.references :session),
+  # not the `quiz_session_id` a bare has_many would infer — declared
+  # explicitly per the epic P2-2 review's association-integrity sweep (the
+  # same landmine class StudyPlan's has_many hit in ticket 03).
+  has_many :questions, foreign_key: :session_id
 
   enum :mode, { open: "open", choice: "choice", mix: "mix" }, scopes: false
   enum :status, { active: "active", completed: "completed", abandoned: "abandoned" },

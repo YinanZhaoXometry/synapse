@@ -8,5 +8,9 @@ class KnowledgeNode < ApplicationRecord
   belongs_to :plan, class_name: "StudyPlan", optional: true
   belongs_to :task, class_name: "StudyTask", optional: true
 
-  has_many :evidence_records
+  # The child table's foreign key is `node_id` (t.references :node), not the
+  # `knowledge_node_id` a bare has_many would infer — declared explicitly per
+  # the epic P2-2 review's association-integrity sweep (the same landmine
+  # class StudyPlan's has_many hit in ticket 03).
+  has_many :evidence_records, foreign_key: :node_id
 end
