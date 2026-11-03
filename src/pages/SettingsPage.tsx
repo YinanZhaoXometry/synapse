@@ -14,7 +14,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { resetDb } from "@/data";
+import { AppError, resetDb } from "@/data";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
@@ -203,11 +203,24 @@ export default function SettingsPage() {
                 <AlertDialogAction
                   className={PRIMARY_CTA}
                   onClick={() => {
-                    resetAll();
                     // AD-3/4: the real store dies through the adapter's public
                     // surface — the whole versioned document resets to empty;
-                    // never a page-level localStorage.removeItem here.
-                    resetDb();
+                    // never a page-level localStorage.removeItem here. resetDb
+                    // runs FIRST so a failed write (AppError, e.g.
+                    // STORAGE_WRITE_FAILED on quota) aborts the whole reset
+                    // with the store's typed error toast — nothing resets and
+                    // no reload fakes a success (never silent, never fake).
+                    try {
+                      resetDb();
+                    } catch (e) {
+                      if (e instanceof AppError) {
+                        toast.error(t(e.messageKey ?? "errors.storageWriteFailed"));
+                      } else {
+                        throw e;
+                      }
+                      return;
+                    }
+                    resetAll();
                     toast(t("common.resetDone"));
                     // Fresh reload into the first-run entry state: `/` re-runs
                     // the entry gate (onboarding flag is now false) with every

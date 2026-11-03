@@ -2,6 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { toast } from "sonner";
+
+// Toasts are asserted directly (the real sonner Toaster is not mounted here).
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+}));
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -54,6 +60,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   Object.defineProperty(window, "location", {
     configurable: true,
     writable: true,
@@ -162,6 +169,33 @@ describe("Settings reset covers the plan-first store (AD-4)", () => {
 
     expect(loadDb().plans).toHaveLength(1);
     expect(loadDb().onboardingComplete).toBe(true);
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it("a failed store write aborts the reset honestly — error toast, no reload, nothing resets", () => {
+    seedStudyData();
+    renderSettingsPage();
+
+    // Quota-exceeded on write: resetDb throws AppError STORAGE_WRITE_FAILED
+    // (modeled in store.test.ts) before anything else can reset.
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: zh("settings.reset") }));
+    fireEvent.click(screen.getByRole("button", { name: zh("common.confirm") }));
+
+    // The failure is named with the store's typed messageKey — never a fake success.
+    expect(toast.error).toHaveBeenCalledWith(zh("errors.storageWriteFailed"));
+    expect(toast).not.toHaveBeenCalledWith(zh("common.resetDone"));
+
+    // Nothing resets: the document keeps its content and the demo store's
+    // resetTick is unchanged (resetAll never ran).
+    expect(loadDb().plans).toHaveLength(1);
+    expect(loadDb().onboardingComplete).toBe(true);
+    expect(screen.getByTestId("progress-probe").getAttribute("data-reset-tick")).toBe("0");
+
+    // And no reload into the first-run state.
     expect(replaceMock).not.toHaveBeenCalled();
   });
 });

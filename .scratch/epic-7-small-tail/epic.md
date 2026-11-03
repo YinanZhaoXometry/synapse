@@ -1,6 +1,6 @@
 # Epic 7 — Small tail: deploy, store reset, plan-first sidebar ordering (FR-35 · FR-36)
 
-Status: ready-for-agent (T1/T2) — T3 blocked
+Status: ready-for-human (T1 repo-side done — owner Pages-dashboard setup pending; T2/T3 implemented, T3 pending the orchestrator's post-merge visual pass)
 Milestone: Phase 1 — Nov 6 core
 
 ## Parent
@@ -17,7 +17,7 @@ Phase-1 slicing table row 7 ([workflow.md](../../docs/agents/workflow.md):57). S
 | Settings store reset | weak — none blocking | do now; re-verify key inventory at epic close (epic-5/6 add repos under the same `synapse-db:v1` document, which the wholesale clear already covers) | [02-settings-store-reset.md](issues/02-settings-store-reset.md) |
 | FR-36 sidebar plan-first ordering (final pass) | **epic-5 tasks + epic-6 quiz/flashcards** | both epics `done` — task routes and real in-flow quiz/flashcard surfaces must exist before the sidebar's final ordering and the FR-36 consequences can be verified truthfully | [03-sidebar-plan-first-ordering.md](issues/03-sidebar-plan-first-ordering.md) |
 
-Cross-epic `Blocked by:` edges reference directories, not local ticket numbers — the frontier scan can't resolve them automatically; treat [03](issues/03-sidebar-plan-first-ordering.md) as startable only when `.scratch/epic-5-tasks/` (exists, `f08badd`, ready-for-agent) and `.scratch/epic-6-quiz-flashcards/` (grill pending, dir not yet created) epic docs both read `Status: done`.
+Cross-epic `Blocked by:` edges reference directories, not local ticket numbers — the frontier scan can't resolve them automatically; the epic docs' `Status:` must be checked manually. **Both edges are cleared (verified 2026-11-03):** `.scratch/epic-5-tasks/` and `.scratch/epic-6-quiz-flashcards/` both read `Status: done`, so [03](issues/03-sidebar-plan-first-ordering.md) started and is implemented (final visual pass pending).
 
 ## Slices
 
