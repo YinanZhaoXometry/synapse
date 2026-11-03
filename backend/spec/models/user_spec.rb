@@ -17,4 +17,14 @@ RSpec.describe User, type: :model do
     duplicate = described_class.new(email: "user-spec-c@example.com", password_digest: "digest")
     expect(duplicate).not_to be_valid
   end
+
+  describe "has_secure_password (AD-15)" do
+    it "digests an assigned password and authenticates against it" do
+      user = described_class.create!(email: "pw-spec@example.com", password: "password123")
+
+      expect(user.password_digest).to be_present
+      expect(user.authenticate("password123")).to eq(user)
+      expect(user.authenticate("password124")).to be(false)
+    end
+  end
 end

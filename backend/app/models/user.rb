@@ -1,9 +1,12 @@
 # frozen_string_literal: true
 
-# AD-15 (structural): the scoping root — every user-owned row carries user_id
-# (AD-13). Auth logic (bcrypt, JWT) lands with its own epic; only the column
-# shape exists here.
+# AD-15: the scoping root — every user-owned row carries user_id (AD-13).
+# has_secure_password lands with the auth epic (P2-2 ticket 01): bcrypt
+# digesting + `authenticate` here; all credential validation (email shape,
+# password minimum) stays command-side per epic-01's minimal-model posture.
 class User < ApplicationRecord
+  has_secure_password
+
   has_many :study_plans
   has_many :materials
   has_many :knowledge_nodes
