@@ -1,6 +1,6 @@
 # Epic 6 — Quiz + Flashcards, in-flow generation & evidence (FR-18/19)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 
 ## Parent
@@ -135,3 +135,18 @@ Shipped T1–T6 (`7782b24` → T6's fix commit). Verification at close:
   sm:/md:/lg: breakpoints).
 - Browser smoke 双主题双视口 + ticket/epic `Status:` flips: **orchestrator,
   after review**.
+
+## Closed — 2026-11-03
+
+All six tickets done. Two-axis review PASS-WITH-FIXES (0P0/0P1/3P2, all fixed
+`f73f7d8`) · browser smoke 11 checks green (quiz loop, evidence honesty,
+rollup freshness, flashcards, task twins, /quiz demo, themes, mobile) · gates
+green via direct binaries: tsc 0 errors, eslint 0 errors (10 pre-existing),
+vitest **400/400**. Branch `epic/6-quiz-flashcards` FF-merged to main and
+pushed (epic-3/5 precedent). FR-18/19 in-flow for plans AND tasks; FR-36
+carve-out complete — no fake evidence claim remains anywhere.
+
+**Phase-2 pointers carried in Deferred follow-ups above**; note for the AD-16
+AI-seam cutover checklist: open-answer grading failure now has a user-facing
+recovery path (`releaseGrading`), and the seam's rejection contract should be
+kept (the driver relies on it).
