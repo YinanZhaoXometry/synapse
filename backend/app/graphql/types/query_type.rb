@@ -9,7 +9,8 @@ module Types
     # delta 2), so the reader cannot name a row that is not theirs.
     # Auth-guarded per delta 8 via CurrentUserGuard (the same seam the
     # mutations use). The Plans reads landed with epic P2-3 ticket 01; the
-    # Tasks/Materials reads with ticket 02.
+    # Tasks/Materials reads with ticket 02; the quiz/evidence/flashcard
+    # reads with ticket 03.
     include CurrentUserGuard
 
     field :health, String, null: false,
@@ -88,6 +89,50 @@ module Types
       current_user!.materials.find_by(id: id) || not_found("material not found")
     end
 
+    field :quiz_session, Types::QuizSessionType, null: true,
+      description: "One quiz session by id — detail with its node-attributed questions in generation order (the getQuizSession + listQuestionsBySession mirrors). A foreign or unknown id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :id, String, required: true, description: "The session's uuid."
+    end
+
+    def quiz_session(id:)
+      return not_found("quiz session not found") unless id.match?(Accounts::UUID_REGEX)
+
+      current_user!.quiz_sessions.find_by(id: id) || not_found("quiz session not found")
+    end
+
+    field :evidence, [ Types::EvidenceRecordType ], null: false,
+      description: "The current user's evidence records — all of them (the listEvidence mirror), or one node's when scoped by nodeId (the listEvidenceByNode mirror). A plain list (AD-12: evidence history is the Relay-connection candidate, but nothing paginates yet)." do
+      argument :node_id, String, required: false, description: "Scope to one node's evidence. Unknown or foreign ids are NOT_FOUND."
+    end
+
+    def evidence(node_id: nil)
+      return current_user!.evidence_records.order(:created_at) unless node_id
+
+      current_user!.evidence_records.where(node_id: scoped_node(node_id).id).order(:created_at)
+    end
+
+    field :flashcards, [ Types::FlashcardType ], null: false,
+      description: "The current user's flashcards — scoped to one material (the listFlashcardsByMaterial mirror) or one plan (the listFlashcardsByPlan mirror, through the plan's materials). The Phase-1 repo exposes no unscoped list, so exactly one scope is required." do
+      argument :material_id, String, required: false, description: "Scope to a material's deck."
+      argument :plan_id, String, required: false, description: "Scope to a plan's decks (through the plan's materials)."
+    end
+
+    def flashcards(material_id: nil, plan_id: nil)
+      if material_id && plan_id
+        validation_failed("scope a flashcard list by material or plan, not both", :materialId)
+      end
+      unless material_id || plan_id
+        validation_failed("scope a flashcard list by material or plan (no unscoped list exists — the Phase-1 mirror)", :materialId)
+      end
+
+      if material_id
+        current_user!.flashcards.where(material_id: scoped_material(material_id).id).order(:created_at)
+      else
+        current_user!.flashcards.joins(:material).where(materials: { plan_id: scoped_plan(plan_id).id })
+                                .order(:created_at)
+      end
+    end
+
     private
 
     # The scope ids are ownership-checked addresses (delta 2): unknown,
@@ -96,6 +141,18 @@ module Types
       return not_found("plan not found") unless plan_id.match?(Accounts::UUID_REGEX)
 
       current_user!.study_plans.find_by(id: plan_id) || not_found("plan not found")
+    end
+
+    def scoped_node(node_id)
+      return not_found("node not found") unless node_id.match?(Accounts::UUID_REGEX)
+
+      current_user!.knowledge_nodes.find_by(id: node_id) || not_found("node not found")
+    end
+
+    def scoped_material(material_id)
+      return not_found("material not found") unless material_id.match?(Accounts::UUID_REGEX)
+
+      current_user!.materials.find_by(id: material_id) || not_found("material not found")
     end
 
     def scoped_task(task_id)
