@@ -137,17 +137,33 @@ describe("rollups (AD-6: domain owns every evidence-derived rollup)", () => {
   it("rollup reaches 100 only when EVERY node is mastered (readiness contract)", () => {
     const good = [1, 2, 3].map((i) => ev("correct", `2026-11-0${i}T10:00:00Z`));
     expect(computePlanRollup({ a: good, b: [...good], c: [...good] })).toBe(100);
-    expect(computePlanRollup({ a: good, b: [...good], c: [] })).toBe(67); // one uncovered caps it
+    // ADR-0001 amendment 2026-11-04: the rollup mean FLOORS, so (100+100+0)/3 =
+    // 66.67 → 66 (half-up used to round it to 67). One uncovered node now holds
+    // the plan strictly below the mastereds' mean as well as below 100.
+    expect(computePlanRollup({ a: good, b: [...good], c: [] })).toBe(66);
   });
 
-  it("rollup rounds the mean of node scores", () => {
+  it("a single unverified 99-node holds the plan below 100 (floored tie, ADR-0001 amendment 2026-11-04)", () => {
+    const good = [1, 2, 3].map((i) => ev("correct", `2026-11-0${i}T10:00:00Z`));
+    const perfectUnverified = [
+      ev("correct", "2026-11-01T10:00:00Z"),
+      ev("correct", "2026-11-02T10:00:00Z"),
+    ]; // gate unmet → capped 99, partial
+    // (100 + 99) / 2 = 99.5 — half-up rounded the tie UP to 100 (the golden
+    // vectors' flagged finding, ticket 01); the floored rollup keeps it at 99,
+    // restoring "100% only when every node is mastered".
+    expect(getNodeState(perfectUnverified)).toBe("partial");
+    expect(computePlanRollup({ a: good, b: perfectUnverified })).toBe(99);
+  });
+
+  it("rollup floors the mean of node scores (one rounding, once)", () => {
     const good = [1, 2, 3].map((i) => ev("correct", `2026-11-0${i}T10:00:00Z`));
     const half = [
       ev("correct", "2026-11-01T10:00:00Z"),
       ev("partial", "2026-11-02T10:00:00Z"),
       ev("wrong", "2026-11-03T10:00:00Z"),
     ];
-    // (100 + 100 + 50) / 3 = 83.33 → 83
+    // (100 + 100 + 50) / 3 = 83.33 → 83 (identical under half-up and floor)
     expect(computePlanRollup({ a: good, b: [...good], c: half })).toBe(83);
   });
 

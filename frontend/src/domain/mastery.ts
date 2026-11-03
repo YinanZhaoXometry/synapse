@@ -61,14 +61,19 @@ export function summarizeNodes(evidenceByNode: Record<string, EvidenceRecord[]>)
 }
 
 /**
- * Plan rollup (AD-6): mean of node scores, uncovered nodes counting 0.
- * 100% only when every node is mastered — the readiness display contract (SM-C2).
+ * Plan rollup (AD-6): mean of node scores, uncovered nodes counting 0 — FLOORED
+ * to the whole percent (ADR-0001 amendment 2026-11-04). The golden vectors caught
+ * half-up's tie breaking the readiness invariant: Math.round((100+99)/2) = 100,
+ * so one unverified 99-node could display a 100% plan (and (n·100−1)/n ≥ 99.5 for
+ * every plan size ≥ 2). Floor makes 100 arithmetically reachable only when every
+ * node scores 100 (⇔ every node mastered) — one rounding rule, monotone, no
+ * all-mastered special case. Node-level rounding is unchanged (half-up, above).
  */
 export function computePlanRollup(evidenceByNode: Record<string, EvidenceRecord[]>): number {
   const summaries = summarizeNodes(evidenceByNode);
   if (summaries.length === 0) return 0;
   const total = summaries.reduce((sum, n) => sum + n.score, 0);
-  return Math.round(total / summaries.length);
+  return Math.floor(total / summaries.length);
 }
 
 /**

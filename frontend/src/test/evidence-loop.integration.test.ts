@@ -88,7 +88,8 @@ describe("the evidence loop, end to end (plan → material → quiz → evidence
     // 5. mastery per ADR-0001 — worked example (8 questions round-robin → A:4, B:4):
     //    A: 4 corrects → 100, gate met → mastered
     //    B: correct+partial+forfeit+correct → (1+0.5+0+1)/4 = 63, gate met → partial
-    //    rollup = round((100+63)/2) = 82 ; streak = today = 1
+    //    rollup = floor((100+63)/2) = 81 ; streak = today = 1
+    //    (floor per ADR-0001 amendment 2026-11-04; half-up used to read 82)
     const evA = evidence.filter((e) => e.nodeId === nodeA.id);
     const evB = evidence.filter((e) => e.nodeId === nodeB.id);
     expect(evA).toHaveLength(4);
@@ -97,7 +98,7 @@ describe("the evidence loop, end to end (plan → material → quiz → evidence
     expect(getNodeState(evA)).toBe("mastered");
     expect(computeNodeScore(evB)).toBe(63);
     expect(getNodeState(evB)).toBe("partial");
-    expect(computePlanRollup({ [nodeA.id]: evA, [nodeB.id]: evB })).toBe(82);
+    expect(computePlanRollup({ [nodeA.id]: evA, [nodeB.id]: evB })).toBe(81);
     expect(computeStreak(evidence, new Date())).toBe(1);
 
     // 6. mistakes from the same pass: the forfeit logged with its source
