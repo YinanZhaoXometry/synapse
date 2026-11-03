@@ -28,6 +28,13 @@ RSpec.describe Flashcards::CreateFlashcardsCommand do
     )
   end
 
+  # The association proxy class the command's batch create runs through —
+  # the deterministic race seam (the generated constant is private; the
+  # spec reaches it explicitly).
+  def card_proxy
+    Flashcard.const_get(:ActiveRecord_Associations_CollectionProxy)
+  end
+
   describe ".call" do
     it "creates the deck on the material in one transaction, difficulty unrated" do
       result = call
@@ -149,6 +156,61 @@ RSpec.describe Flashcards::CreateFlashcardsCommand do
         malformed = call(node_id: "garbage")
         expect(malformed.failure?).to be(true)
         expect(malformed.failure.code).to eq(:NOT_FOUND)
+      end
+      expect(user.flashcards.count).to eq(0)
+    end
+
+    # The PK race windows below are exercised deterministically (the epic-02
+    # backstop-stub precedent): the batch create raises
+    # ActiveRecord::RecordNotUnique once, simulating the concurrent twin
+    # request that won the uuid between the pre-check and the INSERT. The
+    # rescue must answer the documented semantics — replay → Success via the
+    # retry loop, foreign uuid → VALIDATION_FAILED — never a NameError (the
+    # rescue's old `cards_attrs` reference crashed exactly here) or INTERNAL.
+    it "settles a pk race won by this user: the retry loop re-runs the batch to Success" do
+      raced = false
+      allow_any_instance_of(card_proxy).to receive(:create!).and_wrap_original do |orig, *args, &block|
+        if raced
+          orig.call(*args, &block)
+        else
+          raced = true
+          raise ActiveRecord::RecordNotUnique, "simulated pk race — the twin request won"
+        end
+      end
+
+      result = call
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(result.value![:cards].map(&:id)).to eq([ card_uuid, second_uuid ])
+        expect(user.flashcards.count).to eq(2)
+      end
+    end
+
+    it "settles a pk race won by a foreign uuid: VALIDATION_FAILED, not NameError or INTERNAL" do
+      # The winner is another user's card (the committed twin). It must be
+      # invisible to every pre-INSERT ownership check and visible to the
+      # rescue's re-check — exactly what the check-vs-INSERT window does.
+      create(:flashcard, id: card_uuid, user: create(:user))
+      raced = false
+      allow_any_instance_of(card_proxy).to receive(:create!).and_wrap_original do |orig, *args, &block|
+        if raced
+          orig.call(*args, &block)
+        else
+          raced = true
+          raise ActiveRecord::RecordNotUnique, "simulated pk race — the foreign twin won"
+        end
+      end
+      allow(Flashcard).to receive(:exists?).and_wrap_original do |orig, *args, &block|
+        raced ? orig.call(*args, &block) : false
+      end
+
+      result = call
+
+      aggregate_failures do
+        expect(result.failure?).to be(true)
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:cards)
       end
       expect(user.flashcards.count).to eq(0)
     end
