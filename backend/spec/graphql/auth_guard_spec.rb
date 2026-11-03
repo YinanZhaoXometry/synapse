@@ -80,6 +80,17 @@ RSpec.describe "auth guard on Mutations::BaseMutation" do
     expect(result.dig("errors", 0, "extensions", "code")).to eq("UNAUTHORIZED")
   end
 
+  # P2-6: current_user!'s error payload is now built as a typed
+  # ApplicationErrors::Failure and presented through the epic-01
+  # ErrorPresenter (one payload-construction site). This pins the wire shape
+  # through that path — the refactor must be byte-equivalent on the wire.
+  it "keeps the guard's exact wire payload: message + extensions.code" do
+    result = execute_probe(nil)
+
+    expect(result.dig("errors", 0, "message")).to eq("authentication required")
+    expect(result.dig("errors", 0, "extensions")).to eq({ "code" => "UNAUTHORIZED" })
+  end
+
   it "yields UNAUTHORIZED for a garbage token" do
     result = execute_probe("Bearer not-a-token")
 
