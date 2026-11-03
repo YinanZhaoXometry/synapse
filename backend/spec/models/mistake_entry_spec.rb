@@ -6,7 +6,11 @@ RSpec.describe MistakeEntry, type: :model do
   let(:user) { User.create!(email: "mistake-entry-spec@example.com", password_digest: "digest") }
   let(:node) { KnowledgeNode.create!(user: user, title: "Mistake node", order: 0) }
   let(:material) { Material.create!(user: user, title: "Mistake source", kind: "pdf", size_bytes: 8192) }
-  let(:session) { QuizSession.create!(user: user, mode: "choice") }
+  # Exactly one of plan_id/task_id is DB-enforced (quiz_sessions
+  # exactly_one_owner_check) — attach a plan for the raw create here.
+  let(:session) do
+    QuizSession.create!(user: user, plan: StudyPlan.create!(user: user, topic: "Mistake plan"), mode: "choice")
+  end
   let(:question) do
     Question.create!(
       user: user, session: session, node: node, kind: "choice",

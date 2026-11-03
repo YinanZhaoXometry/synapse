@@ -4,7 +4,11 @@ require "rails_helper"
 
 RSpec.describe Question, type: :model do
   let(:user) { User.create!(email: "question-spec@example.com", password_digest: "digest") }
-  let(:session) { QuizSession.create!(user: user, mode: "open") }
+  # Exactly one of plan_id/task_id is DB-enforced (quiz_sessions
+  # exactly_one_owner_check) — attach a plan for the raw create here.
+  let(:session) do
+    QuizSession.create!(user: user, plan: StudyPlan.create!(user: user, topic: "Question plan"), mode: "open")
+  end
   let(:node) { KnowledgeNode.create!(user: user, title: "Attribution node", order: 0) }
   let(:source_material) { Material.create!(user: user, title: "Source text", kind: "markdown", size_bytes: 512) }
 
