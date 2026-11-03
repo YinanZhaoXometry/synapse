@@ -68,11 +68,22 @@ module Materials
       )
       Success(material: material)
     rescue ActiveRecord::RecordNotUnique
-      # The PK race window between the pre-check and the INSERT (same
-      # backstop shape as Plans::PlanCreation's): whoever won the race is
-      # either this user (replay → Success) or not (ownership failure).
+      # Two distinct race candidates can land here (the epic P2-3 review,
+      # P2-1) — decided by re-lookup, never by trusting the exception (the
+      # Tasks::CreateTaskCommand rescue pattern):
+      # 1. the PK race between the pre-check and the INSERT: whoever won is
+      #    either this user (replay → Success) or another user (ownership
+      #    failure);
+      # 2. the materials.task_id unique-index race — a concurrent twin
+      #    tasking the same material won the back-fill between task_scope's
+      #    check and the INSERT → the task-conflict answer, not the
+      #    cross-user one.
       existing = current_user.materials.find_by(id: client_uuid)
-      existing ? Success(material: existing) : cross_user_uuid_failure
+      return Success(material: existing) if existing
+      return cross_user_uuid_failure if Material.exists?(id: client_uuid)
+
+      Failure(:VALIDATION_FAILED,
+              { message: "the task already studies another material", field: :taskId })
     end
 
     private

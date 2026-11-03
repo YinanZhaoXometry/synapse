@@ -31,6 +31,13 @@ RSpec.describe Materials::AttachMaterialCommand do
     )
   end
 
+  # The association proxy class the command's create runs through — the
+  # deterministic race seam (the generated constant is private; the spec
+  # reaches it explicitly).
+  def material_proxy
+    Material.const_get(:ActiveRecord_Associations_CollectionProxy)
+  end
+
   describe ".call" do
     it "attaches the material: metadata, sections, and the parse state derived per Phase-1" do
       result = call
@@ -232,6 +239,86 @@ RSpec.describe Materials::AttachMaterialCommand do
       expect(result.failure?).to be(true)
       expect(result.failure.code).to eq(:VALIDATION_FAILED)
       expect(user.materials.count).to eq(1) # only the factory's own material
+    end
+
+    # The two race candidates the RecordNotUnique rescue must disambiguate
+    # (the epic P2-3 review, P2-1): both are exercised deterministically by
+    # staging the winner's committed row at the moment the INSERT raises —
+    # the rescue must re-look-up and answer per the re-lookup, never per the
+    # exception (the Tasks::CreateTaskCommand pattern).
+    it "settles a pk race won by this user: the rescue replays to the winner's row" do
+      raced = false
+      allow_any_instance_of(material_proxy).to receive(:create!).and_wrap_original do |orig, *args, &block|
+        if raced
+          orig.call(*args, &block)
+        else
+          raced = true
+          # The same user's twin request commits first; our INSERT loses.
+          create(:material, id: client_uuid, user: user, title: "the twin's committed row")
+          raise ActiveRecord::RecordNotUnique, "simulated pk race — the twin request won"
+        end
+      end
+
+      result = call
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(result.value![:material].title).to eq("the twin's committed row")
+        expect(user.materials.where(id: client_uuid).count).to eq(1)
+      end
+    end
+
+    it "settles a pk race won by a foreign uuid: the rescue answers the ownership failure" do
+      raced = false
+      allow_any_instance_of(material_proxy).to receive(:create!).and_wrap_original do |orig, *args, &block|
+        if raced
+          orig.call(*args, &block)
+        else
+          raced = true
+          create(:material, id: client_uuid, user: create(:user), title: "the foreign twin's row")
+          raise ActiveRecord::RecordNotUnique, "simulated pk race — the foreign twin won"
+        end
+      end
+
+      result = call
+
+      aggregate_failures do
+        expect(result.failure?).to be(true)
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:clientUuid)
+      end
+      expect(user.materials.where(id: client_uuid).count).to eq(0)
+    end
+
+    it "settles a task-index race: the rescue answers the task conflict, not the cross-user framing" do
+      # The triangle without the back-fill — a task mid-creation: study_tasks
+      # rows exist but the unique materials.task_id back-fill is not yet
+      # visible, so task_scope's check passes. The twin's back-fill commits
+      # at the moment our INSERT raises → the unique-index race.
+      node = create(:knowledge_node, user: user)
+      raced_material = create(:material, user: user)
+      task = StudyTask.create!(id: SecureRandom.uuid, user: user, material: raced_material, node: node)
+
+      raced = false
+      allow_any_instance_of(material_proxy).to receive(:create!).and_wrap_original do |orig, *args, &block|
+        if raced
+          orig.call(*args, &block)
+        else
+          raced = true
+          raced_material.update!(task_id: task.id) # the twin's back-fill wins the index
+          raise ActiveRecord::RecordNotUnique, "simulated materials.task_id race"
+        end
+      end
+
+      result = call(task_id: task.id)
+
+      aggregate_failures do
+        expect(result.failure?).to be(true)
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:taskId)
+        expect(result.failure.context[:message]).to eq("the task already studies another material")
+      end
+      expect(user.materials.where(task_id: task.id).count).to eq(1) # only the twin's row
     end
   end
 end
