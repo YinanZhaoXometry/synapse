@@ -110,4 +110,85 @@ RSpec.describe Accounts::LoginRateLimiter do
       expect(attempt("reset@example.com")).to be(true)
     end
   end
+
+  # epic P2-2 review, finding P2-1: the store must not grow unbounded under
+  # an attacker cycling distinct emails, and the stale-window sweep must not
+  # walk the whole store on every attempt.
+  describe "MAX_KEYS cap — bounded memory under an email flood" do
+    it "stops recording new keys at the cap (shed) while tracked keys stay enforced" do
+      stub_const("Accounts::LoginRateLimiter::MAX_KEYS", 3)
+
+      threshold.times { attempt("tracked@example.com") } # tripped + tracked
+      attempt("flood1@example.com")
+      attempt("flood2@example.com")                      # the store is now at the cap: 3 keys
+      expect(described_class.send(:store).size).to eq(3)
+
+      # The flood cannot add a fourth key: every new email is admitted but
+      # NEVER recorded — it stays admitted no matter how many times it
+      # repeats (a recorded key would have tripped at the threshold's
+      # fourth attempt).
+      (threshold + 1).times do
+        expect(attempt("flood3@example.com")).to be(true)
+      end
+      expect(described_class.send(:store).size).to eq(3)
+
+      # Already-tracked emails are unaffected: exact counting + lockout hold.
+      expect(attempt("tracked@example.com")).to be(false)
+      expect(attempt("flood1@example.com", at: now + 1.second)).to be(true)
+    end
+
+    it "fails OPEN at the cap, not closed — a flood must not become a total login outage" do
+      stub_const("Accounts::LoginRateLimiter::MAX_KEYS", 3)
+
+      %w[flood1@example.com flood2@example.com flood3@example.com].each { |e| attempt(e) }
+
+      # The honest newcomer gets in at cap (denying untracked keys would let
+      # a forged-email flood convert memory pressure into a login outage).
+      expect(attempt("honest@example.com")).to be(true)
+    end
+
+    it "self-heals at the window rotation — shed keys age out and recording resumes" do
+      stub_const("Accounts::LoginRateLimiter::MAX_KEYS", 3)
+
+      %w[flood1@example.com flood2@example.com flood3@example.com].each { |e| attempt(e) }
+      expect(attempt("blocked-while-full@example.com")).to be(true) # shed, unrecorded
+
+      # Past the boundary the amortized sweep drops the stale buckets, the
+      # flood's keys age out, and tracking resumes for new emails.
+      fresh = "after-rotation@example.com"
+      threshold.times { |i| expect(attempt(fresh, at: now + window_seconds + i.seconds)).to be(true) }
+      expect(attempt(fresh, at: now + window_seconds)).to be(false)
+    end
+
+    it "bounds the real default cap — a 10k-email flood neither trips honest keys nor grows past MAX_KEYS" do
+      stub_const("Accounts::LoginRateLimiter::MAX_KEYS", 10_000)
+
+      10_000.times do |i|
+        expect(attempt("flood-#{i}@example.com")).to be(true)
+      end
+      # At cap exactly: the next distinct email is shed (admitted, unrecorded).
+      expect(attempt("overflow@example.com")).to be(true)
+      expect(described_class.send(:store).size).to eq(10_000)
+      # A tracked email keeps counting through the flood (1 recorded so far,
+      # threshold 3 here): the cap never disabled enforcement for the tracked.
+      expect(attempt("flood-0@example.com")).to be(true)
+      expect(attempt("flood-0@example.com")).to be(true)
+      expect(attempt("flood-0@example.com")).to be(false)
+    end
+  end
+
+  describe "amortized stale-window sweep (P2-1)" do
+    # `prune_stale_buckets!` is the full-store walk; the rotation marker
+    # guard around it is what makes it amortized. The pre-review limiter
+    # walked the store on EVERY attempt — this pins the new shape.
+    it "sweeps the store once per window index, not once per attempt" do
+      allow(described_class).to receive(:prune_stale_buckets!).and_call_original
+
+      (threshold * 5).times { attempt("amortized@example.com") }
+      expect(described_class).to have_received(:prune_stale_buckets!).exactly(1).time
+
+      attempt("amortized@example.com", at: now + window_seconds)
+      expect(described_class).to have_received(:prune_stale_buckets!).exactly(2).times
+    end
+  end
 end
