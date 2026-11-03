@@ -1,6 +1,6 @@
 # T1: Quiz session engine — state machine + evidence loop, headless (FR-18; AD-5/6; ADR-0001)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 Blocked by: — (prefactor; can start immediately)
 
@@ -27,10 +27,24 @@ seam and repository level, and nothing writes to the frozen scaffold context.
 
 ## Acceptance criteria
 
-- [ ] State machine transitions tested directly at the new seam: full generate → answer → submit/grade → forfeit → complete paths for choice, open, and mix runs.
-- [ ] Attempt gate enforced at the machine level: no reveal of answer, rationale, or verdict before submit or forfeit (asserted via machine outputs, not component internals).
-- [ ] Choice auto-grade maps correct → 1; open answers map through the AI seam's grading outcome (correct / partial / wrong) with rationale + source citation carried on the result; forfeit maps to 0 and is logged.
-- [ ] Every completed answer path lands exactly one EvidenceRecord with node attribution via the evidence mutation; wrong answers auto-produce mistake entries; the session completes atomically (prior art: foundation repository tests).
-- [ ] Mix mode interleaves open + choice in one session (the entity's mode field already carries it).
-- [ ] Abandoned is a reachable terminal state via the exit path; an abandoned session is not resumable.
-- [ ] No UI changes, no writes to the frozen scaffold progress context; gates green via direct `node_modules/.bin` binaries (`tsc -b`, eslint, `vitest run`).
+- [x] State machine transitions tested directly at the new seam: full generate → answer → submit/grade → forfeit → complete paths for choice, open, and mix runs.
+- [x] Attempt gate enforced at the machine level: no reveal of answer, rationale, or verdict before submit or forfeit (asserted via machine outputs, not component internals).
+- [x] Choice auto-grade maps correct → 1; open answers map through the AI seam's grading outcome (correct / partial / wrong) with rationale + source citation carried on the result; forfeit maps to 0 and is logged.
+- [x] Every completed answer path lands exactly one EvidenceRecord with node attribution via the evidence mutation; wrong answers auto-produce mistake entries; the session completes atomically (prior art: foundation repository tests).
+- [x] Mix mode interleaves open + choice in one session (the entity's mode field already carries it).
+- [x] Abandoned is a reachable terminal state via the exit path; an abandoned session is not resumable.
+- [x] No UI changes, no writes to the frozen scaffold progress context; gates green via direct `node_modules/.bin` binaries (`tsc -b`, eslint, `vitest run`).
+
+## Implementation notes (for downstream tickets)
+
+- Machine input is the persisted `Question[]` (post-`createQuizSession`), not raw
+  `GeneratedQuestion[]` — the repository assigns the ids `recordEvidence` validates;
+  attribution still flows solely from `GeneratedQuestion.nodeId` (AD-6).
+- **Hydration resumes at question 1**: per-question progress is not persisted (no
+  schema change), so a resumed active session honestly shows all questions pending.
+  T2's resumption UX must say so (not pretend mid-quiz restore).
+- Driver reads via repository (`getQuizSession` / `listQuestionsBySession` /
+  `getMaterial`), writes via query mutations; evidence lands exactly once on the
+  running→completed edge; abandon persists status and records no evidence.
+- Verified 2026-11-03: tsc 0 errors, eslint 0 errors (10 pre-existing scaffold
+  warnings), vitest 307/307 (24 new: 19 machine + 5 driver). Commit `7782b24`.
