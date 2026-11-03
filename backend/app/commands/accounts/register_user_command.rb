@@ -17,7 +17,7 @@ module Accounts
     option :password
 
     def call
-      normalized = email.to_s.downcase
+      normalized = Accounts.normalize_email(email)
 
       unless URI::MailTo::EMAIL_REGEXP.match?(normalized)
         return Failure(:VALIDATION_FAILED, { message: "email is invalid", field: :email })

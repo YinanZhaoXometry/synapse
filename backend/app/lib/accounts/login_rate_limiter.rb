@@ -31,7 +31,7 @@ module Accounts
       # a denied attempt is not recorded, so the lockout always ends exactly
       # at the window boundary, never extends.
       def attempt(email, now: Time.current, threshold: threshold_from_env, window_seconds: window_from_env)
-        key = email.to_s.downcase
+        key = Accounts.normalize_email(email)
         window = (now.to_i / window_seconds)
 
         mutex.synchronize do

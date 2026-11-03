@@ -93,7 +93,7 @@ module DemoSeed
     private
 
     def resolve_email!(provided)
-      resolve_credential!("DEMO_EMAIL", provided, DEFAULT_EMAIL).downcase
+      Accounts.normalize_email(resolve_credential!("DEMO_EMAIL", provided, DEFAULT_EMAIL))
     end
 
     def resolve_password!(provided)
