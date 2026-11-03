@@ -1,0 +1,1555 @@
+{
+  "meta": {
+    "contract": "AD-14 golden vectors — exact-equality parity between the TS source of truth (until cutover) and the Ruby port. Zero tolerance: no epsilon, no rounding on comparison.",
+    "sourceOfTruth": {
+      "nodeScore": "frontend/src/domain/mastery.ts",
+      "streak": "frontend/src/domain/streak.ts",
+      "note": "The TS implementation IS the source until the cutover retires it (AD-6/AD-14). The Ruby port pins itself to these vectors verbatim; ambiguities amend ADR-0001 first, both sides together."
+    },
+    "generatedAtSourceCommit": "b8e5ad9296def583d2f4ef6d1f716c3f477f0196",
+    "generator": "frontend/scripts/generate-mastery-vectors.ts (pnpm run generate:mastery-vectors)",
+    "fixtureEncoding": {
+      "decimals": "Every mastery-derived numeric (scores, rollups, streaks, intermediate means) is a decimal STRING — parse on the Ruby side; never compare JSON number literals (AD-14).",
+      "timestamps": "ISO-8601, timezone-tagged; every instant in this fixture is UTC (Z). Streak 'now' is injected per case — never the host clock.",
+      "comparison": "Exact equality on the Ruby side.",
+      "ordering": "Case ids sorted lexicographically; object keys in stable construction order; regeneration is byte-identical (asserted in the generator's self-check and by CI's generate-and-diff step)."
+    },
+    "config": {
+      "window": 5,
+      "evidenceGate": 3,
+      "masteredThreshold": 80,
+      "outcomeValues": {
+        "correct": "1",
+        "partial": "0.5",
+        "wrong": "0"
+      },
+      "note": "Mirrors MASTERY_CONFIG verbatim (ADR-0001 consequences); the Ruby port's constants must match (ticket 02)."
+    },
+    "rounding": {
+      "mode": "ECMAScript Math.round — half toward +infinity: a x.5 tie rounds UP (37.5 → 38, 99.5 → 100). Applied once per level; no intermediate rounding anywhere.",
+      "operationOrder": {
+        "nodeScore": "sort evidence newest-first by createdAt → take the first window (5) → map outcomes to values → sum → divide by the WINDOWED COUNT (values.length) → multiply by 100 → Math.round → if TOTAL records (all, not windowed) < evidenceGate (3): min(result, 99).",
+        "planRollup": "mean of node scores (uncovered nodes count 0): sum node scores → divide by the node count → Math.round once. No per-node re-rounding, no clamping — see the flagged rollup.cap-* cases for the rounding-tie consequence.",
+        "taskRollup": "exactly computeNodeScore of the task's single owned node — no other rollup exists (AD-6)."
+      },
+      "pinnedBy": "ADR-0001, amendment 2026-11-04 (epic P2-4 ticket 01) — whatever domain/mastery.ts does is verbatim (delta-review item 6)."
+    },
+    "streak": {
+      "dayBoundaryPolicy": "The pinned contract is the UTC calendar day (dayBoundary: 'utc'). The Phase-1 default stays browser-local ('local', behavior unchanged); the Ruby port implements UTC because a server cannot know a browser's local time — a per-user timezone stays a deferred row. ADR-0001, amended 2026-11-04.",
+      "contractVectorsUse": "utc",
+      "localModeVectors": "Local-boundary cases are generated under a simulated fixed runtime timezone (UTC for the Phase-1-preserved cases; Asia/Shanghai for the divergence case), noted per case — the host's own zone never leaks into the fixture.",
+      "aliveRule": "The run ends at the latest evidence day; the streak is alive while that day is today or yesterday, otherwise broken → 0. Consecutive = adjacent calendar days in the chosen boundary."
+    },
+    "notes": [
+      "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
+      "FLAGGED (ticket 01 Comments): the rollup can read 100 while a node is partial — a perfect-but-unverified 99 node does not always hold the plan below 100, because Math.round's half-up tie (99.5 → 100) outweighs the cap at small plan sizes. See rollup.cap-two-node-tie-reaches-100 (verbatim 100) vs rollup.cap-two-unverified-hold-below-100 (holds at 99). Any change here amends ADR-0001 first, both sides together (AD-14)."
+    ]
+  },
+  "cases": [
+    {
+      "id": "node-score.all-wrong-zero-but-partial",
+      "category": "node_score",
+      "description": "Three wrongs (forfeits grade wrong, FR-18) score 0 yet read partial — evidence exists, so never uncovered.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-001",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-002",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-003",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-03T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "0",
+        "state": "partial",
+        "meanOfWindowedValues": "0"
+      }
+    },
+    {
+      "id": "node-score.empty-node-scores-zero-uncovered",
+      "category": "node_score",
+      "description": "No evidence — the node scores 0 and reads uncovered, never green (the floor edge of every threshold).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": []
+      },
+      "expected": {
+        "score": "0",
+        "state": "uncovered",
+        "meanOfWindowedValues": null
+      }
+    },
+    {
+      "id": "node-score.forfeit-window-four-records-just-below-75",
+      "category": "node_score",
+      "description": "Threshold, below direction: 3 corrects + 1 forfeit-as-wrong in 4 records → 75 < 80, partial. Also pins that an unfilled window divides by the record count (4), never the window size (5).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-004",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-005",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-006",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-007",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "75",
+        "state": "partial",
+        "meanOfWindowedValues": "0.75"
+      }
+    },
+    {
+      "id": "node-score.gate-edge-three-records-masters",
+      "category": "node_score",
+      "description": "Evidence gate, at direction: the 3rd record lifts the gate — 3 corrects score 100 and read mastered.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-022",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-023",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-024",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "100",
+        "state": "mastered",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "node-score.gate-edge-two-records-cap-99",
+      "category": "node_score",
+      "description": "Evidence gate, below direction: 2 total records — the raw 100 is capped at 99 (the gate caps the SCORE, not only the state; ADR-0001 amendment 2026-11-02), partial.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-020",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-021",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "99",
+        "state": "partial",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "node-score.rounding-half-up-tie-38",
+      "category": "node_score",
+      "description": "Rounding-mode pin: correct+partial+wrong+wrong → 1.5/4 = 0.375 → 37.5 → rounds half-UP to 38 (half-down or half-even would read 37 — the Ruby port must tie toward +∞).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-016",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-017",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "partial",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-018",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-019",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-04T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "38",
+        "state": "partial",
+        "meanOfWindowedValues": "0.375"
+      }
+    },
+    {
+      "id": "node-score.single-record-cap-99",
+      "category": "node_score",
+      "description": "One lucky answer: a single correct caps at 99 and stays partial — the anti-inflation gate (SM-C2).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-025",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "99",
+        "state": "partial",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "node-score.threshold-above-rounding-83-mastered",
+      "category": "node_score",
+      "description": "Above threshold with partial credit: correct+correct+partial → mean 0.8333… → 83 → mastered.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-013",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-014",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-015",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "partial",
+            "createdAt": "2026-11-03T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "83",
+        "state": "mastered",
+        "meanOfWindowedValues": "0.8333333333333334"
+      }
+    },
+    {
+      "id": "node-score.threshold-at-80-mastered",
+      "category": "node_score",
+      "description": "Threshold, at direction: 4 corrects + 1 wrong over the full window → exactly 80 → mastered (score ≥ 80 AND gate 5 ≥ 3).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-008",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-009",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-010",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-011",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-012",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "80",
+        "state": "mastered",
+        "meanOfWindowedValues": "0.8"
+      }
+    },
+    {
+      "id": "node-score.window-edge-six-records-oldest-correct-excluded",
+      "category": "node_score",
+      "description": "Window edge, exclusion direction: 6 records, newest first = wrong then 5 corrects — the OLDEST correct is what the window excludes → 80 (a window of 6 would read 83); pins which record falls out.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-032",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-06T10:00:00Z"
+          },
+          {
+            "id": "rec-033",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          },
+          {
+            "id": "rec-034",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-035",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-036",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-037",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "80",
+        "state": "mastered",
+        "meanOfWindowedValues": "0.8"
+      }
+    },
+    {
+      "id": "node-score.window-edge-six-records-oldest-wrong-ages-out",
+      "category": "node_score",
+      "description": "Window edge, aging-out direction: 6 records — the oldest (wrong) falls OUT of the last-5 window → 100 (a window of 6 would read 83).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-026",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-027",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-028",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-029",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-030",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          },
+          {
+            "id": "rec-031",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-06T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "100",
+        "state": "mastered",
+        "meanOfWindowedValues": "1"
+      }
+    },
+    {
+      "id": "node-score.window-recency-by-createdAt-not-insertion",
+      "category": "node_score",
+      "description": "The window follows createdAt recency, not array insertion order (corpus case): shuffled input sorts to c,c,c,w,c → 80.",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-038",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          },
+          {
+            "id": "rec-039",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-040",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-041",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-042",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "80",
+        "state": "mastered",
+        "meanOfWindowedValues": "0.8"
+      }
+    },
+    {
+      "id": "rollup.all-mastered-exactly-100",
+      "category": "rollup",
+      "description": "Every node mastered → the rollup is exactly 100 — the readiness display contract (SM-C2).",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "alphaMastered": [
+            {
+              "id": "rec-058",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-059",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-060",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaMastered": [
+            {
+              "id": "rec-061",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-062",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-063",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "gammaMastered": [
+            {
+              "id": "rec-064",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-065",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-066",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "rollup": "100",
+        "nodes": [
+          {
+            "nodeId": "alphaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "betaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "gammaMastered",
+            "score": "100",
+            "state": "mastered"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rollup.cap-two-node-tie-reaches-100",
+      "category": "rollup",
+      "description": "99-cap interplay, verbatim (FLAGGED — see note): one mastered node (100) + one perfect-but-unverified node (99) → mean 99.5 → rounds half-up to 100. The plan reads 100% while a node is partial: the rounding tie outweighs the cap at this plan size. Generated verbatim per AD-14/delta-review item 6 — flagged for the ADR-0001 consequences wording in ticket 01's Comments, never quietly 'fixed'.",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "alphaMastered": [
+            {
+              "id": "rec-067",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-068",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-069",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaPerfectUnverified": [
+            {
+              "id": "rec-070",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-071",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "rollup": "100",
+        "nodes": [
+          {
+            "nodeId": "alphaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "betaPerfectUnverified",
+            "score": "99",
+            "state": "partial"
+          }
+        ]
+      },
+      "note": "Verbatim behavior: Math.round((100+99)/2) = Math.round(99.5) = 100. If the owner wants 100 to require every node mastered, that is an ADR-0001 amendment first, then both implementations together (AD-14)."
+    },
+    {
+      "id": "rollup.cap-two-unverified-hold-below-100",
+      "category": "rollup",
+      "description": "99-cap interplay, holding direction: one mastered (100) + two perfect-but-unverified (99 each) → 298/3 = 99.33… → 99, below 100.",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "alphaMastered": [
+            {
+              "id": "rec-072",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-073",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-074",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaUnverified": [
+            {
+              "id": "rec-075",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-076",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            }
+          ],
+          "gammaUnverified": [
+            {
+              "id": "rec-077",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-078",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "rollup": "99",
+        "nodes": [
+          {
+            "nodeId": "alphaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "betaUnverified",
+            "score": "99",
+            "state": "partial"
+          },
+          {
+            "nodeId": "gammaUnverified",
+            "score": "99",
+            "state": "partial"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rollup.empty-plan-scores-zero",
+      "category": "rollup",
+      "description": "A plan with no nodes scores 0 (the empty-summaries branch).",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {}
+      },
+      "expected": {
+        "rollup": "0",
+        "nodes": []
+      }
+    },
+    {
+      "id": "rollup.rounding-mean-of-scores-83",
+      "category": "rollup",
+      "description": "Corpus case: (100 + 100 + 50)/3 = 83.33… → 83 — the rollup rounds its mean exactly once.",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "alphaMastered": [
+            {
+              "id": "rec-049",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-050",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-051",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaMastered": [
+            {
+              "id": "rec-052",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-053",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-054",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "gammaHalf": [
+            {
+              "id": "rec-055",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-056",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "partial",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-057",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "wrong",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "rollup": "83",
+        "nodes": [
+          {
+            "nodeId": "alphaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "betaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "gammaHalf",
+            "score": "50",
+            "state": "partial"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rollup.single-node-plan-is-node-score",
+      "category": "rollup",
+      "description": "A one-node plan's rollup is exactly that node's score (83) — no other rollup exists (AD-6).",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "solo": [
+            {
+              "id": "rec-079",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-080",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-081",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "partial",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "rollup": "83",
+        "nodes": [
+          {
+            "nodeId": "solo",
+            "score": "83",
+            "state": "mastered"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rollup.uncovered-node-counts-zero",
+      "category": "rollup",
+      "description": "Corpus case: the rollup is the mean of node scores with uncovered nodes counting 0 — (100 + 50 + 0)/3 → 50.",
+      "call": "computePlanRollup",
+      "input": {
+        "evidenceByNode": {
+          "alphaMastered": [
+            {
+              "id": "rec-043",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-044",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-045",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaHalf": [
+            {
+              "id": "rec-046",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-047",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "partial",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-048",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "wrong",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "gammaUncovered": []
+        }
+      },
+      "expected": {
+        "rollup": "50",
+        "nodes": [
+          {
+            "nodeId": "alphaMastered",
+            "score": "100",
+            "state": "mastered"
+          },
+          {
+            "nodeId": "betaHalf",
+            "score": "50",
+            "state": "partial"
+          },
+          {
+            "nodeId": "gammaUncovered",
+            "score": "0",
+            "state": "uncovered"
+          }
+        ]
+      }
+    },
+    {
+      "id": "streak.divergence.local-mode-simulated-asia-shanghai-one-day",
+      "category": "streak_divergence",
+      "description": "The SAME instants under the Phase-1 local boundary, local calendar simulated as Asia/Shanghai (UTC+08, no DST): both records fall on local Nov 5 (02:00 and 10:00) — one local day; 'now' is local Nov 6 05:00, so the latest day is yesterday → 1. The UTC sibling counts 2. THIS divergence is why AD-14 pins UTC: a server cannot reproduce a browser's local calendar (ADR-0001, amended 2026-11-04).",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-113",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T18:00:00Z"
+          },
+          {
+            "id": "rec-114",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T02:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "local"
+      },
+      "expected": {
+        "streak": "1"
+      },
+      "note": "Generated with the runtime timezone pinned to Asia/Shanghai — the host's own zone never leaks into the fixture."
+    },
+    {
+      "id": "streak.divergence.utc-mode-counts-two-days",
+      "category": "streak_divergence",
+      "description": "The pinned UTC contract on the divergence instants: 18:00Z is UTC Nov 4, 02:00Z is UTC Nov 5 — two evidence days, latest = today → 2.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-111",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T18:00:00Z"
+          },
+          {
+            "id": "rec-112",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T02:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "2"
+      }
+    },
+    {
+      "id": "streak.local.simulated-utc.consecutive-days-alive",
+      "category": "streak",
+      "description": "Phase-1 default (dayBoundary 'local') on the same instants as the utc baseline, with the local calendar simulated as UTC → 3, identical to the UTC contract for a UTC browser: the default path is preserved unchanged.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-105",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T12:00:00Z"
+          },
+          {
+            "id": "rec-106",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T12:00:00Z"
+          },
+          {
+            "id": "rec-107",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T12:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "local"
+      },
+      "expected": {
+        "streak": "3"
+      },
+      "note": "Generated with the runtime timezone pinned to UTC (meta.streak.localModeVectors) — the host's own zone never leaks into the fixture."
+    },
+    {
+      "id": "streak.local.simulated-utc.two-day-gap-broken",
+      "category": "streak",
+      "description": "Phase-1 default (local) simulated as UTC, broken direction → 0, matching the UTC contract.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-108",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T12:00:00Z"
+          },
+          {
+            "id": "rec-109",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T12:00:00Z"
+          },
+          {
+            "id": "rec-110",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T12:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "local"
+      },
+      "expected": {
+        "streak": "0"
+      }
+    },
+    {
+      "id": "streak.utc.consecutive-days-ending-today-alive",
+      "category": "streak",
+      "description": "Three consecutive evidence days ending today → 3 (the alive baseline; corpus case).",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-085",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T12:00:00Z"
+          },
+          {
+            "id": "rec-086",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T12:00:00Z"
+          },
+          {
+            "id": "rec-087",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T12:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "3"
+      }
+    },
+    {
+      "id": "streak.utc.day-straddle-23-59-vs-00-01-two-days",
+      "category": "streak",
+      "description": "The UTC day edge, both sides: 23:59Z (Nov 4) and 00:01Z (Nov 5) are two UTC evidence days, latest = today → 2.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-101",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T23:59:00Z"
+          },
+          {
+            "id": "rec-102",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T00:01:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "2"
+      }
+    },
+    {
+      "id": "streak.utc.empty-no-evidence-zero",
+      "category": "streak",
+      "description": "No evidence records → streak 0.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "0"
+      }
+    },
+    {
+      "id": "streak.utc.old-run-behind-gap-ignored",
+      "category": "streak",
+      "description": "An older run behind a gap never adds to the current run: Oct 20 + a full Nov 1–5 run → 5 (corpus case).",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-095",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-10-20T12:00:00Z"
+          },
+          {
+            "id": "rec-096",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T12:00:00Z"
+          },
+          {
+            "id": "rec-097",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T12:00:00Z"
+          },
+          {
+            "id": "rec-098",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T12:00:00Z"
+          },
+          {
+            "id": "rec-099",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T12:00:00Z"
+          },
+          {
+            "id": "rec-100",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T12:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "5"
+      }
+    },
+    {
+      "id": "streak.utc.same-day-multiple-records-one-day",
+      "category": "streak",
+      "description": "Multiple records within one UTC day count as ONE evidence day → 1 (corpus case).",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-092",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T08:00:00Z"
+          },
+          {
+            "id": "rec-093",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T12:00:00Z"
+          },
+          {
+            "id": "rec-094",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T20:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "1"
+      }
+    },
+    {
+      "id": "streak.utc.same-utc-day-one-day",
+      "category": "streak",
+      "description": "22:00Z and 23:59Z on the same UTC day (Nov 4) are ONE evidence day → 1.",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-103",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T22:00:00Z"
+          },
+          {
+            "id": "rec-104",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T23:59:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "1"
+      }
+    },
+    {
+      "id": "streak.utc.two-day-gap-broken",
+      "category": "streak",
+      "description": "Latest evidence exactly 2 days ago → broken, 0 (daysBetween(latest, today) = 2 > 1 — the broken side of the day-distance boundary; corpus case).",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-089",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T12:00:00Z"
+          },
+          {
+            "id": "rec-090",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T12:00:00Z"
+          },
+          {
+            "id": "rec-091",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T12:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "0"
+      }
+    },
+    {
+      "id": "streak.utc.yesterday-alive-today-missing",
+      "category": "streak",
+      "description": "Latest evidence exactly 1 day ago (yesterday) → alive at 1 — a day isn't over until it's over (the alive side of the day-distance boundary).",
+      "call": "computeStreak",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-088",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T12:00:00Z"
+          }
+        ],
+        "now": "2026-11-05T21:00:00Z",
+        "dayBoundary": "utc"
+      },
+      "expected": {
+        "streak": "1"
+      }
+    },
+    {
+      "id": "task.empty-task-rollup-zero",
+      "category": "task_rollup",
+      "description": "A Study Task with no evidence rolls up to 0.",
+      "call": "computeTaskRollup",
+      "input": {
+        "evidence": []
+      },
+      "expected": {
+        "rollup": "0"
+      }
+    },
+    {
+      "id": "task.single-node-rollup-is-node-score",
+      "category": "task_rollup",
+      "description": "Corpus case: the task rollup is exactly its single owned node's score — correct+correct+partial → 83.",
+      "call": "computeTaskRollup",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-082",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-083",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-084",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "partial",
+            "createdAt": "2026-11-03T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "rollup": "83"
+      }
+    }
+  ]
+}

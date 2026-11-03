@@ -9,6 +9,10 @@ Resolves OQ-9 for the static-first build (placement was already fixed by archite
 
 **Amendment 2026-11-02 (caught by TDD against AD-6's readiness invariant):** the original formula — plain mean-of-last-5 — let a node *score* 100 with only 1–2 records (the gate gated the state, not the score), so a plan rollup could hit 100% while nodes sat in `partial`. The gate now caps the score itself: below 3 evidence records a node displays at most 99%. A perfect-but-unverified node reads 99% — honest by design ("one more verified round"); 100 anywhere means verified mastery.
 
+**Amendment 2026-11-04 (epic P2-4 ticket 01 — two postures Phase 1 left implicit, pinned explicitly for the AD-14 golden-vector contract; flagged here rather than smuggled):**
+- **Rounding posture:** the implementation rounds with ECMAScript `Math.round` — half toward +∞, so a `x.5` tie rounds **up** (37.5 → 38; 99.5 → 100) — applied **once per level**, in this operation order: node score = sum windowed outcome values → divide by the window length → ×100 → round → apply the <3-evidence 99 cap; plan rollup = sum node scores (uncovered count 0) → divide by node count → round once. Whatever `domain/mastery.ts` does is verbatim (AD-14); any future change amends this ADR first, both sides together.
+- **Streak day boundary:** the evidence-day streak's calendar day was implicit Phase-1 browser-local time; it is now an explicit option on `computeStreak` (`dayBoundary: "local" | "utc"`, default `"local"` — Phase-1 behavior unchanged). The **pinned contract is UTC**: golden vectors generate in UTC mode and the Ruby port implements UTC, because a server cannot know a browser's local time; a per-user timezone stays a deferred row.
+
 ## Considered Options
 
 - **Lifetime mean** (all outcomes, equal weight): rejected — one early wrong answer caps a node below 100 forever; punishes learning.
