@@ -44,19 +44,43 @@ RSpec.describe CurrentUserResolver do
       expect(described_class.new("bearer #{token}").user).to eq(user)
     end
 
-    it "resolves nothing for a nil header (public request)" do
-      expect(described_class.new(nil).user).to be_nil
-      expect(described_class.new(nil).decode_error).to eq(:invalid)
+    # P2-4: an anonymous request (no extractable token) must not pay a decode
+    # and must not log — the pre-review resolver logged "[auth] bearer token
+    # invalid" at info for EVERY such request.
+    it "resolves nothing for a nil header (public request) — no decode, no log, no decode_error" do
+      allow(Accounts::TokenCodec).to receive(:decode)
+      allow(Rails.logger).to receive(:info)
+
+      anonymous = described_class.new(nil)
+      expect(anonymous.user).to be_nil
+      expect(anonymous.decode_error).to be_nil
+
+      expect(Accounts::TokenCodec).not_to have_received(:decode)
+      expect(Rails.logger).not_to have_received(:info)
     end
 
-    it "resolves nothing for a header without the Bearer scheme" do
-      expect(described_class.new(token).user).to be_nil
-      expect(described_class.new(token).decode_error).to eq(:invalid)
+    it "resolves nothing for a header without the Bearer scheme — still anonymous (no decode, no log)" do
+      allow(Accounts::TokenCodec).to receive(:decode)
+      allow(Rails.logger).to receive(:info)
+
+      schemeless = described_class.new(token)
+      expect(schemeless.user).to be_nil
+      expect(schemeless.decode_error).to be_nil
+
+      expect(Accounts::TokenCodec).not_to have_received(:decode)
+      expect(Rails.logger).not_to have_received(:info)
     end
 
-    it "resolves nothing for a garbage token" do
-      expect(described_class.new("Bearer not-a-token").user).to be_nil
-      expect(described_class.new("Bearer not-a-token").decode_error).to eq(:invalid)
+    it "resolves nothing for a garbage token — PRESENT but bad keeps the :invalid info line" do
+      allow(Accounts::TokenCodec).to receive(:decode).and_call_original
+      allow(Rails.logger).to receive(:info)
+
+      garbage = described_class.new("Bearer not-a-token")
+      expect(garbage.user).to be_nil
+      expect(garbage.decode_error).to eq(:invalid)
+
+      expect(Accounts::TokenCodec).to have_received(:decode).once
+      expect(Rails.logger).to have_received(:info).with(/bearer token invalid/)
     end
 
     it "resolves nothing for an expired token, with the :expired distinction for logs" do

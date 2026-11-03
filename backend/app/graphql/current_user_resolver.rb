@@ -14,13 +14,18 @@
 # Resolution contract (never raises):
 # - "Authorization: Bearer <token>" (scheme case-insensitive) → the token is
 #   verified with Accounts::TokenCodec.decode and the user loaded by uuid.
-# - Absent header, non-Bearer scheme, garbage/expired token, or a valid
-#   token whose user row no longer exists (stateless — no denylist, AD-15)
-#   → #user is nil.
+# - No token to speak of (absent/empty header, or a header without the
+#   Bearer scheme), garbage/expired token, or a valid token whose user row
+#   no longer exists (stateless — no denylist, AD-15) → #user is nil.
 # - #decode_error keeps the decode taxonomy for logs (AD-9): :expired,
-#   :invalid, or nil — both decode failures map to the same UNAUTHORIZED at
-#   the guard; the distinction only ever reaches the log line, never the
-#   response (it would leak token state to the client).
+#   :invalid, or nil. nil covers BOTH "no decode was attempted" (anonymous
+#   — no extractable token, epic P2-2 review P2-4: short-circuited to no
+#   session with NO decode and NO log; the pre-review version logged
+#   "[auth] bearer token invalid" for every anonymous request, drowning the
+#   log in noise) and "decoded but the user row is gone"; :expired/:invalid
+#   only ever appear for a PRESENT but bad token. All flavors map to the
+#   same UNAUTHORIZED at the guard — the distinction reaches the log line,
+#   never the response (it would leak token state to the client).
 class CurrentUserResolver
   def initialize(authorization_header)
     @authorization_header = authorization_header
@@ -48,7 +53,13 @@ class CurrentUserResolver
   def resolve_once!
     @resolved = true
 
-    decoded = Accounts::TokenCodec.decode(bearer_token)
+    token = bearer_token
+    # Anonymous request: nothing extractable to decode — short-circuit to no
+    # session with NO decode and NO log (P2-4). An info line here fired for
+    # every unauthenticated request and carried zero signal.
+    return if token.nil?
+
+    decoded = Accounts::TokenCodec.decode(token)
     if decoded.ok?
       @user = User.find_by(id: decoded.user_uuid)
       Rails.logger.info("[auth] bearer token verified but its user no longer exists") if @user.nil?

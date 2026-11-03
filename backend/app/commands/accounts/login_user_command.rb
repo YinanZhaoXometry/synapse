@@ -25,7 +25,7 @@ module Accounts
         return Failure(:RATE_LIMITED, { message: "too many login attempts, try again later" })
       end
 
-      user = User.authenticate_by(email: email.to_s.downcase, password: password.to_s)
+      user = User.authenticate_by(email: Accounts.normalize_email(email), password: password.to_s)
       return Failure(:UNAUTHORIZED, { message: "invalid email or password" }) unless user
 
       Success(user: user, token: Accounts::TokenCodec.encode(sub: user.id))

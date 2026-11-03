@@ -123,6 +123,62 @@ RSpec.describe Accounts::TokenCodec do
       expect(result.error).to eq(:invalid)
     end
 
+    # P2-5: `sub` feeds a uuid-PK lookup downstream — a well-signed token
+    # whose sub is not uuid-shaped must stop at the codec as :invalid, not
+    # sail through and surface as PG::InvalidTextRepresentation (a 500) at
+    # the first User lookup.
+    it "returns :invalid for a well-signed token whose sub is not uuid-shaped" do
+      wrong_shape = JWT.encode(
+        { "sub" => "../../etc/passwd", "exp" => 1.hour.from_now.to_i },
+        "test-signing-secret", "HS256"
+      )
+
+      result = described_class.decode(wrong_shape)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+      expect(result.user_uuid).to be_nil
+    end
+
+    it "returns :invalid for a well-signed token whose sub is a non-string scalar" do
+      integer_sub = JWT.encode({ "sub" => 12_345, "exp" => 1.hour.from_now.to_i },
+                               "test-signing-secret", "HS256")
+
+      result = described_class.decode(integer_sub)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+    end
+
+    # P2-5, alg confusion: decode pins the algorithm to HS256 (ALGORITHM) —
+    # a token minted with ANY other algorithm must never verify, even when
+    # signed with the correct secret.
+    it "returns :invalid for an alg-none token (never accepted, signed or not)" do
+      unsigned = JWT.encode(
+        { "sub" => "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b", "exp" => 1.hour.from_now.to_i },
+        "", "none"
+      )
+
+      result = described_class.decode(unsigned)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+      expect(result.user_uuid).to be_nil
+    end
+
+    it "returns :invalid for an HS512-signed token with the correct secret (algorithm pinned to HS256)" do
+      hs512 = JWT.encode(
+        { "sub" => "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b", "exp" => 1.hour.from_now.to_i },
+        "test-signing-secret", "HS512"
+      )
+
+      result = described_class.decode(hs512)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+      expect(result.user_uuid).to be_nil
+    end
+
     it "returns :invalid when JWT_SECRET is absent at decode time" do
       token = described_class.encode(sub: "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b")
 

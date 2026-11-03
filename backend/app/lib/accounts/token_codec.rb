@@ -18,10 +18,11 @@ module Accounts
   #   a domain outcome (inside a command it surfaces as the typed INTERNAL
   #   failure ApplicationCommand already provides).
   # - decode NEVER raises — every failure mode (malformed token, bad
-  #   signature, wrong algorithm, missing claims, expired signature, absent
-  #   secret) comes back as a typed Decoded result. The expired-vs-invalid
-  #   distinction survives so ticket 02's boundary can map both to
-  #   UNAUTHORIZED while still telling them apart in logs.
+  #   signature, wrong algorithm including alg "none"/HS512 confusion, missing
+  #   claims, expired signature, non-uuid `sub` shape, absent secret) comes
+  #   back as a typed Decoded result. The expired-vs-invalid distinction
+  #   survives so ticket 02's boundary can map everything to UNAUTHORIZED
+  #   while still telling the reasons apart in logs.
   class TokenCodec
     ALGORITHM = "HS256"
     # AD-15: stateless tokens, no refresh/denylist — accepted risk.
@@ -57,6 +58,13 @@ module Accounts
           true,
           { algorithm: ALGORITHM, required_claims: %w[sub exp] }
         )
+        # `sub` is a uuid PK — the claim is verified against Accounts::
+        # UUID_REGEX before it can become a lookup argument (P2-5): a
+        # well-signed but non-uuid sub would otherwise sail through decode
+        # and surface downstream as PG::InvalidTextRepresentation (a 500)
+        # instead of the typed :invalid.
+        return Decoded.new(user_uuid: nil, error: :invalid) unless UUID_REGEX.match?(payload["sub"].to_s)
+
         Decoded.new(user_uuid: payload["sub"], error: nil)
       rescue JWT::ExpiredSignature
         Decoded.new(user_uuid: nil, error: :expired)
