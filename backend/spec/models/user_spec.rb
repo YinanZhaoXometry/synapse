@@ -26,5 +26,22 @@ RSpec.describe User, type: :model do
       expect(user.authenticate("password123")).to eq(user)
       expect(user.authenticate("password124")).to be(false)
     end
+
+    # Verified empirically in the test container (epic P2-2 review, finding
+    # P1-B): Rails' activemodel railtie initializer sets
+    # `ActiveModel::SecurePassword.min_cost = Rails.env.test?`, so digests
+    # here run at BCrypt::Engine::MIN_COST (4), NOT BCrypt::Engine.cost (12)
+    # — the factory comment's "MIN_COST — free" claim is true by framework
+    # mechanism, not by app config (the app sets no bcrypt cost anywhere).
+    # Pinned so a future env/config change that silently re-costs the suite
+    # to 12 fails here by name.
+    it "digests at BCrypt::Engine::MIN_COST in the test env (railtie sets SecurePassword.min_cost = Rails.env.test?)" do
+      expect(ActiveModel::SecurePassword.min_cost).to be(true)
+      expect(BCrypt::Engine::MIN_COST).to eq(4)
+
+      user = described_class.new(password: "cost-probe-password")
+
+      expect(BCrypt::Password.new(user.password_digest).cost).to eq(BCrypt::Engine::MIN_COST)
+    end
   end
 end
