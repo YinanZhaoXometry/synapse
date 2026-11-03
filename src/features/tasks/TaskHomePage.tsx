@@ -260,7 +260,7 @@ function MaterialRow({
   const openLabelKey = hasProgress ? "plans.continueReading" : "common.open";
   const kind = material.kind === "pdf" ? t("plans.materialKindPdf") : t("plans.materialKindMarkdown");
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
       <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
       <span className="text-sm truncate flex-1">{material.title}</span>
       <Link
@@ -270,8 +270,10 @@ function MaterialRow({
       >
         <BookOpen className="w-3 h-3" aria-hidden="true" /> {t(openLabelKey)}
       </Link>
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground flex-none">{kind}</span>
-      <span className="text-[10px] text-muted-foreground tabular-nums flex-none">
+      {/* secondary metadata chips drop below `sm` so the recovery action (FR-29)
+          never clips off-screen at phone widths — the row wraps instead */}
+      <span className="hidden sm:inline text-[10px] uppercase tracking-wide text-muted-foreground flex-none">{kind}</span>
+      <span className="hidden sm:inline text-[10px] text-muted-foreground tabular-nums flex-none">
         {t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}
       </span>
       {needsReupload ? (

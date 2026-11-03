@@ -232,6 +232,25 @@ describe("TaskHomePage (FR-37; ADR-0001; AD-6/8)", () => {
     expect(screen.queryByText(zh("plans.materialReupload"))).not.toBeInTheDocument();
   });
 
+  it("material row wraps at narrow widths: kind/size chips hide below sm and the re-upload cluster stays in the row (FR-29 at 390px)", async () => {
+    const { task } = seedTask({ parseState: "parsed" }); // byteless → re-upload cluster visible
+    const { container } = renderTaskHome(task.id);
+
+    // the row itself carries the wrap contract (class contract, not pixel math)
+    const readerLink = await screen.findByRole("link", { name: new RegExp(zh("common.open")) });
+    const row = readerLink.closest(".flex-wrap");
+    expect(row).not.toBeNull();
+    expect(row).toHaveClass("flex-wrap");
+
+    // the secondary chips carry the responsive-hidden contract at narrow widths
+    expect(screen.getByText(zh("plans.materialKindMarkdown"))).toHaveClass("hidden");
+    expect(screen.getByText("0.0 MB")).toHaveClass("hidden");
+
+    // the recovery action stays inside the wrapping row — never clipped away
+    expect(row?.textContent).toContain(zh("plans.materialReuploadAction"));
+    expect(container.querySelector('input[type="file"]')).not.toBeNull();
+  });
+
   it("re-upload validates through the reader's contract: a kind mismatch is rejected with its reason", async () => {
     const { task } = seedTask({ parseState: "parsed" });
     const { container } = renderTaskHome(task.id);

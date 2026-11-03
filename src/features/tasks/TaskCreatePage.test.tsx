@@ -1,12 +1,58 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { loadDb } from "@/data";
+import { loadDb, type RegisterMaterialInput } from "@/data";
 import TaskCreatePage from "./TaskCreatePage";
+
+/**
+ * Hook-boundary harness for the retry contract (code-review Fix 2): everything
+ * below the page's hooks stays real (shipped repositories over localStorage,
+ * the reader's eager-parse hook) — only the two creation mutations are wrapped
+ * to count calls and to inject a deterministic create-task failure. The real
+ * mutate still runs for every non-failing call, so the other tests walk the
+ * production seams unchanged.
+ */
+const h = vi.hoisted(() => ({
+  registerCalls: [] as string[],
+  createTaskCalls: [] as string[],
+  failNextCreate: { value: false },
+}));
+
+vi.mock("@/data", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/data")>();
+  return {
+    ...actual,
+    useRegisterMaterialMutation: () => {
+      const real = actual.useRegisterMaterialMutation();
+      return {
+        ...real,
+        mutate: (input: RegisterMaterialInput, handlers?: unknown) => {
+          h.registerCalls.push(input.title);
+          real.mutate(input, handlers);
+        },
+      };
+    },
+    useCreateTaskMutation: () => {
+      const real = actual.useCreateTaskMutation();
+      return {
+        ...real,
+        mutate: (input: { materialId: string }, handlers?: { onError?: (e: unknown) => void }) => {
+          h.createTaskCalls.push(input.materialId);
+          if (h.failNextCreate.value) {
+            h.failNextCreate.value = false;
+            handlers?.onError?.(new Error("create failed"));
+            return;
+          }
+          real.mutate(input, handlers);
+        },
+      };
+    },
+  };
+});
 
 /**
  * TaskCreatePage observable states (T1; spec testing seam 4 — component render
@@ -75,6 +121,9 @@ const markdownFile = (name: string) =>
 
 beforeEach(() => {
   localStorage.clear();
+  h.registerCalls.length = 0;
+  h.createTaskCalls.length = 0;
+  h.failNextCreate.value = false;
 });
 
 describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
@@ -162,5 +211,49 @@ describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
 
     await waitFor(() => expect(screen.getByTestId("reader-landing")).toBeInTheDocument());
     expect(loadDb().materials[0].title).toBe("paper-draft");
+  });
+
+  it("create-task failure then retry reuses the registered material — one registration, no orphan duplicate", async () => {
+    h.failNextCreate.value = true;
+    const { container } = renderPage();
+    fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("retry-case.md")] } });
+
+    // attempt 1: the material registers, task creation fails
+    fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
+    await waitFor(() => expect(h.createTaskCalls).toHaveLength(1));
+    expect(h.registerCalls).toHaveLength(1);
+    await waitFor(() => expect(screen.getByRole("button", { name: zh("tasks.confirm") })).toBeEnabled());
+
+    // retry skips straight to task creation on the SAME material
+    fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
+    await waitFor(() => expect(screen.getByTestId("reader-landing")).toBeInTheDocument());
+
+    expect(h.registerCalls).toHaveLength(1); // never registered twice
+    expect(h.createTaskCalls).toHaveLength(2);
+    const db = loadDb();
+    expect(db.materials).toHaveLength(1); // the orphan is re-linked, not duplicated
+    expect(db.tasks).toHaveLength(1);
+    expect(db.materials[0].taskId).toBe(db.tasks[0].id);
+  });
+
+  it("choosing a different file after a failed attempt registers the new file, not a stale reuse", async () => {
+    h.failNextCreate.value = true;
+    const { container } = renderPage();
+    fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("first.md")] } });
+    fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
+    await waitFor(() => expect(h.createTaskCalls).toHaveLength(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: zh("tasks.confirm") })).toBeEnabled());
+
+    fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("second.md")] } });
+    fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
+    await waitFor(() => expect(screen.getByTestId("reader-landing")).toBeInTheDocument());
+
+    expect(h.registerCalls).toHaveLength(2); // one per file — the stale id is not reused
+    expect(h.createTaskCalls).toHaveLength(2);
+    const db = loadDb();
+    expect(db.tasks).toHaveLength(1);
+    const linked = db.materials.find((m) => m.id === db.tasks[0].materialId);
+    expect(linked?.title).toBe("second");
+    expect(screen.getByTestId("reader-landing").textContent).toBe(db.tasks[0].materialId);
   });
 });

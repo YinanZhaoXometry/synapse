@@ -54,19 +54,17 @@ export default function PlansHomePage() {
           <p className="eyebrow">{t("plans.eyebrow")}</p>
           <h1 className="page-title mt-1.5">{isEmpty ? t("plans.emptyTitle") : t("plans.returningTitle")}</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!isEmpty && (
-            <>
-              <Button variant="outline" onClick={() => navigate("/plan/new")}>
-                <Plus className="w-4 h-4 mr-1.5" /> {t("plans.createNew")}
-              </Button>
-              {/* the Study Task action persists beside create-new (UX spine PlansHome row) */}
-              <Button variant="outline" onClick={() => navigate("/task/new")}>
-                <BookOpen className="w-4 h-4 mr-1.5" /> {t("tasks.createEntry")}
-              </Button>
-            </>
-          )}
-        </div>
+        {!isEmpty && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => navigate("/plan/new")}>
+              <Plus className="w-4 h-4 mr-1.5" /> {t("plans.createNew")}
+            </Button>
+            {/* the Study Task action persists beside create-new (UX spine PlansHome row) */}
+            <Button variant="outline" onClick={() => navigate("/task/new")}>
+              <BookOpen className="w-4 h-4 mr-1.5" /> {t("tasks.createEntry")}
+            </Button>
+          </div>
+        )}
       </div>
 
       {isEmpty ? (

@@ -106,7 +106,7 @@ export const translations = {
       'plans.evidenceRule': '分数 = 最近 5 次均分（正确 1 / 部分正确 0.5 / 错误 0）；≥80 且 ≥3 条证据 → 已掌握。',
       'plans.streakDays': '{n} 天',
       'plans.streakRule': '连续天数 = 有 ≥1 次产生证据的学习日的连续天数（不是分钟，不是登录）',
-      'plans.rollupNote': 'Rollup = 各节点均分，未覆盖按 0 计入（ADR-0001）',
+      'plans.rollupNote': 'Rollup = 各节点均分，未覆盖按 0 计入',
       'plans.materialsSection': '材料',
       'plans.materialsEmpty': '还没有材料',
       'plans.parsePending': '待解析',
@@ -128,8 +128,8 @@ export const translations = {
       'plans.quickCompanion': '问 Companion',
       'plans.quickCompanionDesc': '基于计划',
       'plans.needMaterial': '先附上材料',
-      'plans.sliceQuiz': '出题是 slice 6 的功能——先附上材料。',
-      'plans.sliceFlashcards': '闪卡是 slice 6 的功能——先附上材料。',
+      'plans.sliceQuiz': '出题功能即将上线——先附上材料。',
+      'plans.sliceFlashcards': '闪卡功能即将上线——先附上材料。',
       'plans.sliceCompanion': 'Companion 问答是 slice 4 的功能。',
       'plans.attachCta': '附上第一份材料',
       'plans.attachCtaHint': 'PDF / Markdown ≤ 20MB',
@@ -503,10 +503,10 @@ export const translations = {
 
       // Study Tasks (epic-5 T2 — task home /task/:id, FR-37; ADR-0001)
       'tasks.notFound': '找不到这个学习任务。',
-      'tasks.rollupNote': 'Rollup = 该任务唯一节点的掌握度（ADR-0001）',
+      'tasks.rollupNote': '掌握度 = 该任务唯一知识节点的最近表现',
       'tasks.nodeSection': '知识节点',
-      'tasks.sliceQuiz': '出题是下一阶段（epic-6）的功能。',
-      'tasks.sliceFlashcards': '闪卡是下一阶段（epic-6）的功能。',
+      'tasks.sliceQuiz': '出题功能即将上线。',
+      'tasks.sliceFlashcards': '闪卡功能即将上线。',
       'tasks.cap99Note': '证据不足 {n} 条 · 分数封顶 99%',
 
       // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
@@ -629,7 +629,7 @@ export const translations = {
       'plans.evidenceRule': 'Score = mean of the last 5 (correct 1 / partial 0.5 / wrong 0); ≥80 with ≥3 records → mastered.',
       'plans.streakDays': '{n} days',
       'plans.streakRule': 'Streak = consecutive days with ≥1 evidence-producing session (never minutes, never logins)',
-      'plans.rollupNote': 'Rollup = mean of node scores; uncovered counts 0 (ADR-0001)',
+      'plans.rollupNote': 'Rollup = mean of node scores; uncovered counts 0',
       'plans.materialsSection': 'Materials',
       'plans.materialsEmpty': 'No materials yet',
       'plans.parsePending': 'parse pending',
@@ -651,8 +651,8 @@ export const translations = {
       'plans.quickCompanion': 'Ask Companion',
       'plans.quickCompanionDesc': 'plan-grounded',
       'plans.needMaterial': 'Attach a material first',
-      'plans.sliceQuiz': 'Quiz generation is slice 6 — attach materials first.',
-      'plans.sliceFlashcards': 'Flashcard generation is slice 6 — attach materials first.',
+      'plans.sliceQuiz': 'Quiz generation is coming soon — attach materials first.',
+      'plans.sliceFlashcards': 'Flashcard generation is coming soon — attach materials first.',
       'plans.sliceCompanion': 'Companion Q&A is slice 4.',
       'plans.attachCta': 'Attach your first material',
       'plans.attachCtaHint': 'PDF / Markdown ≤ 20MB',
@@ -1026,10 +1026,10 @@ export const translations = {
 
       // Study Tasks (epic-5 T2 — task home /task/:id, FR-37; ADR-0001)
       'tasks.notFound': "This study task couldn't be found.",
-      'tasks.rollupNote': "Rollup = the task's single node's mastery (ADR-0001)",
+      'tasks.rollupNote': "Mastery = recent evidence on this task's single node",
       'tasks.nodeSection': 'Knowledge node',
-      'tasks.sliceQuiz': 'Quiz generation lands in the next slice (epic-6).',
-      'tasks.sliceFlashcards': 'Flashcards land in the next slice (epic-6).',
+      'tasks.sliceQuiz': 'Quiz generation is coming soon.',
+      'tasks.sliceFlashcards': 'Flashcards are coming soon.',
       'tasks.cap99Note': 'Under the {n}-evidence gate · capped at 99%',
 
       // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)

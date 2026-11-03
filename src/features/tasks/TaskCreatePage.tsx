@@ -36,6 +36,10 @@ export default function TaskCreatePage() {
   const [name, setName] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [creating, setCreating] = useState(false);
+  // The material already registered for `chosen` (code-review Fix 2): if task
+  // creation fails after registration, a retry must reuse THIS material — not
+  // register a duplicate orphan. Reset when a different file is chosen.
+  const [registeredMaterialId, setRegisteredMaterialId] = useState<string | null>(null);
 
   const openPicker = () => fileInputRef.current?.click();
 
@@ -47,6 +51,7 @@ export default function TaskCreatePage() {
       return;
     }
     setChosen({ file: candidate, kind: verdict.kind });
+    setRegisteredMaterialId(null); // a new file is a new material — never reuse
     setName(verdict.title); // pre-fill from the filename (T1 AC)
   };
 
@@ -55,6 +60,25 @@ export default function TaskCreatePage() {
     setCreating(true);
     const { file, kind } = chosen;
     const title = resolveTaskName(name, file.name);
+    // Task creation on a registered material — the eager parse (AD-7) kicks off
+    // before landing: the reader owns the honest pending → parsing → parsed UI
+    // from here on. One path for both fresh and retried attempts.
+    const startTask = (materialId: string) =>
+      createTask.mutate(
+        { materialId },
+        {
+          onError: () => setCreating(false),
+          onSuccess: () => {
+            parseMaterial.mutate(materialId);
+            navigate(`/read/${materialId}`);
+          },
+        },
+      );
+    // A previous attempt already registered the material — retry adopts it.
+    if (registeredMaterialId) {
+      startTask(registeredMaterialId);
+      return;
+    }
     // Register first with taskId null — createStudyTask then back-links the
     // material (material.taskId) and auto-creates the single node (AD-6).
     registerMaterial.mutate(
@@ -70,19 +94,10 @@ export default function TaskCreatePage() {
       },
       {
         onError: () => setCreating(false),
-        onSuccess: ({ material }) =>
-          createTask.mutate(
-            { materialId: material.id },
-            {
-              onError: () => setCreating(false),
-              onSuccess: () => {
-                // Eager parse (AD-7) kicks off before landing: the reader owns
-                // the honest pending → parsing → parsed UI from here on.
-                parseMaterial.mutate(material.id);
-                navigate(`/read/${material.id}`);
-              },
-            },
-          ),
+        onSuccess: ({ material }) => {
+          setRegisteredMaterialId(material.id);
+          startTask(material.id);
+        },
       },
     );
   };
