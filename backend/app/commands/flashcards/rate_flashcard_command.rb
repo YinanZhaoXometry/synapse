@@ -29,7 +29,7 @@ module Flashcards
       end
 
       card.update!(difficulty: difficulty)
-      Success(card: card)
+      Success(flashcard: card)
     end
 
     private

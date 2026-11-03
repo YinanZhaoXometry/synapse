@@ -26,6 +26,12 @@ module Flashcards
       validation = validate_inputs!
       return validation if validation
 
+      # The uuid ownership check comes BEFORE address resolution (the
+      # CreateTaskCommand order): a card uuid that already belongs to another
+      # user is VALIDATION_FAILED (delta 3 — never silently link, FR-4),
+      # whatever material the batch names.
+      return cross_user_uuid_failure if cards.any? { |attrs| foreign_card_uuid?(attrs[:client_uuid]) }
+
       # The material is addressed through the owner's association path
       # (delta 2): unknown, foreign, and malformed ids are uniformly NOT_FOUND.
       return material_not_found unless material_id.to_s.match?(Accounts::UUID_REGEX)

@@ -20,7 +20,7 @@ RSpec.describe Flashcards::RateFlashcardCommand do
       result = call
 
       expect(result.success?).to be(true)
-      expect(result.value![:card].difficulty).to eq("easy")
+      expect(result.value![:flashcard].difficulty).to eq("easy")
       expect(card.reload.difficulty).to eq("easy")
     end
 
@@ -41,7 +41,7 @@ RSpec.describe Flashcards::RateFlashcardCommand do
       call(difficulty: "hard")
       result = call(difficulty: "medium")
 
-      expect(result.value![:card].difficulty).to eq("medium")
+      expect(result.value![:flashcard].difficulty).to eq("medium")
       expect(card.reload.difficulty).to eq("medium")
     end
 
