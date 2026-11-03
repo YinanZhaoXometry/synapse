@@ -32,6 +32,11 @@ services:
       # Fixed so minted tokens survive container restarts; outside dev, set a
       # real random secret (backend/.env.example documents the contract).
       JWT_SECRET: dev-only-insecure-secret-change-me
+      # Demo account (db/seeds.rb, epic P2-2 ticket 03) — the seed is
+      # idempotent on every db:seed; these are the documented dev defaults
+      # (backend/.env.example documents the contract).
+      DEMO_EMAIL: demo@synapse.test
+      DEMO_PASSWORD: demo-password
     depends_on:
       db:
         condition: service_healthy
