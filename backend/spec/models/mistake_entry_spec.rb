@@ -16,7 +16,10 @@ RSpec.describe MistakeEntry, type: :model do
       user: user, session: session, node: node, kind: "choice",
       prompt: "Pick the right one", options: %w[A B],
       source_material: material, source_section_id: "page-2",
-      explanation: "B is right"
+      explanation: "B is right",
+      # NOT NULL on the ER — the generation order (P2-3 of the epic P2-3
+      # review); the command stamps real per-input indices.
+      position: 0
     )
   end
 

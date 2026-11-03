@@ -119,5 +119,39 @@ RSpec.describe Progress::SaveReadingProgressCommand do
       end
       expect(user.reading_progresses.count).to eq(0)
     end
+
+    it "settles a unique-material_id race: the winner's row is upserted (the savepoint backstop)" do
+      # The committed twin: the same user's concurrent request saved a
+      # position between our pre-check and our INSERT (1:1 per material).
+      # Only the STALE pre-check is stubbed to miss; the INSERT then collides
+      # with the REAL unique index, and the backstop must upsert the WINNER's
+      # row. (For chat's append this exact race was fatal pre-fix — the
+      # failed INSERT inside its explicit transaction aborted the enclosing
+      # Postgres transaction and the read-back died with
+      # PG::InFailedSqlTransaction → INTERNAL. Here the command carries no
+      # explicit transaction, so Rails's implicit per-save transaction
+      # happened to absorb the failure under the suite's fixture
+      # transaction; the command's requires_new savepoint now guarantees the
+      # winner's-row read-back works under ANY enclosing transaction, not
+      # just the lucky one.)
+      winner = create(:reading_progress, user: user, material: material)
+      pre_checks = 0
+      allow_any_instance_of(ReadingProgress.const_get(:ActiveRecord_Associations_CollectionProxy))
+        .to receive(:find_by).and_wrap_original do |orig, *args, &block|
+          pre_checks += 1
+          pre_checks == 1 ? nil : orig.call(*args, &block)
+        end
+
+      result = call(locator: { kind: "pdf", page: 9 }, text: "the raced save")
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(user.reading_progresses.where(material_id: material.id).count).to eq(1)
+        expect(result.value![:reading_progress].id).to eq(winner.id)
+        expect(winner.reload.position).to eq(
+          { "locator" => { "kind" => "pdf", "page" => 9 }, "text" => "the raced save" }
+        )
+      end
+    end
   end
 end

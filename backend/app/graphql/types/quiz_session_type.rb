@@ -5,8 +5,9 @@ module Types
   # (frontend/src/domain/entities.ts): id/planId/taskId/mode/status/createdAt/
   # completedAt. The TS questionIds array is realized as the questions
   # association (epic P2-1 ticket 02's ER decision) — read back in generation
-  # order (insertion order; the ER carries no order column, deviation recorded
-  # in the ticket Comments).
+  # order via the ER's position column (stamped per input index at creation;
+  # the epic P2-3 review's P2-3 fix — the old uuid tie-break on
+  # (created_at, id) was not insertion order).
   class QuizSessionType < Types::BaseObject
     description "A quiz session: plan- or task-scoped (exactly one — the ER's ownership law), carrying its node-attributed questions."
 
@@ -43,7 +44,7 @@ module Types
           description: "The session's questions in generation order (the Phase-1 questionIds array, realized as the association)."
 
     def questions
-      object.questions.order(:created_at, :id)
+      object.questions.order(:position, :created_at, :id)
     end
   end
 end

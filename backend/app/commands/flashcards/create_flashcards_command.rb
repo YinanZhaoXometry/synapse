@@ -110,8 +110,10 @@ module Flashcards
       # backstop shape as Plans::PlanCreation's, generalized to a batch): the
       # transaction rolled back, so re-run the whole per-card resolution —
       # whoever won the race is either this user (found on replay) or not
-      # (ownership failure).
-      if cards_attrs.any? { |attrs| foreign_card_uuid?(attrs[:client_uuid]) }
+      # (ownership failure). Read the `cards` option (the batch inputs), not
+      # a spec-local name: a genuine race used to NameError out of this
+      # rescue into a typed-INTERNAL lie (the epic P2-3 review, P1-1).
+      if cards.any? { |attrs| foreign_card_uuid?(attrs[:client_uuid]) }
         return cross_user_uuid_failure
       end
 

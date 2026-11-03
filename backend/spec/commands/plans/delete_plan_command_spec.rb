@@ -95,6 +95,40 @@ RSpec.describe Plans::DeletePlanCommand do
       expect(Material.exists?(material.id)).to be(true)
     end
 
+    it "refuses VALIDATION_FAILED when a plan material is also bound to a study task, deleting NOTHING" do
+      # Reachable state (P1-2): attachMaterial(planId:) then
+      # createTask(materialId:) — CreateTask only refuses materials that
+      # already carry a task_id, so a plan material can gain a task later.
+      # The delete sweep would hit study_tasks.material_id (no on_delete) and
+      # explode as InvalidForeignKey → INTERNAL; the command refuses first,
+      # before deleting anything.
+      bound_task_node = create(:knowledge_node, user: user)
+      bound_task = create(:study_task, user: user, material: material, node: bound_task_node)
+
+      result = call
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:VALIDATION_FAILED)
+      expect(result.failure.context[:message]).to include("study task")
+
+      # NOTHING was deleted — the whole graph is intact.
+      aggregate_failures do
+        expect(StudyPlan.exists?(plan.id)).to be(true)
+        expect(KnowledgeNode.exists?(node.id)).to be(true)
+        expect(Material.exists?(material.id)).to be(true)
+        expect(StudyTask.exists?(bound_task.id)).to be(true)
+        expect(ReadingProgress.exists?(progress.id)).to be(true)
+        expect(ChatThread.exists?(thread.id)).to be(true)
+        expect(Flashcard.exists?(flashcard.id)).to be(true)
+        expect(Annotation.exists?(annotation.id)).to be(true)
+        expect(SectionMarking.exists?(marking.id)).to be(true)
+        expect(QuizSession.exists?(session.id)).to be(true)
+        expect(Question.exists?(question.id)).to be(true)
+        expect(EvidenceRecord.exists?(evidence.id)).to be(true)
+        expect(MistakeEntry.exists?(mistake.id)).to be(true)
+      end
+    end
+
     it "fails NOT_FOUND for an unknown id" do
       result = call(id: SecureRandom.uuid)
 

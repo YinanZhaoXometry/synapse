@@ -43,11 +43,20 @@ module Progress
         row.update!(position: position_as_jsonb)
       else
         begin
-          row = current_user.reading_progresses.create!(material: material, position: position_as_jsonb)
+          # Same shape as the chat command's backstop (kept consistent): the
+          # create attempt runs in a SAVEPOINT (requires_new — the Rails
+          # create_or_find_by pattern), so the unique-material_id race's
+          # failed INSERT cannot abort an enclosing Postgres transaction and
+          # turn the winner's-row read-back below into
+          # PG::InFailedSqlTransaction → INTERNAL.
+          ActiveRecord::Base.transaction(requires_new: true) do
+            row = current_user.reading_progresses.create!(material: material, position: position_as_jsonb)
+          end
         rescue ActiveRecord::RecordNotUnique
           # The unique-material_id race between the pre-check and the INSERT
           # (the delta-3 backstop shape): the winner's row exists now — read
-          # it back and upsert over it.
+          # it back and upsert over it. Safe because the savepoint rolled
+          # back only the failed INSERT.
           row = current_user.reading_progresses.find_by!(material_id: material.id)
           row.update!(position: position_as_jsonb)
         end

@@ -3,16 +3,15 @@
 require "rails_helper"
 
 RSpec.describe "the seeded demo account logs in over HTTP (epic P2-2 ticket 03)", type: :request do
-  # Token minting reads JWT_SECRET; the seed reads DEMO_EMAIL/DEMO_PASSWORD
-  # (both AD-12 config posture) — pin known values for each example and
-  # restore whatever was there before.
+  # The seed reads DEMO_EMAIL/DEMO_PASSWORD (AD-12 config posture) — pin
+  # known values for each example and restore whatever was there before.
+  # JWT_SECRET (also config posture) rides the shared request-spec harness
+  # (spec/support/graphql_helpers.rb).
   around do |example|
     originals = {
-      "JWT_SECRET" => ENV["JWT_SECRET"],
       "DEMO_EMAIL" => ENV["DEMO_EMAIL"],
       "DEMO_PASSWORD" => ENV["DEMO_PASSWORD"]
     }
-    ENV["JWT_SECRET"] = "test-signing-secret"
     ENV["DEMO_EMAIL"] = "seeded-demo@example.com"
     ENV["DEMO_PASSWORD"] = "seeded-demo-password"
     example.run
@@ -24,11 +23,6 @@ RSpec.describe "the seeded demo account logs in over HTTP (epic P2-2 ticket 03)"
         ENV[key] = value
       end
     end
-  end
-
-  def graphql(query)
-    post "/graphql", params: { query: query }
-    response.parsed_body
   end
 
   it "seeds via db/seeds.rb and drives the ticket-02 login mutation with the seeded credentials" do

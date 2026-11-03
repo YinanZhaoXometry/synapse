@@ -41,11 +41,21 @@ module Chat
         thread = current_user.chat_threads.find_by(material_id: material.id)
         unless thread
           begin
-            thread = current_user.chat_threads.create!(material: material, messages: [])
+            # The create attempt runs in a SAVEPOINT (requires_new — the Rails
+            # create_or_find_by pattern): the unique-material_id race's failed
+            # INSERT otherwise aborts the enclosing Postgres transaction, and
+            # every later statement — including the winner's-row read-back
+            # below — would die with PG::InFailedSqlTransaction. (The rescue's
+            # old comment claimed the winner's row was simply readable after
+            # the failure — true only with no enclosing transaction.)
+            ActiveRecord::Base.transaction(requires_new: true) do
+              thread = current_user.chat_threads.create!(material: material, messages: [])
+            end
           rescue ActiveRecord::RecordNotUnique
             # The unique-material_id race between the pre-check and the
             # INSERT (the delta-3 backstop shape): the winner's thread
-            # exists now — read it back and append to it.
+            # exists now — read it back and append to it. Safe because the
+            # savepoint rolled back only the failed INSERT.
             thread = current_user.chat_threads.find_by!(material_id: material.id)
           end
         end

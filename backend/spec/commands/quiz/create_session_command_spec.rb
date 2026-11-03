@@ -101,11 +101,18 @@ RSpec.describe Quiz::CreateSessionCommand do
     it "creates a task-scoped session (planId null, taskId set — the plan-free quiz scope)" do
       task = create(:study_task, user: user)
 
-      result = call(plan_id: nil, task_id: task.id)
+      # The task scope bounds the attribution (P2-5): the questions carry the
+      # task's single auto-node, not a plan's.
+      result = call(
+        plan_id: nil,
+        task_id: task.id,
+        questions: [ choice_attrs, open_attrs ].map { |attrs| attrs.merge(node_id: task.node_id) }
+      )
 
       expect(result.success?).to be(true)
       expect(result.value![:session].plan_id).to be_nil
       expect(result.value![:session].task_id).to eq(task.id)
+      expect(result.value![:questions].map(&:node_id)).to all(eq(task.node_id))
     end
 
     it "is idempotent on replay with the same client uuid (delta 3): Success, same rows, no duplicates" do
@@ -117,6 +124,23 @@ RSpec.describe Quiz::CreateSessionCommand do
       expect(replay.value![:questions].map(&:id)).to eq(first.value![:questions].map(&:id))
       expect(user.quiz_sessions.where(id: client_uuid).count).to eq(1)
       expect(user.questions.count).to eq(2)
+    end
+
+    it "stamps generation order into position and reads back by it (not (created_at, id) luck)" do
+      result = call
+      first, second = result.value![:questions]
+
+      # Demote the first-generated question by position alone — a
+      # (created_at, id) read-back could never move it (same-microsecond
+      # timestamps, arbitrary uuid tie-break; the epic P2-3 review's latent
+      # flake). The stamped index must be what orders the read-back.
+      expect(first.position).to eq(0)
+      expect(second.position).to eq(1)
+      first.update!(position: 9)
+
+      replay = call # the idempotent replay reads back through the same order clause
+
+      expect(replay.value![:questions].map(&:id)).to eq([ second.id, first.id ])
     end
 
     it "fails VALIDATION_FAILED when the client uuid belongs to another user (never silently link, FR-4)" do
@@ -281,6 +305,49 @@ RSpec.describe Quiz::CreateSessionCommand do
         expect(unknown_task.failure.code).to eq(:NOT_FOUND)
       end
       expect(user.quiz_sessions.count).to eq(0)
+    end
+
+    # User-owned is not enough (the epic P2-3 review, P2-5): the question
+    # nodes must sit INSIDE the session's own scope, or a plan-A session
+    # could attribute plan-B's nodes.
+    it "fails VALIDATION_FAILED when a plan-scoped session attributes another plan's node" do
+      other_plan = create(:study_plan, user: user)
+      other_plan_node = create(:knowledge_node, user: user, plan: other_plan)
+
+      result = call(questions: [ open_attrs.merge(node_id: other_plan_node.id) ])
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:VALIDATION_FAILED)
+      expect(result.failure.context[:message]).to include("outside the session's scope")
+      aggregate_failures do
+        expect(user.quiz_sessions.count).to eq(0)
+        expect(user.questions.count).to eq(0)
+      end
+    end
+
+    it "fails VALIDATION_FAILED when a plan-scoped session attributes a plan-free task node" do
+      task_node = create(:study_task, user: user).node
+
+      result = call(questions: [ choice_attrs.merge(node_id: task_node.id) ])
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:VALIDATION_FAILED)
+      expect(user.quiz_sessions.count).to eq(0)
+    end
+
+    it "fails VALIDATION_FAILED when a task-scoped session attributes a node outside the task" do
+      task = create(:study_task, user: user)
+      outsider = create(:knowledge_node, user: user) # plan-free, but NOT the task's node
+
+      result = call(plan_id: nil, task_id: task.id, questions: [ open_attrs.merge(node_id: outsider.id) ])
+
+      expect(result.failure?).to be(true)
+      expect(result.failure.code).to eq(:VALIDATION_FAILED)
+      expect(result.failure.context[:message]).to include("outside the session's scope")
+      aggregate_failures do
+        expect(user.quiz_sessions.count).to eq(0)
+        expect(user.questions.count).to eq(0)
+      end
     end
   end
 end

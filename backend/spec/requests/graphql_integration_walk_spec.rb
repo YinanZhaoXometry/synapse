@@ -60,30 +60,7 @@ RSpec.describe "GraphQL integration walk — the Phase-1 happy path as pure Grap
   # walk's mistake visibility. SectionMarking has no read at all — its count
   # is asserted directly on the model (the chat spec precedent).
 
-  around do |example|
-    original = ENV["JWT_SECRET"]
-    ENV["JWT_SECRET"] = "test-signing-secret"
-    example.run
-  ensure
-    if original.nil?
-      ENV.delete("JWT_SECRET")
-    else
-      ENV["JWT_SECRET"] = original
-    end
-  end
-
-  let(:password) { "known-password-123" }
   let(:email) { "walk-user@example.com" }
-
-  def graphql(query, variables: {}, token: nil)
-    headers = token ? { "Authorization" => "Bearer #{token}" } : {}
-    post "/graphql", params: { query: query, variables: variables.to_json }, headers: headers
-    response.parsed_body
-  end
-
-  def error_code(result)
-    result.dig("errors", 0, "extensions", "code")
-  end
 
   it "walks the Phase-1 happy path end to end, then replays the idempotent ops with the same client uuids" do
     plan_uuid = SecureRandom.uuid
@@ -537,7 +514,7 @@ RSpec.describe "GraphQL integration walk — the Phase-1 happy path as pure Grap
     # ── PASS 2 — the SAME client uuids (idempotency evidence) ───────────────
     # register is not replayed (the account exists); the client re-logins.
 
-    token2 = login_token(email)
+    token2 = token_for(email)
 
     # confirmProposal replay: Success, the SAME plan + nodes, counts flat.
     confirm2 = graphql(
@@ -727,16 +704,5 @@ RSpec.describe "GraphQL integration walk — the Phase-1 happy path as pure Grap
     expect(final).to eq(
       plans: 1, materials: 2, tasks: 1, evidence: 2, messages: 3, cards: 2
     )
-  end
-
-  private
-
-  def login_token(email)
-    result = graphql(<<~GRAPHQL)
-      mutation {
-        login(input: { email: "#{email}", password: "#{password}" }) { token }
-      }
-    GRAPHQL
-    result.dig("data", "login", "token")
   end
 end

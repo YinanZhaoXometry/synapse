@@ -36,6 +36,21 @@ module Plans
         .or(current_user.questions.where(session_id: session_ids))
         .ids
 
+      # A plan material can ALSO be bound to a study task (reachable:
+      # attachMaterial(planId:) then createTask(materialId:) — CreateTask only
+      # refuses materials that already carry a task_id). Deleting it would hit
+      # study_tasks.material_id (no on_delete) and explode as an
+      # InvalidForeignKey → INTERNAL, violating never-raise-for-domain-
+      # outcomes. Refuse BEFORE anything is deleted: the plan's material is
+      # bound to a study task, and the unbind flow is future work (the epic
+      # P2-3 review, P1-2).
+      if current_user.materials.where(id: material_ids).where.not(task_id: nil).exists?
+        return Failure(:VALIDATION_FAILED,
+                       { message: "a material of this plan is still bound to a study task — " \
+                                  "unbind it first (the unbind flow is future work)",
+                         field: :id })
+      end
+
       ActiveRecord::Base.transaction do
         # Referencing rows first, deepest (evidence) to shallowest, then the
         # Phase-1 cascade itself (nodes, materials, their 1:1 rows), then the
