@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { EvidenceRecord } from "./entities";
-import { computeNodeScore, computePlanRollup, computeTaskRollup, getNodeState, summarizeNodes } from "./mastery";
+import {
+  MASTERY_CONFIG,
+  computeNodeScore,
+  computePlanRollup,
+  computeTaskRollup,
+  getNodeState,
+  summarizeNodes,
+} from "./mastery";
 
 // Fixture builder — records carry ISO timestamps; the window must honor them.
 let seq = 0;
@@ -184,5 +191,92 @@ describe("rollups (AD-6: domain owns every evidence-derived rollup)", () => {
       { nodeId: "strong", score: 100, state: "mastered" },
       { nodeId: "weak", score: 0, state: "uncovered" },
     ]);
+  });
+});
+
+describe("freshness cap (ADR-0001 amendment 2026-11-04, epic P2-4 ticket 04)", () => {
+  // Hand-worked boundary instants: latest evidence 2026-11-05T10:00:00Z;
+  // freshnessDays 14 ⇒ fresh through 2026-11-19T10:00:00Z, stale one second later.
+  const threeCorrect = [
+    ev("correct", "2026-11-03T10:00:00Z"),
+    ev("correct", "2026-11-04T10:00:00Z"),
+    ev("correct", "2026-11-05T10:00:00Z"),
+  ];
+
+  it("latest evidence exactly 14 days old is fresh — the node certifies 100/mastered", () => {
+    const now = "2026-11-19T10:00:00Z"; // exactly freshnessDays after the newest record
+    expect(MASTERY_CONFIG.freshnessDays).toBe(14);
+    expect(computeNodeScore(threeCorrect, now)).toBe(100);
+    expect(getNodeState(threeCorrect, now)).toBe("mastered");
+  });
+
+  it("latest evidence 14 days + 1 second old is stale — capped 99, never mastered", () => {
+    const now = "2026-11-19T10:00:01Z";
+    expect(computeNodeScore(threeCorrect, now)).toBe(99);
+    expect(getNodeState(threeCorrect, now)).toBe("partial");
+  });
+
+  it("a mastered node decaying drops to partial: full-window 100 → capped 99", () => {
+    const mastered = [1, 2, 3, 4, 5].map((i) => ev("correct", `2026-11-0${i}T10:00:00Z`));
+    expect(getNodeState(mastered, "2026-11-19T10:00:00Z")).toBe("mastered");
+    expect(computeNodeScore(mastered, "2026-11-19T10:00:01Z")).toBe(99);
+    expect(getNodeState(mastered, "2026-11-19T10:00:01Z")).toBe("partial");
+  });
+
+  it("the cap never drifts a sub-99 score downward: stale 83 stays 83 (only the seal expires)", () => {
+    const eightyThree = [
+      ev("correct", "2026-11-03T10:00:00Z"),
+      ev("correct", "2026-11-04T10:00:00Z"),
+      ev("partial", "2026-11-05T10:00:00Z"),
+    ]; // 2.5/3 → 83.33 → 83
+    expect(computeNodeScore(eightyThree, "2026-11-19T10:00:00Z")).toBe(83);
+    expect(getNodeState(eightyThree, "2026-11-19T10:00:00Z")).toBe("mastered");
+    expect(computeNodeScore(eightyThree, "2026-11-19T10:00:01Z")).toBe(83);
+    expect(getNodeState(eightyThree, "2026-11-19T10:00:01Z")).toBe("partial");
+  });
+
+  it("freshness judges the LATEST record, not the oldest: a fresh recent answer renews the node", () => {
+    const staleThenFresh = [
+      ev("correct", "2026-10-01T10:00:00Z"), // 49 days old — would be stale alone
+      ev("correct", "2026-11-18T10:00:00Z"), // 1 day before now — the latest record
+      ev("correct", "2026-11-19T09:00:00Z"),
+    ];
+    expect(computeNodeScore(staleThenFresh, "2026-11-19T10:00:00Z")).toBe(100);
+    expect(getNodeState(staleThenFresh, "2026-11-19T10:00:00Z")).toBe("mastered");
+  });
+
+  it("the plan rollup holds below 100 when one node has decayed (a decayed node can never certify)", () => {
+    const fresh = [1, 2, 3].map((i) => ev("correct", `2026-11-0${i + 5}T10:00:00Z`)); // Nov 6–8, fresh
+    const decayed = [1, 2, 3].map((i) => ev("correct", `2026-10-2${i - 1}T10:00:00Z`)); // Oct 21–23, stale
+    const now = "2026-11-19T10:00:01Z";
+    expect(getNodeState(fresh, now)).toBe("mastered");
+    expect(getNodeState(decayed, now)).toBe("partial");
+    // floor((100 + 99) / 2) = 99 — freshness caps the decayed node at 99, same as the gate cap.
+    expect(computePlanRollup({ fresh, decayed }, now)).toBe(99);
+  });
+
+  it("the gate cap and the freshness cap compose as the max of two 'at most 99' caps", () => {
+    const twoCorrect = [ev("correct", "2026-10-21T10:00:00Z"), ev("correct", "2026-10-22T10:00:00Z")];
+    const now = "2026-11-19T10:00:01Z"; // gate unmet (2 < 3) AND stale
+    expect(computeNodeScore(twoCorrect, now)).toBe(99);
+    expect(getNodeState(twoCorrect, now)).toBe("partial");
+  });
+
+  it("without an injected now the read is the Phase-1 one — no freshness, timestamps ignored", () => {
+    // The default posture (mirrors computeStreak's dayBoundary default): surfaces
+    // that don't inject now keep the identical pre-amendment behavior.
+    expect(computeNodeScore(threeCorrect)).toBe(100);
+    expect(getNodeState(threeCorrect)).toBe("mastered");
+  });
+
+  it("the rollups and the per-node summary pass freshness through unchanged", () => {
+    const now = "2026-11-19T10:00:01Z";
+    const fresh = [1, 2, 3].map((i) => ev("correct", `2026-11-0${i + 5}T10:00:00Z`));
+    const decayed = [1, 2, 3].map((i) => ev("correct", `2026-10-2${i - 1}T10:00:00Z`));
+    expect(summarizeNodes({ fresh, decayed }, now)).toEqual([
+      { nodeId: "fresh", score: 100, state: "mastered" },
+      { nodeId: "decayed", score: 99, state: "partial" },
+    ]);
+    expect(computeTaskRollup(decayed, now)).toBe(99); // a task's node decays with it
   });
 });
