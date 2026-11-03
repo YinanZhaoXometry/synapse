@@ -17,5 +17,14 @@ RSpec.describe System::PingCommand do
 
       expect(result.value!).to eq(pong: "hello")
     end
+
+    it "fails with a typed VALIDATION_FAILED on a blank message" do
+      result = described_class.call(message: "   ")
+
+      expect(result.failure?).to be(true)
+      failure = result.failure
+      expect(failure.code).to eq(:VALIDATION_FAILED)
+      expect(failure.context[:message]).to be_a(String)
+    end
   end
 end

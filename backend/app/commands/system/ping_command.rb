@@ -10,6 +10,8 @@ module System
     option :message, default: proc { "pong" }
 
     def call
+      return Failure(:VALIDATION_FAILED, { message: "message must not be blank" }) if message.to_s.strip.empty?
+
       Success(pong: message)
     end
   end
