@@ -4,29 +4,29 @@ Issues and specs for this repo live as markdown files in `.scratch/`. Solo-dev r
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The spec is `.scratch/<feature-slug>/spec.md`
-- The epic tracking doc (when a spec is sliced into an epic) is `.scratch/<feature-slug>/epic.md`, linking each ticket file and its blocking edges
-- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
+- Epic trackers live two-level — phase directory first (2026-11-03): `.scratch/phase-<N>/epic-<NN>-<slug>/`, epic number zero-padded to two digits (e.g. `.scratch/phase-1/epic-07-small-tail/`, `.scratch/phase-2/epic-00-monorepo/`). The epic's `Milestone:` line remains the authoritative phase marker
+- The spec is `<epic-dir>/spec.md`
+- The epic tracking doc (when a spec is sliced into an epic) is `<epic-dir>/epic.md`, linking each ticket file and its blocking edges
+- Implementation issues are one file per ticket at `<epic-dir>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings; completed work uses `Status: done`)
 - Blocking edges are a `Blocked by: NN, NN` line near the top of the ticket file (local ticket numbers). A ticket is unblocked when every file it lists is `done`
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+Create a new file under the epic's `.scratch/phase-<N>/epic-<NN>-<slug>/` directory (creating it if needed).
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the ticket number directly (e.g. "implement epic-1-foundation #3" → `.scratch/epic-1-foundation/issues/03-*.md`).
+Read the file at the referenced path. The user will normally pass the path or the ticket number directly (e.g. "implement phase-1 epic-01-foundation #3" → `.scratch/phase-1/epic-01-foundation/issues/03-*.md`).
 
 ## Frontier (what's startable now)
 
-Scan `.scratch/<feature>/issues/` for files whose `Status:` is a triage role (not `done`) and whose `Blocked by:` entries are all `done`; lowest number first. The epic doc's Slices table is the index.
+Scan `.scratch/phase-<N>/epic-<NN>-<slug>/issues/` for files whose `Status:` is a triage role (not `done`) and whose `Blocked by:` entries are all `done`; lowest number first. The epic doc's Slices table is the index.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
+Used by `/wayfinder`. The **map** is a file with one **child** file per ticket. Wayfinding efforts are not epics — they keep the single-level slot directly under `.scratch/`.
 
 - **Map**: `.scratch/<effort>/map.md` (the Notes / Decisions-so-far / Fog body).
 - **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.

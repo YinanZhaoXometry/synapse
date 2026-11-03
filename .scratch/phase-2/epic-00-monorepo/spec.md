@@ -1,4 +1,4 @@
-# Spec: Epic p2-0 — Monorepo restructure: `web/` + `api/` + justfile + CI (Phase-2 opener)
+# Spec: Epic 0 (Phase 2) — Monorepo restructure: `web/` + `api/` + justfile + CI (Phase-2 opener)
 
 Status: ready-for-agent
 Milestone: Phase 2 — post-deadline

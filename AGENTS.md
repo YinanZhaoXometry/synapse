@@ -52,7 +52,7 @@ Playwright config (`playwright.config.ts`) imports `lovable-agent-playwright-con
 
 ### Issue tracker
 
-Issues live as local markdown under `.scratch/<feature>/` (solo-dev repo — GitHub Issues closed 2026-11-02, kept as archive; spec/ticket history: `.scratch/epic-1-foundation/`). See `docs/agents/issue-tracker.md`.
+Issues live as local markdown under `.scratch/` (solo-dev repo — GitHub Issues closed 2026-11-02, kept as archive; spec/ticket history: `.scratch/phase-1/epic-01-foundation/`). Epic trackers live two-level: `.scratch/phase-<N>/epic-<NN>-<slug>/` (e.g. `phase-2/epic-00-monorepo/`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
