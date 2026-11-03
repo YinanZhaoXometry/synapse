@@ -19,12 +19,12 @@ module Types
     graphql_name "DateTime"
     description "An ISO-8601 encoded datetime string (RFC 3339)."
 
-    def self.coerce_input(value, _ctx)
-      GraphQL::Types::ISO8601DateTime.coerce_input(value, _ctx)
+    def self.coerce_input(value, ctx)
+      GraphQL::Types::ISO8601DateTime.coerce_input(value, ctx)
     end
 
-    def self.coerce_result(value, _ctx)
-      GraphQL::Types::ISO8601DateTime.coerce_result(value, _ctx)
+    def self.coerce_result(value, ctx)
+      GraphQL::Types::ISO8601DateTime.coerce_result(value, ctx)
     end
   end
 end
