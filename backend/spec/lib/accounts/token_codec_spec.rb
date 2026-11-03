@@ -49,4 +49,88 @@ RSpec.describe Accounts::TokenCodec do
         .to raise_error(Accounts::TokenCodec::MissingSecretError, /JWT_SECRET/)
     end
   end
+
+  describe ".decode expiry boundary (deterministic clock, no sleeps)" do
+    include ActiveSupport::Testing::TimeHelpers
+
+    it "accepts a token one second before its expiry" do
+      mint_time = Time.utc(2026, 11, 4, 12, 0, 0)
+      token = described_class.encode(sub: "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b", now: mint_time)
+
+      travel_to(mint_time + described_class::TTL - 1.second) do
+        result = described_class.decode(token)
+
+        expect(result).to be_ok
+        expect(result.user_uuid).to eq("2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b")
+      end
+    end
+
+    it "rejects the same token at its exact expiry second with :expired" do
+      mint_time = Time.utc(2026, 11, 4, 12, 0, 0)
+      token = described_class.encode(sub: "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b", now: mint_time)
+
+      travel_to(mint_time + described_class::TTL) do
+        result = described_class.decode(token)
+
+        expect(result).not_to be_ok
+        expect(result.error).to eq(:expired)
+        expect(result.user_uuid).to be_nil
+      end
+    end
+  end
+
+  describe ".decode failure taxonomy (never raises)" do
+    # Every failure path below must come back as a typed Decoded result —
+    # ticket 02's auth boundary maps both :expired and :invalid to
+    # UNAUTHORIZED, so neither may escape as an exception or collapse into
+    # the other.
+    it "returns :invalid for a malformed token" do
+      result = described_class.decode("not-a-token")
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+      expect(result.user_uuid).to be_nil
+    end
+
+    it "returns :invalid for an empty or nil token" do
+      [ "", nil ].each do |garbage|
+        result = described_class.decode(garbage)
+
+        expect(result).not_to be_ok
+        expect(result.error).to eq(:invalid)
+      end
+    end
+
+    it "returns :invalid for a token signed with a different secret" do
+      token = described_class.encode(sub: "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b")
+
+      ENV["JWT_SECRET"] = "a-different-secret"
+      result = described_class.decode(token)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+    end
+
+    it "returns :invalid for a well-signed token missing a required claim" do
+      # Minted with the raw jwt gem — an independent source of a sub-only
+      # token (no exp), i.e. not something the codec would produce.
+      sub_only = JWT.encode({ "sub" => "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b" },
+                            "test-signing-secret", "HS256")
+
+      result = described_class.decode(sub_only)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+    end
+
+    it "returns :invalid when JWT_SECRET is absent at decode time" do
+      token = described_class.encode(sub: "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b")
+
+      ENV.delete("JWT_SECRET")
+      result = described_class.decode(token)
+
+      expect(result).not_to be_ok
+      expect(result.error).to eq(:invalid)
+    end
+  end
 end
