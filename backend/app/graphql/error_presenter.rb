@@ -15,12 +15,22 @@
 # present, else the code itself — and the rest of the context is deliberately
 # NOT copied into the payload.
 class ErrorPresenter
+  # Shape guard: input that is not an unwrapped command Failure (a raw
+  # exception, a bare symbol, nil — a bypass around `result.failure`) is an
+  # upstream bug, but the GraphQL boundary must not crash with NoMethodError,
+  # so it degrades to the INTERNAL payload.
   def self.call(failure)
+    return internal_payload unless failure.is_a?(ApplicationErrors::Failure)
+
     code = failure.code.to_s
 
     {
       message: failure.context[:message] || code,
       extensions: { code: code }
     }
+  end
+
+  def self.internal_payload
+    { message: "internal error", extensions: { code: "INTERNAL" } }
   end
 end

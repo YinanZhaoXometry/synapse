@@ -3,20 +3,11 @@
 require "rails_helper"
 
 RSpec.describe User, type: :model do
-  it "fills id from the gen_random_uuid() server default when create omits it" do
-    user = described_class.create!(email: "user-spec-a@example.com", password_digest: "digest")
+  # The scoping root: no belongs_to :user of its own — it carries only the
+  # uuid pair from the shared structural examples.
+  it_behaves_like "a uuid primary-key model"
 
-    expect(user.id).to be_a_uuid
-    expect(user.persisted?).to be(true)
-  end
-
-  it "honors a client-supplied id on create (AD-12 idempotent import)" do
-    id = SecureRandom.uuid
-
-    user = described_class.create!(id: id, email: "user-spec-b@example.com", password_digest: "digest")
-
-    expect(user.id).to eq(id)
-  end
+  let(:model_attributes) { { email: "user-spec@example.com", password_digest: "digest" } }
 
   it "requires an email and keeps it unique" do
     expect(described_class.new(password_digest: "digest")).not_to be_valid

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_04_090015) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_04_090016) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -148,6 +148,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_090015) do
     t.index ["plan_id"], name: "index_quiz_sessions_on_plan_id"
     t.index ["task_id"], name: "index_quiz_sessions_on_task_id"
     t.index ["user_id"], name: "index_quiz_sessions_on_user_id"
+    t.check_constraint "(plan_id IS NOT NULL) <> (task_id IS NOT NULL)", name: "quiz_sessions_exactly_one_owner_check"
     t.check_constraint "mode::text = ANY (ARRAY['open'::character varying, 'choice'::character varying, 'mix'::character varying]::text[])", name: "quiz_sessions_mode_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'completed'::character varying, 'abandoned'::character varying]::text[])", name: "quiz_sessions_status_check"
   end
