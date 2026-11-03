@@ -1,6 +1,6 @@
 # T2: Task Home — `/task/:id`, single-material twin of Plan Home (FR-37; AD-6/8)
 
-Status: ready-for-agent
+Status: done
 Milestone: Phase 1 — Nov 6 core
 Blocked by: 01-task-create-flow.md
 
@@ -22,12 +22,12 @@ feature; no component computes its own mastery arithmetic.
 
 ## Acceptance criteria
 
-- [ ] The task-home route exists under the app layout (AD-8); an unknown task id is handled gracefully (not-found behavior consistent with the app, never a blank screen).
-- [ ] Breadcrumb back to Plans Home is present and works.
-- [ ] The material row opens the reader; after a reload (bytes lost) it offers re-upload through the shared re-upload path; parse state remains honest.
-- [ ] The Mastery Ring renders the task rollup — exactly its single owned node's score via the domain seam (`computeTaskRollup`), never a share-of-mastered collapse (ADR-0001); state vocabulary uncovered/partial/mastered with glyph + label, never color alone.
-- [ ] The evidence popover lists the task node's real evidence records (what moved the number, including the cap-99-below-gate behavior).
-- [ ] Quiz/flashcard tiles are visible, disabled, and carry a bilingual reason pointing at the next slice (epic-6); Companion is reached via the reader — no duplicate companion surface here.
-- [ ] Mastery numbers render only via pure display-shaping selectors over real queries — no display arithmetic in components (AD-6; plans display-shaping precedent).
-- [ ] i18n zh/en parity; semantic tokens only (AD-9); basic responsive correctness at docked/overlay widths.
-- [ ] Selector unit tests assert exact ADR-0001 numbers (window 5, cap-99 below the evidence gate, mastered = ≥ 80 & ≥ 3) and component render tests cover the three node states + re-upload state; gates green via direct `node_modules/.bin` binaries.
+- [x] The task-home route exists under the app layout (AD-8); an unknown task id is handled gracefully (not-found behavior consistent with the app, never a blank screen).
+- [x] Breadcrumb back to Plans Home is present and works.
+- [x] The material row opens the reader; after a reload (bytes lost) it offers re-upload through the shared re-upload path; parse state remains honest.
+- [x] The Mastery Ring renders the task rollup — exactly its single owned node's score via the domain seam (`computeTaskRollup`), never a share-of-mastered collapse (ADR-0001); state vocabulary uncovered/partial/mastered with glyph + label, never color alone.
+- [x] The evidence popover lists the task node's real evidence records (what moved the number, including the cap-99-below-gate behavior).
+- [x] Quiz/flashcard tiles are visible, disabled, and carry a bilingual reason pointing at the next slice (epic-6); Companion is reached via the reader — no duplicate companion surface here.
+- [x] Mastery numbers render only via pure display-shaping selectors over real queries — no display arithmetic in components (AD-6; plans display-shaping precedent).
+- [x] i18n zh/en parity; semantic tokens only (AD-9); basic responsive correctness at docked/overlay widths.
+- [x] Selector unit tests assert exact ADR-0001 numbers (window 5, cap-99 below the evidence gate, mastered = ≥ 80 & ≥ 3) and component render tests cover the three node states + re-upload state; gates green via direct `node_modules/.bin` binaries.
