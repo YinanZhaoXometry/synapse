@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
 module Types
-# A study plan (AD-3) — the front door. The wire shape mirrors the Phase-1
-# TS StudyPlan (frontend/src/domain/entities.ts) where the wire is
-# concerned: id/topic/goal/createdAt verbatim; the TS nodeIds/materialIds
-# arrays are realized as associations (nodes here — materials arrive with
-# the materials ticket); visibility is the backend-only passthrough
-# (FR-38 — the TS shape has none).
-#
-# masteryScore (the rollup) landed with epic P2-4 ticket 03, per the
-# epic-03 ticket-1 placement decision — marshaled through Mastery, never
-# computed here (AD-6/AD-14).
-class StudyPlanType < Types::BaseObject
+  # A study plan (AD-3) — the front door. The wire shape mirrors the Phase-1
+  # TS StudyPlan (frontend/src/domain/entities.ts) where the wire is
+  # concerned: id/topic/goal/createdAt verbatim; the TS nodeIds/materialIds
+  # arrays are realized as associations (nodes here — materials arrive with
+  # the materials ticket); visibility is the backend-only passthrough
+  # (FR-38 — the TS shape has none).
+  #
+  # masteryScore (the rollup) landed with epic P2-4 ticket 03, per the
+  # epic-03 ticket-1 placement decision — marshaled through Mastery, never
+  # computed here (AD-6/AD-14).
+  class StudyPlanType < Types::BaseObject
     description "A study plan (AD-3): the system gives the plan, never content."
 
     field :id, String,
