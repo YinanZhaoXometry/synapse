@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import type { QuizMode } from "@/ai/types";
 import type { Material } from "@/domain/entities";
 import { quizableMaterials, quizMaterialRefs } from "./display-shaping";
-import { useQuizSession, type QuizStartInput } from "./use-quiz-session";
+import { useQuizSession, QUIZ_FRESH_LAUNCH_KEY, type QuizStartInput } from "./use-quiz-session";
 
 export interface QuizLauncherProps {
   /** The owning plan's id — omit/set null on a task surface (AD-6 ownership). */
@@ -73,6 +73,14 @@ export function QuizLauncher({ planId, taskId, nodeIds, materials, scopeLocked, 
   // Generation landed: hand the session id + params to the surface (page → ?session=…).
   useEffect(() => {
     if (driver.phase === "active" && driver.run?.sessionId && inputRef.current) {
+      // T6: name this launch fresh for the session shell — a dialog launch
+      // lands on ?session indistinguishably from a reload, and the shell's
+      // 「已恢复」 note must keep its reload-resume-only meaning.
+      try {
+        sessionStorage.setItem(QUIZ_FRESH_LAUNCH_KEY, driver.run.sessionId);
+      } catch {
+        // sessionStorage unavailable — the shell then errs on the honest note
+      }
       onStarted(driver.run.sessionId, inputRef.current);
     }
   }, [driver.phase, driver.run?.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps

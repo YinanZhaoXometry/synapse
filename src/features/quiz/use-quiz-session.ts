@@ -49,6 +49,19 @@ export interface QuizStartInput {
   taskId?: string | null;
 }
 
+/**
+ * T6 (the T4 sweep candidate): per-tab marker naming the session a launcher
+ * JUST started — written by QuizLauncher, consumed once by QuizSessionPage. A
+ * Plan/Task Home DIALOG launch navigates to the session route with ?session
+ * already set, which that mount cannot tell apart from a reload by memory
+ * alone — so a deliberate fresh start rendered the honest-reload 「已恢复」
+ * note, a small lie this epic's honesty thread cannot keep. sessionStorage
+ * survives the SPA navigation but is consumed on read, so a genuine reload of
+ * the same session finds no marker and the note keeps its reload-resume-only
+ * meaning (the T2 retake precedent: a fresh start is never a resume).
+ */
+export const QUIZ_FRESH_LAUNCH_KEY = "synapse-quiz-fresh-launch";
+
 export function useQuizSession() {
   const { language } = useLanguage();
   const [run, setRun] = useState<QuizRunState | null>(null);

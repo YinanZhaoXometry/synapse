@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { createPlan, createQuizSession, createStudyTask, registerMaterial } from "@/data";
 import type { MaterialSection } from "@/domain/entities";
+import { QUIZ_FRESH_LAUNCH_KEY } from "@/features/quiz";
 import TaskQuizPage from "./TaskQuizPage";
 
 /**
@@ -53,7 +54,7 @@ function PlansLanding() {
 
 function renderQuizPage(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(
+  return render(
     <LanguageProvider>
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={[path]}>
@@ -71,6 +72,7 @@ function renderQuizPage(path: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
@@ -164,5 +166,52 @@ describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
     expect(await screen.findByText(zh("quiz.exitTitle"))).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("quiz-exit-leave"));
     expect(await screen.findByTestId("task-landing")).toBeInTheDocument();
+  });
+
+  it("a Task Home DIALOG launch is a fresh start, not a resume — no 「已恢复」 note, marker consumed; a genuine reload of the same session keeps the honest note (T6)", async () => {
+    const { task, node, material } = seedTask();
+    const { session } = createQuizSession({
+      planId: null,
+      taskId: task.id,
+      mode: "choice",
+      questions: [
+        {
+          prompt: "Choice one",
+          nodeId: node.id,
+          kind: "choice",
+          options: ["right", "wrong"],
+          correctOptionIndex: 0,
+          sourceMaterialId: material.id,
+          sourceSectionId: "sec-1",
+          explanation: "because",
+        },
+        {
+          prompt: "Choice two",
+          nodeId: node.id,
+          kind: "choice",
+          options: ["wrong", "right"],
+          correctOptionIndex: 1,
+          sourceMaterialId: material.id,
+          sourceSectionId: "sec-2",
+          explanation: "because too",
+        },
+      ],
+    });
+    // what TaskHomePage's dialog onStarted just did before navigating: the
+    // QuizLauncher marked the session fresh, then carried its id in the URL
+    sessionStorage.setItem(QUIZ_FRESH_LAUNCH_KEY, session.id);
+    const first = renderQuizPage(`/task/${task.id}/quiz?session=${session.id}`);
+
+    // the runner is up WITHOUT the resume note — nothing was resumed
+    expect(await screen.findByTestId("quiz-runner")).toBeInTheDocument();
+    expect(screen.queryByTestId("quiz-resumed-note")).not.toBeInTheDocument();
+    // the marker was consumed, not leaked: a later reload finds none
+    expect(sessionStorage.getItem(QUIZ_FRESH_LAUNCH_KEY)).toBeNull();
+
+    // the reload simulation: a fresh mount over the same localStorage + URL
+    first.unmount();
+    renderQuizPage(`/task/${task.id}/quiz?session=${session.id}`);
+    expect(await screen.findByTestId("quiz-resumed-note")).toHaveTextContent(zh("quiz.runner.resumedNote"));
+    expect(screen.getByTestId("quiz-progress")).toHaveTextContent(zh("quiz.question").replace("{i}", "1").replace("{n}", "2"));
   });
 });

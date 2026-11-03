@@ -32,7 +32,7 @@ export {
   type RevealedQuestionView,
   type RevealedStatus,
 } from "./session-machine";
-export { useQuizSession, type QuizSessionPhase, type QuizStartInput } from "./use-quiz-session";
+export { useQuizSession, QUIZ_FRESH_LAUNCH_KEY, type QuizSessionPhase, type QuizStartInput } from "./use-quiz-session";
 export { QuizLauncher } from "./QuizLauncher";
 export { QuizRunner } from "./QuizRunner";
 export { QuizResults } from "./QuizResults";

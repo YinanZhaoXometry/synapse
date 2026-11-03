@@ -28,7 +28,7 @@ import { getQuizSession, useAllEvidenceQuery } from "@/data";
 import type { KnowledgeNode, Material } from "@/domain/entities";
 import { QuizLauncher } from "./QuizLauncher";
 import { QuizRunner } from "./QuizRunner";
-import { useQuizSession, type QuizStartInput } from "./use-quiz-session";
+import { useQuizSession, QUIZ_FRESH_LAUNCH_KEY, type QuizStartInput } from "./use-quiz-session";
 
 /** Where the session lives and who owns it (AD-6): a plan or a task. */
 export interface QuizSessionContext {
@@ -78,6 +78,10 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
   const [retaking, setRetaking] = useState(false);
   const [hydrateFailed, setHydrateFailed] = useState(false);
   const hydratedRef = useRef<string | null>(null);
+  // T6: the session this TAB launched fresh (dialog or inline), consumed from
+  // sessionStorage once (see QUIZ_FRESH_LAUNCH_KEY). A genuine reload finds no
+  // marker — the resumed note below keeps its reload-resume-only meaning.
+  const freshLaunchRef = useRef<string | null>(null);
 
   const evidence = evidenceQuery.data ?? [];
 
@@ -99,6 +103,17 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
   // AD-6 ownership: a session of ANOTHER plan/task is never this surface's.
   const owns =
     !!session && (context.kind === "plan" ? session.planId === context.ownerId : session.taskId === context.ownerId);
+
+  // Consume the fresh-launch marker for THIS session id before the hydrate
+  // effect runs (declaration order): a dialog launch lands here with ?session
+  // already set and must not render the reload-resume note (T6).
+  useEffect(() => {
+    if (!sessionParam) return;
+    if (sessionStorage.getItem(QUIZ_FRESH_LAUNCH_KEY) === sessionParam) {
+      freshLaunchRef.current = sessionParam;
+      sessionStorage.removeItem(QUIZ_FRESH_LAUNCH_KEY);
+    }
+  }, [sessionParam]);
 
   // Hydrate an ACTIVE session of THIS owner once per URL id (resumption;
   // terminal sessions are refused by the machine — the render shows the honest
@@ -171,7 +186,12 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
         materials={context.materials}
         nodes={context.nodes}
         evidence={evidence}
-        resumed={!launchRef.current && sessionParam === driver.run.sessionId && hydratedRef.current === driver.run.sessionId}
+        resumed={
+          !launchRef.current &&
+          freshLaunchRef.current !== driver.run.sessionId &&
+          sessionParam === driver.run.sessionId &&
+          hydratedRef.current === driver.run.sessionId
+        }
         canRetake={!!launchRef.current}
         backLabelKey={context.homeLabelKey}
         onRetake={() => {
