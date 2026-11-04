@@ -15,6 +15,42 @@ services:
       timeout: 3s
       retries: 30
 
+  # R2 stand-in for dev/test (AD-13, epic P2-6 ticket 01) — the api's
+  # ActiveStorage :minio service (backend/config/storage.yml) targets
+  # http://minio:9000 here. Port 9000 ONLY (no console port). Dev creds are
+  # the documented dev defaults — they MUST stay aligned with the dev
+  # defaults in backend/config/storage.yml (backend/.env.example documents
+  # the contract; production reads R2_* from real ENV with no defaults).
+  minio:
+    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: synapse-dev
+      MINIO_ROOT_PASSWORD: synapse-dev-password
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-shot bucket init so `just up` is self-sufficient (epic P2-6 kickoff
+  # choice 3): idempotent (alias + --ignore-existing), runs once per fresh
+  # stack, and the api container does not start until it has completed.
+  minio-init:
+    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: synapse-dev
+      MINIO_ROOT_PASSWORD: synapse-dev-password
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/synapse-materials"
+    restart: "no"
+
   backend:
     build:
       context: ..
@@ -40,6 +76,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Storage parity (epic P2-6 ticket 01): minio healthy + the
+      # synapse-materials bucket present before the api starts.
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     entrypoint: ["/workspace/backend/bin/docker-dev-entrypoint"]
     command: ["bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
     tty: true
@@ -48,3 +90,4 @@ services:
 volumes:
   db-data:
   bundle-cache:
+  minio-data:

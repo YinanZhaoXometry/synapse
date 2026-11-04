@@ -64,4 +64,16 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Object storage (AD-13, epic P2-6 ticket 01): Cloudflare R2 — the :r2
+  # service in backend/config/storage.yml reads every value from ENV with no
+  # defaults, so fail fast at boot when the contract is incomplete instead of
+  # silently pointing the S3 client at a wrong (or AWS-default) endpoint.
+  config.active_storage.service = :r2
+  %w[R2_ENDPOINT R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY].each do |key|
+    if ENV[key].blank?
+      raise "Missing #{key} — the :r2 ActiveStorage service requires all four " \
+            "R2_* ENV vars in production (backend/.env.example)"
+    end
+  end
 end
