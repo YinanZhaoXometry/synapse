@@ -22,17 +22,35 @@ import type {
 import type {
   ChatMessagePartsFragment,
   KnowledgeNodePartsFragment,
+  MaterialNodeMappingPartsFragment,
   MaterialPartsFragment,
   MaterialSummaryPartsFragment,
   QuestionPartsFragment,
   QuizSessionPartsFragment,
   ReadingPositionPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialView, QuizSessionView, StudyPlanView, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, QuizSessionView, StudyPlanView, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
   throw new Error(`unknown node state from the api: ${state}`);
+}
+
+function mappingStatus(status: string): MaterialNodeMappingView["status"] {
+  if (status === "proposed" || status === "confirmed" || status === "rejected") return status;
+  throw new Error(`unknown mapping status from the api: ${status}`);
+}
+
+export function mapMaterialNodeMapping(row: MaterialNodeMappingPartsFragment): MaterialNodeMappingView {
+  return {
+    id: row.id,
+    materialId: row.materialId,
+    nodeId: row.nodeId,
+    sectionId: row.sectionId,
+    proposedNodeTitle: row.proposedNodeTitle,
+    status: mappingStatus(row.status),
+    createdAt: row.createdAt,
+  };
 }
 
 export function mapNode(node: KnowledgeNodePartsFragment): KnowledgeNodeView {

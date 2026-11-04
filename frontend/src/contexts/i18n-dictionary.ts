@@ -668,7 +668,32 @@ export const translations = {
       'plans.goalExam': '备考冲刺',
       'plans.goalDeep': '深入理解',
       'plans.goalRevision': '复习巩固',
-      'plans.goalDaily': '日常练习'
+      'plans.goalDaily': '日常练习',
+
+      // 章节↔节点映射（epic P2-10 T1 · FR-45 — 每材料覆盖面板：已映射/待确认/已拒绝/未映射四组）
+      'mapping.title': '内容覆盖',
+      'mapping.mapAction': 'AI 映射章节',
+      'mapping.remapping': '重新映射',
+      'mapping.working': '正在映射…',
+      'mapping.noMappings': '尚未映射章节——先运行一次 AI 映射。',
+      'mapping.groupMapped': '已映射',
+      'mapping.groupProposed': '待确认',
+      'mapping.groupRejected': '已拒绝（不会再次提出）',
+      'mapping.groupUnmapped': '未映射',
+      'mapping.confirmGroup': '全部接受',
+      'mapping.rejectGroup': '全部拒绝',
+      'mapping.done': '映射完成',
+      'mapping.doneDetail': '{n} 个章节已全部归类',
+      'mapping.confirmedToast': '提案已确认，节点已加入计划',
+      'mapping.rejectedToast': '提案已拒绝，相关章节不会再被提出',
+      'mapping.errorUnauthorized': '登录状态已过期，请重新登录',
+      'mapping.errorForbidden': '没有权限执行这个操作',
+      'mapping.errorNotFound': '找不到对应的学习内容',
+      'mapping.errorValidation': '映射请求不完整，请调整后重试',
+      'mapping.errorRateLimited': '请求太频繁，请稍等片刻再试',
+      'mapping.capReached': '今日 AI 使用次数已达上限，请明天再来',
+      'mapping.errorInternal': 'AI 服务暂时不可用，请重试',
+      'mapping.failed': '映射失败，请重试'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -1336,7 +1361,32 @@ export const translations = {
       'plans.goalExam': 'Exam prep',
       'plans.goalDeep': 'Deep understanding',
       'plans.goalRevision': 'Revision',
-      'plans.goalDaily': 'Daily practice'
+      'plans.goalDaily': 'Daily practice',
+
+      // Section↔node mapping (epic P2-10 T1 · FR-45 — the per-material coverage panel: Mapped / Proposed / Rejected / Unmapped)
+      'mapping.title': 'Coverage',
+      'mapping.mapAction': 'Map sections',
+      'mapping.remapping': 'Re-map sections',
+      'mapping.working': 'Mapping…',
+      'mapping.noMappings': 'No section mappings yet — run the AI mapping first.',
+      'mapping.groupMapped': 'Mapped',
+      'mapping.groupProposed': 'Proposed',
+      'mapping.groupRejected': 'Rejected (never re-proposed)',
+      'mapping.groupUnmapped': 'Unmapped',
+      'mapping.confirmGroup': 'Confirm all',
+      'mapping.rejectGroup': 'Reject all',
+      'mapping.done': 'Mapping complete',
+      'mapping.doneDetail': '{n} sections placed',
+      'mapping.confirmedToast': 'Proposals confirmed — the node joined your plan',
+      'mapping.rejectedToast': 'Proposals rejected — those sections will not be re-proposed',
+      'mapping.errorUnauthorized': 'Your session expired — please sign in again',
+      'mapping.errorForbidden': 'You do not have access to this action',
+      'mapping.errorNotFound': 'The study content was not found',
+      'mapping.errorValidation': 'The mapping request was incomplete — adjust and retry',
+      'mapping.errorRateLimited': 'Too many requests — please wait a moment',
+      'mapping.capReached': 'Daily AI limit reached — try again tomorrow',
+      'mapping.errorInternal': 'The AI service is unavailable — please retry',
+      'mapping.failed': 'Mapping failed — please retry'
     }
 
 } as const;
