@@ -4,7 +4,7 @@
 
 **Blocked by:** None (epic gate: 02+03+04+05+06 done).
 
-**Status:** done (pending final gate sweep + two-axis review)
+**Status:** done — two-axis review ran 2026-11-04 (verdict fix-first, 5 findings) and every finding is fixed on `8879615` (CI 41825115792 双绿): P2 stale reset copy (dataNote/resetDone now state the cutover semantics), P3 tanstack dep dropped, P3 materialKind validator, P3 parse write-back failure toasts, P3 deploy.md premise patched (full envelope rewrite still ticket 06's). Conforms on all 4 ACs; optimistic-paint/auth-loop/P3-reorder/shapes swept clean.
 
 **Bound by:** AD-18 (Apollo owns domain data; no domain contexts; no local-mode shim), AD-2 (features never import each other's internals through the swap), AD-3 (the Query bridge retires — its retirement is this ticket's proof).
 
