@@ -29,7 +29,9 @@ module Import
   # concern deliberately does not read.
   module DocumentValidation
     # Returns the first typed Failure, or nil when the payload is clean.
-    def validate_document!(document)
+    # (No bang: this never raises — the Failure object IS the result, per the
+    # command-layer convention.)
+    def validate_document(document)
       collection_failures = validate_ids!(document)
       return collection_failures if collection_failures
 

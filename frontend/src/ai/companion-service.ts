@@ -10,6 +10,7 @@ import type {
   GradedAnswer,
   GroundedChatRequest,
   MaterialRef,
+  PlanProposalOptions,
   PlanStructureProposal,
   QuizMode,
   UiLanguage,
@@ -27,13 +28,17 @@ export interface CompanionService {
    * Topic/goal → staged node proposal, streamed like chat. Deterministic per
    * input. The goal is additive (epic P2-8 T5, A3/FR-1): the creation chat's
    * selection feeds the proposal stream's goal param; the simulated adapter
-   * keeps templating from the topic alone.
+   * keeps templating from the topic alone. The trailing options carry the
+   * additive restart-notice channel (epic P2-8 review fix, AD-16 — see
+   * PlanProposalOptions): the server adapter fires it per fresh-ticket
+   * restart; the simulated adapter ignores it.
    */
   generatePlanStructure(
     topic: string,
     language: UiLanguage,
     onToken?: (chunk: string) => void,
     goal?: string | null,
+    options?: PlanProposalOptions,
   ): Promise<PlanStructureProposal>;
 
   /**

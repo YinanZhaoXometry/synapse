@@ -36,7 +36,7 @@
  */
 import { getApolloClient } from "@/apollo/client";
 import { registerStreamTerminator } from "@/apollo/reset";
-import { apiErrorCode } from "@/api/errors";
+import { apiErrorCode, apiErrorKeys } from "@/api/errors";
 import type { ApiErrorCode } from "@/api/errors";
 import { AppError } from "@/lib/app-error";
 import { CreateStreamTicketDocument } from "@/types/graphql";
@@ -148,19 +148,13 @@ const DEFAULT_MAX_RESTARTS = 3;
 
 /**
  * Terminal code → t() key — the FULL closed enum (AD-9: codes → keys, never
- * server strings). The cap refusal gets its own honest copy; the generic
- * failure key backs mint/transport failures without a code and any
- * out-of-contract terminal code.
+ * server strings), derived from the ONE base suffix map (src/api/errors.ts)
+ * so the mutation-path sibling (AI_MUTATION_KEYS) can never drift. The cap
+ * refusal gets its own honest copy; the generic failure key backs
+ * mint/transport failures without a code and any out-of-contract terminal
+ * code.
  */
-export const STREAM_TERMINAL_KEYS: Record<ApiErrorCode, string> = {
-  UNAUTHORIZED: "ai.stream.errorUnauthorized",
-  FORBIDDEN: "ai.stream.errorForbidden",
-  NOT_FOUND: "ai.stream.errorNotFound",
-  VALIDATION_FAILED: "ai.stream.errorValidation",
-  RATE_LIMITED: "ai.stream.errorRateLimited",
-  CAP_REACHED: "ai.stream.capReached",
-  INTERNAL: "ai.stream.errorInternal",
-};
+export const STREAM_TERMINAL_KEYS: Record<ApiErrorCode, string> = apiErrorKeys("ai.stream.");
 
 const GENERIC_STREAM_FAILED_KEY = "ai.stream.failed";
 const CONNECTION_LOST_KEY = "ai.stream.connectionLost";

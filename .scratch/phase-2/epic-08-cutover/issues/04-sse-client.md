@@ -4,11 +4,11 @@
 
 **Blocked by:** 1.
 
-**Status:** done (2026-11-04, `1edbab5` — 19 offline tests; review pending the epic's pre-merge pass)
+**Status:** done (2026-11-04, `1edbab5` — 19 offline tests; review pending the epic's pre-merge pass). ACs verified by the epic's code-review pass 2026-11-04.
 
 **Bound by:** AD-16 (client restart semantics verbatim), AD-5 (UI renders the contract, never guesses), AD-9 (codes → keys, never server strings).
 
-- [ ] Drop → restart → cap notice visible in both languages; no reconnect attempts
-- [ ] Terminal error codes map through AppError to i18n keys (full closed enum)
-- [ ] Language toggle mid-session applies to the next stream (asserted)
-- [ ] Contract parse covered by deterministic tests (fixture streams, no server)
+- [x] Drop → restart → cap notice visible in both languages; no reconnect attempts
+- [x] Terminal error codes map through AppError to i18n keys (full closed enum)
+- [x] Language toggle mid-session applies to the next stream (asserted)
+- [x] Contract parse covered by deterministic tests (fixture streams, no server)

@@ -14,6 +14,7 @@ import { MockedProvider } from "@apollo/client/testing/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import { getCompanionService } from "@/ai/companion-service";
 import type { PlanStructureProposal } from "@/ai/types";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -34,6 +35,8 @@ function renderChat() {
       <MockedProvider>
         <LanguageProvider>
           <CreationChat />
+          {/* mounted so the restart-notice toast is an observable state */}
+          <Toaster />
         </LanguageProvider>
       </MockedProvider>
     </MemoryRouter>,
@@ -61,7 +64,7 @@ describe("CreationChat goal selection (T5 · A3/FR-1)", () => {
     fireEvent.click(screen.getByTestId("creation-goal-exam-prep"));
     await sendTopic("软件工程");
 
-    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), "exam-prep");
+    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), "exam-prep", { onNotice: expect.any(Function) });
     // the transcript renders the named goal in the UI language, not the id
     expect(screen.getByText(/备考冲刺/)).toBeInTheDocument();
   });
@@ -72,7 +75,7 @@ describe("CreationChat goal selection (T5 · A3/FR-1)", () => {
     fireEvent.change(screen.getByPlaceholderText(zhDict["plans.goalPlaceholder"]), { target: { value: "为了期末的第三章" } });
     await sendTopic("软件工程");
 
-    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), "为了期末的第三章");
+    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), "为了期末的第三章", { onNotice: expect.any(Function) });
     expect(screen.getByText(/为了期末的第三章/)).toBeInTheDocument();
   });
 
@@ -80,7 +83,7 @@ describe("CreationChat goal selection (T5 · A3/FR-1)", () => {
     renderChat();
     await sendTopic("软件工程");
 
-    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), null);
+    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), null, { onNotice: expect.any(Function) });
   });
 
   it("clicking a picked chip deselects it (the toggle stays honest)", async () => {
@@ -92,6 +95,22 @@ describe("CreationChat goal selection (T5 · A3/FR-1)", () => {
     expect(chip.getAttribute("aria-checked")).toBe("false");
 
     await sendTopic("软件工程");
-    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), null);
+    expect(generateSpy).toHaveBeenCalledWith("软件工程", "zh", expect.any(Function), null, { onNotice: expect.any(Function) });
+  });
+
+  it("a restart notice surfaces as the cap-counted toast (US2: the drop is never silent)", async () => {
+    // the double replays what the real adapter does on a drop: fire the
+    // notice channel with the t() key, then keep streaming to a proposal
+    generateSpy.mockImplementation(
+      (_topic: unknown, _language: unknown, _onToken: unknown, _goal: unknown, options?: { onNotice?: (key: string) => void }) => {
+        options?.onNotice?.("ai.stream.connectionLost");
+        return Promise.resolve(proposal);
+      },
+    );
+    renderChat();
+    await sendTopic("软件工程");
+
+    // the toast is an observable state — sonner renders it asynchronously
+    expect(await screen.findByText(zhDict["ai.stream.connectionLost"])).toBeInTheDocument();
   });
 });

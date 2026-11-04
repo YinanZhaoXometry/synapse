@@ -31,6 +31,37 @@ export function apiErrorCode(error: ErrorLike | undefined | null): ApiErrorCode 
   return null;
 }
 
+/**
+ * The closed enum → t()-key SUFFIX map (AD-9, one place): the ai surfaces
+ * derive their sibling namespaces from it — the streams prefix `ai.stream.`
+ * (src/ai/sse-client.ts), the generation mutations prefix `ai.generate.`
+ * (src/ai/companion-service-server.ts) — so the two maps can never drift
+ * apart on the enum or on a suffix. Copy itself lives in the i18n dictionary.
+ */
+export const API_ERROR_KEY_SUFFIXES: Record<ApiErrorCode, string> = {
+  UNAUTHORIZED: "errorUnauthorized",
+  FORBIDDEN: "errorForbidden",
+  NOT_FOUND: "errorNotFound",
+  VALIDATION_FAILED: "errorValidation",
+  RATE_LIMITED: "errorRateLimited",
+  CAP_REACHED: "capReached",
+  INTERNAL: "errorInternal",
+};
+
+/** The closed enum walked in declaration order — the derivation helper. */
+export function apiErrorCodes(): ApiErrorCode[] {
+  return Object.keys(API_ERROR_KEY_SUFFIXES) as ApiErrorCode[];
+}
+
+/** Prefix each enum code's suffix into a full namespaced t()-key map. */
+export function apiErrorKeys(namespace: string): Record<ApiErrorCode, string> {
+  const keys = {} as Record<ApiErrorCode, string>;
+  for (const code of apiErrorCodes()) {
+    keys[code] = `${namespace}${API_ERROR_KEY_SUFFIXES[code]}`;
+  }
+  return keys;
+}
+
 /** True when an error arrived but carries no api code — transport/parse failure. */
 export function isNetworkError(error: ErrorLike | undefined | null): boolean {
   return Boolean(error) && apiErrorCode(error) === null;

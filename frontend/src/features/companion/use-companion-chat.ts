@@ -124,6 +124,10 @@ export function useCompanionChat(
             // T5 additive pass-through: the companion stream is material-scoped
             // — the server ticket carries this id; the double ignores it.
             materialId: turnMaterialId,
+            // The cap-counted restart notice (AD-16, never silent): a drop →
+            // fresh-ticket restart counted against the daily AI cap, surfaced
+            // as the single toast pattern; the stream itself continues.
+            onNotice: (key) => toast(t(key)),
           },
           (chunk) => {
             buf.current += chunk;

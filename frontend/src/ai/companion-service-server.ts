@@ -21,7 +21,7 @@
  * run offline (stub client + fake EventSource).
  */
 import { getApolloClient } from "@/apollo/client";
-import { apiErrorCode } from "@/api/errors";
+import { apiErrorCode, apiErrorKeys } from "@/api/errors";
 import { readingLocator } from "@/api/mappers";
 import type { ErrorLike } from "@apollo/client";
 import { AppError } from "@/lib/app-error";
@@ -49,6 +49,7 @@ import type {
   GradedAnswer,
   GroundedChatRequest,
   MaterialRef,
+  PlanProposalOptions,
   PlanStructureProposal,
   QuizMode,
   UiLanguage,
@@ -58,19 +59,13 @@ import type {
 
 /**
  * Terminal code → t() key for the THREE generation mutations — the FULL
- * closed enum (the streams' sibling map is STREAM_TERMINAL_KEYS). A code-less
- * failure (network/parse) and any out-of-contract code land on the generic
- * failure key.
+ * closed enum, derived from the ONE base suffix map (src/api/errors.ts) so
+ * the streams' sibling (STREAM_TERMINAL_KEYS) can never drift — only the
+ * namespace differs, generation-flavored copy. A code-less failure
+ * (network/parse) and any out-of-contract code land on the generic failure
+ * key.
  */
-export const AI_MUTATION_KEYS: Record<string, string> = {
-  UNAUTHORIZED: "ai.generate.errorUnauthorized",
-  FORBIDDEN: "ai.generate.errorForbidden",
-  NOT_FOUND: "ai.generate.errorNotFound",
-  VALIDATION_FAILED: "ai.generate.errorValidation",
-  RATE_LIMITED: "ai.generate.errorRateLimited",
-  CAP_REACHED: "ai.generate.capReached",
-  INTERNAL: "ai.generate.errorInternal",
-};
+export const AI_MUTATION_KEYS: Record<string, string> = apiErrorKeys("ai.generate.");
 
 const AI_MUTATION_FAILED_KEY = "ai.generate.failed";
 /** A cancelled stream (resetApiClient on logout — never a UI action) ends
@@ -208,6 +203,9 @@ export class ServerCompanionService implements CompanionService {
           onToken?.(chunk);
         },
         onCitation: (citation) => citations.push(citation),
+        // The cap-counted restart notice crosses the seam (AD-16: never
+        // silent) — the call site toasts the t() key; the stream continues.
+        onRestart: (notice) => request.onNotice?.(notice.messageKey),
       },
       this.deps,
     );
@@ -237,6 +235,7 @@ export class ServerCompanionService implements CompanionService {
     language: UiLanguage,
     onToken?: (chunk: string) => void,
     goal?: string | null,
+    options?: PlanProposalOptions,
   ): Promise<PlanStructureProposal> {
     const session = startStream(
       // The goal is a generation input (A3/FR-1): it rides INSIDE the ticket;
@@ -244,6 +243,8 @@ export class ServerCompanionService implements CompanionService {
       { op: "proposal", topic, goal: goal ?? undefined, language },
       {
         onToken: (chunk) => onToken?.(chunk),
+        // Same seam channel as chat: the cap-counted restart notice (AD-16).
+        onRestart: (notice) => options?.onNotice?.(notice.messageKey),
       },
       this.deps,
     );

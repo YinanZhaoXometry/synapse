@@ -43,7 +43,7 @@ module Import
     option :document
 
     def call
-      validation = validate_document!(document)
+      validation = validate_document(document)
       return validation if validation
 
       ownership = foreign_uuid_failure

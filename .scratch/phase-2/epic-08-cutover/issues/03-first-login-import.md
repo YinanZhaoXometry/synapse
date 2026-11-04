@@ -4,11 +4,11 @@
 
 **Blocked by:** 2.
 
-**Status:** done (2026-11-04, merged `bad9dc6` — backend 775 / web 428 green; review pending the epic's pre-merge pass)
+**Status:** done (2026-11-04, merged `bad9dc6` — backend 775 / web 428 green; review pending the epic's pre-merge pass). ACs verified by the epic's code-review pass 2026-11-04.
 
 **Bound by:** AD-15 (import contract verbatim), AD-4 (the document's shape is the contract — read it, don't transform it), AD-13 (re-attach via presign).
 
-- [ ] Real-document round-trip: a populated Phase-1 localStorage doc imports; replay = no-op success
-- [ ] Ownership-conflict path shows a bilingual error, never a silent link
-- [ ] Re-attach flow: presign → PUT → material renders with original file; skipped → text-only PDF path verified
-- [ ] Import never deletes/renames local keys (asserted)
+- [x] Real-document round-trip: a populated Phase-1 localStorage doc imports; replay = no-op success
+- [x] Ownership-conflict path shows a bilingual error, never a silent link
+- [x] Re-attach flow: presign → PUT → material renders with original file; skipped → text-only PDF path verified
+- [x] Import never deletes/renames local keys (asserted)

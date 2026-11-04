@@ -546,6 +546,81 @@ describe("ServerCompanionService — gradeOpenAnswer (grading by questionId)", (
   });
 });
 
+describe("ServerCompanionService — the cap-counted restart notice (US2/AD-16 review fix)", () => {
+  it("chat: a drop fires the seam's onNotice with the cap-counted t() key, then the restart completes", async () => {
+    const { deps, sources } = makeDeps();
+    const adapter = makeAdapter({ deps });
+    const notices: string[] = [];
+    const tokens: string[] = [];
+
+    const replyPromise = adapter.chat(
+      {
+        question: "这个部分讲了什么？",
+        position: { locator: { kind: "markdown", sectionId: "sec-1" }, text: "current view" },
+        language: "zh",
+        materialId: "mat-1",
+        onNotice: (key) => notices.push(key),
+      },
+      (chunk) => tokens.push(chunk),
+    );
+    await settle();
+
+    sources[0].drop();
+    await settle();
+    // THE contract: the restart counted against the daily cap is never silent
+    // — the wrapper's onRestart rides through as onNotice("ai.stream.connectionLost").
+    expect(notices).toEqual(["ai.stream.connectionLost"]);
+
+    // the stream continues on the fresh ticket — the notice is transient
+    sources[1].emit("token", { text: "重连后" });
+    sources[1].emit("terminal", { code: "OK" });
+    const reply = await replyPromise;
+    expect(reply.text).toBe("重连后");
+    expect(tokens).toEqual(["重连后"]);
+    expect(notices).toEqual(["ai.stream.connectionLost"]); // one drop, one notice
+  });
+
+  it("chat: onNotice stays optional — a drop still restarts cleanly without a listener", async () => {
+    const { deps, sources } = makeDeps();
+    const adapter = makeAdapter({ deps });
+
+    const replyPromise = adapter.chat({
+      question: "问题",
+      position: { locator: { kind: "markdown", sectionId: "sec-1" }, text: "t" },
+      language: "zh",
+      materialId: "mat-1",
+    });
+    await settle();
+    sources[0].drop();
+    await settle();
+    sources[1].emit("terminal", { code: "OK" });
+
+    await expect(replyPromise).resolves.toMatchObject({ text: "" }); // no crash, restart ran
+  });
+
+  it("generatePlanStructure: the proposal stream fires onNotice through the options object", async () => {
+    const { deps, sources } = makeDeps();
+    const adapter = makeAdapter({ deps });
+    const notices: string[] = [];
+    const proposal: PlanStructureProposal = {
+      topic: "软件工程",
+      language: "zh",
+      stages: [{ name: "阶段一：基础", nodeTitles: ["命令层"] }],
+    };
+
+    const proposalPromise = adapter.generatePlanStructure("软件工程", "zh", undefined, null, {
+      onNotice: (key) => notices.push(key),
+    });
+    await settle();
+    sources[0].drop();
+    await settle();
+    expect(notices).toEqual(["ai.stream.connectionLost"]);
+
+    sources[1].emit("terminal", { code: "OK", proposal });
+    expect(await proposalPromise).toEqual(proposal);
+  });
+});
+
 describe("AI_MUTATION_KEYS (the mutation-path closed enum — AD-9/AD-12, 1:1)", () => {
   it("covers the FULL api enum with generation-flavored t() keys", () => {
     expect(AI_MUTATION_KEYS).toEqual({

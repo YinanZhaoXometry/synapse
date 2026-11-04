@@ -52,6 +52,23 @@ export interface GroundedChatRequest {
    * adapter refuses a chat without it. The simulated adapter ignores it.
    */
   materialId?: string;
+  /**
+   * Additive (epic P2-8 review fix, AD-16): the restart notice channel. A
+   * dropped stream restarts on a fresh ticket and EVERY restart counts
+   * against the daily AI cap, so the server adapter delivers the cap-counted
+   * t() messageKey here — the call site toasts it; the stream continues.
+   * The simulated adapter never fires it.
+   */
+  onNotice?: (messageKey: string) => void;
+}
+
+/**
+ * The proposal stream's additive options (same pass-through pattern as the
+ * chat request's onNotice): the server adapter passes T4's cap-counted
+ * restart notices through; the simulated adapter ignores the whole object.
+ */
+export interface PlanProposalOptions {
+  onNotice?: (messageKey: string) => void;
 }
 
 /** Plan-structure proposal (creation chat): stage-grouped node titles. */
