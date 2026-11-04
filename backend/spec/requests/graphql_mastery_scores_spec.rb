@@ -116,6 +116,36 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
     end
   end
 
+  describe "the score fields batch-load evidence (epic P2-4 review, finding P2-4)" do
+    around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
+
+    it "answers a multi-node plan read with ONE evidence_records query, however many nodes it holds" do
+      user, token = user_with_token("mastery-batched@example.com")
+      plan = create(:study_plan, user: user)
+      first = create(:knowledge_node, user: user, plan: plan, title: "first", order: 0)
+      second = create(:knowledge_node, user: user, plan: plan, title: "second", order: 1)
+      third = create(:knowledge_node, user: user, plan: plan, title: "third", order: 2)
+      record_outcomes(first, %w[correct correct correct])
+      record_outcomes(second, %w[correct correct])
+      # third stays uncovered — the batch covers empty results too. Six score
+      # field resolutions (2 fields × 3 nodes) ride one batched load.
+
+      evidence_queries = 0
+      callback = ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start, _finish, _id, payload|
+        evidence_queries += 1 if payload[:name] == "EvidenceRecord Load"
+      end
+
+      begin
+        result = score_query(token, plan.id)
+      ensure
+        ActiveSupport::Notifications.unsubscribe(callback)
+      end
+
+      expect(evidence_queries).to eq(1)
+      expect(result.dig("data", "plan", "nodes").map { |n| n["masteryScore"] }).to eq(%w[100 99 0])
+    end
+  end
+
   describe "StudyPlanType masteryScore (the plan rollup)" do
     around { |example| travel_to(Time.utc(2026, 11, 4, 12, 0, 0)) { example.run } }
 

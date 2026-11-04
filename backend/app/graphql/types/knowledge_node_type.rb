@@ -45,9 +45,11 @@ module Types
     # integer percent: the golden-vector contract pins every score comparison
     # as exact string-decimal equality, so the wire value is lexically the
     # fixture's value end to end (Int-vs-String decision in the ticket's
-    # Comments). Scoping rides the association path (the epic-03 reads
-    # convention): this node was resolved through the caller's own plan/task
-    # path, so its evidence_records are the caller's own evidence.
+    # Comments). Evidence arrives through the Dataloader source
+    # (DataloaderSources::EvidenceRecordsSource) — one batched, user-scoped,
+    # deterministically-ordered query per request tick across every node the
+    # query touches (epic P2-4 review: findings P2-4 + P2-5a) — no longer the
+    # per-node `object.evidence_records` association load.
     # `now: Time.current` engages the freshness cap (ADR-0001 amendment
     # 2026-11-04, ticket 04): the wire's score/state semantics include
     # freshness — a node whose latest evidence is more than 14 days old caps
@@ -61,11 +63,19 @@ module Types
           description: "The node's mastery state over the same evidence: \"uncovered\" (no evidence) | \"partial\" | \"mastered\" (score ≥ 80 AND ≥ 3 records AND the latest evidence within the last 14 days — a decayed node never reads mastered) — Mastery's node-state vocabulary verbatim (AD-6)."
 
     def mastery_score
-      Mastery.compute_node_score(object.evidence_records, now: Time.current).to_s
+      Mastery.compute_node_score(evidence_for(object), now: Time.current).to_s
     end
 
     def state
-      Mastery.node_state(object.evidence_records, now: Time.current)
+      Mastery.node_state(evidence_for(object), now: Time.current)
+    end
+
+    private
+
+    # The node's evidence, batch-loaded (see the source's comment for the
+    # scoping + ordering postures).
+    def evidence_for(node)
+      dataload(DataloaderSources::EvidenceRecordsSource, context[:current_user].user.id, node.id)
     end
   end
 end
