@@ -41,6 +41,12 @@ Login wall up; import round-trips a real Phase-1 `synapse-db:v1` idempotently; s
 - **T4 wrapper**: drop → close-then-fresh-ticket restart (cap counts REDEEMS, Ai::DailyCap 50/user/UTC-day, server env-owned — the client never hardcodes the number); client-side drop-loop guard (maxRestarts=3 → INTERNAL) added beyond ticket wording; terminators register per-SESSION (no stacking), resetApiClient cancels whole sessions. Apollo 4 mutate rejects with CombinedGraphQLErrors (singular `error` on MutateResult).
 - **Worktree env note**: a fresh test DB's db:prepare auto-seeds the demo account and breaks the 3 global-count confirm_proposal specs — use `db:drop db:create db:migrate` (the CI form) in agent worktrees.
 
+## T5 delta-log additions (2026-11-04)
+
+- **Additive seam inputs beyond the enumerated set:** `chat` + materialId (the server companion ticket is material-scoped and refuses to mint without it); generation language rides a provider-owned mirror (`currentUiLanguage()`), read at call time.
+- **SURFACED: quiz double-session on the server path** — GenerateQuiz persists a session (adapter's clientUuid); the driver's createQuizSession makes a second → one orphaned ACTIVE session per server-path quiz start. Fix options recorded on ticket 05 (thread the driver's uuid through the seam, or a generate-only server op). Epic-owner decision pending; do not absorb silently.
+- **Seam-factory design:** runtime default = ServerCompanionService; vitest setup calls forceSimulatedCompanion() once (the flag lives in a dependency-free leaf, src/ai/seam-preference.ts — importing the flag from companion-service.ts in setup.ts eager-loads the AI→Apollo graph before test vi.mock factories register).
+
 ## Coordination notes
 
 - **Single integration branch** — no parallel lanes inside; T4 ∥ T5 mid-branch at most. Owner-side provisioning (Render/Neon/R2 ENV) must be in hand before T6 (roadmap owner table).
