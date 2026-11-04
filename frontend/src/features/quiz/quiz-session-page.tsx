@@ -257,9 +257,15 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
   // the node's context above the launcher and CLOSE the loop (epic P2-10 T5,
   // T3's honest-scoping promise) — the launch carries targeting { nodeId } so
   // the server scopes generation to that node (node_scope: the plan-wide
-  // materials plus its own pins; FR-18). A plan/task launch sends none.
+  // materials plus its own pins; FR-18). A plan launch without the param
+  // sends none.
+  // PLAN-route only: a targeting node must be a PLAN node (the server refuses
+  // task nodes under targeting with VALIDATION_FAILED), so on the task route
+  // a stray ?nodeId is ignored entirely — no strip, no targeting (the task's
+  // single material IS its scope).
   const nodeParam = searchParams.get("nodeId");
-  const nodeContext = nodeParam ? (context.nodes.find((n) => n.id === nodeParam) ?? null) : null;
+  const nodeContext =
+    context.kind === "plan" && nodeParam ? (context.nodes.find((n) => n.id === nodeParam) ?? null) : null;
   return (
     <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="quiz-launch-page">
       {backLink}

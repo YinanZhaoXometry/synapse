@@ -231,6 +231,48 @@ RSpec.describe Ai::GenerateQuizCommand do
       captures.sole.last[:content]
     end
 
+    describe "targeting absent (nil — the byte-for-byte default)" do
+      # T5's default-safe promise (ticket 05): targeting ABSENT keeps the
+      # pre-T5 prompt shape byte-for-byte — `quota_note`'s blank branch and the
+      # untouched template must never drift. This pin is the FULL-STRING eq a
+      # regression cannot slip past: any reworded line, lost blank line, or
+      # quota-note leak fails here even with every other spec green. The
+      # literal is 738eaf0's Prompts.quiz (the pre-T5 template) with this
+      # fixture's assembled plan_scope text interpolated where the command
+      # interpolates it.
+      it "builds the EXACT pre-T5 template for a plan-scope call — full-string eq, no quota note" do
+        prompt = generated_prompt(targeting: nil, payload: fenced({ questions: [ question_payload ] }))
+
+        expected = <<~PROMPT
+          Study material context (the ONLY allowed source):
+          ---
+          #{Ai::ContextAssembler.plan_scope(plan).text}
+          ---
+
+
+          Generate exactly 5 quiz questions from ONLY the material above.
+          Mode "open": every question is kind "open" (free-text answer).
+          Every question MUST carry:
+          - "nodeId": one of the [node id=…] values above (attribution, AD-6).
+          - "kind": "open" or "choice".
+          - "prompt", "explanation": the question and its teaching explanation.
+          - "sourceMaterialId" + "sourceSectionId": the [material id=…] and [section id=…] the question's answer is grounded in (provenance, FR-18).
+          - "keywords": the key terms a correct answer must use (open-answer grading input).
+          Choice questions additionally carry "options" (2–4 strings) and "correctOptionIndex" (0-based Integer).
+          Write every user-facing string in 简体中文.
+
+          Reply ONLY with JSON: {"questions":[{"nodeId":"…","kind":"open","prompt":"…","options":null,"correctOptionIndex":null,"sourceMaterialId":"…","sourceSectionId":"…","keywords":["…"],"explanation":"…"}]}
+        PROMPT
+        # Two blank lines between the context fence and "Generate": the empty
+        # notes slot (context untruncated + quota note absent) is part of the
+        # pinned shape.
+        aggregate_failures do
+          expect(prompt).to eq(expected)
+          expect(prompt).not_to include("Weak-spot quota plan")
+        end
+      end
+    end
+
     describe "targeting without a nodeId (the weak-spot quota shape)" do
       it "carries the plan_scope context verbatim and the deterministic quota plan" do
         prompt = generated_prompt(targeting: {}, payload: fenced({ questions: [ question_payload(node_id: weak_node.id) ] }))
@@ -344,6 +386,24 @@ RSpec.describe Ai::GenerateQuizCommand do
         result = call(plan_id: nil, task_id: nil, targeting: {})
         expect(result.failure.code).to eq(:VALIDATION_FAILED)
         expect(adapter).not_to have_received(:complete)
+      end
+
+      # Blank ≠ absent: a present-but-blank nodeId (""/whitespace) must not
+      # normalize into the weak-spot quota shape (the blank planId refusal's
+      # mirror — the input is either without a nodeId entirely or carries a
+      # real one). Pinned on BOTH scopes: the plan scope (where the silent
+      # quota shape would engage) and the task scope (where it would be
+      # silently ignored).
+      it "refuses a present-but-blank targeting.nodeId on a plan or task scope (no silent normalization)" do
+        allow(adapter).to receive(:complete)
+        aggregate_failures do
+          expect(call(targeting: { node_id: "" }).failure.code).to eq(:VALIDATION_FAILED)
+          expect(call(targeting: { node_id: "   " }).failure.code).to eq(:VALIDATION_FAILED)
+          expect(call(plan_id: nil, task_id: create(:study_task, user: user).id,
+                      targeting: { node_id: "" }).failure.code).to eq(:VALIDATION_FAILED)
+        end
+        expect(adapter).not_to have_received(:complete)
+        expect(user.ai_usage_counters).to be_empty
       end
     end
 

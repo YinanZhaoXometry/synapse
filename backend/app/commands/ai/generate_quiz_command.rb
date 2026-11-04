@@ -16,9 +16,12 @@ module Ai
   # a nodeId scopes the generation to that plan node (T3's Quick Test loop):
   # node_scope(plan, node) grounding, every question attributed to the node,
   # the session still owned by the plan (AD-6). A task node's id under
-  # targeting is VALIDATION_FAILED (a task quiz already has its scope). A
-  # task scope with the empty targeting hash ignores it (a task's
-  # single-material scope is already the tightest possible bias).
+  # targeting is VALIDATION_FAILED (a task quiz already has its scope), and
+  # so is a present-but-blank nodeId (`""`/whitespace) on any scope — blank
+  # is not absent (the blank planId refusal's mirror): the input is either
+  # without a nodeId entirely or carries a real one. A task scope with the
+  # empty targeting hash ignores it (a task's single-material scope is
+  # already the tightest possible bias).
   #
   # Replay-before-spend: the client-supplied session uuid keeps its delta-3
   # semantics. A session already exists for this user → the command returns
@@ -93,6 +96,15 @@ module Ai
         return Failure(:VALIDATION_FAILED,
                        { message: "scope a quiz session by plan or task, not both", field: :planId })
       end
+      # Blank ≠ absent (the blank planId refusal's mirror): a present-but-blank
+      # nodeId must not normalize into the weak-spot quota shape (or be
+      # silently ignored on a task) — the input is either without a nodeId
+      # entirely or carries a real one.
+      if targeting_blank_node_id?
+        return Failure(:VALIDATION_FAILED,
+                       { message: "targeting nodeId is blank — pass a real node id or drop the targeting input",
+                         field: :nodeId })
+      end
       if targeting_node_id
         if plan_id.present? || task_id.present?
           return Failure(:VALIDATION_FAILED,
@@ -123,10 +135,24 @@ module Ai
       Failure(:VALIDATION_FAILED, { message: "a quiz session needs a plan or a task scope", field: :planId })
     end
 
+    # The targeting nodeId: nil = the "without nodeId" shapes (the input
+    # absent, `{}`, or an explicit null — GraphQL null reads as no value);
+    # otherwise the stripped string. A present-but-blank string is NOT
+    # normalized away here — targeting_blank_node_id? flags it so
+    # resolve_scope refuses it before anything is spent.
     def targeting_node_id
       return nil unless targeting.is_a?(Hash)
 
       (targeting[:node_id] || targeting["node_id"]).to_s.strip.presence
+    end
+
+    # True exactly when a nodeId VALUE is present but blank (`""`/whitespace)
+    # — the shape that must never read as the weak-spot "without nodeId".
+    def targeting_blank_node_id?
+      return false unless targeting.is_a?(Hash)
+
+      raw = targeting[:node_id] || targeting["node_id"]
+      !raw.nil? && raw.to_s.strip.blank?
     end
 
     def build_context(scope)
