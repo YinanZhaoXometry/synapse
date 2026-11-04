@@ -7,7 +7,7 @@ import { Flame, Info } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { NodeState, Outcome } from "@/domain/entities";
+import type { Outcome } from "@/domain/entities";
 import { masteryRingVariant } from "./display-shaping";
 import { OUTCOME_LABEL_KEY } from "./outcome-labels";
 
@@ -83,31 +83,6 @@ export function StateMiniBar({ counts }: { counts: Record<"mastered" | "partial"
       <span className="bg-partial-tint" style={{ width: share(counts.partial) }} />
       <span className="bg-uncovered-tint" style={{ width: share(counts.uncovered) }} />
     </div>
-  );
-}
-
-const STATE_PILL: Record<NodeState, string> = {
-  mastered: "pill pill-mastered",
-  partial: "pill pill-partial",
-  uncovered: "pill pill-muted",
-};
-
-const STATE_MARK: Record<NodeState, string> = { mastered: "✦", partial: "◐", uncovered: "○" };
-
-/**
- * Node state as glyph + tint + text label — never color alone (UX display
- * contract; ADR-0001 consumers).
- */
-export function StateGlyph({ state }: { state: NodeState }) {
-  const { t } = useLanguage();
-  const label = state === "mastered" ? t("plans.stateMastered") : state === "partial" ? t("plans.statePartial") : t("plans.stateUncovered");
-  return (
-    <span className={cn(STATE_PILL[state], "flex-none")}>
-      <span aria-hidden="true" className="text-[11px] leading-none">
-        {STATE_MARK[state]}
-      </span>
-      {label}
-    </span>
   );
 }
 

@@ -242,6 +242,68 @@ RSpec.describe "GraphQL evidence + quiz + flashcard operations (epic P2-3 ticket
       expect(payload["mistakes"].first["forfeited"]).to be(true)
     end
 
+    it "returns the touched nodes and the owning plan with their FRESH scores (epic P2-10 T3 — the live-update payload)" do
+      user, token = user_with_token("evidence-fresh-nodes@example.com")
+      plan = create(:study_plan, user: user)
+      session = create(:quiz_session, user: user, plan: plan)
+      node_a = create(:knowledge_node, user: user, plan: plan, order: 0)
+      node_b = create(:knowledge_node, user: user, plan: plan, order: 1)
+      material = create(:material, user: user, plan: plan)
+      a_correct = create(:question, user: user, session: session, node: node_a, source_material: material)
+      b_wrong = create(:question, user: user, session: session, node: node_b, source_material: material)
+      expect(node_a.evidence_records.count).to eq(0) # the pre-write state the payload must move
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: evidence_input(session.id, a_correct.id, b_wrong.id) }, token: token
+          mutation RecordEvidence($input: RecordEvidenceInput!) {
+            recordEvidence(input: $input) {
+              nodes { id masteryScore state }
+              plan { id masteryScore }
+            }
+          }
+        GRAPHQL
+      )
+
+      payload = result.dig("data", "recordEvidence")
+      # The touched nodes only, each carrying the post-write SERVER state (AD-14):
+      # one correct → raw 100 capped at 99 below the evidence gate, one wrong → 0;
+      # both read partial (a node masters only past the gate).
+      expect(payload["nodes"].map { |n| n["id"] }).to match_array([ node_a.id, node_b.id ])
+      expect(payload["nodes"]).to all(include("state" => "partial"))
+      expect(payload["nodes"].find { |n| n["id"] == node_a.id }["masteryScore"]).to eq("99")
+      expect(payload["nodes"].find { |n| n["id"] == node_b.id }["masteryScore"]).to eq("0")
+      # The plan's fresh rollup rides too (floor((99+0)/2)) — the client
+      # normalizes both into the cache; no whole-plan refetch needed.
+      expect(payload["plan"]["id"]).to eq(plan.id)
+      expect(payload["plan"]["masteryScore"]).to eq("49")
+    end
+
+    it "returns a null plan for a task-scoped session (the task triangle has no plan rollup)" do
+      user, token = user_with_token("evidence-task-nodes@example.com")
+      task = create(:study_task, user: user)
+      session = create(:quiz_session, user: user, plan: nil, task: task)
+      question = create(:question, user: user, session: session, node: task.node)
+
+      input = {
+        sessionId: session.id,
+        results: [ { questionId: question.id, outcome: "correct", userAnswer: "user_id", forfeited: false } ]
+      }
+      result = graphql(
+        <<~GRAPHQL, variables: { input: input }, token: token
+          mutation RecordEvidence($input: RecordEvidenceInput!) {
+            recordEvidence(input: $input) {
+              nodes { id state }
+              plan { id }
+            }
+          }
+        GRAPHQL
+      )
+
+      payload = result.dig("data", "recordEvidence")
+      expect(payload["nodes"].map { |n| n["id"] }).to eq([ task.node.id ])
+      expect(payload["plan"]).to be_nil
+    end
+
     it "writes nothing when one result references a question outside the session (cross-graph, atomic)" do
       user, token = user_with_token("cross-graph@example.com")
       plan = create(:study_plan, user: user)

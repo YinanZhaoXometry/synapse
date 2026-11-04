@@ -9,6 +9,8 @@ import {
   createHarnessState,
   createStubClient,
   echoQuestion,
+  echoTouchedNodes,
+  echoTouchedPlan,
   makeStubWrapper,
   type HarnessState,
   type OperationHandler,
@@ -109,7 +111,9 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
         }));
       state.evidence.push(...evidence);
       state.mistakes.push(...mistakes);
-      return { evidence, mistakes, session };
+      // The payload's live-update half (epic P2-10 T3): the stub computes the
+      // touched nodes + the plan rollup with the REAL domain functions.
+      return { evidence, mistakes, session, nodes: echoTouchedNodes(evidence), plan: echoTouchedPlan((session?.planId as string | null) ?? null, evidence) };
     },
     AbandonQuizSession: (variables) => {
       const sessionId = String((variables.input as Record<string, unknown>).sessionId);
@@ -349,7 +353,7 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
           createdAt: "2026-11-02T00:00:00Z",
         }));
         state.evidence.push(...evidence);
-        return { evidence, mistakes: [], session: null };
+        return { evidence, mistakes: [], session: null, nodes: echoTouchedNodes(evidence), plan: null };
       },
     });
     let revived = false;

@@ -15,6 +15,8 @@ import { ApolloClient, ApolloLink, InMemoryCache, from } from "@apollo/client";
 import type { FetchResult, Operation } from "@apollo/client";
 import { Observable } from "rxjs";
 import { ApolloProvider } from "@apollo/client/react";
+import { computeNodeScore, computePlanRollup, getNodeState } from "@/domain/mastery";
+import { mapEvidence } from "@/api/mappers";
 
 export interface HarnessState {
   sessions: Array<Record<string, unknown>>;
@@ -109,4 +111,39 @@ export function echoQuestion(input: Record<string, unknown>, sessionId: string, 
     keywords: input.keywords ?? null,
     explanation: input.explanation,
   };
+}
+
+/**
+ * The recordEvidence echo's live-update half (epic P2-10 T3): the mutation
+ * document selects the touched nodes + the owning plan, so every RecordEvidence
+ * echo must answer them or the cache write logs missing-field errors. The
+ * nodes carry FRESH scores — the stub computes them with the REAL domain
+ * functions over the just-echoed evidence (the evidence-loop nodeRow precedent:
+ * the stub plays by the api's rules, AD-14). `nodeRow` lets a walk spread its
+ * stored fixture row (title/order/…) under the computed scores.
+ */
+export function echoTouchedNodes(evidence: EchoFixture[], nodeRow?: (nodeId: string) => EchoFixture | undefined): EchoFixture[] {
+  const nodeIds = [...new Set(evidence.map((e) => e.nodeId as string))];
+  return nodeIds.map((id) => {
+    const records = evidence.filter((e) => e.nodeId === id).map(mapEvidence);
+    return {
+      __typename: "KnowledgeNode",
+      ...(nodeRow?.(id) ?? {}),
+      id,
+      masteryScore: String(computeNodeScore(records, new Date())),
+      state: getNodeState(records, new Date()),
+    };
+  });
+}
+
+/** The plan payload half — null for a task-scoped session (no plan rollup). */
+export function echoTouchedPlan(planId: string | null | undefined, evidence: EchoFixture[]): EchoFixture | null {
+  if (!planId) return null;
+  const byNode = Object.fromEntries(
+    [...new Set(evidence.map((e) => e.nodeId as string))].map((id) => [
+      id,
+      evidence.filter((e) => e.nodeId === id).map(mapEvidence),
+    ]),
+  );
+  return { __typename: "StudyPlan", id: planId, masteryScore: String(computePlanRollup(byNode, new Date())) };
 }

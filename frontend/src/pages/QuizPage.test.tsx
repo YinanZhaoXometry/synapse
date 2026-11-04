@@ -194,7 +194,18 @@ function makeDemoHarness(nodeOverrides: Array<Record<string, unknown>> = [{}, {}
       }
       state.evidence.push(...evidence);
       state.mistakes.push(...mistakes);
-      return { evidence, mistakes, session };
+      // The payload's live-update half (epic P2-10 T3): the fixture nodes ARE
+      // this stub's computed values, echoed verbatim; a task session has no plan.
+      const payloadNodes = [...new Set(evidence.map((e) => e.nodeId as string))]
+        .map((id) => [...nodes, taskNode].find((n) => n.id === id))
+        .filter(Boolean) as Array<Record<string, unknown>>;
+      return {
+        evidence,
+        mistakes,
+        session,
+        nodes: payloadNodes,
+        plan: session?.planId ? { __typename: "StudyPlan", id: session.planId, masteryScore: "0" } : null,
+      };
     },
     AbandonQuizSession: (variables) => {
       const sessionId = (variables.input as Record<string, unknown>).sessionId as string;

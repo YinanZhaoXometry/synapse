@@ -14,6 +14,7 @@ import {
   ConfirmMappingProposalsDocument,
   MaterialNodeMappingsDocument,
   MapMaterialSectionsDocument,
+  NodeMaterialMappingsDocument,
   PlanDocument,
   RejectMappingProposalsDocument,
 } from "@/types/graphql";
@@ -31,11 +32,30 @@ export function useMaterialNodeMappingsQuery(materialId: string) {
   };
 }
 
+/**
+ * One node's mapping rows (epic P2-10 T3, FR-6): the node click-through's
+ * read — every status rides (the wire's one vocabulary); the consumer filters
+ * confirmed for its jump targets. The map/confirm/reject sweeps below refresh
+ * it while it is active, so a verdict in the coverage panel moves the rows.
+ */
+export function useNodeMaterialMappingsQuery(nodeId: string) {
+  const result = useQuery(NodeMaterialMappingsDocument, { variables: { nodeId }, skip: !nodeId });
+  const rows = (result.data?.materialNodeMappings ?? []).map(mapMaterialNodeMapping);
+  return {
+    data: result.data !== undefined ? rows : undefined,
+    loading: result.loading && !result.data,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
 /** The AI map run (FR-45): every section lands in exactly one final state. */
 export function useMapMaterialSectionsMutation() {
   return useMutation(MapMaterialSectionsDocument, {
-    // rows upsert in place + new orphans appear — the list read-back is truth.
-    refetchQueries: [MaterialNodeMappingsDocument],
+    // rows upsert in place + new orphans appear — the list read-back is truth
+    // (both sides of the mapping read: the coverage panel's and the node
+    // click-through's).
+    refetchQueries: [MaterialNodeMappingsDocument, NodeMaterialMappingsDocument],
   });
 }
 
@@ -44,13 +64,15 @@ export function useConfirmMappingProposalsMutation() {
   return useMutation(ConfirmMappingProposalsDocument, {
     // The created node must reach the plan's node list (usePlanNodesQuery /
     // Plan detail ride PlanDocument) or the panel shows a raw uuid fallback.
-    refetchQueries: [MaterialNodeMappingsDocument, PlanDocument],
+    // Both mapping-read sides sweep too — a confirmed row opens the node row's
+    // jump targets.
+    refetchQueries: [MaterialNodeMappingsDocument, NodeMaterialMappingsDocument, PlanDocument],
   });
 }
 
 /** Bulk reject: rows persist rejected — the map run never re-proposes them. */
 export function useRejectMappingProposalsMutation() {
   return useMutation(RejectMappingProposalsDocument, {
-    refetchQueries: [MaterialNodeMappingsDocument],
+    refetchQueries: [MaterialNodeMappingsDocument, NodeMaterialMappingsDocument],
   });
 }

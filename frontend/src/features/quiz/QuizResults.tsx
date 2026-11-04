@@ -13,7 +13,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { EvidenceRecord, Material, Outcome } from "@/domain/entities";
 import type { KnowledgeNodeView } from "@/api/views";
 import { MASTERY_CONFIG } from "@/domain/mastery";
-import { StateGlyph } from "@/features/plans";
+import { NodeStateBadge } from "@/features/plans";
 import { cn } from "@/lib/utils";
 import {
   quizBreakdownRows,
@@ -122,7 +122,7 @@ export function QuizResults({
       <div className="mt-3 rounded-2xl border border-border-soft bg-card shadow-raised divide-y divide-border-soft">
         {nodeRows.map((row) => (
           <div key={row.nodeId} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-            <StateGlyph state={row.state} />
+            <NodeStateBadge state={row.state} />
             <span className="text-sm font-medium truncate flex-1 min-w-[120px]">{row.title}</span>
             {/* SERVER score (AD-14): the api's number for this node now */}
             <span

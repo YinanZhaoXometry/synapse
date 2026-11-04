@@ -211,7 +211,18 @@ function pageHandlers(state: HarnessState, nodes: Array<Record<string, unknown>>
       }
       state.evidence.push(...evidence);
       state.mistakes.push(...mistakes);
-      return { evidence, mistakes, session };
+      // The payload's live-update half (epic P2-10 T3): the fixture nodes ARE
+      // this stub's computed values, echoed verbatim; a task session has no plan.
+      const payloadNodes = [...new Set(evidence.map((e) => e.nodeId as string))]
+        .map((id) => nodes.find((n) => n.id === id))
+        .filter((n): n is Record<string, unknown> => Boolean(n));
+      return {
+        evidence,
+        mistakes,
+        session,
+        nodes: payloadNodes,
+        plan: session?.planId ? { __typename: "StudyPlan", id: session.planId, masteryScore: "0" } : null,
+      };
     },
     AbandonQuizSession: (variables) => {
       const sessionId = (variables.input as Record<string, unknown>).sessionId as string;
@@ -301,6 +312,25 @@ describe("PlanQuizPage — honest routes (FR-18; AD-8)", () => {
     renderQuizPage(harness, `/plan/${PLAN_ID}/quiz`);
     expect(await screen.findByTestId("quiz-launcher")).toBeInTheDocument();
     expect(screen.getByTestId("quiz-launcher-start")).toBeInTheDocument();
+    // No nodeId param → no node context strip.
+    expect(screen.queryByTestId("quiz-node-context")).not.toBeInTheDocument();
+  });
+
+  it("?nodeId=<plan node> names the node's context above the launcher — honestly (epic P2-10 T3: generation still rides the plan flow until T5)", async () => {
+    const harness = makePageHarness();
+    renderQuizPage(harness, `/plan/${PLAN_ID}/quiz?nodeId=n-1`);
+    const strip = await screen.findByTestId("quiz-node-context");
+    expect(strip.textContent).toContain(zhVars("quiz.nodeContext", { node: "软件测试" }));
+    expect(strip.textContent).toContain(zh("quiz.nodeContextNote"));
+    // The launcher itself is unchanged — the plan-flow launch (T5 completes scope).
+    expect(screen.getByTestId("quiz-launcher")).toBeInTheDocument();
+  });
+
+  it("?nodeId=<unknown node> renders no context strip (no invented node)", async () => {
+    const harness = makePageHarness();
+    renderQuizPage(harness, `/plan/${PLAN_ID}/quiz?nodeId=n-nope`);
+    expect(await screen.findByTestId("quiz-launcher")).toBeInTheDocument();
+    expect(screen.queryByTestId("quiz-node-context")).not.toBeInTheDocument();
   });
 
   it("unknown session id: honest not-found with a new-quiz way out", async () => {

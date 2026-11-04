@@ -39,6 +39,8 @@ import {
   createHarnessState,
   createStubClient,
   echoQuestion,
+  echoTouchedNodes,
+  echoTouchedPlan,
   makeStubWrapper,
   type HarnessState,
   type EchoFixture,
@@ -219,7 +221,14 @@ function makeWorld(): World {
         });
       state.evidence.push(...evidence);
       state.mistakes.push(...mistakes);
-      return { evidence, mistakes, session };
+      // The payload's live-update half (epic P2-10 T3) — fresh stub-computed scores.
+      return {
+        evidence,
+        mistakes,
+        session,
+        nodes: echoTouchedNodes(evidence, (id) => server.nodes.find((n) => n.id === id)),
+        plan: echoTouchedPlan((session?.planId as string) ?? null, evidence),
+      };
     },
   };
   return { client: createStubClient(handlers, state), state, handlers, nodeEvidence };
