@@ -9,7 +9,7 @@
 **Bound by:** FR-5 (structure-faithful, interactive), AD-9 (accessibility floor on a canvas-ish surface — keyboard path mandatory), NFR-6 (bundle discipline — lazy import if heavy).
 
 - [x] Renderer decision recorded in `## Comments` with the criteria trail
-- [ ] 30+ node plan renders usable (browser smoke, both themes, reduced-motion) — **deferred to close-out by the orchestrator's scoping: the vitest-level 30+ node coverage ships now (36-node fixture, layout determinism + no-overlap pinned; the graph renders 36 nodes, toggles, sheets, keyboard, pan/zoom all jsdom-pinned), the live both-themes/reduced-motion smoke runs at epic close-out**
+- [x] 30+ node plan renders usable (browser smoke, both themes, reduced-motion) — **DONE at epic close-out 2026-11-05** (live IAB smoke against the dev stack, 36-node seeded plan: 36 stage-column nodes + bezier edges render in sunset-light AND dark; node click → side sheet; keyboard roving focus ArrowDown node0→node1 with visible focus ring; zoom buttons 1→1.25→1.5→reset verified live; reduced-motion = root.reduce-motion + data-motion=off + 0s transitions. Caveat recorded honestly: IAB guest rAF stall (epic-8 known) forced DOM-event-driven interaction instead of synthesized pointer events — pointer-capture behavior stays pinned by the vitest pointer-contract test)
 - [x] Click/detail/keyboard navigation complete; states integrate
 
 ## Comments

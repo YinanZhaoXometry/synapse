@@ -1,6 +1,6 @@
 # Epic 10 (Phase 2) — The node layer: mapping, pinning, states, roadmap graph, adaptive targeting
 
-Status: ready-for-agent (spec + tickets 2026-11-03; delta-grill at kickoff — renderer OQ-2, targeting weights, mapping UX; gate: epic-08 done)
+Status: done (2026-11-05 — all five tickets done + two-axis reviewed + fixed; merged to main; rspec 890 / vitest 538 baselines; live 36-node browser smoke green both themes + reduced-motion)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
