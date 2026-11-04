@@ -24,12 +24,13 @@ import type {
   KnowledgeNodePartsFragment,
   MaterialNodeMappingPartsFragment,
   MaterialPartsFragment,
+  NotePartsFragment,
   MaterialSummaryPartsFragment,
   QuestionPartsFragment,
   QuizSessionPartsFragment,
   ReadingPositionPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, QuizSessionView, StudyPlanView, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, StudyPlanView, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
@@ -283,5 +284,23 @@ export function mapMistake(mistake: {
     sourceLocation: readingLocator(mistake.sourceLocation),
     forfeited: mistake.forfeited,
     createdAt: mistake.createdAt,
+  };
+}
+
+function noteScope(scope: string): NoteView["scope"] {
+  if (scope === "plan" || scope === "node" || scope === "material") return scope;
+  throw new Error(`unknown note scope from the api: ${scope}`);
+}
+
+export function mapNote(note: NotePartsFragment): NoteView {
+  return {
+    id: note.id,
+    title: note.title,
+    body: note.body,
+    scope: noteScope(note.scope),
+    scopeId: note.scopeId,
+    enrichment: note.enrichment,
+    targeting: note.targeting,
+    createdAt: note.createdAt,
   };
 }

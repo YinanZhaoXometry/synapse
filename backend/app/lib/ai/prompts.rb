@@ -20,6 +20,18 @@ module Ai
 
     QUESTION_TARGET = 5
 
+    # The note surface's word target (FR-40, epic P2-12 T1): a single constant
+    # mirroring QUESTION_TARGET's posture, with the prompt's honest floor and
+    # ceiling derived from it (the ~800–1200 words band the delta pins).
+    NOTE_TARGET = 1_000
+    NOTE_MIN_WORDS = NOTE_TARGET - 200
+    NOTE_MAX_WORDS = NOTE_TARGET + 200
+
+    # The enrichment marker contract (delta decision 1 — markers-only v1):
+    # kinds the model may place, and the EXACT line form the note view parses
+    # into placeholder cards and export preserves.
+    NOTE_MARKER_KINDS = %w[diagram chart image].freeze
+
     class << self
       # Quiz generation (ticket 03; targeting epic P2-10 T5): node-attributed
       # (AD-6) + materials-sourced (NFR-1) questions in the scope the command
@@ -93,6 +105,37 @@ module Ai
             Write every proposedNodeTitle in #{language_word(language)}.
 
             Reply ONLY with JSON: {"mappings":[{"sectionId":"…","nodeId":"…","proposedNodeTitle":null}]}
+          PROMPT
+        ]
+      end
+
+      # Note generation (FR-40, epic P2-12 T1; delta decisions 1+5): a
+      # standalone, exportable Markdown study note assembled from ONLY the
+      # context the command gathered (NFR-1). The reply is the Markdown note
+      # itself — NOT JSON (the system prompt's JSON contract is overridden by
+      # this task's own reply contract, the same way the proposal's tag
+      # contract overrides it). Visual enrichment rides as PLACEMENT markers
+      # (delta decision 1's markers-only v1): the model decides WHERE a visual
+      # aids understanding and emits [[enrich|kind|suggestion]] on its own
+      # line; content stays text and no assets are stored in v1.
+      def note(language:, context:)
+        [ system,
+          user(<<~PROMPT)
+            Study material context (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            Write a standalone, exportable Markdown study note from ONLY the material above — a learner must be able to read it without the original material at hand.
+            Begin the note with a single level-1 heading ("# …") that names the note; structure it with headings and short paragraphs.
+            Aim for #{NOTE_MIN_WORDS}–#{NOTE_MAX_WORDS} words (target: #{NOTE_TARGET}).
+            Where a visual would genuinely aid understanding, insert an enrichment marker on its own line, in EXACTLY this form:
+            [[enrich|kind|what the visual should show]]
+            kind is one of: #{NOTE_MARKER_KINDS.map { |kind| "\"#{kind}\"" }.join(", ")}. Placement is your call — only where a picture truly helps; never place a marker for something the material does not ground.
+            Write every user-facing string in #{language_word(language)}.
+
+            Reply ONLY with the Markdown note itself — no code fences, no commentary before or after.
           PROMPT
         ]
       end

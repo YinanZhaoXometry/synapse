@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_091001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_120001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -171,6 +171,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_091001) do
     t.index ["question_id"], name: "index_mistake_entries_on_question_id"
     t.index ["session_id"], name: "index_mistake_entries_on_session_id"
     t.index ["user_id"], name: "index_mistake_entries_on_user_id"
+  end
+
+  create_table "notes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "plan_id"
+    t.uuid "node_id"
+    t.uuid "material_id"
+    t.string "scope", null: false
+    t.string "title", null: false
+    t.text "body", null: false
+    t.jsonb "enrichment", default: [], null: false
+    t.jsonb "targeting", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["material_id"], name: "index_notes_on_material_id"
+    t.index ["node_id"], name: "index_notes_on_node_id"
+    t.index ["plan_id"], name: "index_notes_on_plan_id"
+    t.index ["user_id"], name: "index_notes_on_user_id"
+    t.check_constraint "scope::text = 'plan'::text AND plan_id IS NOT NULL AND node_id IS NULL AND material_id IS NULL OR scope::text = 'node'::text AND node_id IS NOT NULL AND plan_id IS NULL AND material_id IS NULL OR scope::text = 'material'::text AND material_id IS NOT NULL AND plan_id IS NULL AND node_id IS NULL", name: "notes_scope_id_xor_check"
+    t.check_constraint "scope::text = ANY (ARRAY['plan'::character varying::text, 'node'::character varying::text, 'material'::character varying::text])", name: "notes_scope_check"
   end
 
   create_table "questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -471,6 +491,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_091001) do
   add_foreign_key "mistake_entries", "questions"
   add_foreign_key "mistake_entries", "quiz_sessions", column: "session_id"
   add_foreign_key "mistake_entries", "users"
+  add_foreign_key "notes", "knowledge_nodes", column: "node_id"
+  add_foreign_key "notes", "materials"
+  add_foreign_key "notes", "study_plans", column: "plan_id"
+  add_foreign_key "notes", "users"
   add_foreign_key "questions", "knowledge_nodes", column: "node_id"
   add_foreign_key "questions", "materials", column: "source_material_id"
   add_foreign_key "questions", "quiz_sessions", column: "session_id"

@@ -1,0 +1,32 @@
+# Note operations (FR-40, epic P2-12 T1). The plan-scoped notes read (the
+# plan's own notes PLUS the ones scoped to its nodes or its materials — the
+# server's union over the exactly-one scope check) and the synchronous
+# generateNote mutation with the user-requested enrichAt annotation.
+
+fragment NoteParts on Note {
+  id
+  title
+  body
+  scope
+  scopeId
+  enrichment {
+    kind
+    suggestion
+  }
+  targeting
+  createdAt
+}
+
+query PlanNotes($planId: String!) {
+  notes(planId: $planId) {
+    ...NoteParts
+  }
+}
+
+mutation GenerateNote($input: GenerateNoteInput!) {
+  generateNote(input: $input) {
+    note {
+      ...NoteParts
+    }
+  }
+}

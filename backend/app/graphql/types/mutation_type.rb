@@ -59,5 +59,10 @@ module Types
     field :generate_flashcards, mutation: Mutations::Ai::GenerateFlashcards
     field :grade_open_answer, mutation: Mutations::Ai::GradeOpenAnswer
     field :create_stream_ticket, mutation: Mutations::Ai::CreateStreamTicket
+
+    # The note generation surface (FR-40, epic P2-12 T1; delta decisions
+    # 1+4+5): synchronous through the adapter — one cap-counted provider
+    # call, deterministic replay on the client uuid.
+    field :generate_note, mutation: Mutations::Ai::GenerateNote
   end
 end
