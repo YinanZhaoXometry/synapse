@@ -6,8 +6,10 @@
  * every mapping row lands in exactly ONE group, so every section is visible
  * in one final state and nothing is silently dropped. The "Map sections"
  * action runs the AI mapping mutation (cap-counted server-side); verdict
- * buttons ride the bulk mutations. All copy bilingual via the dictionary;
- * error toasts map the closed api enum through apiErrorKeys("mapping.").
+ * buttons ride the bulk mutations. A failed coverage read renders an inline
+ * failure + retry — never the affirmative empty state. All copy bilingual
+ * via the dictionary; error toasts map the closed api enum through
+ * apiErrorKeys("mapping.").
  */
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, ChevronDown, CircleSlash, ListChecks, Map as MapIcon, RotateCw, Sparkles } from "lucide-react";
@@ -17,8 +19,8 @@ import {
   apiErrorCode,
   apiErrorKeys,
   useConfirmMappingProposalsMutation,
+  useMapMaterialSectionsMutation,
   useMaterialNodeMappingsQuery,
-  useMaterialsMapSectionsMutation,
   useRejectMappingProposalsMutation,
 } from "@/api";
 import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView } from "@/api/views";
@@ -75,7 +77,7 @@ function GroupShell({
 export default function MaterialCoveragePanel({ material, nodes }: { material: MaterialView; nodes: KnowledgeNodeView[] }) {
   const { language, t } = useLanguage();
   const mappingsQuery = useMaterialNodeMappingsQuery(material.id);
-  const [mapSections, mapResult] = useMaterialsMapSectionsMutation();
+  const [mapSections, mapResult] = useMapMaterialSectionsMutation();
   const [confirmProposals, confirmResult] = useConfirmMappingProposalsMutation();
   const [rejectProposals, rejectResult] = useRejectMappingProposalsMutation();
 
@@ -94,7 +96,7 @@ export default function MaterialCoveragePanel({ material, nodes }: { material: M
       const payload = await mapSections({
         variables: { input: { materialId: material.id, language } },
       });
-      const placed = payload.data?.materialsMapSections?.mappings.length ?? 0;
+      const placed = payload.data?.mapMaterialSections?.mappings.length ?? 0;
       toast.success(t("mapping.done"), { description: t("mapping.doneDetail", { n: placed }) });
     } catch (error) {
       failureToast(error as ErrorLike);
@@ -123,6 +125,9 @@ export default function MaterialCoveragePanel({ material, nodes }: { material: M
   const mapping = mapResult.loading;
   const decided = confirmResult.loading || rejectResult.loading;
   const hasRows = rows.length > 0;
+  // A failed mappings read is a FAILURE, never the honest initial state —
+  // it renders its own line + retry instead of "no mappings yet".
+  const loadFailed = Boolean(mappingsQuery.error);
 
   /** A node-keyed proposed group labels itself with the REAL node's title. */
   const groupLabel = (group: ProposedGroup) =>
@@ -148,7 +153,22 @@ export default function MaterialCoveragePanel({ material, nodes }: { material: M
         </button>
       </div>
 
-      {!hasRows && !mapping && (
+      {loadFailed && (
+        <div className="flex items-center gap-2 px-1 py-2" data-testid="coverage-load-failed">
+          <p className="text-xs text-destructive">{t("mapping.loadFailed")}</p>
+          <button
+            type="button"
+            onClick={() => void mappingsQuery.refetch()}
+            disabled={mappingsQuery.loading}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline disabled:opacity-60 disabled:cursor-wait"
+          >
+            <RotateCw className={cn("w-3 h-3", mappingsQuery.loading && "animate-spin")} aria-hidden="true" />
+            {t("mapping.retryLoad")}
+          </button>
+        </div>
+      )}
+
+      {!hasRows && !mapping && !loadFailed && (
         <p className="text-xs text-muted-foreground px-1 py-2">{t("mapping.noMappings")}</p>
       )}
 

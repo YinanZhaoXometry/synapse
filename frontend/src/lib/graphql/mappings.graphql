@@ -18,8 +18,8 @@ query MaterialNodeMappings($materialId: String!) {
   }
 }
 
-mutation MaterialsMapSections($input: MapSectionsInput!) {
-  materialsMapSections(input: $input) {
+mutation MapMaterialSections($input: MapMaterialSectionsInput!) {
+  mapMaterialSections(input: $input) {
     mappings {
       ...MaterialNodeMappingParts
     }
