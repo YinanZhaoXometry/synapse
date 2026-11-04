@@ -18,7 +18,7 @@
  * CompanionPanel grounds on it by reading `.current` at chat time.
  */
 import { useCallback, useEffect, useRef } from "react";
-import { saveReadingProgress, useSaveReadingProgressMutation } from "@/data";
+import { useSaveReadingProgressMutation } from "@/api";
 import type { Material, ReadingLocator, ReadingPosition } from "@/domain/entities";
 import { locatorsEqual, positionText } from "./position-tracking";
 
@@ -26,7 +26,15 @@ import { locatorsEqual, positionText } from "./position-tracking";
 export const READING_POSITION_SAVE_DEBOUNCE_MS = 1500;
 
 export function useReadingPositionTracker(materialId: string, material: Material | null) {
-  const saveProgress = useSaveReadingProgressMutation();
+  const { mutate: saveProgress } = useSaveReadingProgressMutation();
+
+  // Apollo's mutate is referentially stable, but the flush effect below lists
+  // only materialId (the same lifecycle as before) — a latest-ref keeps the
+  // cleanup closure current without re-arming the flush on unrelated renders.
+  const saveProgressRef = useRef(saveProgress);
+  useEffect(() => {
+    saveProgressRef.current = saveProgress;
+  }, [saveProgress]);
 
   // Latest-value refs: report() stays referentially stable for the flows'
   // callbacks while material identity churns with query refetches.
@@ -48,7 +56,9 @@ export function useReadingPositionTracker(materialId: string, material: Material
       const current = materialRef.current;
       if (!current || current.parseState !== "parsed") return;
       lastPersistedRef.current = position.locator;
-      saveProgress.mutate({ materialId, position });
+      saveProgress({
+        variables: { input: { materialId, position: { locator: position.locator, text: position.text } } },
+      });
     },
     [materialId, saveProgress],
   );
@@ -86,7 +96,7 @@ export function useReadingPositionTracker(materialId: string, material: Material
   );
 
   // Unmount flush (FR-10): a pending debounce is lost with the reader, so the
-  // final position is written directly through the repository. No invalidation
+  // final position is written directly through the mutation. No invalidation
   // needed — the reader is leaving, and every next mount refetches its queries.
   useEffect(
     () => () => {
@@ -96,7 +106,9 @@ export function useReadingPositionTracker(materialId: string, material: Material
       const settled = lastPersistedRef.current ?? baselineRef.current;
       if (!settled || locatorsEqual(settled, position.locator)) return;
       if (materialRef.current && materialRef.current.parseState === "parsed") {
-        saveReadingProgress(materialId, position);
+        saveProgressRef.current({
+          variables: { input: { materialId, position: { locator: position.locator, text: position.text } } },
+        });
       }
     },
     [materialId],

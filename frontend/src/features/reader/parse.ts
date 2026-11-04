@@ -11,7 +11,7 @@
  */
 import type { MaterialSection, ParseFailureReason } from "@/domain/entities";
 import type { UiLanguage } from "@/ai/types";
-import { MATERIAL_SECTION_MAX_CHARS } from "@/data";
+import { MATERIAL_SECTION_MAX_CHARS } from "@/lib/material-bounds";
 import { parsePdf } from "./parse-pdf";
 import { sectionMarkdown } from "./parse-markdown";
 

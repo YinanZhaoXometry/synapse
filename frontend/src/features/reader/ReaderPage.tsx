@@ -11,8 +11,10 @@
  * Parse states land here exactly as the UX spine specifies: parsing →
  * page-skeleton + progress copy; failed → card with the bilingual reason and
  * a retry while the session bytes exist (T1's parse mutation); parsed-but-
- * byteless (post-reload) → the epic-2 re-upload affordance re-registers bytes
- * and re-runs the parse. An unknown material reads honestly as not-found.
+ * byteless (post-reload) → the row's presigned downloadUrl restores the
+ * server copy (epic P2-6); with no copy to restore, the re-upload affordance
+ * re-registers bytes and re-runs the parse. An unknown material reads honestly
+ * as not-found.
  *
  * Reading position (FR-10; T4): the flows report the most-visible PDF page /
  * scroll-spy'd Markdown section here; the tracker hook (use-reading-position)
@@ -42,14 +44,10 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useViewportTier } from "@/hooks/use-mobile";
+import { useMaterialQuery, usePlanQuery, useReadingProgressQuery } from "@/api";
+import { sessionBlobs } from "@/lib/session-blobs";
 import { CompanionPanel } from "@/features/companion/CompanionPanel";
 import { CompanionOverlay, CompanionSheet } from "./companion-surfaces";
-import {
-  sessionBlobs,
-  useMaterialQuery,
-  usePlanQuery,
-  useReadingProgressQuery,
-} from "@/data";
 import { cn } from "@/lib/utils";
 import type { ReadingLocator } from "@/domain/entities";
 import { PARSE_REASON_MESSAGE_KEY } from "./parse";
@@ -71,7 +69,8 @@ export default function ReaderPage() {
   const materialQuery = useMaterialQuery(materialId ?? "");
   const planQuery = usePlanQuery(materialQuery.data?.planId ?? "");
   const hasBytes = useSessionBytes(materialId ?? "");
-  const parseMaterial = useParseMaterialMutation();
+  const material = materialQuery.data;
+  const parseMaterial = useParseMaterialMutation(material);
 
   const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const [immersive, setImmersive] = useState(false);
@@ -109,8 +108,6 @@ export default function ReaderPage() {
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
-
-  const material = materialQuery.data;
 
   // Responsive ladder (T6): which Companion surface this width mounts — the
   // CSS-gated dock (≥1024), the slide-over (768–1023) or the sheet (<768).
@@ -213,6 +210,28 @@ export default function ReaderPage() {
     else mdFlowRef.current?.scrollToSection(locator.sectionId, true);
   }, []);
 
+  // Post-reload byte restore (epic P2-6): session bytes are gone after a
+  // reload, but the row carries a presigned downloadUrl — fetch the server
+  // copy ONCE per material into the session registry, so the render paths, the
+  // self-heal parse, and the failed-card retry all keep reading through
+  // sessionBlobs unchanged. A failed or missing copy stays honest (the
+  // re-upload contract remains on screen).
+  const bytesRestoredForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!material || !material.downloadUrl) return;
+    if (sessionBlobs.has(material.id)) return;
+    if (bytesRestoredForRef.current === material.id) return; // once — never a retry loop
+    bytesRestoredForRef.current = material.id;
+    void (async () => {
+      try {
+        const response = await fetch(material.downloadUrl);
+        if (response.ok) sessionBlobs.put(material.id, await response.blob());
+      } catch {
+        // network failure — the re-upload contract stays honest
+      }
+    })();
+  }, [material]);
+
   // A deep link into a still-pending material self-heals: with session bytes
   // present the reader can run the same eager parse the attach flow runs.
   const parseState = material?.parseState;
@@ -242,7 +261,7 @@ export default function ReaderPage() {
     }
   };
 
-  if (materialQuery.isPending) return null;
+  if (materialQuery.loading) return null;
 
   if (!material) {
     // Honest not-found (AD-8): an unknown or deleted id never pretends.
@@ -294,7 +313,7 @@ export default function ReaderPage() {
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="truncate max-w-[180px]">
-              {material.planId ? (planQuery.data?.topic ?? t("reader.backToPlan")) : t("plans.backToPlans")}
+              {material.planId ? (planQuery.data?.plan.topic ?? t("reader.backToPlan")) : t("plans.backToPlans")}
             </span>
           </button>
           <span className="text-sm font-semibold truncate min-w-0 flex-1" title={material.title}>
@@ -375,7 +394,7 @@ export default function ReaderPage() {
             // (#section-id) wins over the stored section when present; the
             // mount gate below guarantees the stored value is known first.
             hasBytes ? (
-              progressQuery.isPending ? null : (
+              progressQuery.loading ? null : (
                 <MarkdownFlow
                   ref={mdFlowRef}
                   blob={sessionBlobs.get(material.id)}
@@ -389,7 +408,7 @@ export default function ReaderPage() {
               <ReuploadCard onReupload={() => fileInputRef.current?.click()} />
             )
           ) : hasBytes ? (
-            progressQuery.isPending ? null : (
+            progressQuery.loading ? null : (
               // Restore (FR-10): the anchor (?page=N) wins over the stored
               // page when present; both are clamped by the flow on landing.
               <PdfPageFlow

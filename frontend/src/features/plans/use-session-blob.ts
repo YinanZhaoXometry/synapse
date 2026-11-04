@@ -6,7 +6,7 @@
  * `has(id)`, so identity stays stable across reads.
  */
 import { useSyncExternalStore } from "react";
-import { sessionBlobs } from "@/data";
+import { sessionBlobs } from "@/lib/session-blobs";
 
 const subscribe = (onStoreChange: () => void) => sessionBlobs.subscribe(onStoreChange);
 

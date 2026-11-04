@@ -3,14 +3,14 @@
  * CompanionPanel surface and the CompanionService seam (AD-5 — the only AI
  * path; prior art: plans/use-creation-chat.ts streaming pattern). Streams
  * grounded replies token-by-token, renders the transcript, and persists
- * through the existing ChatThread repository (AD-3/4).
+ * through the ChatThread append mutation (AD-3/4).
  *
  * Persistence honesty rule: a turn is written to the thread ONLY when its
  * request completes — user message first, then the companion reply with its
  * citation locators. Failed, aborted, or abandoned (material switched /
  * unmounted) requests persist nothing, so a reload never replays a turn the
- * Companion never answered (the repository has no delete, so "optimistic" is
- * the UI transcript only, never the store).
+ * Companion never answered (the append is not idempotent and has no delete,
+ * so "optimistic" is the UI transcript only, never the store).
  *
  * Grounding honesty rule: the position is read from the tracker ref AT SEND
  * TIME (T4's currentPositionRef surface). Before the reader's first report
@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { toast } from "sonner";
 import { getCompanionService } from "@/ai/companion-service";
 import type { CompanionReply } from "@/ai/types";
-import { useAppendChatMessageMutation, useChatThreadQuery } from "@/data";
+import { useAppendChatMessageMutation, useChatThreadQuery } from "@/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ReadingPosition } from "@/domain/entities";
 import {
@@ -42,7 +42,7 @@ export function useCompanionChat(
   positionRef: RefObject<ReadingPosition | null>,
 ) {
   const { t, language } = useLanguage();
-  const appendMessage = useAppendChatMessageMutation();
+  const { mutate: appendMessage } = useAppendChatMessageMutation();
   const threadQuery = useChatThreadQuery(materialId);
 
   const [entries, setEntries] = useState<CompanionEntry[]>([]);
@@ -74,11 +74,11 @@ export function useCompanionChat(
   // material, when the query first settles. Later refetches (our own appends)
   // never re-shape — the live transcript is the state above.
   useEffect(() => {
-    if (threadQuery.isPending) return;
+    if (threadQuery.loading) return;
     if (hydratedForRef.current === materialId) return;
     hydratedForRef.current = materialId;
     setEntries(entriesFromThread(threadQuery.data));
-  }, [threadQuery.isPending, threadQuery.data, materialId]);
+  }, [threadQuery.loading, threadQuery.data, materialId]);
 
   const runTurn = useCallback(
     (request: TurnRequest, displayText: string, existingUserId?: string) => {
@@ -130,10 +130,24 @@ export function useCompanionChat(
         .then((reply: CompanionReply) => {
           if (disposedRef.current || materialIdRef.current !== startedMaterialId) return; // abandoned — persist nothing
           const citations = replyCitationLocators(reply);
-          appendMessage.mutate({ materialId: turnMaterialId, message: { role: "user", text: displayText, citations: [] } });
-          appendMessage.mutate({
-            materialId: turnMaterialId,
-            message: { role: "companion", text: reply.text, citations },
+          // The append is NOT idempotent on the wire — exactly two calls per
+          // completed turn, in this order (the persistence honesty rule above).
+          // The api hook toasts persistence failures itself; no double-toast here.
+          appendMessage({
+            variables: {
+              input: {
+                materialId: turnMaterialId,
+                message: { role: "user", text: displayText, citations: [] },
+              },
+            },
+          });
+          appendMessage({
+            variables: {
+              input: {
+                materialId: turnMaterialId,
+                message: { role: "companion", text: reply.text, citations },
+              },
+            },
           });
           setEntries((prev) => [
             ...prev,
@@ -210,7 +224,7 @@ export function useCompanionChat(
     [busy, entries, runTurn, t],
   );
 
-  const hydrated = !threadQuery.isPending && hydratedForRef.current === materialId;
+  const hydrated = !threadQuery.loading && hydratedForRef.current === materialId;
 
   return {
     entries,

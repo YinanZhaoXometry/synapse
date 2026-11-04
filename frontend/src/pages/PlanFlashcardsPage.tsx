@@ -7,7 +7,7 @@
  * inline; cards → the flip-first study, deliberately stateless across reloads.
  */
 import { useParams } from "react-router-dom";
-import { useFlashcardsByPlanQuery, usePlanMaterialsQuery, usePlanQuery } from "@/data";
+import { useFlashcardsByPlanQuery, usePlanMaterialsQuery, usePlanQuery } from "@/api";
 import { FlashcardsStudyPage } from "@/features/flashcards";
 
 export default function PlanFlashcardsPage() {
@@ -16,7 +16,7 @@ export default function PlanFlashcardsPage() {
   const materialsQuery = usePlanMaterialsQuery(id ?? "");
   const cardsQuery = useFlashcardsByPlanQuery(id ?? "");
 
-  if (planQuery.isPending || materialsQuery.isPending || cardsQuery.isPending) return null;
+  if (planQuery.loading || materialsQuery.loading || cardsQuery.loading) return null;
 
   const plan = planQuery.data;
   const materials = materialsQuery.data ?? [];
@@ -28,7 +28,7 @@ export default function PlanFlashcardsPage() {
         exists: !!plan,
         materials,
         cards,
-        homeHref: plan ? `/plan/${plan.id}` : "/plans",
+        homeHref: plan ? `/plan/${plan.plan.id}` : "/plans",
         homeLabelKey: "flashcards.backToPlan",
         lostHref: "/plans",
         lostLabelKey: "plans.backToPlans",

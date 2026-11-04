@@ -15,7 +15,7 @@ export {
   type ParseInput,
   type ParseOutcome,
 } from "./parse";
-export { parseFromSessionBlob } from "./parse-material";
+export { parseMaterialBytes } from "./parse-material";
 export { validateReupload } from "./reupload";
 export { readerAnchorHref, readerSectionHref } from "./anchors";
 export { useParseMaterialMutation } from "./use-parse-material";

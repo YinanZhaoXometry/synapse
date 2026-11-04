@@ -101,7 +101,7 @@ export default function PlanHomePage() {
       const target = materialsQuery.data?.find((m) => m.id === reuploadId);
       if (target) {
         if (target.parseState === "pending" || target.parseState === "failed") {
-          parseMaterial.mutate(reuploadId);
+          parseMaterial.mutate(reuploadId, target);
         }
         // FR-29: the row keeps its metadata and id — only the bytes refresh
         // (server copy via a fresh presign PUT + this session's registry).
@@ -114,7 +114,7 @@ export default function PlanHomePage() {
     // the extracted sections are captured for persistence.
     upload
       .attach({ file, title: verdict.title, kind: verdict.kind, planId, taskId: null })
-      .then((material) => parseMaterial.mutate(material.id))
+      .then((material) => parseMaterial.mutate(material.id, material))
       .catch(() => toast.error(t("errors.uploadFailed")));
   };
 
@@ -250,7 +250,7 @@ export default function PlanHomePage() {
                     key={material.id}
                     material={material}
                     onReupload={() => openPicker(material.id)}
-                    onRetryParse={(materialId) => parseMaterial.mutate(materialId)}
+                    onRetryParse={(row) => parseMaterial.mutate(row.id, row)}
                   />
                 ))}
               </div>
@@ -448,7 +448,7 @@ function MaterialRow({
 }: {
   material: MaterialView;
   onReupload: () => void;
-  onRetryParse: (materialId: string) => void;
+  onRetryParse: (row: MaterialView) => void;
 }) {
   const { t } = useLanguage();
   const hasSessionBytes = !!useSessionBlob(material.id);
@@ -499,7 +499,7 @@ function MaterialRow({
           </span>
           <button
             type="button"
-            onClick={() => onRetryParse(material.id)}
+            onClick={() => onRetryParse(material)}
             className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline"
           >
             <RotateCw className="w-3 h-3" aria-hidden="true" /> {t("plans.parseRetry")}
