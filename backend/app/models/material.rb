@@ -9,6 +9,13 @@ class Material < ApplicationRecord
   belongs_to :plan, class_name: "StudyPlan", optional: true
   belongs_to :task, class_name: "StudyTask", optional: true
 
+  # The original document's bytes (AD-13, epic P2-6 ticket 02): the ActiveStorage
+  # attachment minted server-side at presign time (Storage::
+  # CreateMaterialUploadCommand) — metadata stays on this row, bytes live in
+  # R2/minio behind the blob. Downloads presign per request via the
+  # Material.downloadUrl GraphQL field; no bytes ever pass through the api.
+  has_one_attached :original
+
   has_many :flashcards
   has_one :chat_thread
   has_one :reading_progress
