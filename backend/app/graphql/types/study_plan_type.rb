@@ -53,7 +53,7 @@ module Types
     # survives the freshness layer.
     field :mastery_score, String,
           null: false,
-          description: "The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — the floored mean of its nodes' scores with uncovered nodes counting 0; computed by the api's Mastery module (the client renders, never recomputes, AD-14). Rollup 100 ⇔ every node mastered."
+          description: "The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — the floored mean of its nodes' scores with uncovered nodes counting 0; computed by the api's Mastery module (the client renders, never recomputes, AD-14). Node scores carry the freshness cap (ADR-0001 amendment 2026-11-04): a node whose latest evidence is more than 14 days old caps at \"99\", so a decayed node can never certify. Rollup 100 ⇔ every node mastered."
 
     def mastery_score
       nodes = object.knowledge_nodes.to_a

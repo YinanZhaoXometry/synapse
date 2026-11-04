@@ -54,11 +54,11 @@ module Types
     # at 99 and never reads mastered.
     field :mastery_score, String,
           null: false,
-          description: "The node's Mastery Score (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — computed by the api's Mastery module over this node's evidence records (the client renders, never recomputes, AD-14). \"0\" with no evidence."
+          description: "The node's Mastery Score (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — computed by the api's Mastery module over this node's evidence records (the client renders, never recomputes, AD-14). Freshness (ADR-0001 amendment 2026-11-04): with the latest evidence record more than 14 days old the score caps at \"99\" — the cap never lowers a sub-99 score. \"0\" with no evidence."
 
     field :state, String,
           null: false,
-          description: "The node's mastery state over the same evidence: \"uncovered\" (no evidence) | \"partial\" | \"mastered\" (score ≥ 80 AND ≥ 3 records) — Mastery's node-state vocabulary verbatim (AD-6)."
+          description: "The node's mastery state over the same evidence: \"uncovered\" (no evidence) | \"partial\" | \"mastered\" (score ≥ 80 AND ≥ 3 records AND the latest evidence within the last 14 days — a decayed node never reads mastered) — Mastery's node-state vocabulary verbatim (AD-6)."
 
     def mastery_score
       Mastery.compute_node_score(object.evidence_records, now: Time.current).to_s
