@@ -1,6 +1,6 @@
 # Epic 7 (Phase 2) — Re-queue: Solid Queue + the FR-24 due-scan
 
-Status: ready-for-agent → **code complete + two-axis reviewed 2026-11-04** (3/3 tickets done; 642→643/643; code axis FIX-FIRST findings fixed, spec axis TRACKER-TRUTHFUL with doc nits)
+Status: **SHIPPED 2026-11-04** — main `b951a6b..1f055c6` (FF), two-axis review (3×P1 + 5×P2 + nits all fixed `0598c94`; spec axis TRACKER-TRUTHFUL), **643/643**, rubocop clean, CI pending-push. Consumers: epic-09 (Today hub) reads `dueItems`; epic-08's deploy ticket boots the in-process supervisor (deploy.md checklist).
 Milestone: Phase 2 — post-deadline
 
 ## Parent
