@@ -28,7 +28,7 @@ import type {
   QuizSessionPartsFragment,
   ReadingPositionPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialView, StudyPlanView, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, MaterialView, QuizSessionView, StudyPlanView, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
@@ -71,7 +71,7 @@ export function mapMaterialSummary(material: MaterialSummaryPartsFragment): Mate
     parseFailureReason: parseFailureReason(material.parseFailureReason),
     sections: [], // summaries carry no sections — detail views use mapMaterial
     createdAt: material.createdAt,
-    downloadUrl: null,
+    downloadUrl: material.downloadUrl,
   };
 }
 
@@ -196,7 +196,7 @@ function sessionStatus(status: string): QuizSession["status"] {
   throw new Error(`unknown session status from the api: ${status}`);
 }
 
-export function mapQuizSession(session: QuizSessionPartsFragment): QuizSession {
+export function mapQuizSession(session: QuizSessionPartsFragment): QuizSessionView {
   return {
     id: session.id,
     planId: session.planId,
@@ -206,7 +206,7 @@ export function mapQuizSession(session: QuizSessionPartsFragment): QuizSession {
     status: sessionStatus(session.status),
     createdAt: session.createdAt,
     completedAt: session.completedAt,
-    ...({ questions: session.questions.map(mapQuestion) } as object),
+    questions: session.questions.map(mapQuestion),
   };
 }
 

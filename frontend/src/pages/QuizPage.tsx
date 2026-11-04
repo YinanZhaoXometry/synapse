@@ -22,18 +22,18 @@ import { Link, useSearchParams } from "react-router-dom";
 import { FileText, HelpCircle, Layers, ListChecks, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  getMaterial,
-  getQuizSession,
   useAllMaterialsQuery,
+  useMaterialQuery,
   usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlanQuery,
   usePlansQuery,
+  useQuizSessionQuery,
   useTaskMaterialsQuery,
   useTaskNodeQuery,
   useTaskQuery,
   useTasksQuery,
-} from "@/data";
+} from "@/api";
 import type { Material } from "@/domain/entities";
 import { QuizSessionPage, quizableMaterials, type QuizSessionContext } from "@/features/quiz";
 
@@ -94,7 +94,7 @@ function MaterialPicker({ onPick }: { onPick: (materialId: string) => void }) {
   const plansQuery = usePlansQuery();
   const tasksQuery = useTasksQuery();
 
-  if (materialsQuery.isPending || plansQuery.isPending || tasksQuery.isPending) return null;
+  if (materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return null;
 
   const plans = plansQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
@@ -177,10 +177,12 @@ export default function QuizPage() {
   const sessionParam = searchParams.get("session");
   const materialParam = searchParams.get("material");
 
-  // URL truth is a synchronous repository read (the shared shell's getQuizSession
-  // precedent — the local store has no async truth).
-  const session = sessionParam ? getQuizSession(sessionParam) : undefined;
-  const material = !sessionParam && materialParam ? getMaterial(materialParam) : undefined;
+  // URL truth rides the api's queries (the cutover replaces the synchronous
+  // repository reads): data arrives mapped, unknown ids read as undefined.
+  const sessionQuery = useQuizSessionQuery(sessionParam ?? "");
+  const materialQuery = useMaterialQuery(!sessionParam && materialParam ? materialParam : "");
+  const session = sessionParam ? sessionQuery.data : undefined;
+  const material = !sessionParam ? materialQuery.data : undefined;
 
   // ONE owner lookup set, keyed by the OWNER id — identical across the launch
   // state (owner = the picked material's owner) and the session state (owner =
@@ -197,8 +199,10 @@ export default function QuizPage() {
   const taskMaterialsQuery = useTaskMaterialsQuery(ownerTaskId ?? "");
 
   const pending = Boolean(
-    (ownerPlanId && (planQuery.isPending || planNodesQuery.isPending || planMaterialsQuery.isPending)) ||
-      (ownerTaskId && (taskQuery.isPending || taskNodeQuery.isPending || taskMaterialsQuery.isPending)),
+    (ownerPlanId && (planQuery.loading || planNodesQuery.loading || planMaterialsQuery.loading)) ||
+      (ownerTaskId && (taskQuery.loading || taskNodeQuery.loading || taskMaterialsQuery.loading)) ||
+      (sessionParam && sessionQuery.loading) ||
+      (!sessionParam && materialParam && materialQuery.loading),
   );
 
   if (pending) return null;
@@ -244,7 +248,7 @@ export default function QuizPage() {
     const quizable = material ? quizableMaterials([material]).length > 0 : false;
     const ownerLabel = material
       ? material.planId && planQuery.data
-        ? t("quiz.demo.fromPlan", { plan: planQuery.data.topic })
+        ? t("quiz.demo.fromPlan", { plan: planQuery.data.plan.topic })
         : material.taskId && taskQuery.data
           ? t("quiz.demo.fromTask", { task: material.title })
           : null
@@ -263,7 +267,7 @@ export default function QuizPage() {
       material.planId && planQuery.data
         ? {
             kind: "plan",
-            ownerId: planQuery.data.id,
+            ownerId: planQuery.data.plan.id,
             exists: true,
             nodes: planNodesQuery.data ?? [],
             materials: [material], // scopeLocked: the picker fixed the scope — this material only

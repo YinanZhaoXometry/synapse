@@ -3,18 +3,17 @@ import { BookOpen, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
-  useAllEvidenceQuery,
   useAllMaterialsQuery,
   useAllReadingProgressQuery,
-  usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlansQuery,
   useTaskMaterialsQuery,
   useTaskNodeQuery,
   useTasksQuery,
-} from "@/data";
-import type { EvidenceRecord, ReadingProgress, StudyPlan, StudyTask } from "@/domain/entities";
-import { taskContinueTarget, taskMasteryView, tasksNewestFirst } from "@/features/tasks";
+} from "@/api";
+import type { ReadingProgress } from "@/domain/entities";
+import type { StudyPlanView, StudyTaskView } from "@/api/views";
+import { taskContinueTarget, tasksNewestFirst } from "@/features/tasks";
 import { latestReading, mostRecentPlan, planCardMetrics, type LatestReadingView } from "./display-shaping";
 import { localeTag } from "./locale";
 import { MasteryRing, StateMiniBar } from "./atoms";
@@ -31,18 +30,18 @@ import CreationChat from "./CreationChat";
  * side by side. When ≥ 1 task exists, a Study Tasks section renders (FR-37;
  * T3): rows of title + single-node Mastery Ring + a continue-reading deep
  * link, newest first; at zero tasks it renders nothing — no empty chrome.
+ * Every number is SERVER truth since the cutover (AD-14): rollups and states
+ * ride the api's masteryScore/state — the page never recomputes.
  */
 export default function PlansHomePage() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const plansQuery = usePlansQuery();
-  const evidenceQuery = useAllEvidenceQuery();
   const tasksQuery = useTasksQuery();
   const progressQuery = useAllReadingProgressQuery();
 
-  if (plansQuery.isPending || evidenceQuery.isPending || tasksQuery.isPending || progressQuery.isPending) return null;
+  if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return null;
   const plans = plansQuery.data ?? [];
-  const evidence = evidenceQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const progress = progressQuery.data ?? [];
   const isEmpty = plans.length === 0;
@@ -79,24 +78,16 @@ export default function PlansHomePage() {
           <CreationChat />
         </>
       ) : (
-        <ReturningHome plans={plans} evidence={evidence} language={language} />
+        <ReturningHome plans={plans} language={language} />
       )}
 
-      <TaskSection tasks={tasks} evidence={evidence} progress={progress} />
+      <TaskSection tasks={tasks} progress={progress} />
     </div>
   );
 }
 
-/** Returning state (Q5): continue hero + plan cards, numbers from the domain seam only. */
-function ReturningHome({
-  plans,
-  evidence,
-  language,
-}: {
-  plans: StudyPlan[];
-  evidence: EvidenceRecord[];
-  language: "zh" | "en";
-}) {
+/** Returning state (Q5): continue hero + plan cards, numbers from the server fields only. */
+function ReturningHome({ plans, language }: { plans: StudyPlanView[]; language: "zh" | "en" }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const hero = mostRecentPlan(plans);
@@ -116,36 +107,33 @@ function ReturningHome({
           onClick={() => navigate(`/plan/${hero.id}`)}
           className="w-full text-left bg-card border border-border-soft rounded-2xl shadow-raised p-5 mt-4 flex items-center gap-5 cursor-pointer hover:border-[var(--accent-edge)] transition-colors"
         >
-          <ContinueHeroBody plan={hero} evidence={evidence} recency={recency} reading={reading} />
+          <ContinueHeroBody plan={hero} recency={recency} reading={reading} />
           <span className="pill pill-mastered flex-none">{t("plans.continueAction")}</span>
         </button>
       )}
       <div className="grid sm:grid-cols-2 gap-4 mt-4">
         {plans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} evidence={evidence} />
+          <PlanCard key={plan.id} plan={plan} />
         ))}
       </div>
     </>
   );
 }
 
-/** Hero rollup: the hero card's own nodes via its query (rollup + counts) + the last-read line. */
+/** Hero rollup: the hero card's own nodes via its query (state bar) + the last-read line. */
 function ContinueHeroBody({
   plan,
-  evidence,
   recency,
   reading,
 }: {
-  plan: StudyPlan;
-  evidence: EvidenceRecord[];
+  plan: StudyPlanView;
   recency: string;
   reading: LatestReadingView | null;
 }) {
   const { t } = useLanguage();
   const nodesQuery = usePlanNodesQuery(plan.id);
-  const materialsQuery = usePlanMaterialsQuery(plan.id);
   const nodes = nodesQuery.data ?? [];
-  const metrics = planCardMetrics(nodes, evidence);
+  const metrics = planCardMetrics(plan, nodes);
   return (
     <>
       <MasteryRing value={metrics.rollup} size={64} />
@@ -155,7 +143,7 @@ function ContinueHeroBody({
         </p>
         <p className="font-display font-bold text-lg leading-snug truncate mt-0.5">{plan.topic}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          {nodes.length} {t("plans.nodesUnit")} · {(materialsQuery.data ?? []).length} {t("plans.materialsUnit")}
+          {nodes.length} {t("plans.nodesUnit")} · {(nodesQuery.materials ?? []).length} {t("plans.materialsUnit")}
         </p>
         {reading && (
           <p className="text-[11px] text-accent-ink leading-[1.5] truncate mt-1.5">
@@ -175,13 +163,12 @@ function ContinueHeroBody({
 }
 
 /** One plan card (Q5): honest rollup chip + node-state mini bar + node/material counts. */
-function PlanCard({ plan, evidence }: { plan: StudyPlan; evidence: EvidenceRecord[] }) {
+function PlanCard({ plan }: { plan: StudyPlanView }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const nodesQuery = usePlanNodesQuery(plan.id);
-  const materialsQuery = usePlanMaterialsQuery(plan.id);
   const nodes = nodesQuery.data ?? [];
-  const metrics = planCardMetrics(nodes, evidence);
+  const metrics = planCardMetrics(plan, nodes);
   return (
     <button
       type="button"
@@ -196,7 +183,7 @@ function PlanCard({ plan, evidence }: { plan: StudyPlan; evidence: EvidenceRecor
       </div>
       <StateMiniBar counts={metrics.stateCounts} />
       <p className="text-[11px] text-muted-foreground mt-2">
-        {nodes.length} {t("plans.nodesUnit")} · {(materialsQuery.data ?? []).length} {t("plans.materialsUnit")}
+        {nodes.length} {t("plans.nodesUnit")} · {(nodesQuery.materials ?? []).length} {t("plans.materialsUnit")}
       </p>
     </button>
   );
@@ -207,15 +194,7 @@ function PlanCard({ plan, evidence }: { plan: StudyPlan; evidence: EvidenceRecor
  * entirely at zero tasks — no empty chrome. Rows newest first; every number
  * and link target arrives through the tasks feature's pure selectors.
  */
-function TaskSection({
-  tasks,
-  evidence,
-  progress,
-}: {
-  tasks: StudyTask[];
-  evidence: EvidenceRecord[];
-  progress: ReadingProgress[];
-}) {
+function TaskSection({ tasks, progress }: { tasks: StudyTaskView[]; progress: ReadingProgress[] }) {
   const { t } = useLanguage();
   if (tasks.length === 0) return null;
   return (
@@ -223,7 +202,7 @@ function TaskSection({
       <h2 className="eyebrow mb-2">{t("tasks.eyebrow")}</h2>
       <div className="space-y-2">
         {tasksNewestFirst(tasks).map((task) => (
-          <TaskRow key={task.id} task={task} evidence={evidence} progress={progress} />
+          <TaskRow key={task.id} task={task} progress={progress} />
         ))}
       </div>
     </section>
@@ -236,21 +215,11 @@ function TaskSection({
  * (FR-10) — plain 打开 when no position, 继续 over the reader's anchor channel
  * when there is one (label split from the selector, never recomputed here).
  */
-function TaskRow({
-  task,
-  evidence,
-  progress,
-}: {
-  task: StudyTask;
-  evidence: EvidenceRecord[];
-  progress: ReadingProgress[];
-}) {
+function TaskRow({ task, progress }: { task: StudyTaskView; progress: ReadingProgress[] }) {
   const { t } = useLanguage();
-  const nodeQuery = useTaskNodeQuery(task.id);
   const materialsQuery = useTaskMaterialsQuery(task.id);
-  const node = nodeQuery.data;
+  const node = task.node; // the task's auto-owned node, server-scored (AD-6/AD-14)
   const material = materialsQuery.data?.[0]; // strictly 1:1 (StudyTask ||--|| Material)
-  const view = taskMasteryView(node, evidence); // the ONLY path numbers take (AD-6)
   const title = material?.title ?? node?.title ?? "";
   const target = material ? taskContinueTarget(material, progress) : null;
   return (
@@ -259,7 +228,7 @@ function TaskRow({
         to={`/task/${task.id}`}
         className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
       >
-        <MasteryRing value={view.score} size={44} />
+        <MasteryRing value={node ? Number(node.masteryScore) : 0} size={44} />
         <span className="text-sm font-semibold truncate">{title}</span>
       </Link>
       {target && (

@@ -23,11 +23,12 @@ import {
   TaskDocument,
   TasksDocument,
 } from "@/types/graphql";
-import { mapEvidence, mapFlashcard, mapMistake, mapQuizSession } from "../mappers";
+import { mapEvidence, mapFlashcard, mapMistake, mapQuestion, mapQuizSession } from "../mappers";
+import type { QuizSessionView } from "../views";
 
 export function useQuizSessionQuery(sessionId: string) {
   const result = useQuery(QuizSessionDocument, { variables: { id: sessionId }, skip: !sessionId });
-  const session = result.data?.quizSession ? mapQuizSession(result.data.quizSession) : undefined;
+  const session: QuizSessionView | undefined = result.data?.quizSession ? mapQuizSession(result.data.quizSession) : undefined;
   return { data: result.loading ? undefined : session, loading: result.loading, error: result.error, refetch: result.refetch };
 }
 
@@ -93,3 +94,7 @@ export function useRateFlashcardMutation() {
   // surfaces are deliberately untouched.
   return useMutation(RateFlashcardDocument);
 }
+
+/** Question mapper re-export — mutation payloads carry raw server rows. */
+export { mapQuestion };
+

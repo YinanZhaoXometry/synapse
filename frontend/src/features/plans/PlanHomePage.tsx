@@ -1,17 +1,16 @@
 /**
  * Plan Home light (FR-25; Q7; AD-8): the two-zone overview — stage-grouped
  * nodes + materials on the left, attach CTA + quick actions + recent activity
- * on the right. Every number is the shipped domain seam over real evidence
- * queries (ADR-0001: no display arithmetic); a fresh plan reads all-uncovered
- * honestly and lights up when slice 6 produces evidence. Materials attach via
- * the upload dropzone (FR-2; Q1): PDF/Markdown ≤ 20MB, validated by the pure
- * validators, registered pending-parse with bytes in the session-blob registry
- * only (AD-4), then parsed eagerly by the reader's parse(file) API (AD-7) —
- * the row's chip walks pending → parsing → parsed | failed (+ retry while the
- * bytes exist). After a reload rows honestly ask for the file again; a
- * re-upload of a pending/failed material re-runs the parse. Quick actions
- * never promise dead clicks: generation tiles explain their slice, upload
- * opens the real file picker.
+ * on the right. Every number is SERVER truth since the cutover (AD-14): the
+ * rollup and node scores/states ride the api's masteryScore/state fields and
+ * the streak rides the api — the page never recomputes. Materials attach via
+ * the upload flow (FR-2; Q1; epic P2-6): validated (PDF/Markdown ≤ 20MB),
+ * attached idempotently, bytes PUT straight to storage through the presigned
+ * URL, then parsed eagerly by the reader's parse(file) API (AD-7) — the row's
+ * chip walks pending → parsing → parsed | failed (+ retry while bytes exist —
+ * this session's registry OR the server copy via the presigned GET). Quick
+ * actions never promise dead clicks: generation tiles explain their slice,
+ * upload opens the real file picker.
  */
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -25,18 +24,17 @@ import { FlashcardLauncher } from "@/features/flashcards";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
+  useMaterialUpload,
   useFlashcardsByPlanQuery,
-  usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlanQuery,
   useReadingProgressQuery,
-  useRegisterMaterialMutation,
-} from "@/data";
+  useStreakQuery,
+} from "@/api";
 import { cn } from "@/lib/utils";
-import type { Material } from "@/domain/entities";
+import type { MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import {
-  evidenceStreak,
   nodeRowViews,
   planCardMetrics,
   planRecentActivity,
@@ -55,17 +53,21 @@ export default function PlanHomePage() {
   const { id } = useParams();
   const planQuery = usePlanQuery(id ?? "");
   const nodesQuery = usePlanNodesQuery(id ?? "");
-  const materialsQuery = usePlanMaterialsQuery(id ?? "");
+  const planNodesAndMaterials = usePlanNodesQuery(id ?? "");
+  const materialsQuery = { data: planNodesAndMaterials.materials, loading: planNodesAndMaterials.loading };
+  // Evidence still feeds the node rows' popover marks; the scores ride the
+  // nodes themselves (server fields, AD-14).
   const evidenceQuery = useAllEvidenceQuery();
   // Epic-6 T3: the flashcards entry reads the plan's persisted deck — cards
   // exist → the tile opens the study directly (「继续学习」); none → the
   // FlashcardLauncher dialog generates through the AI seam.
   const flashcardsQuery = useFlashcardsByPlanQuery(id ?? "");
-  const registerMaterial = useRegisterMaterialMutation();
+  const streakQuery = useStreakQuery();
+  const upload = useMaterialUpload();
   const parseMaterial = useParseMaterialMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // The picker serves two flows: null = attach a new material; a material id = re-upload
-  // that row's session bytes (FR-29 contract — metadata persists, bytes do not).
+  // that row's bytes (FR-29 contract — metadata persists, the session copy does not).
   const pickerTargetRef = useRef<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   // Epic-6 T2: the quiz quick action opens the QuizLauncher dialog (mode +
@@ -92,36 +94,32 @@ export default function PlanHomePage() {
     const reuploadId = pickerTargetRef.current;
     pickerTargetRef.current = null;
     if (reuploadId) {
-      // Re-upload: same Material metadata, fresh session-only bytes. The row
-      // re-renders via its useSessionBlob subscription (no manual tick). A
-      // pending/failed material now has bytes again — retry the parse (AD-7).
+      // Re-upload: fresh bytes for the same Material row — session registry for
+      // the reader, then a re-PUT through a fresh presign so the server copy
+      // recovers too (the row re-renders via its useSessionBlob subscription).
       sessionBlobs.put(reuploadId, file);
       const target = materialsQuery.data?.find((m) => m.id === reuploadId);
-      if (target && (target.parseState === "pending" || target.parseState === "failed")) {
-        parseMaterial.mutate(reuploadId);
+      if (target) {
+        if (target.parseState === "pending" || target.parseState === "failed") {
+          parseMaterial.mutate(reuploadId);
+        }
+        // FR-29: the row keeps its metadata and id — only the bytes refresh
+        // (server copy via a fresh presign PUT + this session's registry).
+        upload.refreshBytes(reuploadId, file).catch(() => toast.error(t("errors.uploadFailed")));
       }
       return;
     }
-    // Register pending-parse (AD-7), then hand the fresh bytes to the reader's
-    // parse(file) eagerly — bytes exist only now, so this is the moment the
-    // extracted sections are captured for persistence.
-    registerMaterial.mutate(
-      {
-        title: verdict.title,
-        kind: verdict.kind,
-        sizeBytes: file.size,
-        planId,
-        taskId: null,
-        blob: file,
-        sections: [],
-        parseState: "pending",
-      },
-      { onSuccess: ({ material }) => parseMaterial.mutate(material.id) },
-    );
+    // Attach (AD-7 pending-parse), PUT the bytes to storage, then hand the
+    // fresh bytes to the reader's parse(file) eagerly — this is the moment
+    // the extracted sections are captured for persistence.
+    upload
+      .attach({ file, title: verdict.title, kind: verdict.kind, planId, taskId: null })
+      .then((material) => parseMaterial.mutate(material.id))
+      .catch(() => toast.error(t("errors.uploadFailed")));
   };
 
-  if (planQuery.isPending || nodesQuery.isPending || materialsQuery.isPending || evidenceQuery.isPending || flashcardsQuery.isPending) return null;
-  const plan = planQuery.data;
+  if (planQuery.loading || nodesQuery.loading || planNodesAndMaterials.loading || evidenceQuery.loading || flashcardsQuery.loading) return null;
+  const plan = planQuery.data?.plan;
   const nodes = nodesQuery.data ?? [];
   const materials = materialsQuery.data ?? [];
   const evidence = evidenceQuery.data ?? [];
@@ -147,7 +145,7 @@ export default function PlanHomePage() {
     );
   }
 
-  const metrics = planCardMetrics(nodes, evidence);
+  const metrics = planCardMetrics(plan, nodes);
   const activity = planRecentActivity(nodes, evidence);
   const hasMaterials = materials.length > 0;
   // Quiz generation needs parsed sections (FR-18 sourcing honesty) — pending/
@@ -208,7 +206,7 @@ export default function PlanHomePage() {
           )}
         </div>
         <div className="flex items-start gap-5">
-          <StreakChip days={evidenceStreak(evidence)} />
+          <StreakChip days={streakQuery.data ?? 0} />
           <div>
             <MasteryRing value={metrics.rollup} size={72} />
             <ContractNote>{t("plans.rollupNote")}</ContractNote>
@@ -332,7 +330,7 @@ export default function PlanHomePage() {
                   <div key={entry.id} className="text-xs">
                     <p className="font-semibold leading-[1.4] truncate">{entry.nodeTitle}</p>
                     <p className="text-muted-foreground mt-0.5">
-                      {t("plans.activityMeta", { score: entry.score, n: entry.recordCount })} ·{" "}
+                      {t("plans.activityMeta", { n: entry.recordCount })} ·{" "}
                       {new Date(entry.latestAt).toLocaleDateString(localeTag(language))}
                     </p>
                   </div>
@@ -384,7 +382,7 @@ export default function PlanHomePage() {
   );
 }
 
-/** One node row (UX display contract): state glyph + tint + label, score when evidence exists, evidence popover. */
+/** One node row (UX display contract): state glyph + tint + label, server score when evidence exists, evidence popover. */
 function NodeRow({ view }: { view: NodeRowView }) {
   const { t } = useLanguage();
   return (
@@ -429,30 +427,33 @@ function NodeRow({ view }: { view: NodeRowView }) {
 }
 
 /**
- * One material row (Q1): kind + size + an honest parse chip while the session
- * bytes are present — pending → parsing → parsed, or failed with its bilingual
- * reason (tooltip) and a retry action that re-runs the reader's parse from the
- * session blob (only while the bytes exist, AD-7). Once the bytes are gone
- * (reload), the row names the contract — re-upload needed — with an affordance
- * that opens the picker for that row. Byte presence is a declarative
- * `useSessionBlob` subscription, so the row itself re-renders when bytes are
- * attached or re-uploaded. Every row also opens the Immersive Reader
- * (/read/:materialId) — the reader hosts the honest state for whatever the
- * parse is doing (FR-8; T2). The link reads 继续阅读 when stored reading
- * progress exists for the material, 打开 when not (FR-25 continue-reading
- * entry points; the reader itself decides what the stored position restores).
+ * One material row (Q1): kind + size + an honest parse chip while bytes are
+ * present — pending → parsing → parsed, or failed with its bilingual reason
+ * (tooltip) and a retry that re-runs the reader's parse (session bytes first,
+ * else the server copy via the presigned GET). When neither source exists
+ * (reload before the cutover's server copy), the row names the contract —
+ * re-upload needed — with an affordance that opens the picker for that row.
+ * Byte presence is a declarative `useSessionBlob` subscription, so the row
+ * re-renders when bytes are attached or re-uploaded. Every row also opens the
+ * Immersive Reader (/read/:materialId) — the reader hosts the honest state for
+ * whatever the parse is doing (FR-8; T2). The link reads 继续阅读 when stored
+ * reading progress exists for the material, 打开 when not (FR-25
+ * continue-reading entry points; the reader itself decides what the stored
+ * position restores).
  */
 function MaterialRow({
   material,
   onReupload,
   onRetryParse,
 }: {
-  material: Material;
+  material: MaterialView;
   onReupload: () => void;
   onRetryParse: (materialId: string) => void;
 }) {
   const { t } = useLanguage();
-  const needsReupload = !useSessionBlob(material.id);
+  const hasSessionBytes = !!useSessionBlob(material.id);
+  const hasServerBytes = !!material.downloadUrl;
+  const needsReupload = !hasSessionBytes && !hasServerBytes;
   const progressQuery = useReadingProgressQuery(material.id);
   const hasProgress = !!progressQuery.data;
   const openLabelKey = hasProgress ? "plans.continueReading" : "common.open";

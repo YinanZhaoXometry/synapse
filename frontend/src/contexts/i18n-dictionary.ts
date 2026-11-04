@@ -135,7 +135,7 @@ export const translations = {
       'plans.attachCtaHint': 'PDF / Markdown ≤ 20MB',
       'plans.recentActivity': '最近动态',
       'plans.recentEmpty': '还没有动态。生成测验并通过后，学习证据会出现在这里。',
-      'plans.activityMeta': '{score}% · {n} 条作答',
+      'plans.activityMeta': '{n} 条作答',
       'plans.stageUntitled': '—',
       'plans.sizeMb': '{n} MB',
       'plans.materialsUpload': '上传',
@@ -301,7 +301,7 @@ export const translations = {
       'quiz.evidenceSaveFailed': '证据写入失败 — 请刷新页面重试',
       'quiz.gradingFailed': '对照材料评分失败 — 已保留你的答案，请重试',
       'quiz.abandonSaveFailed': '退出状态保存失败',
-      'quiz.masteryDeltas': '掌握度变化',
+      'quiz.masteryDeltas': '掌握度',
       'quiz.mistakesTitle': '错题回顾',
       'quiz.retry': '再来一轮',
       'quiz.answerAll': '先完成本题再继续。',
@@ -471,9 +471,9 @@ export const translations = {
       'settings.general': '通用',
       'settings.data': '学习数据',
       'settings.dataNote': '数据保存在本设备的浏览器中，「重置」会清空全部学习数据；语言与主题等偏好保留。',
-      'settings.reset': '重置学习数据',
-      'settings.resetTitle': '重置所有学习数据？',
-      'settings.resetBody': '将清空全部学习数据：学习计划、材料、任务、测验与闪卡记录、错题、对话和阅读进度，并回到初始引导状态。语言与主题等界面偏好保留。',
+      'settings.reset': '清除本机偏好',
+      'settings.resetTitle': '清除本机偏好并退出登录？',
+      'settings.resetBody': '将清除本机的界面偏好（语言、外观、动效）并退出登录。你的学习数据保存在服务器上，不会被删除；重新登录即可找回。',
       'settings.keyboard': '键盘',
       'settings.keyboardNote': 'Tab 顺序跟随阅读顺序；Esc 关闭最上层。',
       'theme.sunset': '日落',
@@ -546,7 +546,7 @@ export const translations = {
       'quiz.backToPlan': '返回计划',
       'quiz.retakeNote': '模拟出题 · 每轮题目相近',
       'quiz.cap99Note': '99% 封顶 · 还差 {n} 条证据',
-      'quiz.moveAria': '掌握度从 {before}% 到 {after}%',
+      'quiz.moveAria': '当前掌握度 {score}%',
       'quiz.sourceQuote': '材料原文',
       'quiz.startNew': '重新出题',
 
@@ -598,7 +598,8 @@ export const translations = {
       'errors.flashcardNotFound': '找不到该闪卡',
       'errors.evidenceBatchUnknown': '作答数据不完整 · 请重新提交',
       'errors.uploadUnsupportedType': '目前仅支持 PDF 与 Markdown（PPT 将在 Phase 2 支持）',
-      'errors.uploadTooLarge': '文件超过 20MB 上限，请换更小的文件'
+      'errors.uploadTooLarge': '文件超过 20MB 上限，请换更小的文件',
+      'errors.uploadFailed': '上传失败，请重试'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -733,7 +734,7 @@ export const translations = {
       'plans.attachCtaHint': 'PDF / Markdown ≤ 20MB',
       'plans.recentActivity': 'Recent activity',
       'plans.recentEmpty': 'No activity yet — evidence from graded quizzes will appear here.',
-      'plans.activityMeta': '{score}% · {n} answers',
+      'plans.activityMeta': '{n} answers',
       'plans.stageUntitled': '—',
       'plans.sizeMb': '{n} MB',
       'plans.materialsUpload': 'Upload',
@@ -899,7 +900,7 @@ export const translations = {
       'quiz.evidenceSaveFailed': 'Evidence write failed — reload and retry',
       'quiz.gradingFailed': 'Grading failed — your answer is kept, please retry',
       'quiz.abandonSaveFailed': 'Could not save the exit state',
-      'quiz.masteryDeltas': 'Mastery changes',
+      'quiz.masteryDeltas': 'Mastery',
       'quiz.mistakesTitle': 'Mistakes',
       'quiz.retry': 'New round',
       'quiz.answerAll': 'Answer this question to continue.',
@@ -1069,9 +1070,9 @@ export const translations = {
       'settings.general': 'General',
       'settings.data': 'Study data',
       'settings.dataNote': 'Data lives in this browser; Reset clears all study data. Preferences like language and theme are kept.',
-      'settings.reset': 'Reset study data',
-      'settings.resetTitle': 'Reset all study data?',
-      'settings.resetBody': 'This clears all study data: plans, materials, tasks, quiz and flashcard evidence, mistakes, threads, and reading positions, and returns the app to its first-run state. Language and appearance preferences are kept.',
+      'settings.reset': 'Clear device preferences',
+      'settings.resetTitle': 'Clear device preferences and sign out?',
+      'settings.resetBody': 'This clears this device\u2019s preferences (language, appearance, motion) and signs you out. Your study data lives on the server and is never deleted — sign back in to find everything where you left it.',
       'settings.keyboard': 'Keyboard',
       'settings.keyboardNote': 'Tab order follows reading order; Esc closes the topmost layer.',
       'theme.sunset': 'Sunset',
@@ -1144,7 +1145,7 @@ export const translations = {
       'quiz.backToPlan': 'Back to plan',
       'quiz.retakeNote': 'Simulated generation · rounds are near-identical',
       'quiz.cap99Note': 'Capped at 99 · {n} more evidence records to go',
-      'quiz.moveAria': 'Mastery moved from {before}% to {after}%',
+      'quiz.moveAria': 'Current mastery {score}%',
       'quiz.sourceQuote': 'From your material',
       'quiz.startNew': 'Start a new quiz',
 
@@ -1196,7 +1197,8 @@ export const translations = {
       'errors.flashcardNotFound': 'Flashcard not found',
       'errors.evidenceBatchUnknown': 'Answer data incomplete · please resubmit',
       'errors.uploadUnsupportedType': 'Only PDF and Markdown are supported today (PPT arrives in Phase 2)',
-      'errors.uploadTooLarge': 'That file is over the 20 MB limit — try a smaller one'
+      'errors.uploadTooLarge': 'That file is over the 20 MB limit — try a smaller one',
+      'errors.uploadFailed': 'Upload failed — please try again'
     }
   
 } as const;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GradedAnswer } from "@/ai/types";
 import type { Question, QuizSession } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
-import { AppError } from "@/data";
+import { AppError } from "@/lib/app-error";
 import {
   abandonRun,
   applyOpenGrading,

@@ -1,13 +1,13 @@
 /**
- * Quiz display shaping (epic-6 T2; AD-6, ADR-0001): results/session →
- * presentation inputs. Thin composition over the shipped domain functions and
- * the machine's revealed outputs — no mastery arithmetic lives here. Node
- * numbers come ONLY from `computeNodeScore` / `getNodeState` (window 5, cap-99
- * below the 3-record gate, mastered = ≥ 80 & ≥ 3), so the results screen shows
- * the exact numbers the system keeps (plans/tasks display-shaping precedent).
+ * Quiz display shaping (epic-6 T2; AD-6; server scores since the cutover):
+ * results/session → presentation inputs. The Mastery Scores and node states
+ * ride the server views (AD-14 — no client recompute); the round percentage is
+ * presentation shaping over the machine's revealed outcomes (this round's own
+ * answers, not a Mastery Score).
  */
-import type { EvidenceRecord, KnowledgeNode, Material, NodeState, Outcome } from "@/domain/entities";
-import { computeNodeScore, getNodeState, MASTERY_CONFIG } from "@/domain/mastery";
+import type { EvidenceRecord, Material, Outcome } from "@/domain/entities";
+import { MASTERY_CONFIG } from "@/domain/mastery";
+import type { KnowledgeNodeView } from "@/api/views";
 import type { MaterialRef } from "@/ai/types";
 import type { MaskedQuestionView, QuizAnswerResult } from "./session-machine";
 
@@ -38,58 +38,56 @@ export function quizScoreSummary(results: QuizAnswerResult[]): QuizScoreSummary 
 // -- node movement -------------------------------------------------------------------
 
 /**
- * One affected node's mastery move (FR-3 moment): the score before this
- * session's evidence (records from other sessions) vs the number the system
- * keeps now — both through `computeNodeScore`, so window-5 / cap-99-below-gate
- * are the domain's exact behavior, never re-derived for display.
+ * One affected node's mastery row (FR-3 moment): since the cutover the score
+ * and state are SERVER fields (AD-14 — the client renders, never recomputes),
+ * so the row renders the node's current api number; the pre-session 「before」
+ * delta is gone (the api exposes no pre-session score surface — surfaced as a
+ * contract gap on the epic tracker).
  */
 export interface QuizNodeRow {
   nodeId: string;
   /** The plan node (undefined → the id renders; attribution is generation-time, AD-6). */
-  node: KnowledgeNode | undefined;
+  node: KnowledgeNodeView | undefined;
   title: string;
-  /** Score over evidence EXCLUDING this session (the 「before」 number). */
-  before: number;
-  /** Current score — the number the system keeps (ADR-0001 semantics). */
-  after: number;
-  state: NodeState;
+  /** Current SERVER score — the number the system keeps (ADR-0001 semantics, api-computed). */
+  score: number;
+  state: KnowledgeNodeView["state"];
   hasEvidence: boolean;
-  /** True when real evidence exists but sits under the anti-inflation gate (cap 99). */
+  /** True when evidence exists, the node is not mastered, and the api's 99 cap is in effect. */
   belowGate: boolean;
   /** The score window's outcome marks, oldest → newest. */
   lastOutcomes: Outcome[];
 }
 
 /**
- * Per affected node rows over the fresh evidence (queried AFTER the evidence
- * mutation landed — the results screen's input). Node order follows first
- * appearance in the results (the generator's order).
+ * Per affected node rows over the SERVER-scored nodes (queried AFTER the
+ * evidence mutation's refetch sweep landed — the results screen's input). Node
+ * order follows first appearance in the results (the generator's order).
  */
 export function quizNodeRows(
   results: QuizAnswerResult[],
-  nodes: KnowledgeNode[],
+  nodes: KnowledgeNodeView[],
   evidence: EvidenceRecord[],
-  sessionId: string | null,
 ): QuizNodeRow[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const nodeIds = [...new Set(results.map((r) => r.nodeId))];
   return nodeIds.map((nodeId) => {
     const records = evidence.filter((e) => e.nodeId === nodeId);
-    const prior = records.filter((e) => e.sessionId !== sessionId);
     const window = [...records]
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, MASTERY_CONFIG.window)
       .map((r) => r.outcome);
     const node = byId.get(nodeId);
+    const score = node ? Number(node.masteryScore) : 0;
+    const state = node?.state ?? "uncovered";
     return {
       nodeId,
       node,
       title: node?.title ?? nodeId,
-      before: computeNodeScore(prior),
-      after: computeNodeScore(records),
-      state: getNodeState(records),
-      hasEvidence: records.length > 0,
-      belowGate: records.length > 0 && records.length < MASTERY_CONFIG.evidenceGate,
+      score,
+      state,
+      hasEvidence: state !== "uncovered",
+      belowGate: state !== "mastered" && state !== "uncovered" && score >= 99,
       lastOutcomes: window.reverse(),
     };
   });

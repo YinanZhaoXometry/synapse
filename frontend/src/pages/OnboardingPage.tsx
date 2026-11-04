@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { markOnboardingComplete } from "@/data";
 import { PLANS_HOME_ROUTE } from "@/features/plans/entry-decision";
 import { cn } from "@/lib/utils";
 
@@ -193,10 +192,7 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   className={PRIMARY_CTA}
-                  onClick={() => {
-                    markOnboardingComplete();
-                    navigate(PLANS_HOME_ROUTE);
-                  }}
+                  onClick={() => navigate(PLANS_HOME_ROUTE)}
                 >
                   {t("onboarding.enter")}
                   <ArrowRight className="w-4 h-4" aria-hidden="true" />

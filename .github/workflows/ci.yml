@@ -53,6 +53,14 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+      # Codegen + freshness (AD-17/AD-18, epic P2-8 T1): the committed typed
+      # documents are runtime-load-bearing; regenerate and fail on drift —
+      # a schema change must land with regenerated output. Mirrors the
+      # justfile spec recipe.
+      - name: Generate GraphQL documents
+        run: pnpm run codegen
+      - name: Codegen freshness (regenerate + diff)
+        run: git diff --exit-code -- src/types/graphql.ts
       - name: Typecheck
         run: pnpm exec tsc -b
       - name: Lint

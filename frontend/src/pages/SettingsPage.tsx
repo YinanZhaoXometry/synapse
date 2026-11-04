@@ -14,7 +14,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { AppError, resetDb } from "@/data";
+import { clearToken, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
@@ -203,28 +203,24 @@ export default function SettingsPage() {
                 <AlertDialogAction
                   className={PRIMARY_CTA}
                   onClick={() => {
-                    // AD-3/4: the real store dies through the adapter's public
-                    // surface — the whole versioned document resets to empty;
-                    // never a page-level localStorage.removeItem here. resetDb
-                    // runs FIRST so a failed write (AppError, e.g.
-                    // STORAGE_WRITE_FAILED on quota) aborts the whole reset
-                    // with the store's typed error toast — nothing resets and
-                    // no reload fakes a success (never silent, never fake).
-                    try {
-                      resetDb();
-                    } catch (e) {
-                      if (e instanceof AppError) {
-                        toast.error(t(e.messageKey ?? "errors.storageWriteFailed"));
-                      } else {
-                        throw e;
+                    // Cutover semantics (epic P2-8 T1): study data lives on the
+                    // server and is NEVER deleted client-side — reset clears
+                    // this device's UI prefs and signs out (token + Apollo
+                    // cache wiped so no trace of the account renders — FR-4).
+                    // Server-side account surfaces arrive with epic-14.
+                    for (const key of ["synapse-lang", "synapse-theme", "synapse-mode", "synapse-motion"]) {
+                      try {
+                        localStorage.removeItem(key);
+                      } catch {
+                        // storage unavailable — prefs reset is best-effort
                       }
-                      return;
                     }
+                    clearToken();
+                    void resetApiClient();
                     resetAll();
                     toast(t("common.resetDone"));
-                    // Fresh reload into the first-run entry state: `/` re-runs
-                    // the entry gate (onboarding flag is now false) with every
-                    // in-memory cache (Query + contexts) reborn empty.
+                    // Fresh reload into the signed-out entry state: `/` re-runs
+                    // the entry gate with the client caches reborn empty.
                     window.location.replace("/");
                   }}
                 >

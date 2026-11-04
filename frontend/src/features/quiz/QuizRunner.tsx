@@ -28,7 +28,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import type { EvidenceRecord, KnowledgeNode, Material } from "@/domain/entities";
+import type { EvidenceRecord } from "@/domain/entities";
+import type { MaterialView, KnowledgeNodeView } from "@/api/views";
 import { quizHintFor } from "./display-shaping";
 import { OUTCOME_STATUS } from "./outcome-status";
 import { activeMaskedView, type MaskedQuestionView, type QuizRunState, type RevealedQuestionView } from "./session-machine";
@@ -48,8 +49,8 @@ export interface QuizRunnerProps {
   driver: ReturnType<typeof useQuizSession>;
   run: QuizRunState;
   /** The plan's materials — the hint's source-section title + results excerpts. */
-  materials: Material[];
-  nodes: KnowledgeNode[];
+  materials: MaterialView[];
+  nodes: KnowledgeNodeView[];
   evidence: EvidenceRecord[];
   /** True when this run was hydrated from the URL (honest resume note). */
   resumed: boolean;

@@ -7,7 +7,6 @@ import { UserProgressProvider } from "@/contexts/UserProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { apolloClient } from "@/apollo";
-import { readLocalOnboardingComplete } from "@/lib/local-document";
 import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entry-decision";
 import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
@@ -37,14 +36,15 @@ const TaskCreatePage = lazy(() => import("@/features/tasks/TaskCreatePage"));
 const TaskHomePage = lazy(() => import("@/features/tasks/TaskHomePage"));
 
 /**
- * Front-door guard (AD-8): first run renders the onboarding wizard at `/`,
- * every later visit redirects to Plans Home. The flag read is synchronous —
- * the decision lands before first paint, so a returning user never glimpses
- * the wizard behind a pending query cache. The flag lives in the legacy local
- * document (lib/local-document) until ticket 02's login wall re-shapes entry.
+ * Front-door guard (AD-8, reshaped at the cutover — epic P2-8 T1): the root
+ * always lands on Plans Home, where the creation chat is the front door's
+ * primary surface for a first-run (empty-server) learner. The legacy
+ * first-run flag is no longer consulted client-side; ticket 02's login wall
+ * and ticket 03's import invite re-shape the entry states on this branch.
+ * The onboarding wizard stays reachable at /onboarding for review.
  */
 function EntryGate() {
-  const destination = resolveEntryDestination(readLocalOnboardingComplete());
+  const destination = resolveEntryDestination(true);
   if (destination === "plans") return <Navigate to={PLANS_HOME_ROUTE} replace />;
   return <OnboardingPage />;
 }
@@ -61,6 +61,7 @@ const App = () => (
                 <Route path="/" element={<EntryGate />} />
                 <Route element={<AppLayout />}>
                   <Route path="/plans" element={<PlansHomePage />} />
+                  <Route path="/onboarding" element={<OnboardingPage />} />
                   <Route path="/plan/new" element={<PlanCreatePage />} />
                   <Route path="/plan/:id" element={<PlanHomePage />} />
                   {/* The plan-flow quiz session page (epic-6 T2; AD-8) — the

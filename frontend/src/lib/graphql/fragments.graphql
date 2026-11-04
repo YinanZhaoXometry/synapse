@@ -24,6 +24,7 @@ fragment MaterialSummaryParts on Material {
   parseState
   parseFailureReason
   createdAt
+  downloadUrl
 }
 
 # Full material — detail views (reader, attach flows). downloadUrl is the

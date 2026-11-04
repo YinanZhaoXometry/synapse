@@ -1,21 +1,29 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { createQuizSession, getQuizSession, listEvidence, loadDb, registerMaterial } from "@/data";
+import type { MaterialSection, Question } from "@/domain/entities";
+import type { QuizSessionView } from "@/api/views";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { getCompanionService } from "@/ai/companion-service";
-import type { MaterialSection } from "@/domain/entities";
+import {
+  createHarnessState,
+  createStubClient,
+  echoQuestion,
+  makeStubWrapper,
+  type HarnessState,
+  type OperationHandler,
+} from "@/test/apollo-harness";
 import { useQuizSession } from "./use-quiz-session";
 
 /**
- * Epic-6 T1 driver tests: the evidence loop walked through the REAL
- * production seams — useQuizSession → simulated Companion (generateQuiz /
- * gradeOpenAnswer) → quiz repository over real localStorage → the atomic
- * recordEvidence batch (evidence + auto-mistakes + session completion).
- * Headless, nothing rendered (prior art: quiz-repository.test.ts and the
- * task-loop integration walk). The simulated 600ms delays are awaited with
- * real timers — the same trade the integration walks make.
+ * Epic-6 T1 driver tests; Apollo-cutover harness (epic P2-8): the evidence
+ * loop walks the REAL production seams — useQuizSession → simulated Companion
+ * (generateQuiz / gradeOpenAnswer) → the typed-hooks mutations against the
+ * stub-GraphQL echo server (createQuizSession / recordEvidence /
+ * abandonQuizSession) → the captured server state the test asserts on. The
+ * recordEvidence echo derives the whole atomic batch (evidence + auto-mistakes
+ * + session completion) from ONE call's variables — exactly-once shows up as a
+ * single batch in the harness state.
  *
  * Generator contract used for answering: a choice question's correct option is
  * its own section title (distractors are other sections' titles), and an open
@@ -28,31 +36,101 @@ const sections: MaterialSection[] = [
   { id: "sec-2", title: "需求工程", text: "需求工程把用户需要转化为规约。验收标准来自规约。" },
 ];
 
-function seedMaterial() {
-  return registerMaterial({
-    title: "复习讲义.md",
-    kind: "markdown",
-    sizeBytes: 64,
-    planId: null,
-    taskId: null,
-    sections,
-    parseState: "parsed",
-  }).material;
+const gradingMaterial = (): any => ({
+  id: "m-1",
+  title: "复习讲义.md",
+  kind: "markdown",
+  sizeBytes: 64,
+  planId: null,
+  taskId: null,
+  parseState: "parsed",
+  sections,
+  createdAt: "2026-11-01T00:00:00Z",
+  downloadUrl: null,
+});
+
+/** The quiz-mutation handlers every driver test rides (echo semantics). */
+function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
+  return {
+    CreateQuizSession: (variables) => {
+      const input = variables.input as Record<string, any>;
+      const sessionId = `s-echo-${state.sessions.length + 1}`;
+      const questions = (input.questions as Record<string, any>[]).map((q, i) => echoQuestion(q, sessionId, i));
+      const session = {
+        __typename: "QuizSession",
+        id: sessionId,
+        planId: input.planId ?? null,
+        taskId: input.taskId ?? null,
+        mode: input.mode,
+        status: "active",
+        createdAt: "2026-11-01T00:00:00Z",
+        completedAt: null,
+      };
+      state.sessions.push(session);
+      return { session, questions };
+    },
+    RecordEvidence: (variables) => {
+      const input = variables.input as Record<string, any>;
+      const sessionId = input.sessionId as string;
+      const results = input.results as Array<Record<string, any>>;
+      const session = state.sessions.find((s) => s.id === sessionId);
+      if (session) {
+        session.status = "completed";
+        session.completedAt = "2026-11-02T00:00:00Z";
+      }
+      const evidence = results.map((r, i) => ({
+        __typename: "EvidenceRecord",
+        id: `e-${sessionId}-${i}`,
+        nodeId: "node-1",
+        sessionId,
+        questionId: r.questionId,
+        outcome: r.outcome,
+        createdAt: "2026-11-02T00:00:00Z",
+      }));
+      const mistakes = results
+        .filter((r) => r.outcome === "wrong")
+        .map((r, i) => ({
+          __typename: "MistakeEntry",
+          id: `mist-${sessionId}-${i}`,
+          questionId: r.questionId,
+          sessionId,
+          nodeId: "node-1",
+          userAnswer: r.userAnswer,
+          sourceLocation:
+            /^page-\d+$/.test((r as any).sourceSectionId ?? "")
+              ? { __typename: "ReadingLocator", kind: "pdf", page: 1, sectionId: null }
+              : { __typename: "ReadingLocator", kind: "markdown", page: null, sectionId: (r as any).sourceSectionId ?? "sec-1" },
+          forfeited: r.forfeited,
+          createdAt: "2026-11-02T00:00:00Z",
+        }));
+      state.evidence.push(...evidence);
+      state.mistakes.push(...mistakes);
+      return { evidence, mistakes, session };
+    },
+    AbandonQuizSession: (variables) => {
+      const sessionId = (variables.input as Record<string, any>).sessionId as string;
+      const session = state.sessions.find((s) => s.id === sessionId);
+      if (session && session.status === "active") session.status = "abandoned";
+      return { session };
+    },
+  };
 }
 
-/** Wrapper owns one QueryClient for the hook's lifetime, under the same
- * LanguageProvider the app mounts (gradeOpenAnswer reads the language). */
-function makeWrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: ReactNode }) {
+function mountDriver(
+  state = createHarnessState(),
+  materials: any[] = [gradingMaterial()],
+  handlerOverrides: Record<string, OperationHandler> = {},
+) {
+  const client = createStubClient({ ...quizHandlers(state), ...handlerOverrides }, state);
+  const wrapper = function Wrapper({ children }: { children: ReactNode }) {
     return (
       <LanguageProvider>
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        {makeStubWrapper(client)({ children })}
       </LanguageProvider>
     );
   };
+  const rendered = renderHook(() => useQuizSession({ materials }), { wrapper });
+  return { ...rendered, state };
 }
 
 const startInput = (materialId: string, mode: "open" | "choice" | "mix", scoped = sections) => ({
@@ -70,8 +148,7 @@ async function flushGrading() {
   });
 }
 
-/** React Query runs mutation functions on a tick — flush a couple of
- * macrotasks so the repository writes have landed before asserting. */
+/** The stub server answers on the next tick — flush it before asserting. */
 async function flushWrites() {
   for (let i = 0; i < 2; i++) {
     await act(async () => {
@@ -87,18 +164,40 @@ function selectTitle(result: { current: ReturnType<typeof useQuizSession> }, tit
   act(() => result.current.submit());
 }
 
-beforeEach(() => {
-  localStorage.clear();
+/** A persisted QuizSessionView fixture (the hydrate input — server-shaped row, mapped). */
+const hydrateSession = (id: string, status: QuizSessionView["status"], questions: Question[]): QuizSessionView => ({
+  id,
+  planId: null,
+  taskId: null,
+  mode: "choice",
+  questionIds: questions.map((q) => q.id),
+  status,
+  createdAt: "2026-11-01T00:00:00Z",
+  completedAt: status === "completed" ? "2026-11-02T00:00:00Z" : null,
+  questions,
+});
+
+const hydrateQuestion = (id: string, correctIndex: number): Question => ({
+  id,
+  sessionId: "s-persisted",
+  nodeId: "node-h",
+  kind: "choice",
+  prompt: `Choice ${id}`,
+  options: ["right", "wrong"],
+  correctOptionIndex: correctIndex,
+  sourceMaterialId: "m-any",
+  sourceSectionId: "sec-1",
+  keywords: undefined,
+  explanation: "because",
 });
 
 describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6)", () => {
   it("a choice run completes atomically: exactly one EvidenceRecord per answer, node-attributed, session completed", async () => {
-    const material = seedMaterial();
-    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+    const { result, state } = mountDriver();
     expect(result.current.phase).toBe("idle");
 
     await act(async () => {
-      await result.current.start(startInput(material.id, "choice", [sections[0]])); // scoped to one section
+      await result.current.start(startInput("m-1", "choice", [sections[0]])); // scoped to one section
     });
     expect(result.current.phase).toBe("active");
     const run = result.current.run;
@@ -116,25 +215,23 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
     expect(result.current.phase).toBe("completed");
     expect(result.current.results?.map((r) => r.outcome)).toEqual(["correct"]);
     expect(result.current.results?.[0]?.outcomeValue).toBe(1);
-    await flushWrites(); // the evidence mutation lands on a tick
+    await flushWrites(); // the evidence mutation lands on the stub's tick
 
-    // the atomic landing: one evidence record (recordEvidence fired EXACTLY once —
-    // a double batch would make this two), node attribution from the question (AD-6)
-    const evidence = listEvidence();
-    expect(evidence).toHaveLength(1);
-    expect(evidence[0]?.outcome).toBe("correct");
-    expect(evidence[0]?.nodeId).toBe("node-1");
-    expect(evidence[0]?.sessionId).toBe(run?.sessionId);
-    expect(getQuizSession(run?.sessionId ?? "")?.status).toBe("completed");
-    expect(loadDb().mistakes).toHaveLength(0); // nothing wrong — no mistakes
+    // the atomic landing: ONE recordEvidence call (a double batch would show
+    // two rows — the harness records exactly what the batch wrote)
+    expect(state.evidence).toHaveLength(1);
+    expect(state.evidence[0]?.outcome).toBe("correct");
+    expect(state.evidence[0]?.nodeId).toBe("node-1");
+    expect(state.evidence[0]?.sessionId).toBe(run?.sessionId);
+    expect(state.sessions.find((s) => s.id === run?.sessionId)?.status).toBe("completed");
+    expect(state.mistakes).toHaveLength(0); // nothing wrong — no mistakes
   });
 
   it("a mix run interleaves kinds; the open answer grades through the AI seam with rationale + citation carried", async () => {
-    const material = seedMaterial();
-    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+    const { result, state } = mountDriver();
 
     await act(async () => {
-      await result.current.start(startInput(material.id, "mix"));
+      await result.current.start(startInput("m-1", "mix"));
     });
     // interleaved as generated: choice+open per section, generator order
     expect(result.current.run?.views.map((v) => v.kind)).toEqual(["choice", "open", "choice", "open"]);
@@ -165,20 +262,18 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
     expect(results?.[1]?.grading?.citation?.locator).toEqual({ kind: "markdown", sectionId: "sec-1" });
     expect(results?.[3]?.grading?.citation?.locator).toEqual({ kind: "markdown", sectionId: "sec-2" });
 
-    const evidence = listEvidence();
-    expect(evidence).toHaveLength(4);
-    expect(evidence.map((e) => e.outcome)).toEqual(["correct", "partial", "correct", "partial"]);
-    expect(evidence.every((e) => e.nodeId === "node-1")).toBe(true); // AD-6 attribution across the whole batch
-    expect(loadDb().mistakes).toHaveLength(0); // partial ≠ wrong — no mistakes
-    expect(getQuizSession(result.current.run?.sessionId ?? "")?.status).toBe("completed");
+    expect(state.evidence).toHaveLength(4);
+    expect(state.evidence.map((e) => e.outcome)).toEqual(["correct", "partial", "correct", "partial"]);
+    expect(state.evidence.every((e) => e.nodeId === "node-1")).toBe(true); // AD-6 attribution across the whole batch
+    expect(state.mistakes).toHaveLength(0); // partial ≠ wrong — no mistakes
+    expect(state.sessions.find((s) => s.id === result.current.run?.sessionId)?.status).toBe("completed");
   });
 
   it("wrong + forfeit answers land wrong evidence and auto-log MistakeEntries with the forfeit flag", async () => {
-    const material = seedMaterial();
-    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+    const { result, state } = mountDriver();
 
     await act(async () => {
-      await result.current.start(startInput(material.id, "choice"));
+      await result.current.start(startInput("m-1", "choice"));
     });
 
     // q1: select the OTHER section's title — a real distractor → wrong on submit
@@ -188,89 +283,78 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
 
     // q2: forfeit without selecting → 「看答案」, revealed as wrong
     act(() => result.current.forfeit());
-    await flushWrites(); // the evidence mutation lands on a tick
+    await flushWrites(); // the evidence mutation lands on the stub's tick
 
     expect(result.current.phase).toBe("completed");
     expect(result.current.results?.map((r) => r.outcome)).toEqual(["wrong", "wrong"]);
     expect(result.current.results?.map((r) => r.forfeited)).toEqual([false, true]);
     expect(result.current.results?.map((r) => r.outcomeValue)).toEqual([0, 0]); // ADR-0001: forfeit = wrong = 0
 
-    const db = loadDb();
-    expect(listEvidence().map((e) => e.outcome)).toEqual(["wrong", "wrong"]);
-    expect(db.mistakes).toHaveLength(2);
-    expect(db.mistakes.map((m) => m.forfeited)).toEqual([false, true]);
-    expect(db.mistakes.map((m) => m.userAnswer)).toEqual(["需求工程", ""]);
-    expect(db.mistakes.every((m) => m.nodeId === "node-1")).toBe(true);
-    expect(db.mistakes[0]?.sourceLocation).toEqual({ kind: "markdown", sectionId: "sec-1" });
-    expect(db.mistakes[1]?.sourceLocation).toEqual({ kind: "markdown", sectionId: "sec-2" });
+    expect(state.evidence.map((e) => e.outcome)).toEqual(["wrong", "wrong"]);
+    expect(state.mistakes).toHaveLength(2);
+    expect(state.mistakes.map((m) => m.forfeited)).toEqual([false, true]);
+    expect(state.mistakes.map((m) => m.userAnswer)).toEqual(["需求工程", ""]);
+    expect(state.mistakes.every((m) => m.nodeId === "node-1")).toBe(true);
   });
 
   it("abandon persists the terminal status, records NO evidence, and is not resumable", async () => {
-    const material = seedMaterial();
-    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+    const { result, state } = mountDriver();
     await act(async () => {
-      await result.current.start(startInput(material.id, "choice"));
+      await result.current.start(startInput("m-1", "choice"));
     });
     const sessionId = result.current.run?.sessionId ?? "";
 
     act(() => result.current.abandon());
-    await flushWrites(); // the abandon mutation lands on a tick
+    await flushWrites(); // the abandon mutation lands on the stub's tick
 
     expect(result.current.phase).toBe("abandoned");
     expect(result.current.results).toBeNull(); // an abandoned run produces nothing
-    expect(getQuizSession(sessionId)?.status).toBe("abandoned");
-    expect(getQuizSession(sessionId)?.completedAt).toBeNull();
-    expect(listEvidence()).toHaveLength(0);
-    expect(loadDb().mistakes).toHaveLength(0);
+    expect(state.sessions.find((s) => s.id === sessionId)?.status).toBe("abandoned");
+    expect(state.evidence).toHaveLength(0);
+    expect(state.mistakes).toHaveLength(0);
 
     // abandoned is NOT resumable (the machine refuses; the driver reports false)
     let resumed = true;
     act(() => {
-      resumed = result.current.hydrate(sessionId);
+      resumed = result.current.hydrate(hydrateSession(sessionId, "abandoned", []));
     });
     expect(resumed).toBe(false);
     expect(result.current.phase).toBe("abandoned");
   });
 
-  it("hydrate revives an ACTIVE repository session; completing it lands evidence for that session", async () => {
+  it("hydrate revives an ACTIVE session view; completing it lands evidence for that session", async () => {
     // a session created the T2 way — already persisted, never started in this hook
-    const { session } = createQuizSession({
-      planId: null,
-      taskId: null,
-      mode: "choice",
-      questions: [
-        {
-          prompt: "Choice one",
-          nodeId: "node-h",
-          kind: "choice",
-          options: ["right", "wrong"],
-          correctOptionIndex: 0,
-          sourceMaterialId: "m-any",
-          sourceSectionId: "sec-1",
-          explanation: "because",
-        },
-        {
-          prompt: "Choice two",
-          nodeId: "node-h",
-          kind: "choice",
-          options: ["wrong", "right"],
-          correctOptionIndex: 1,
-          sourceMaterialId: "m-any",
-          sourceSectionId: "sec-1",
-          explanation: "because",
-        },
-      ],
-    });
-    expect(getQuizSession(session.id)?.status).toBe("active");
+    const persisted = hydrateSession("s-persisted", "active", [
+      hydrateQuestion("q-1", 0),
+      hydrateQuestion("q-2", 1),
+    ]);
 
-    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+    const { result, state } = mountDriver(createHarnessState(), [gradingMaterial()], {
+      // the persisted session's questions are server-known in production; the
+      // echo derives the attribution from the fixture's question ids
+      RecordEvidence: (variables) => {
+        const input = variables.input as Record<string, any>;
+        const results = input.results as Array<Record<string, any>>;
+        const evidence = results.map((r, i) => ({
+          __typename: "EvidenceRecord",
+          id: `e-${input.sessionId}-${i}`,
+          nodeId: "node-h",
+          sessionId: input.sessionId,
+          questionId: r.questionId,
+          outcome: r.outcome,
+          createdAt: "2026-11-02T00:00:00Z",
+        }));
+        state.evidence.push(...evidence);
+        return { evidence, mistakes: [], session: null };
+      },
+    });
     let revived = false;
     act(() => {
-      revived = result.current.hydrate(session.id);
+      revived = result.current.hydrate(persisted);
     });
     expect(revived).toBe(true);
     expect(result.current.phase).toBe("active");
-    expect(result.current.run?.sessionId).toBe(session.id);
+    expect(result.current.run?.sessionId).toBe(persisted.id);
     expect(result.current.run?.views.map((v) => v.status)).toEqual(["answering", "pending"]);
 
     // play the resumed run through to completion
@@ -278,23 +362,20 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
     act(() => result.current.submit());
     act(() => result.current.select(1));
     act(() => result.current.submit());
-    await flushWrites(); // the evidence mutation lands on a tick
+    await flushWrites(); // the evidence mutation lands on the stub's tick
 
     expect(result.current.phase).toBe("completed");
-    const evidence = listEvidence();
-    expect(evidence).toHaveLength(2);
-    expect(evidence.every((e) => e.sessionId === session.id)).toBe(true);
-    expect(evidence.every((e) => e.nodeId === "node-h")).toBe(true);
-    expect(getQuizSession(session.id)?.status).toBe("completed");
+    expect(state.evidence).toHaveLength(2);
+    expect(state.evidence.every((e) => e.sessionId === persisted.id)).toBe(true);
+    expect(state.evidence.every((e) => e.nodeId === "node-h")).toBe(true);
 
     // a completed session is terminal — hydrate refuses it
-    expect(result.current.hydrate(session.id)).toBe(false);
+    expect(result.current.hydrate(hydrateSession(persisted.id, "completed", persisted.questions))).toBe(false);
   });
 });
 
 describe("useQuizSession — the grading-failure escape (review P2-2)", () => {
   it("a seam rejection releases the question back to answering with the draft kept; resubmission completes", async () => {
-    const material = seedMaterial();
     const gradeSpy = vi.spyOn(getCompanionService(), "gradeOpenAnswer")
       .mockRejectedValueOnce(new Error("seam down"))
       .mockResolvedValueOnce({
@@ -302,10 +383,10 @@ describe("useQuizSession — the grading-failure escape (review P2-2)", () => {
         rationale: "graded against the material",
         citation: { locator: { kind: "markdown", sectionId: "sec-1" }, quote: "集成测试关注组件之间的交互。" },
       });
-    const { result } = renderHook(() => useQuizSession(), { wrapper: makeWrapper() });
+    const { result, state } = mountDriver();
 
     await act(async () => {
-      await result.current.start(startInput(material.id, "open", [sections[0]]));
+      await result.current.start(startInput("m-1", "open", [sections[0]]));
     });
     expect(result.current.phase).toBe("active");
 
@@ -319,7 +400,7 @@ describe("useQuizSession — the grading-failure escape (review P2-2)", () => {
     const released = result.current.run?.views[0];
     expect(released?.status).toBe("answering");
     expect(released && "draftAnswer" in released ? released.draftAnswer : "").toContain("契约验证");
-    expect(listEvidence()).toHaveLength(0); // no evidence mid-flight — the session is still active
+    expect(state.evidence).toHaveLength(0); // no evidence mid-flight — the session is still active
 
     // resubmission rides the recovered seam and completes the run
     act(() => result.current.submit());
@@ -327,7 +408,7 @@ describe("useQuizSession — the grading-failure escape (review P2-2)", () => {
     expect(result.current.phase).toBe("completed");
     expect(gradeSpy).toHaveBeenCalledTimes(2);
     await flushWrites();
-    expect(listEvidence()).toHaveLength(1);
+    expect(state.evidence).toHaveLength(1);
     gradeSpy.mockRestore();
   });
 });

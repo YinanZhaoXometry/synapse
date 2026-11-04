@@ -64,6 +64,12 @@ up:
 spec:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Codegen + freshness (AD-17/AD-18, epic P2-8 T1): the committed typed
+    # documents are runtime-load-bearing; regenerate from backend/schema.graphql
+    # and fail on drift — schema changes must land with regenerated output.
+    # Mirrors ci.yml's frontend job.
+    pnpm --dir frontend run codegen
+    git diff --exit-code -- frontend/src/types/graphql.ts
     pnpm --dir frontend exec tsc -b
     pnpm --dir frontend exec eslint .
     pnpm --dir frontend exec vitest run

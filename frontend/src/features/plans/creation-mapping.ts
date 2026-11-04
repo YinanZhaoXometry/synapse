@@ -1,13 +1,20 @@
 /**
  * Proposal → create-input mapping (spec testing seam 2; FR-1/Q4/Q8): the pure
- * seam between the creation chat and the plan repository. A confirmed proposal
- * (+ inline renames + the optional goal) becomes the repository's create input —
- * no I/O, no React, so the confirm button can never improvise persistence shape.
+ * seam between the creation chat and the api's createPlan mutation. A confirmed
+ * proposal (+ inline renames + the optional goal) becomes the mutation input —
+ * no I/O, no React, so the confirm button can never improvise persistence
+ * shape. (The client-supplied plan uuid, AD-12's idempotency key, is minted at
+ * the call site — this mapper stays pure data.)
  */
 import type { PlanStructureProposal } from "@/ai/types";
-import type { CreatePlanNodeInput } from "@/data/plan-repository";
 
-/** Exactly the shape `createPlan` takes (AD-3) — the mapper's only output type. */
+/** One proposed node's shape on the createPlan input (title + optional stage). */
+export interface CreatePlanNodeInput {
+  title: string;
+  stage: string | null;
+}
+
+/** Exactly the shape the createPlan mutation input takes — the mapper's only output type. */
 export interface PlanCreateInput {
   topic: string;
   goal: string | null;

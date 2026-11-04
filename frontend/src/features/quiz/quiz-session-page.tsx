@@ -24,8 +24,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CircleAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getQuizSession, useAllEvidenceQuery } from "@/data";
-import type { KnowledgeNode, Material } from "@/domain/entities";
+import { useAllEvidenceQuery, useQuizSessionQuery } from "@/api";
+import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { QuizLauncher } from "./QuizLauncher";
 import { QuizRunner } from "./QuizRunner";
 import { useQuizSession, QUIZ_FRESH_LAUNCH_KEY, type QuizStartInput } from "./use-quiz-session";
@@ -37,10 +37,10 @@ export interface QuizSessionContext {
   ownerId: string;
   /** False → the honest not-found card (unknown plan/task id). */
   exists: boolean;
-  /** The owner's nodes — the results' mastery rows (task: its single node). */
-  nodes: KnowledgeNode[];
+  /** The owner's nodes — the results' mastery rows (task: its single node); SERVER-scored views (AD-14). */
+  nodes: KnowledgeNodeView[];
   /** The owner's materials — generation input, hints, source excerpts. */
-  materials: Material[];
+  materials: MaterialView[];
   /** Back from the session: results exit, abandoned exit, terminal cards. */
   homeHref: string;
   homeLabelKey: string;
@@ -72,7 +72,12 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
   const sessionParam = searchParams.get("session");
 
   const evidenceQuery = useAllEvidenceQuery();
-  const driver = useQuizSession();
+  // The session's own truth is the api's session query (the cutover replaces
+  // the synchronous repository read): data arrives mapped with questions
+  // hydrated; an unknown/foreign id returns NOT_FOUND → data stays undefined
+  // and the honest not-found card renders below.
+  const sessionQuery = useQuizSessionQuery(sessionParam ?? "");
+  const driver = useQuizSession({ materials: context.materials });
 
   const launchRef = useRef<LaunchRecord | null>(null);
   const [retaking, setRetaking] = useState(false);
@@ -96,10 +101,7 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
     </button>
   );
 
-  // The session's own truth is a synchronous repository read (the store is
-  // local; a query hook would pend forever on an unknown id — undefined is
-  // not data in TanStack terms). Status below drives the honest branches.
-  const session = sessionParam ? getQuizSession(sessionParam) : undefined;
+  const session = sessionParam ? sessionQuery.data : undefined;
   // AD-6 ownership: a session of ANOTHER plan/task is never this surface's.
   const owns =
     !!session && (context.kind === "plan" ? session.planId === context.ownerId : session.taskId === context.ownerId);
@@ -119,13 +121,13 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
   // terminal sessions are refused by the machine — the render shows the honest
   // terminal card; a foreign owner's id reads as not-found, never hydrates).
   useEffect(() => {
-    if (!sessionParam || !context.exists || hydrateFailed) return;
+    if (!sessionParam || !context.exists || hydrateFailed || sessionQuery.loading) return;
     if (hydratedRef.current === sessionParam || driver.run) return;
     if (!session || session.status !== "active" || !owns) return;
     hydratedRef.current = sessionParam;
-    const ok = driver.hydrate(sessionParam);
+    const ok = driver.hydrate(session);
     if (!ok) setHydrateFailed(true);
-  }, [sessionParam, session, context.exists, owns]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionParam, session, sessionQuery.loading, context.exists, owns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A retake landing: the driver produced a NEW session — carry its id in the
   // URL (spec decision 7) so the new round survives a reload too.
@@ -136,7 +138,7 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
     }
   }, [driver.run?.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (evidenceQuery.isPending) return null;
+  if (evidenceQuery.loading || (sessionParam && sessionQuery.loading)) return null;
 
   if (!context.exists) {
     return (

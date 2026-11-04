@@ -1,24 +1,25 @@
 /**
- * Display shaping (spec testing seam 4; AD-6): evidence → presentation inputs.
- * Thin composition over the shipped domain functions — no mastery arithmetic
- * lives here; shaping only seeds nodes without evidence (uncovered = 0) and
- * picks the continue-hero plan.
+ * Display shaping (spec testing seam 4; AD-6): server data → presentation
+ * inputs. Since the Apollo cutover (epic P2-8 T1) the Mastery Score and node
+ * state are computed by the api (ADR-0001, AD-14): this module shapes those
+ * server fields for rendering and keeps zero mastery arithmetic — the score
+ * functions (computeNodeScore/computePlanRollup/getNodeState) are gone from
+ * the runtime; the evidence window marks remain the one client-side derivation
+ * (presentation only — which marks to show, never a score).
  */
 import type {
   EvidenceRecord,
   KnowledgeNode,
   Material,
-  NodeState,
   Outcome,
   ReadingLocator,
   ReadingProgress,
-  StudyPlan,
 } from "@/domain/entities";
-import { computeNodeScore, computePlanRollup, getNodeState, MASTERY_CONFIG } from "@/domain/mastery";
-import { computeStreak } from "@/domain/streak";
+import { MASTERY_CONFIG } from "@/domain/mastery";
+import type { KnowledgeNodeView, StudyPlanView } from "@/api/views";
 
 /** The continue hero's plan: most recent by createdAt. */
-export function mostRecentPlan(plans: StudyPlan[]): StudyPlan | undefined {
+export function mostRecentPlan(plans: StudyPlanView[]): StudyPlanView | undefined {
   return [...plans].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
 }
 
@@ -32,54 +33,41 @@ export function masteryRingVariant(rollup: number): MasteryRingVariant {
 /** One card/hero's presentation inputs (rollup chip + node-state mini bar). */
 export interface PlanCardMetrics {
   rollup: number;
-  stateCounts: Record<NodeState, number>;
+  stateCounts: Record<"mastered" | "partial" | "uncovered", number>;
 }
 
 /**
- * Rollup + state counts for a plan's nodes over flat evidence (AD-6 composition).
- * The composition's one job: every node is seeded into the record — including
- * evidence-less ones — so `computePlanRollup` counts uncovered nodes as 0
- * instead of skipping them (ADR-0001); states come from `getNodeState` as shipped.
+ * Rollup + state counts from SERVER fields (AD-14): the plan's rollup rides
+ * `masteryScore` (the api's floored mean, uncovered nodes counting 0) and the
+ * state counts tally the api's per-node states. No client recompute.
  */
-export function planCardMetrics(nodes: KnowledgeNode[], evidence: EvidenceRecord[]): PlanCardMetrics {
-  const recordsByNode = evidenceByNodeFor(nodes, evidence);
-  const stateCounts: Record<NodeState, number> = { mastered: 0, partial: 0, uncovered: 0 };
-  for (const n of nodes) stateCounts[getNodeState(recordsByNode[n.id])] += 1;
-  return { rollup: computePlanRollup(recordsByNode), stateCounts };
-}
-
-/** Evidence grouped per node id; nodes without evidence are seeded with []. */
-export function evidenceByNodeFor(nodes: KnowledgeNode[], evidence: EvidenceRecord[]): Record<string, EvidenceRecord[]> {
-  const recordsByNode: Record<string, EvidenceRecord[]> = {};
-  for (const n of nodes) recordsByNode[n.id] = [];
-  for (const record of evidence) {
-    if (record.nodeId in recordsByNode) recordsByNode[record.nodeId].push(record);
-  }
-  return recordsByNode;
+export function planCardMetrics(plan: StudyPlanView, nodes: KnowledgeNodeView[]): PlanCardMetrics {
+  const stateCounts: PlanCardMetrics["stateCounts"] = { mastered: 0, partial: 0, uncovered: 0 };
+  for (const n of nodes) stateCounts[n.state] += 1;
+  return { rollup: Number(plan.masteryScore), stateCounts };
 }
 
 /** One Plan-Home node row's presentation inputs (glyph/tint/label + score + evidence marks). */
 export interface NodeRowView {
-  node: KnowledgeNode;
+  node: KnowledgeNodeView;
   /** The node's stage, flattened for stage grouping (null = untitled group). */
   stage: string | null;
-  /** Domain score — shown only when hasEvidence (em dash otherwise, UX display contract). */
+  /** The SERVER score (ADR-0001) — shown only when hasEvidence (em dash otherwise, UX display contract). */
   score: number;
-  state: NodeState;
+  state: KnowledgeNodeView["state"];
   hasEvidence: boolean;
   /** The score window's outcome marks, oldest → newest (evidence popover). */
   lastOutcomes: Outcome[];
 }
 
 /**
- * Per-node rows over flat evidence (AD-6 composition): scores/states from the
- * shipped domain functions; the marks re-derive the same recency window the
- * score uses (MASTERY_CONFIG.window) so popover and number always agree.
+ * Per-node rows: score/state straight off the server view (AD-14); the marks
+ * re-derive the same recency window the score uses (MASTERY_CONFIG.window) so
+ * popover and number always agree — presentation over evidence, never a score.
  */
-export function nodeRowViews(nodes: KnowledgeNode[], evidence: EvidenceRecord[]): NodeRowView[] {
-  const recordsByNode = evidenceByNodeFor(nodes, evidence);
+export function nodeRowViews(nodes: KnowledgeNodeView[], evidence: EvidenceRecord[]): NodeRowView[] {
   return nodes.map((node) => {
-    const records = recordsByNode[node.id];
+    const records = evidence.filter((r) => r.nodeId === node.id);
     const window = [...records]
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, MASTERY_CONFIG.window)
@@ -87,9 +75,9 @@ export function nodeRowViews(nodes: KnowledgeNode[], evidence: EvidenceRecord[])
     return {
       node,
       stage: node.stage,
-      score: computeNodeScore(records),
-      state: getNodeState(records),
-      hasEvidence: records.length > 0,
+      score: Number(node.masteryScore),
+      state: node.state,
+      hasEvidence: node.state !== "uncovered",
       lastOutcomes: window.reverse(),
     };
   });
@@ -124,8 +112,6 @@ export interface ActivityEntry {
   /** sessionId when the records share one, else `evidence-<recordId>`. */
   id: string;
   nodeTitle: string;
-  /** Session score from the shipped node-score function — no display arithmetic. */
-  score: number;
   recordCount: number;
   latestAt: string;
 }
@@ -134,8 +120,9 @@ export const ACTIVITY_LIMIT = 5;
 
 /**
  * Recent graded activity for one plan (Q7): the plan's evidence grouped by
- * session, newest first, capped for display. Honest empty [] until slice 6
- * produces real sessions.
+ * session, newest first, capped for display. The per-session score is gone —
+ * the api exposes no session-score surface (surfaced as a contract gap on the
+ * epic tracker), and AD-14 forbids re-deriving scores client-side.
  */
 export function planRecentActivity(
   nodes: KnowledgeNode[],
@@ -156,17 +143,11 @@ export function planRecentActivity(
     .map(([id, records]) => ({
       id,
       nodeTitle: titles.get(records[0].nodeId) ?? records[0].nodeId,
-      score: computeNodeScore(records),
       recordCount: records.length,
       latestAt: records.reduce((latest, r) => (r.createdAt > latest ? r.createdAt : latest), records[0].createdAt),
     }))
     .sort((a, b) => (a.latestAt < b.latestAt ? 1 : -1))
     .slice(0, limit);
-}
-
-/** Evidence-day streak (FR-25) — thin composition over the shipped domain rollup. */
-export function evidenceStreak(records: EvidenceRecord[], now: Date = new Date()): number {
-  return computeStreak(records, now);
 }
 
 /** The continue hero's 「上次读到」 line (FR-25; T4): the most recent reading across plans. */

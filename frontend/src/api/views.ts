@@ -5,8 +5,8 @@
  * entities with those server fields so feature rendering keeps its Phase-1
  * shape while every number is server truth.
  */
-import type { KnowledgeNode, StudyPlan, StudyTask } from "@/domain/entities";
-import type { Material } from "@/domain/entities";
+import type { KnowledgeNode, QuizSession, StudyPlan, StudyTask } from "@/domain/entities";
+import type { Material, Question } from "@/domain/entities";
 
 /** Node Mastery Score as the api carries it: integer percent string "0".."100". */
 export type MasteryScoreString = string;
@@ -29,4 +29,9 @@ export interface StudyTaskView extends StudyTask {
 export interface MaterialView extends Material {
   /** Short-lived presigned URL, minted per request; null until the blob is attached. */
   downloadUrl: string | null;
+}
+
+/** Session with its questions hydrated in generation order (the driver's grading input). */
+export interface QuizSessionView extends QuizSession {
+  questions: Question[];
 }

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCreatePlanMutation } from "@/data";
+import { useCreatePlanMutation, newClientUuid } from "@/api";
 import { cn } from "@/lib/utils";
 import { proposalNodeKey, toPlanCreateInput } from "./creation-mapping";
 import { useCreationChat } from "./use-creation-chat";
@@ -24,7 +24,7 @@ export default function CreationChat() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const chat = useCreationChat(language);
-  const createPlan = useCreatePlanMutation();
+  const [createPlan, { loading: planCreating }] = useCreatePlanMutation();
 
   const [topicDraft, setTopicDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
@@ -62,13 +62,22 @@ export default function CreationChat() {
   };
 
   const confirm = () => {
-    if (!chat.proposal || createPlan.isPending) return;
+    if (!chat.proposal || planCreating) return;
     const input = toPlanCreateInput(chat.proposal, renames, chat.lastInput.goal);
-    createPlan.mutate(input, {
-      onSuccess: ({ plan }) => {
+    createPlan({
+      variables: {
+        input: {
+          // AD-12: the client-supplied uuid is the create's idempotency key.
+          clientUuid: newClientUuid(),
+          topic: input.topic,
+          goal: input.goal,
+          nodes: input.nodes,
+        },
+      },
+      onCompleted: (data) => {
         chat.reset();
         setRenames({});
-        navigate(`/plan/${plan.id}`);
+        navigate(`/plan/${data.createPlan.plan.id}`);
       },
       onError: () => toast.error(t("plans.createError")),
     });
@@ -150,10 +159,10 @@ export default function CreationChat() {
                 </div>
               ))}
               <div className="flex items-center gap-2 mt-4">
-                <Button size="sm" onClick={confirm} disabled={createPlan.isPending}>
-                  {createPlan.isPending ? t("plans.creating") : t("plans.confirmCreate")}
+                <Button size="sm" onClick={confirm} disabled={planCreating}>
+                  {planCreating ? t("plans.creating") : t("plans.confirmCreate")}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={regenerate} disabled={createPlan.isPending}>
+                <Button size="sm" variant="ghost" onClick={regenerate} disabled={planCreating}>
                   <RotateCcw className="w-3.5 h-3.5 mr-1" /> {t("plans.regenerate")}
                 </Button>
               </div>

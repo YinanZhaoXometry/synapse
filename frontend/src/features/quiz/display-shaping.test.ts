@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { EvidenceRecord, KnowledgeNode, Material, Outcome } from "@/domain/entities";
+import type { EvidenceRecord, Material, Outcome } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
+import type { KnowledgeNodeView } from "@/api/views";
 import type { GradedAnswer } from "@/ai/types";
 import type { QuizAnswerResult } from "./session-machine";
 import {
@@ -20,13 +21,16 @@ import {
  * literals, never recomputed through the selectors under test).
  */
 
-const node = (id: string, title = `node-${id}`): KnowledgeNode => ({
+const node = (id: string, overrides: Partial<KnowledgeNodeView> = {}): KnowledgeNodeView => ({
   id,
   planId: "p1",
   taskId: null,
   stage: null,
-  title,
+  title: `node-${id}`,
   order: 0,
+  masteryScore: "0",
+  state: "uncovered",
+  ...overrides,
 });
 
 let evidenceSeq = 0;
@@ -95,66 +99,63 @@ describe("quizScoreSummary (T2 results header)", () => {
   });
 });
 
-describe("quizNodeRows (T2 mastery movement — ADR-0001 exact numbers)", () => {
-  it("window 5: only the most recent 5 records count — an oldest wrong drops out of both number and marks", () => {
+describe("quizNodeRows (T2 mastery rows — SERVER fields since the cutover, AD-14)", () => {
+  it("the score/state ride the server view verbatim; the marks keep the last-5 window (oldest → newest)", () => {
     const records = [
-      evidence("n1", "wrong", "s0", "2026-11-01T10:00:00Z"), // oldest — outside the window
+      evidence("n1", "wrong", "s0", "2026-11-01T10:00:00Z"), // oldest — outside the marks window
       ...["2026-11-01T11:00:00Z", "2026-11-01T12:00:00Z", "2026-11-01T13:00:00Z", "2026-11-01T14:00:00Z", "2026-11-01T15:00:00Z"].map(
         (at) => evidence("n1", "correct", "s1", at),
       ),
     ];
-    const [row] = quizNodeRows([result({})], [node("n1")], records, "s1");
-    expect(row.after).toBe(100); // 5 × correct inside the window
+    const [row] = quizNodeRows([result({})], [node("n1", { masteryScore: "100", state: "mastered" })], records);
+    expect(row.score).toBe(100); // the api's number, passed through — never recomputed
     expect(row.lastOutcomes).toEqual(["correct", "correct", "correct", "correct", "correct"]);
-    expect(row.state).toBe("mastered"); // ≥80 AND ≥3 — the gate is met
+    expect(row.state).toBe("mastered");
     expect(row.belowGate).toBe(false);
   });
 
-  it("cap-99 below the gate: one correct record reads 99 with the belowGate flag (never a fake 100)", () => {
+  it("cap-99 below the gate: a partial node at the api's 99 cap carries the belowGate flag", () => {
     const records = [evidence("n1", "correct", "s1", "2026-11-01T10:00:00Z")];
-    const [row] = quizNodeRows([result({})], [node("n1")], records, "s1");
-    expect(row.after).toBe(99);
+    const [row] = quizNodeRows([result({})], [node("n1", { masteryScore: "99", state: "partial" })], records);
+    expect(row.score).toBe(99);
     expect(row.belowGate).toBe(true);
     expect(row.state).toBe("partial");
   });
 
-  it("mastered = ≥80 & ≥3: three corrects read 100 with no cap note", () => {
+  it("a mastered node shows no cap note", () => {
     const records = [
       evidence("n1", "correct", "s1", "2026-11-01T10:00:00Z"),
       evidence("n1", "correct", "s1", "2026-11-01T11:00:00Z"),
       evidence("n1", "correct", "s1", "2026-11-01T12:00:00Z"),
     ];
-    const [row] = quizNodeRows([result({})], [node("n1")], records, "s1");
-    expect(row.after).toBe(100);
+    const [row] = quizNodeRows([result({})], [node("n1", { masteryScore: "100", state: "mastered" })], records);
+    expect(row.score).toBe(100);
     expect(row.state).toBe("mastered");
     expect(row.belowGate).toBe(false);
   });
 
-  it("before excludes THIS session's records; after includes them — a bad round drags the number down honestly", () => {
+  it("no before/after delta — the api exposes no pre-session score surface (contract gap surfaced; AD-14 forbids recompute)", () => {
     const records = [
       evidence("n1", "correct", "s0", "2026-11-01T10:00:00Z"),
-      evidence("n1", "correct", "s0", "2026-11-01T11:00:00Z"),
-      evidence("n1", "correct", "s0", "2026-11-01T12:00:00Z"),
       evidence("n1", "wrong", "s1", "2026-11-02T10:00:00Z"),
     ];
-    const [row] = quizNodeRows([result({})], [node("n1")], records, "s1");
-    expect(row.before).toBe(100); // the 3 prior corrects only
-    expect(row.after).toBe(75); // the wrong lands in the same window: (1+1+1+0)/4
-    expect(row.belowGate).toBe(false); // 4 records — the gate is met
-    expect(row.lastOutcomes).toEqual(["correct", "correct", "correct", "wrong"]);
+    const [row] = quizNodeRows([result({})], [node("n1", { masteryScore: "75", state: "partial" })], records);
+    expect(row).not.toHaveProperty("before");
+    expect(row).not.toHaveProperty("after");
+    expect(row.score).toBe(75);
+    expect(row.lastOutcomes).toEqual(["correct", "wrong"]);
   });
 
   it("one row per affected node, first-appearance order; unknown nodes fall back to the id as title", () => {
     const rows = quizNodeRows(
       [result({ nodeId: "n2" }), result({ nodeId: "n1", questionId: "q2" }), result({ nodeId: "n2", questionId: "q3" })],
-      [node("n1", "软件测试")],
+      [node("n1", { title: "软件测试" })],
       [],
-      "s1",
     );
     expect(rows.map((r) => r.nodeId)).toEqual(["n2", "n1"]);
     expect(rows[0].title).toBe("n2");
     expect(rows[1].title).toBe("软件测试");
-    expect(rows.every((r) => r.after === 0 && !r.hasEvidence)).toBe(true);
+    expect(rows.every((r) => r.score === 0 && !r.hasEvidence)).toBe(true);
   });
 });
 

@@ -9,7 +9,7 @@
  * already-done/abandoned card; unknown or foreign-plan ids read as not-found.
  */
 import { useParams } from "react-router-dom";
-import { usePlanMaterialsQuery, usePlanNodesQuery, usePlanQuery } from "@/data";
+import { usePlanMaterialsQuery, usePlanNodesQuery, usePlanQuery } from "@/api";
 import { QuizSessionPage } from "@/features/quiz";
 
 export default function PlanQuizPage() {
@@ -18,7 +18,7 @@ export default function PlanQuizPage() {
   const nodesQuery = usePlanNodesQuery(id ?? "");
   const materialsQuery = usePlanMaterialsQuery(id ?? "");
 
-  if (planQuery.isPending || nodesQuery.isPending || materialsQuery.isPending) return null;
+  if (planQuery.loading || nodesQuery.loading || materialsQuery.loading) return null;
 
   const plan = planQuery.data;
   const nodes = nodesQuery.data ?? [];
@@ -28,11 +28,11 @@ export default function PlanQuizPage() {
     <QuizSessionPage
       context={{
         kind: "plan",
-        ownerId: plan?.id ?? "",
+        ownerId: plan?.plan.id ?? "",
         exists: !!plan,
         nodes,
         materials,
-        homeHref: plan ? `/plan/${plan.id}` : "/plans",
+        homeHref: plan ? `/plan/${plan.plan.id}` : "/plans",
         homeLabelKey: "quiz.backToPlan",
         lostHref: "/plans",
         lostLabelKey: "plans.backToPlans",

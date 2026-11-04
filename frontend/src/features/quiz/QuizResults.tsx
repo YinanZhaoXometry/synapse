@@ -10,7 +10,8 @@
  */
 import { ArrowLeft, BookOpen, Check, Info, RefreshCw, Sparkles, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { EvidenceRecord, KnowledgeNode, Material, Outcome } from "@/domain/entities";
+import type { EvidenceRecord, Material, Outcome } from "@/domain/entities";
+import type { KnowledgeNodeView } from "@/api/views";
 import { MASTERY_CONFIG } from "@/domain/mastery";
 import { StateGlyph } from "@/features/plans";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,7 @@ import type { QuizAnswerResult } from "./session-machine";
 export interface QuizResultsProps {
   results: QuizAnswerResult[];
   sessionId: string | null;
-  nodes: KnowledgeNode[];
+  nodes: KnowledgeNodeView[];
   /** The owner's materials — section titles for the source excerpts. */
   materials: Material[];
   /** Evidence queried AFTER the evidence mutation landed (fresh numbers). */
@@ -53,7 +54,7 @@ export function QuizResults({
 }: QuizResultsProps) {
   const { t } = useLanguage();
   const score = quizScoreSummary(results);
-  const nodeRows = quizNodeRows(results, nodes, evidence, sessionId);
+  const nodeRows = quizNodeRows(results, nodes, evidence);
   const breakdown = quizBreakdownRows(results, materials);
   const mistakes = quizMistakeViews(results, materials);
   // Review P2-1: the evidence claim derives from the real records this screen
@@ -123,11 +124,12 @@ export function QuizResults({
           <div key={row.nodeId} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
             <StateGlyph state={row.state} />
             <span className="text-sm font-medium truncate flex-1 min-w-[120px]">{row.title}</span>
+            {/* SERVER score (AD-14): the api's number for this node now */}
             <span
               className="text-[13px] tabular-nums text-muted-foreground whitespace-nowrap"
-              aria-label={t("quiz.moveAria", { before: row.before, after: row.after })}
+              aria-label={t("quiz.moveAria", { score: row.score })}
             >
-              {row.before}% → <b className="font-display font-bold">{row.after}%</b>
+              <b className="font-display font-bold">{row.score}%</b>
             </span>
             <OutcomeMarks outcomes={row.lastOutcomes} />
             {row.belowGate && (
