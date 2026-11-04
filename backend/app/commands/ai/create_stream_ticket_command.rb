@@ -29,12 +29,24 @@ module Ai
     MAX_TOPIC_CHARS = 500
     MAX_GOAL_CHARS = 2_000
 
+    # Mint-time hoarding bound (epic review finding P1): the daily cap
+    # counts REDEEMS, not mints, so without this a logged-in client could
+    # loop createStreamTicket and grow dead rows (each up to ~300KB of
+    # payload) forever. A user holds at most this many live (unconsumed,
+    # unexpired) tickets; mint #11 is RATE_LIMITED. The count→create
+    # window is a tolerated race — the bound is anti-hoarding, not exact.
+    MAX_LIVE_TICKETS = 10
+
     def call
       return Failure(:VALIDATION_FAILED, { message: "op is invalid", field: :op }) unless Ai::STREAM_OPS.include?(op.to_s)
       return Failure(:VALIDATION_FAILED, { message: "language is invalid", field: :language }) unless Ai::LANGUAGES.include?(language.to_s)
 
       payload = op == "companion" ? companion_payload : proposal_payload
       return payload if payload.failure?
+
+      if current_user.stream_tickets.where(consumed_at: nil).where(expires_at: Time.current..).count >= MAX_LIVE_TICKETS
+        return Failure(:RATE_LIMITED, { message: "too many live stream tickets" })
+      end
 
       ticket = current_user.stream_tickets.create!(
         op: op,

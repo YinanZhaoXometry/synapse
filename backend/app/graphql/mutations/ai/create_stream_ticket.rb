@@ -25,7 +25,7 @@ module Mutations
                description: "companion only: the learner's question."
       argument :position, Types::ReadingPositionInput,
                required: false,
-               description: "companion only: the current ReadingPosition (the grounding input)."
+               description: "companion only: the current ReadingPosition (the grounding input). The text is truncated to the 100k section bound when carried into the ticket."
       argument :escalated, Boolean,
                required: false,
                description: "companion only: the escalation flag (the ladder amendment — true means the answer rung)."

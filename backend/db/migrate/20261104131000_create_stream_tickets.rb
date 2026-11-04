@@ -9,9 +9,11 @@
 #
 # Rows are enforcement state, not domain data: consumed tickets are dead
 # (the unique token + the atomic redeem make replay impossible), expired
-# rows simply never match. Volume is bounded by the daily cap (~50/user);
-# no background sweep — "no new background work without a named need"
-# (AD-19).
+# rows simply never match. Volume is bounded at MINT time by the command's
+# MAX_LIVE_TICKETS bound (the daily cap counts redeems, not mints) — but
+# consumed/expired rows accumulate across days by design: they are tiny,
+# and no background sweep exists ("no new background work without a named
+# need", AD-19).
 class CreateStreamTickets < ActiveRecord::Migration[8.1]
   def change
     create_table :stream_tickets, id: :uuid do |t|

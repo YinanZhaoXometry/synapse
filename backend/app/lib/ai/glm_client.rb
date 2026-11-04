@@ -49,28 +49,37 @@ module Ai
     end
 
     # Token deltas as a lazy Enumerator (the SSE endpoint's upstream). The
-    # HTTP connection opens on first pull; transport faults raise
-    # Ai::ProviderError at that point, inside the consumer's rescue region.
+    # HTTP connection opens on first pull; every transport fault raises
+    # Ai::ProviderError AT PULL TIME — the rescue lives INSIDE the
+    # Enumerator block, because the block executes lazily outside this
+    # method's own rescue region (a mid-stream read timeout or connection
+    # reset must still surface as the typed error the seam's contract
+    # promises, not as a raw Net:: exception).
     def stream(messages)
       Enumerator.new do |yielder|
-        http = build_http
-        request = build_request(messages, stream: true)
-        buffer = SseBuffer.new
-        http.start do |connection|
-          connection.request(request) do |response|
-            unless response.is_a?(Net::HTTPSuccess)
-              raise ProviderError, "provider returned HTTP #{response.code}"
-            end
+        begin
+          http = build_http
+          request = build_request(messages, stream: true)
+          buffer = SseBuffer.new
+          http.start do |connection|
+            connection.request(request) do |response|
+              unless response.is_a?(Net::HTTPSuccess)
+                raise ProviderError, "provider returned HTTP #{response.code}"
+              end
 
-            response.read_body do |chunk|
-              buffer.feed(chunk).each { |delta| yielder << delta }
+              response.read_body do |chunk|
+                buffer.feed(chunk).each { |delta| yielder << delta }
+              end
             end
           end
+          buffer.flush.each { |delta| yielder << delta }
+        rescue ProviderError
+          raise
+        rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNREFUSED, Errno::ECONNRESET,
+               Errno::EPIPE, IOError, EOFError, SocketError, OpenSSL::SSL::SSLError => e
+          raise ProviderError, "provider transport failure: #{e.class}: #{e.message}"
         end
-        buffer.flush.each { |delta| yielder << delta }
       end
-    rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNREFUSED, SocketError, OpenSSL::SSL::SSLError => e
-      raise ProviderError, "provider transport failure: #{e.class}: #{e.message}"
     end
 
     private

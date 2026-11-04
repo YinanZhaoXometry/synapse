@@ -30,6 +30,11 @@ module Ai
 
     def call
       return Failure(:VALIDATION_FAILED, { message: "language is invalid", field: :language }) unless Ai::LANGUAGES.include?(language.to_s)
+      # Shape guards BEFORE anything is spent (the delta-3 triad's shape
+      # refusal + the mode vocabulary — a garbage uuid or mode never
+      # reaches the provider or burns a cap call).
+      return uuid_shape_failure unless client_uuid.to_s.match?(Accounts::UUID_REGEX)
+      return Failure(:VALIDATION_FAILED, { message: "mode is invalid", field: :mode }) unless Quiz::MODES.include?(mode.to_s)
 
       scope = resolve_scope
       return scope if scope.failure?
@@ -175,6 +180,10 @@ module Ai
     def cross_user_uuid_failure
       Failure(:VALIDATION_FAILED,
               { message: "client uuid already belongs to another user's quiz session", field: :clientUuid })
+    end
+
+    def uuid_shape_failure
+      Failure(:VALIDATION_FAILED, { message: "client uuid is not uuid-shaped", field: :clientUuid })
     end
   end
 end

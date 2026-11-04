@@ -153,6 +153,15 @@ RSpec.describe Ai::ContextAssembler do
       expect(assembled.truncated).to be(true)
       expect(assembled.text).to include(Ai::ContextAssembler::TRUNCATION_MARKER)
     end
+
+    it "keeps the never-exceeds-budget invariant when the position block is hard-cut" do
+      # The block's own header/newlines are budgeted too (epic review
+      # finding): the assembled estimate stays within the budget.
+      position = { "locator" => { "kind" => "markdown", "sectionId" => "sec-1" }, "text" => ("x" * 5_000) }
+
+      assembled = described_class.companion_grounding(material, position, budget: 150)
+      expect(described_class.estimate_tokens(assembled.text)).to be <= 152
+    end
   end
 
   describe ".default_budget" do

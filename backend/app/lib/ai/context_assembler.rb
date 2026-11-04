@@ -75,10 +75,19 @@ module Ai
             parts << block
             consumed += tokens
           else
-            cut, cut_short = hard_truncate(position_text, budget - consumed)
-            parts << "[reading position]\n#{cut}\n\n"
-            truncated ||= cut_short
+            # The block's own header and trailing newlines are budgeted
+            # (1 token reserved for the padding) — the same invariant the
+            # focus-section branch below keeps.
+            header = "[reading position]\n"
+            header_tokens = estimate_tokens(header)
+            remaining = budget - consumed
+            if remaining > header_tokens + 1
+              cut, cut_short = hard_truncate(position_text, remaining - header_tokens - 1)
+              parts << header << cut << "\n\n"
+              truncated ||= cut_short
+            end
             consumed = budget
+            truncated = true
           end
         end
 

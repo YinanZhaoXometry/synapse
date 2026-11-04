@@ -85,8 +85,11 @@ RSpec.describe Ai::GradeOpenAnswerCommand do
     expect(call(question: question).failure.code).to eq(:INTERNAL)
   end
 
-  it "validates the language argument" do
+  it "validates the language argument and the answer length bound" do
+    allow(adapter).to receive(:complete)
     question = create(:question, user: user)
     expect(call(question: question, language: "fr").failure.code).to eq(:VALIDATION_FAILED)
+    expect(call(question: question, answer: "x" * 20_001).failure.code).to eq(:VALIDATION_FAILED)
+    expect(adapter).not_to have_received(:complete)
   end
 end

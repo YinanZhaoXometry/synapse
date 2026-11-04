@@ -71,6 +71,14 @@ RSpec.describe Ai::CreateStreamTicketCommand do
     expect(user.stream_tickets.count).to eq(0) # nothing minted on any refusal
   end
 
+  it "bounds live tickets per user (the mint is not cap-counted — anti-hoarding)" do
+    create_list(:stream_ticket, described_class::MAX_LIVE_TICKETS, user: user, op: "companion")
+
+    result = call
+    expect(result.failure.code).to eq(:RATE_LIMITED)
+    expect(user.stream_tickets.where(consumed_at: nil).count).to eq(described_class::MAX_LIVE_TICKETS)
+  end
+
   it "enforces the payload bounds" do
     expect(call(question: "x" * 20_001).failure.code).to eq(:VALIDATION_FAILED)
     expect(call(op: "proposal", material_id: nil, question: nil, position: nil, topic: "").failure.code).to eq(:VALIDATION_FAILED)

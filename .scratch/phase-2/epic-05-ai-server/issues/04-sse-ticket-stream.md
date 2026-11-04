@@ -6,7 +6,7 @@
 
 **Status:** done (2026-11-04)
 
-**Bound by:** AD-16 (ticket contract verbatim; event vocabulary; language param; one SSE surface), AD-15 (ticket bound to current_user), AD-9 (api strings are codes, never rendered verbatim).
+**Bound by:** AD-16 (ticket contract verbatim; event vocabulary; language param; one SSE surface), AD-5 (the response contract rides the stream), AD-15 (ticket bound to current_user), AD-9 (api strings are codes, never rendered verbatim).
 
 - [x] Request-spec: full event sequence for chat + proposal streams; language echo zh/en
 - [x] Single-use + TTL ~60s enforced; replay → 401; CORS allowlist = GraphQL's

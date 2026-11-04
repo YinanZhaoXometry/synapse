@@ -131,9 +131,8 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       expect(graded["citation"]["locator"]["sectionId"]).to eq("sec-1")
     end
   end
-end
 
-  describe "createStreamTicket", type: :request do
+  describe "createStreamTicket" do
     it "mints a ticket over the wire and carries the frozen payload inputs" do
       user, token = user_with_token("ai-ticket@example.com")
       material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
@@ -162,3 +161,4 @@ end
       expect(error_code(invalid)).to eq("VALIDATION_FAILED")
     end
   end
+end

@@ -580,7 +580,8 @@ input CreateStreamTicketInput {
   op: String!
 
   """
-  companion only: the current ReadingPosition (the grounding input).
+  companion only: the current ReadingPosition (the grounding input). The text is
+  truncated to the 100k section bound when carried into the ticket.
   """
   position: ReadingPositionInput
 

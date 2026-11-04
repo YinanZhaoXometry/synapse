@@ -21,8 +21,14 @@ module Ai
     GradedAnswer = Struct.new(:outcome, :rationale, :citation, keyword_init: true)
     Citation = Struct.new(:locator, :quote, keyword_init: true)
 
+    # The learner's answer is the one unbounded client string that would
+    # otherwise reach the provider (the cap bounds calls, not tokens) —
+    # bound it like the companion question (epic review finding).
+    MAX_ANSWER_CHARS = 20_000
+
     def call
       return Failure(:VALIDATION_FAILED, { message: "language is invalid", field: :language }) unless Ai::LANGUAGES.include?(language.to_s)
+      return Failure(:VALIDATION_FAILED, { message: "the answer exceeds the length bound", field: :answer }) if answer.to_s.length > MAX_ANSWER_CHARS
       return Failure(:NOT_FOUND, { message: "question not found" }) unless question_id.to_s.match?(Accounts::UUID_REGEX)
 
       question = current_user.questions.find_by(id: question_id)

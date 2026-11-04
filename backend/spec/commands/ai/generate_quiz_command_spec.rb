@@ -133,6 +133,14 @@ RSpec.describe Ai::GenerateQuizCommand do
     expect(adapter).not_to have_received(:complete)
   end
 
+  it "refuses a non-uuid client uuid and a garbage mode before anything is spent" do
+    allow(adapter).to receive(:complete)
+    expect(call(uuid: "not-a-uuid").failure.code).to eq(:VALIDATION_FAILED)
+    expect(call(mode: "truefalse").failure.code).to eq(:VALIDATION_FAILED)
+    expect(adapter).not_to have_received(:complete)
+    expect(user.ai_usage_counters).to be_empty # the cap was never touched
+  end
+
   it "validates the scope: both, neither, and foreign are refused" do
     allow(adapter).to receive(:complete)
     other_user = create(:user)

@@ -161,6 +161,32 @@ RSpec.describe Ai::GlmClient do
       expect(client(@server).stream(messages).to_a).to eq([ "still here" ])
     end
 
+    it "maps a pull-time read timeout (hung server) to ProviderError" do
+      # A server that accepts and never answers: Net::ReadTimeout fires at
+      # first pull — inside the Enumerator block, so the typed contract
+      # holds (the epic review's dead-rescue finding).
+      tcp = TCPServer.new("127.0.0.1", 0)
+      accept_thread = Thread.new do
+        # Accept and hold the connection open without ever answering. The
+        # loop EXITS on the ensure's close (a rescue-continue here would
+        # spin forever after close and hang the spec process at exit —
+        # non-daemon threads block termination).
+        Thread.new(tcp.accept) { |s| sleep 10 rescue nil }
+      rescue IOError, Errno::EBADF
+        nil
+      end
+      hung = described_class.new(
+        base_url: "http://127.0.0.1:#{tcp.addr[1]}/v4",
+        api_key: "test-key", model: "glm-test", timeout_seconds: 1
+      )
+      begin
+        expect { hung.stream(messages).next }.to raise_error(Ai::ProviderError, /transport failure/)
+      ensure
+        tcp.close
+        accept_thread.join(1) rescue nil
+      end
+    end
+
     it "raises ProviderError lazily for a non-200 status — at first pull" do
       @server = StubHttpServer.new([ "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n" ])
 
