@@ -42,6 +42,12 @@ export interface QuizLauncherProps {
   /** The surface has already fixed the scope (task single material / demo picker) — mode select only. */
   scopeLocked?: boolean;
   /**
+   * T5 (epic P2-10, FR-21): the node Quick Test scope — the node click-through
+   * sets `{ nodeId }` so generation scopes to that node (xor the plan scope on
+   * the wire). Plans/tasks/demo surfaces never set it.
+   */
+  targeting?: { nodeId: string } | null;
+  /**
    * Called once a session EXISTS (persisted, first question ready). The exact
    * QuizStartInput rides along so the surface can offer 再来一轮 with the same
    * params (fresh session id — spec decision 8).
@@ -55,7 +61,7 @@ const MODES = [
   { value: "mix", labelKey: "quiz.launcher.modeMix", descKey: "quiz.launcher.modeMixDesc", icon: Layers },
 ] as const;
 
-export function QuizLauncher({ planId, taskId, nodeIds, materials, scopeLocked, onStarted }: QuizLauncherProps) {
+export function QuizLauncher({ planId, taskId, nodeIds, materials, scopeLocked, targeting, onStarted }: QuizLauncherProps) {
   const { t } = useLanguage();
   const driver = useQuizSession();
   const [mode, setMode] = useState<QuizMode>("mix");
@@ -125,9 +131,12 @@ export function QuizLauncher({ planId, taskId, nodeIds, materials, scopeLocked, 
       nodeIds,
       mode,
       // AD-6 ownership: exactly one of the two — a task session never
-      // attributes to a plan node, and vice versa.
+      // attributes to a plan node, and vice versa. A targeting node (T5's
+      // Quick Test) rides alongside on the seam; the server treats it as
+      // THE scope (xor on the wire).
       planId: taskId ? null : (planId ?? null),
       taskId: taskId ?? null,
+      targeting: targeting ?? null,
     };
     inputRef.current = input;
     try {

@@ -380,6 +380,34 @@ describe("ServerCompanionService — generateQuiz (the mutation half)", () => {
     expect(input.planId).toBeUndefined();
   });
 
+  it("the targeting input rides the wire (T5: the node Quick Test scope, FR-21)", async () => {
+    const recorded: { variables?: unknown } = {};
+    const adapter = makeAdapter({ client: quizClient(recorded) });
+
+    await adapter.generateQuiz({
+      materials: [],
+      nodeIds: [],
+      mode: "open",
+      planId: null,
+      taskId: null,
+      targeting: { nodeId: "node-a" },
+    });
+
+    const input = (recorded.variables as { input: Record<string, unknown> }).input;
+    expect(input.targeting).toEqual({ nodeId: "node-a" });
+    expect(input.planId).toBeUndefined(); // the xor scope: the node IS the scope on the wire
+  });
+
+  it("no targeting → the field is not sent (today's plan/task quiz unchanged)", async () => {
+    const recorded: { variables?: unknown } = {};
+    const adapter = makeAdapter({ client: quizClient(recorded) });
+
+    await adapter.generateQuiz({ materials: [], nodeIds: [], mode: "open", planId: "plan-1" });
+
+    const input = (recorded.variables as { input: Record<string, unknown> }).input;
+    expect(input.targeting).toBeUndefined();
+  });
+
   it("maps a GraphQL failure through the closed enum (cap refusal on generation)", async () => {
     const adapter = makeAdapter({ client: errorClient("CAP_REACHED") });
 

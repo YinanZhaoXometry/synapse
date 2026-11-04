@@ -24,8 +24,11 @@ import { QuizLauncher } from "./QuizLauncher";
  */
 
 // The failure switch: one seam override — generateQuiz rejects while failed,
-// every other call delegates to the real simulated adapter.
+// every other call delegates to the real simulated adapter. The recorder
+// captures the exact generateQuiz inputs the driver sent (the T5 targeting
+// pass-through reads off it).
 const failState = { fail: false };
+const generatedQuizInputs: Array<Record<string, unknown>> = [];
 vi.mock("@/ai/companion-service", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/ai/companion-service")>();
   const real = actual.getCompanionService();
@@ -35,6 +38,7 @@ vi.mock("@/ai/companion-service", async (importOriginal) => {
       chat: (...args: Parameters<typeof real.chat>) => real.chat(...args),
       generatePlanStructure: (...args: Parameters<typeof real.generatePlanStructure>) => real.generatePlanStructure(...args),
       generateQuiz: async (input: Parameters<typeof real.generateQuiz>[0]) => {
+        generatedQuizInputs.push(input);
         if (failState.fail) throw new Error("simulated outage");
         return real.generateQuiz(input);
       },
@@ -126,6 +130,7 @@ const flush = (ms: number) => new Promise((r) => setTimeout(r, ms));
 beforeEach(() => {
   failState.fail = false;
   createdSessions = [];
+  generatedQuizInputs.length = 0;
 });
 
 describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
@@ -195,6 +200,28 @@ describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
     expect(createdSessions[0].session.mode).toBe("choice"); // the persisted row carries the chosen mode
     expect(createdSessions[0].input.planId).toBe(PLAN_ID); // AD-6 ownership rides the mutation
     expect(createdSessions[0].input.questions).toHaveLength(2); // one choice per section
+  });
+
+  it("the node Quick Test launch carries targeting { nodeId } through driver → seam (T5, FR-21); a plan launch sends none", async () => {
+    const { onStarted } = renderLauncher({ targeting: { nodeId: "n-1" } });
+    fireEvent.click(screen.getByTestId("quiz-launcher-start"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
+    const [, input] = onStarted.mock.calls[0];
+    expect(input.targeting).toEqual({ nodeId: "n-1" }); // the retake's exact params carry it too
+    // the AI seam call rode the SAME targeting (the driver's pass-through),
+    // with the plan scope SUPPRESSED — the server's xor validation refuses
+    // planId + targeting.nodeId together, so the node IS the scope.
+    expect(generatedQuizInputs[0].targeting).toEqual({ nodeId: "n-1" });
+    expect(generatedQuizInputs[0].planId).toBeNull();
+  });
+
+  it("a plain plan launch sends NO targeting (the default-safe path is untouched)", async () => {
+    const { onStarted } = renderLauncher();
+    fireEvent.click(screen.getByTestId("quiz-launcher-start"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
+    expect(onStarted.mock.calls[0][1].targeting).toBeNull();
+    expect(generatedQuizInputs[0].targeting).toBeNull();
+    expect(generatedQuizInputs[0].planId).toBe(PLAN_ID);
   });
 });
 

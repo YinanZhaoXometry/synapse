@@ -265,11 +265,14 @@ export class ServerCompanionService implements CompanionService {
     mode: QuizMode;
     planId?: string | null;
     taskId?: string | null;
+    targeting?: { nodeId: string } | null;
   }): Promise<GeneratedQuestion[]> {
     // Server-side generation (FR-33): the scope's context is assembled on the
     // api — materials/nodeIds stay the simulated double's local inputs and
     // never cross. The client-supplied uuid is the replay key (delta 3: a
     // same-user replay returns the session without a provider call).
+    // targeting is T5's node Quick Test scope (epic P2-10 T5, FR-21) — the
+    // xor scope on the wire: a targeting node rides INSTEAD of planId/taskId.
     const payload = await this.runMutation(
       GenerateQuizDocument,
       {
@@ -277,8 +280,9 @@ export class ServerCompanionService implements CompanionService {
           clientUuid: crypto.randomUUID(),
           language: currentUiLanguage(),
           mode: input.mode,
-          planId: input.planId ?? undefined, // xor scope — the absent side is not sent
-          taskId: input.taskId ?? undefined,
+          planId: input.targeting ? undefined : (input.planId ?? undefined), // the node IS the scope
+          taskId: input.targeting ? undefined : (input.taskId ?? undefined),
+          targeting: input.targeting ?? undefined,
         },
       },
       "generateQuiz",

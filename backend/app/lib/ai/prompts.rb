@@ -21,16 +21,20 @@ module Ai
     QUESTION_TARGET = 5
 
     class << self
-      # Quiz generation (ticket 03): node-attributed (AD-6) + materials-sourced
-      # (NFR-1) questions in the scope the command assembled.
-      def quiz(mode:, language:, context:, question_target: QUESTION_TARGET)
+      # Quiz generation (ticket 03; targeting epic P2-10 T5): node-attributed
+      # (AD-6) + materials-sourced (NFR-1) questions in the scope the command
+      # assembled. `quota_plan` is T5's weak-spot selection bias (FR-21): the
+      # server-computed per-node question quotas — a selection/weighting layer
+      # ONLY, never a new source; sections still cite the assembled context.
+      # nil keeps the prompt byte-for-byte identical to the pre-T5 shape.
+      def quiz(mode:, language:, context:, question_target: QUESTION_TARGET, quota_plan: nil)
         [ system,
           user(<<~PROMPT)
             Study material context (the ONLY allowed source):
             ---
             #{context.text}
             ---
-            #{context_note(context)}
+            #{context_note(context)}#{quota_note(quota_plan)}
 
             Generate exactly #{question_target} quiz questions from ONLY the material above.
             Mode "#{mode}": #{mode_rule(mode)}
@@ -198,6 +202,20 @@ module Ai
 
       def context_note(context)
         context.truncated ? "Note: the context above is PARTIAL (truncated to the budget) — cite only sections you can see." : ""
+      end
+
+      # T5's weak-spot quota block (FR-21): the deterministic server-side
+      # allocation the command computed (Ai::Targeting). Blank → nothing —
+      # the pre-T5 prompt shape, byte-for-byte.
+      def quota_note(quota_plan)
+        return "" if quota_plan.blank?
+
+        <<~NOTE
+
+          Weak-spot quota plan (server-computed from the learner's Mastery Scores and mistake log — distribute EXACTLY):
+          #{quota_plan}
+          These quotas bias question selection ONLY — every question still cites its [material id=…] + [section id=…] provenance from ONLY the context above (FR-18); never invent content a quota cannot ground.
+        NOTE
       end
     end
   end

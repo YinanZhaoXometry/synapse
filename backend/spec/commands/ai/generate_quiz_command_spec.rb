@@ -35,10 +35,10 @@ RSpec.describe Ai::GenerateQuizCommand do
     allow(Ai::Provider).to receive(:adapter).and_return(adapter)
   end
 
-  def call(plan_id: plan.id, task_id: nil, mode: "open", language: "zh", uuid: client_uuid)
+  def call(plan_id: plan.id, task_id: nil, mode: "open", language: "zh", uuid: client_uuid, targeting: nil)
     described_class.call(
       current_user: user, client_uuid: uuid, mode: mode, language: language,
-      plan_id: plan_id, task_id: task_id
+      plan_id: plan_id, task_id: task_id, targeting: targeting
     )
   end
 
@@ -196,5 +196,179 @@ RSpec.describe Ai::GenerateQuizCommand do
     expect(result).to be_success
     expect(result.value![:session].task_id).to eq(task.id)
     expect(result.value![:questions].sole.node_id).to eq(task.node.id)
+  end
+
+  # -- targeting (FR-21, epic P2-10 T5) --------------------------------------------
+
+  describe "targeting" do
+    let(:weak_node) { create(:knowledge_node, user: user, plan: plan, title: "Weak node", order: 1) }
+    let(:strong_node) { create(:knowledge_node, user: user, plan: plan, title: "Strong node", order: 2) }
+
+    # The bias inputs, through their ONE sources (AD-6/AD-14): weak_node
+    # scores 0 (three wrongs) and carries a mistake entry (+1.0 bonus →
+    # weight 4.0); strong_node scores 100 (weight 1.0). Over the default 5
+    # questions the recorded weights allocate EXACTLY 4 / 1.
+    before do
+      3.times { create(:evidence_record, user: user, node: weak_node, outcome: "wrong") }
+      create(:mistake_entry, user: user,
+                             question: create(:question, user: user, node: weak_node, source_material: material),
+                             node: weak_node)
+      3.times { create(:evidence_record, user: user, node: strong_node, outcome: "correct") }
+    end
+
+    # Captures the user prompt the command built (the adapter seam's
+    # stub-ability contract, ticket 01 — the adapter receives the messages
+    # positionally) and answers with the given payload. The payload is
+    # explicit at every call site so the lazy question factories never
+    # create stray plan nodes behind the quota math's back.
+    def generated_prompt(targeting:, payload:, **call_args)
+      captures = []
+      allow(adapter).to receive(:complete) do |messages|
+        captures << messages
+        payload
+      end
+      call(targeting: targeting, **call_args)
+      captures.sole.last[:content]
+    end
+
+    describe "targeting without a nodeId (the weak-spot quota shape)" do
+      it "carries the plan_scope context verbatim and the deterministic quota plan" do
+        prompt = generated_prompt(targeting: {}, payload: fenced({ questions: [ question_payload(node_id: weak_node.id) ] }))
+
+        aggregate_failures do
+          # FR-18 invariant: the assembled context IS the plan-scope output —
+          # the same text ContextAssembler.plan_scope publishes (T2's provably
+          # pin-free pool), quoted into the prompt between its markers.
+          expect(prompt).to include(Ai::ContextAssembler.plan_scope(plan).text)
+          # The quota plan: the recorded weights (4.0 for score-0 + mistake
+          # bonus, 1.0 for score-100) over the default 5 questions → 4 / 1.
+          expect(prompt).to include("[node id=#{weak_node.id}] Weak node — exactly 4 questions")
+          expect(prompt).to include("[node id=#{strong_node.id}] Strong node — exactly 1 question")
+          # The quota node set == the plan's node set (both candidates present).
+          expect(prompt.scan(/\[node id=/).count).to be >= 2
+        end
+      end
+
+      it "still consumes exactly ONE cap call (AD-16 — no new AI surface)" do
+        allow(adapter).to receive(:complete).and_return(fenced({ questions: [ question_payload ] }))
+
+        expect(call(targeting: {})).to be_success
+        expect(user.ai_usage_counters.sole.call_count).to eq(1)
+      end
+    end
+
+    describe "targeting with a nodeId (the node Quick Test scope)" do
+      it "assembles node_scope, keeps only the node's questions, and attributes the session to the plan" do
+        create(:material, user: user, plan: plan, attachment_scope: "node", node: weak_node, sections: [
+          { "id" => "pin-a", "title" => "Pinned to weak", "text" => "WEAK-PINNED-TEXT" }
+        ])
+        strong_pin = create(:material, user: user, plan: plan, attachment_scope: "node", node: strong_node, sections: [
+          { "id" => "pin-b", "title" => "Pinned to strong", "text" => "STRONG-PINNED-SECRET-TEXT" }
+        ])
+        payload = { questions: [
+          question_payload(node_id: weak_node.id),                                       # usable: the node + a plan-wide material
+          question_payload(node_id: strong_node.id),                                     # foreign node → dropped
+          question_payload(node_id: weak_node.id, material_id: strong_pin.id, section_id: "pin-b") # ANOTHER node's pin → dropped (FR-18)
+        ] }
+        allow(adapter).to receive(:complete).and_return(payload.to_json)
+
+        result = call(plan_id: nil, targeting: { node_id: weak_node.id })
+        expect(result).to be_success
+        session = result.value![:session]
+        expect(session.plan_id).to eq(plan.id) # the session still owns ONE plan (AD-6)
+        expect(session.task_id).to be_nil
+        questions = result.value![:questions]
+        expect(questions.length).to eq(1)
+        expect(questions.sole.node_id).to eq(weak_node.id)
+        expect(user.ai_usage_counters.sole.call_count).to eq(1)
+      end
+
+      it "grounds the prompt on node_scope alone: own pins ride, other pins provably absent" do
+        create(:material, user: user, plan: plan, attachment_scope: "node", node: weak_node, sections: [
+          { "id" => "pin-a", "title" => "Pinned to weak", "text" => "WEAK-PINNED-TEXT" }
+        ])
+        create(:material, user: user, plan: plan, attachment_scope: "node", node: strong_node, sections: [
+          { "id" => "pin-b", "title" => "Pinned to strong", "text" => "STRONG-PINNED-SECRET-TEXT" }
+        ])
+        prompt = generated_prompt(plan_id: nil, targeting: { node_id: weak_node.id },
+                                  payload: fenced({ questions: [ question_payload(node_id: weak_node.id) ] }))
+
+        aggregate_failures do
+          expect(prompt).to include(Ai::ContextAssembler.node_scope(plan, weak_node).text)
+          expect(prompt).to include("WEAK-PINNED-TEXT")
+          expect(prompt).not_to include("STRONG-PINNED-SECRET-TEXT")
+          expect(prompt).to include("[node id=#{weak_node.id}")
+          expect(prompt).not_to include("[node id=#{strong_node.id}")
+          expect(prompt).not_to include("quota plan") # the node scope needs no quota layer
+        end
+      end
+    end
+
+    describe "validation (nothing is spent)" do
+      it "refuses targeting.nodeId alongside a plan or task scope" do
+        allow(adapter).to receive(:complete)
+        aggregate_failures do
+          expect(call(targeting: { node_id: weak_node.id }).failure.code).to eq(:VALIDATION_FAILED)
+          expect(call(plan_id: nil, task_id: create(:study_task, user: user).id,
+                      targeting: { node_id: weak_node.id }).failure.code).to eq(:VALIDATION_FAILED)
+        end
+        expect(adapter).not_to have_received(:complete)
+        expect(user.ai_usage_counters).to be_empty
+      end
+
+      it "resolves the node through current_user: foreign and malformed read NOT_FOUND" do
+        other_user = create(:user)
+        foreign_node = create(:knowledge_node, user: other_user, plan: create(:study_plan, user: other_user))
+        allow(adapter).to receive(:complete)
+        aggregate_failures do
+          expect(call(plan_id: nil, targeting: { node_id: foreign_node.id }).failure.code).to eq(:NOT_FOUND)
+          expect(call(plan_id: nil, targeting: { node_id: "not-a-uuid" }).failure.code).to eq(:NOT_FOUND)
+        end
+        expect(adapter).not_to have_received(:complete)
+      end
+
+      it "refuses a task node under targeting (a task quiz already has its scope)" do
+        task_node = create(:knowledge_node, user: user, title: "Task-owned node")
+        create(:study_task, user: user, node: task_node)
+        allow(adapter).to receive(:complete)
+
+        result = call(plan_id: nil, targeting: { node_id: task_node.id })
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:message]).to include("plan node")
+        expect(adapter).not_to have_received(:complete)
+      end
+
+      it "refuses targeting: {} with no scope at all" do
+        allow(adapter).to receive(:complete)
+
+        result = call(plan_id: nil, task_id: nil, targeting: {})
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(adapter).not_to have_received(:complete)
+      end
+    end
+
+    it "replays an owned session without a provider call even when targeting rides" do
+      allow(adapter).to receive(:complete).and_raise(Ai::ProviderError, "must not be called")
+      create(:quiz_session, user: user, id: client_uuid, mode: "choice")
+
+      result = call(mode: "open", targeting: {})
+      expect(result).to be_success
+      expect(result.value![:session].mode).to eq("choice")
+      expect(user.ai_usage_counters).to be_empty
+    end
+
+    it "ignores an empty targeting hash on a task scope (today's behavior — a task is already node-scoped)" do
+      task_node = create(:knowledge_node, user: user, title: "Task node")
+      task_material = create(:material, user: user, sections: [ { "id" => "t-sec", "title" => "T", "text" => "task text" } ])
+      task = create(:study_task, user: user, node: task_node, material: task_material)
+      payload = fenced({ questions: [ question_payload(node_id: task.node.id, material_id: task.material.id, section_id: "t-sec") ] })
+
+      prompt = generated_prompt(targeting: {}, payload: payload, plan_id: nil, task_id: task.id)
+
+      aggregate_failures do
+        expect(prompt).not_to include("quota plan")
+        expect(prompt).to include(Ai::ContextAssembler.task_scope(task).text)
+      end
+    end
   end
 end

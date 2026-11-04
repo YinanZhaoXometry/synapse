@@ -1032,12 +1032,19 @@ input GenerateQuizInput {
   mode: String!
 
   """
-  The plan scope's uuid (xor task_id).
+  The plan scope's uuid (xor task_id and targeting.nodeId).
   """
   planId: String
 
   """
-  The task scope's uuid (xor plan_id).
+  Adaptive weak-spot targeting (FR-21): present without nodeId → weak-spot
+  quotas over the plan scope; nodeId set → the node Quick Test scope (xor
+  planId/taskId).
+  """
+  targeting: QuizTargetingInput
+
+  """
+  The task scope's uuid (xor plan_id and targeting.nodeId).
   """
   taskId: String
 }
@@ -2146,7 +2153,8 @@ type Mutation {
   ): GenerateFlashcardsPayload
 
   """
-  Generate a node-attributed, materials-sourced quiz session in the given scope (plan or task) — server-side AI (FR-18/33).
+  Generate a node-attributed, materials-sourced quiz session in the given scope
+  (plan, task, or targeting node) — server-side AI (FR-18/33/21).
   """
   generateQuiz(
     """
@@ -2712,6 +2720,17 @@ type QuizSession {
   The task the session quizzes (null on a plan-scoped session) — the plan-free quiz scope is the task triangle.
   """
   taskId: String
+}
+
+"""
+Adaptive weak-spot targeting (FR-21): present without nodeId → weak-spot quotas
+over the plan scope; nodeId set → the node Quick Test scope (xor planId/taskId).
+"""
+input QuizTargetingInput {
+  """
+  A PLAN node's uuid — the Quick Test scope. A task node's id is refused (a task quiz already has its scope).
+  """
+  nodeId: String
 }
 
 """
