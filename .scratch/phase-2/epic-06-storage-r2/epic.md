@@ -1,6 +1,6 @@
 # Epic 6 (Phase 2) — File storage: ActiveStorage → R2, presigned URLs, minio parity
 
-Status: ready-for-agent → code complete 2026-11-04 (tickets 01+02 done, integrated on epic/p2-6-storage; ticket 03 stays ready-for-human — owner-side, pre-cutover)
+Status: **SHIPPED 2026-11-04** — main `a2b2b76..97618dd` (FF; 31 files, +1507/−30), two-axis review clean (1×P1 + 5×P2 + doc nits, all fixed `6532c11`), 608/608, CI pending-push. Ticket 03 stays ready-for-human — owner-side, pre-cutover (blocks epic-08's R2 deploy, not this epic's DoD).
 Milestone: Phase 2 — post-deadline
 
 ## Parent
