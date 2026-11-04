@@ -40,3 +40,6 @@
 /.env
 /.env.*
 !/.env.example
+
+# Local-only compose overrides (dev secrets — OQ-4 provider key etc.)
+/.dockerdev/compose.override.yaml

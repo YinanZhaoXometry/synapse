@@ -28,6 +28,33 @@ Local parity is `just up` (compose: postgres 17 + api + Vite + minio as the R2 s
 - `backend/.env.example` — the full ENV contract with per-var comments (the textual source of truth for §3).
 - `frontend/src/apollo/client.ts` + `frontend/src/ai/sse-client.ts` — read `VITE_API_URL` at build time (§4).
 
+### Local AI end-to-end (dev-only, no owner accounts needed)
+
+The provider key is a **local secret**: put it in `backend/.dockerdev/compose.override.yaml`
+(gitignored — never commit it), then bring the api up with BOTH files — this
+compose version does not auto-merge the override when `-f` is explicit:
+
+```bash
+cat > backend/.dockerdev/compose.override.yaml <<'YAML'
+services:
+  backend:
+    environment:
+      PROVIDER_KEY: "<your GLM key>"
+YAML
+
+docker compose -f backend/.dockerdev/compose.yaml -f backend/.dockerdev/compose.override.yaml \
+  up -d --force-recreate backend
+docker compose -f backend/.dockerdev/compose.yaml -f backend/.dockerdev/compose.override.yaml \
+  exec backend bundle exec rake ai:probe   # expect: "ai:probe OK"
+```
+
+Verified locally 2026-11-05 (proposal stream, quiz generation, open-answer
+grading, evidence → server scores, flashcard ratings — see the epic tracker's
+smoke record). **The key carries a low concurrency limit**: one in-flight
+provider request at a time — overlapping requests queue until the 120s
+`PROVIDER_TIMEOUT_SECONDS` timeout surfaces as an honest `INTERNAL` (the UI
+releases the question back to answering with the draft kept).
+
 ## 2. One-time provisioning ([owner]) — in this order
 
 Pages comes **last** because its only env var needs the Render api URL.
