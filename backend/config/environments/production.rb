@@ -44,7 +44,13 @@ Rails.application.configure do
   # config.cache_store = :mem_cache_store
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
-  # config.active_job.queue_adapter = :resque
+  # Solid Queue in-process with puma (AD-19, epic P2-7 ticket 01); the queue
+  # tables live in the SAME Postgres via DATABASE_URL (kickoff decision 4 —
+  # no connects_to split): point that URL at Neon's DIRECT (non-pooled)
+  # endpoint in production, Solid Queue's polling dislikes transaction-mode
+  # pooling. The supervisor boots from config/queue.yml +
+  # config/recurring.yml via the puma plugin (config/puma.rb).
+  config.active_job.queue_adapter = :solid_queue
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).

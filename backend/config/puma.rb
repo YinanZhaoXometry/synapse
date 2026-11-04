@@ -32,6 +32,14 @@ threads threads_count, threads_count
 port ENV.fetch("PORT", 3000)
 
 # Allow puma to be restarted by `bin/rails restart` command.
+
+# Solid Queue runs IN-PROCESS with puma (AD-19, epic P2-7 ticket 01): the
+# gem's puma plugin boots the supervisor (config/queue.yml) and the
+# recurring schedule (config/recurring.yml) inside this process — no
+# separate worker service. Gated on SOLID_QUEUE_IN_PUMA (the gem's own
+# convention): unset, the plugin no-ops — that is what keeps the supervisor
+# out of rspec runs (test env keeps the :test adapter).
+plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
 plugin :tmp_restart
 
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.

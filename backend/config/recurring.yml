@@ -1,0 +1,18 @@
+# Solid Queue recurring tasks (AD-19, epic P2-7 ticket 01). ONE named job by
+# rule — the FR-24 re-queue due scan (kickoff decision 5: every 10 minutes is
+# polling-while-awake cost, negligible; the forbidden thing is keep-alive
+# pinging to defeat cold starts). The upstream default finished-jobs cleanup
+# task was deliberately dropped: no unnamed background work.
+#
+# Requeue::ScanJob wraps Requeue::ScanDueItemsCommand (thin wrapper, AD-12);
+# due-ness is RECOMPUTED from source rows' timestamps on every wake — never
+# accumulated while asleep (correct-on-wake; kickoff decision 7).
+production:
+  due_scan:
+    class: "Requeue::ScanJob"
+    schedule: every 10 minutes
+
+development:
+  due_scan:
+    class: "Requeue::ScanJob"
+    schedule: every 10 minutes

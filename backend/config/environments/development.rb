@@ -3,6 +3,11 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # Solid Queue in-process with puma (AD-19, epic P2-7 ticket 01) — same
+  # posture as production; test keeps the :test adapter so the supervisor
+  # never boots under rspec.
+  config.active_job.queue_adapter = :solid_queue
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 

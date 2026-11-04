@@ -76,6 +76,10 @@ services:
     environment:
       RAILS_ENV: development
       DATABASE_URL: postgres://postgres:postgres@db:5432/backend_development
+      # Solid Queue's in-process supervisor (epic P2-7 ticket 01): boots with
+      # puma via the plugin in config/puma.rb. Unset in CI/test — the
+      # supervisor never runs under rspec (test env keeps the :test adapter).
+      SOLID_QUEUE_IN_PUMA: "1"
       # Dev-only session-token signing secret (Accounts::TokenCodec, AD-15).
       # Fixed so minted tokens survive container restarts; outside dev, set a
       # real random secret (backend/.env.example documents the contract).
