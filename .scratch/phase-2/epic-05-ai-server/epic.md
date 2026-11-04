@@ -1,6 +1,19 @@
 # Epic 5 (Phase 2) — Server-side AI: provider adapter, mutations, SSE tickets, cost cap
 
-Status: ready-for-agent (spec + tickets 2026-11-03; gate: epics 01+02+03 done; **owner pre-check: GLM terms (OQ-4) before ticket 1**)
+Status: in-progress (kickoff 2026-11-04; delta-grill below)
+
+## Kickoff delta-grill (2026-11-04)
+
+Gate verified against the board: epics 01+02+03 done — and 04/06/07 landed since the spec was authored. Spec re-checked against the landed code; **A1 and A2 both hold** (`Quiz::CreateSessionCommand` consumes a full questions array, so A2's one-mutation-response path is direct). Findings:
+
+1. `Plans::ConfirmProposalCommand` (epic P2-3) already exists, its `stages` shape matching Phase-1's `ProposedStage` — ticket 3's proposal-confirm deliverable collapses to the **stream payload contract** (ticket 4); no new mutation.
+2. rack-cors is absent entirely — "CORS = same allowlist as GraphQL" is an empty set today. Ruling: ticket 4 wires rack-cors (`CORS_ORIGIN` ENV; resources `/graphql` + `/api/stream`); epic-08 then only sets the ENV.
+3. No HTTP client gem in the tree — the GLM client uses stdlib `Net::HTTP` (zero new deps; `read_body` block consumes the upstream SSE).
+4. ReadingPosition text is capped at 100k chars — cannot ride a query param. Ruling (contract freeze for epic-08): grounding inputs are carried **inside the ticket payload**, set at `createStreamTicket` mint time; `GET /api/stream?ticket=…&op=…` carries only the ticket + op. Language rides the same way.
+5. Phase-1 `GroundedChatRequest` has no history field (single-turn, position-grounded) — the server v1 keeps that shape; ChatThread is display persistence, fed by the client's follow-up `appendChatMessage`.
+6. Quiz client-uuid replay semantics are preserved: `generateQuiz` checks replay first (existing session → returned without a provider call), then cap → generate → persist via `Quiz::CreateSessionCommand`.
+
+OQ-4 note: proceeding GLM-first under the standing decide-all delegation — provider identity is config (`PROVIDER_BASE_URL`/`PROVIDER_MODEL`/`PROVIDER_KEY`), so a terms-driven provider change is config-only. The owner's manual live probe is `rake ai:probe`; the assumption is logged for the close-out.
 Milestone: Phase 2 — post-deadline
 
 ## Parent
