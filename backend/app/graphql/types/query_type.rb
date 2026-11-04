@@ -113,6 +113,19 @@ module Types
       end
     end
 
+    field :plan_node_mappings, [ Types::MaterialNodeMappingType ], null: false,
+      description: "One plan's node-attached mapping rows in ONE read (FR-5/FR-7, epic P2-10 T4 — the plan-scope batch over the per-node reads; the roadmap graph's node-detail actions need every node's rows at once). Every status rides (the wire's one mapping-list vocabulary, T3's precedent); the consumer filters confirmed for its jump targets. Rows attached to NO node (the gap proposals / unmapped rows) serve no node surface and are excluded. A foreign or unknown plan id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :plan_id, String, required: true, description: "Scope to a plan's nodes' mapping rows."
+    end
+
+    def plan_node_mappings(plan_id:)
+      plan = scoped_plan(plan_id)
+      current_user!.material_node_mappings
+                   .joins(:node)
+                   .where(knowledge_nodes: { plan_id: plan.id })
+                   .order(:created_at, :id)
+    end
+
     field :quiz_session, Types::QuizSessionType, null: true,
       description: "One quiz session by id — detail with its node-attributed questions in generation order (the getQuizSession + listQuestionsBySession mirrors). A foreign or unknown id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
       argument :id, String, required: true, description: "The session's uuid."

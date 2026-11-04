@@ -38,6 +38,19 @@ export const NODE_STATE_DISPLAY: Record<NodeStateVocabulary, NodeStateDisplay> =
   uncovered: { glyph: "\u25CB", tintClass: "pill pill-muted", labelKey: "plans.stateUncovered" },
 };
 
+/**
+ * The SVG face of a graph node (epic P2-10 T4): the SAME state tints as the
+ * HTML pill classes carry, expressed as CSS-var styles an SVG rect/text can
+ * consume (semantic tokens only — never raw palette values, dark mode +
+ * palettes stay intact). The graph node face renders glyph + tint from here;
+ * the badge keeps rendering the pill classes.
+ */
+export const NODE_STATE_FACE: Record<NodeStateVocabulary, { fill: string; ink: string }> = {
+  mastered: { fill: "hsl(var(--mastered-tint))", ink: "var(--mastered-ink)" },
+  partial: { fill: "hsl(var(--partial-tint))", ink: "var(--partial-ink)" },
+  uncovered: { fill: "hsl(var(--uncovered-fill))", ink: "hsl(var(--muted-foreground))" },
+};
+
 /** The t() shape the contract consumes (LanguageContext's translator). */
 export type NodeStateTranslate = (key: string, vars?: Record<string, string | number>) => string;
 

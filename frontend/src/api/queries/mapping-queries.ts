@@ -14,8 +14,8 @@ import {
   ConfirmMappingProposalsDocument,
   MaterialNodeMappingsDocument,
   MapMaterialSectionsDocument,
-  NodeMaterialMappingsDocument,
   PlanDocument,
+  PlanNodeMappingsDocument,
   RejectMappingProposalsDocument,
 } from "@/types/graphql";
 import { mapMaterialNodeMapping } from "../mappers";
@@ -33,14 +33,18 @@ export function useMaterialNodeMappingsQuery(materialId: string) {
 }
 
 /**
- * One node's mapping rows (epic P2-10 T3, FR-6): the node click-through's
- * read — every status rides (the wire's one vocabulary); the consumer filters
- * confirmed for its jump targets. The map/confirm/reject sweeps below refresh
- * it while it is active, so a verdict in the coverage panel moves the rows.
+ * One plan's node-attached mapping rows in ONE read (epic P2-10 T4 — the T3
+ * review's binding: the per-row materialNodeMappings(nodeId:) read was an
+ * eager N+1 at the 30+ node bar; this batch SUPERSEDES it — the per-node
+ * hook is retired). The roadmap graph's node-detail actions and the tree
+ * rows consume it grouped by nodeId; every status rides (the wire's one
+ * vocabulary — node-less gap proposals never arrive), the consumer filters
+ * confirmed via nodeJumpTargets. The map/confirm/reject sweeps below refresh
+ * it, so a verdict in the coverage panel moves the graph and rows.
  */
-export function useNodeMaterialMappingsQuery(nodeId: string) {
-  const result = useQuery(NodeMaterialMappingsDocument, { variables: { nodeId }, skip: !nodeId });
-  const rows = (result.data?.materialNodeMappings ?? []).map(mapMaterialNodeMapping);
+export function usePlanNodeMappingsQuery(planId: string) {
+  const result = useQuery(PlanNodeMappingsDocument, { variables: { planId }, skip: !planId });
+  const rows = (result.data?.planNodeMappings ?? []).map(mapMaterialNodeMapping);
   return {
     data: result.data !== undefined ? rows : undefined,
     loading: result.loading && !result.data,
@@ -53,9 +57,9 @@ export function useNodeMaterialMappingsQuery(nodeId: string) {
 export function useMapMaterialSectionsMutation() {
   return useMutation(MapMaterialSectionsDocument, {
     // rows upsert in place + new orphans appear — the list read-back is truth
-    // (both sides of the mapping read: the coverage panel's and the node
-    // click-through's).
-    refetchQueries: [MaterialNodeMappingsDocument, NodeMaterialMappingsDocument],
+    // (both sides of the mapping read: the coverage panel's and the plan-scope
+    // batch the rows/graph consume).
+    refetchQueries: [MaterialNodeMappingsDocument, PlanNodeMappingsDocument],
   });
 }
 
@@ -66,13 +70,13 @@ export function useConfirmMappingProposalsMutation() {
     // Plan detail ride PlanDocument) or the panel shows a raw uuid fallback.
     // Both mapping-read sides sweep too — a confirmed row opens the node row's
     // jump targets.
-    refetchQueries: [MaterialNodeMappingsDocument, NodeMaterialMappingsDocument, PlanDocument],
+    refetchQueries: [MaterialNodeMappingsDocument, PlanNodeMappingsDocument, PlanDocument],
   });
 }
 
 /** Bulk reject: rows persist rejected — the map run never re-proposes them. */
 export function useRejectMappingProposalsMutation() {
   return useMutation(RejectMappingProposalsDocument, {
-    refetchQueries: [MaterialNodeMappingsDocument, NodeMaterialMappingsDocument],
+    refetchQueries: [MaterialNodeMappingsDocument, PlanNodeMappingsDocument],
   });
 }
