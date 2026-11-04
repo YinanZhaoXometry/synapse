@@ -21,6 +21,7 @@ class User < ApplicationRecord
   has_many :section_markings
   has_many :annotations
   has_many :requeue_schedules
+  has_many :ai_usage_counters
 
   validates :email, presence: true, uniqueness: true
 end

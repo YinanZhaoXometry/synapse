@@ -11,7 +11,7 @@ module Ai
   # Stub-ability contract (ticket 01, no live calls in CI): specs override
   # `.adapter`, never the transport. `Ai::GlmClient` itself is exercised
   # against a local stub HTTP server, not a live provider. The per-user
-  # daily cost cap (ticket 02, FR-34) will be enforced inside `.complete` /
+  # daily cost cap (ticket 02, FR-34) is enforced inside `.complete` /
   # `.stream` — at this boundary, before any HTTP leaves the process,
   # counting every call including a stream restart after a drop (AD-16).
   module Provider
@@ -42,27 +42,37 @@ module Ai
         GlmClient.new(**configuration)
       end
 
-      # One full completion: Success(String) with the raw assistant text, or
-      # Failure(:INTERNAL) when the provider is unconfigured, unreachable, or
-      # returns something unusable.
-      def complete(messages)
-        dispatch { |client| client.complete(messages) }
+      # One full completion: Success(String) with the raw assistant text;
+      # Failure(:CAP_REACHED) once the user's daily count passes the cap
+      # (FR-34); Failure(:INTERNAL) when the provider is unconfigured,
+      # unreachable, or returns something unusable.
+      def complete(user:, messages:)
+        dispatch(user:) { |client| client.complete(messages) }
       end
 
       # Token deltas as a lazy Enumerator wrapped in a Result: Success holds
       # the enumerator, whose deltas arrive as pulled; transport faults raise
       # at pull time, inside the consumer's rescue region — the SSE endpoint
-      # turns them into a `terminal` event.
-      def stream(messages)
-        dispatch { |client| client.stream(messages) }
+      # turns them into a `terminal` event. The cap consumes one call per
+      # `.stream` invocation (a client restart mints a fresh ticket → a new
+      # invocation → counted, AD-16).
+      def stream(user:, messages:)
+        dispatch(user:) { |client| client.stream(messages) }
       end
 
       private
 
-      def dispatch
+      def dispatch(user:)
         unless configured?
           return Failure(ApplicationErrors::Failure.new(
             code: :INTERNAL, context: { message: "ai provider not configured (PROVIDER_KEY blank)" }
+          ))
+        end
+
+        count = DailyCap.consume!(user)
+        if DailyCap.tripped?(count)
+          return Failure(ApplicationErrors::Failure.new(
+            code: :CAP_REACHED, context: { message: "daily ai call cap reached (#{count}/#{DailyCap.limit})" }
           ))
         end
 
