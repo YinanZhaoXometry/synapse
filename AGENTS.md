@@ -32,6 +32,7 @@ just spec    # web gates + api gates
 
 # Frontend gates (from frontend/ — two true invocation forms):
 # (sequence kept in sync with the justfile spec recipe + ci.yml web job)
+pnpm run codegen                            # GraphQL documents (freshness-gated — see below)
 cd web && node_modules/.bin/tsc -b          # typecheck (no `typecheck` script exists)
 cd web && node_modules/.bin/eslint .        # eslint 9 flat config
 cd web && node_modules/.bin/vitest run      # tests (watch: pnpm run test:watch)
@@ -58,11 +59,12 @@ Playwright (`frontend/playwright.config.ts`) imports `lovable-agent-playwright-c
 **`frontend/`** — the SPA:
 
 - `src/App.tsx` — all routes. `/` = `EntryGate` (first run → onboarding wizard; returning users → Plans Home, AD-8). Plan/task study flows nest under `AppLayout` (sidebar shell): `/plans`, `/plan/:id` (+ `/quiz`, `/flashcards`), `/task/new`, `/task/:id` (+ `/quiz`, `/flashcards`), `/read/:materialId`, plus the retained ten destinations (`/dashboard`, `/ai-tutor`, `/materials`, `/quiz`, `/flashcards`, `/mistakes`, `/planner`, `/achievements`, `/analytics`, `/settings`).
-- `src/contexts/` — `LanguageProvider` → `ThemeProvider` → `UserProgressProvider`, nested inside `QueryClientProvider` + `TooltipProvider` in App.tsx. Consume via `useLanguage()` / `useTheme()` / `useUserProgress()` (hooks throw outside their provider). The translations table (`i18n-dictionary.ts`) lives beside them.
-- `src/data/` — the persistence layer: repositories + TanStack Query hooks (`*-queries.ts`, `query-keys.ts`), the versioned `synapse-db:v1` document (`document.ts` + `store.ts`), and `errors.ts` (`AppError { code, messageKey? }`).
+- `src/contexts/` — `LanguageProvider` → `ThemeProvider` → `UserProgressProvider`, nested inside `ApolloProvider` + `TooltipProvider` in App.tsx. Consume via `useLanguage()` / `useTheme()` / `useUserProgress()` (hooks throw outside their provider). The translations table (`i18n-dictionary.ts`) lives beside them.
+- `src/apollo/` — the Apollo Client 4 seam (AD-18, epic P2-8): the client singleton (auth link + relative `/graphql` uri, dev-proxied to :3000), the `synapse-token` auth seam, and `resetApiClient()` (cache wipe + SSE terminators) — the ONE seam login/logout/account switches funnel through.
+- `src/api/` — the typed hooks layer: the ONLY route features touch domain data. `src/lib/graphql/*.graphql` operations → `pnpm run codegen` → committed `src/types/graphql.ts` (TypedDocumentNodes; CI regenerates + diffs — never edit the output). Hooks return mapped domain views; plans/nodes carry SERVER mastery fields (`masteryScore`, `state`) — rendering reads them, never recomputes (AD-14). Conventions live in `src/api/index.ts`'s header.
 - `src/domain/` — pure domain logic: `mastery.ts` (ADR-0001 rules), `streak.ts`, `entities.ts`. Vitest coverage is mandatory here (AD-10).
 - `src/features/` — feature modules: `companion`, `flashcards`, `plans`, `quiz`, `reader`, `tasks`.
-- `src/ai/` — the simulated `CompanionService` (Phase-1 AI seam, AD-5) — becomes a dev/test double at the Apollo cutover (AD-18).
+- `src/ai/` — the simulated `CompanionService` (Phase-1 AI seam, AD-5) — since the cutover (epic P2-8) it runs as the dev/test double (deterministic offline tests); the server adapter rides ticket 05's seam swap.
 - `src/components/ui/` — shadcn/ui primitives (Radix + CVA). Treat as generated code; app-specific reusable components go in `src/components/shared/`.
 - `src/lib/utils.ts` — `cn()` (clsx + tailwind-merge); use it for all conditional classes.
 
@@ -76,9 +78,10 @@ Playwright (`frontend/playwright.config.ts`) imports `lovable-agent-playwright-c
 - **Tailwind:** theme colors are CSS-variable/HSL tokens defined in `frontend/src/index.css` and mapped in `frontend/tailwind.config.ts` — use semantic classes (`bg-background`, `text-muted-foreground`, `bg-primary`), not raw palette classes. Never hardcode whites (`bg-white/…`) or coral `rgba()` values — they break dark mode and the theme palettes; use the glass (`--glass-*`) and accent-tint (`--accent-tint*` / `--accent-ring` / `--accent-edge`) tokens instead. The app ships dark mode + sunset/twilight/aurora palettes (`ThemeProvider`) — verify UI in both modes. Custom fonts: `font-display` (Source Serif 4) / `font-body` (Inter). Custom animations exist (`animate-pop`, `animate-slide-up`, `animate-confetti`, …).
 - **Toasts:** sonner is the single toast pattern (App.tsx mounts the sonner-backed `<Toaster />`; AD-9). `AppError.messageKey` → `t()` key → toast.
 
-## localStorage keys (truth from code, 2026-11-03)
+## localStorage keys (truth from code, 2026-11-04, post-Apollo-cutover)
 
-- **`synapse-db:v1`** — the domain document (`frontend/src/data/document.ts`); the repositories' single store, versioned + migrated on load.
+- **`synapse-token`** (`src/apollo/auth-token.ts`) — the JWT; read by the Apollo auth link, written by login/logout (ticket 02). Server TTL is 24h; a stale token surfaces as UNAUTHENTICATED, never silently.
+- **`synapse-db:v1`** — the Phase-1 legacy document. NOT in the runtime anymore (the grep guard forbids reading/writing it outside `src/lib/local-document.ts`); it survives as the rollback substrate and ticket 03's first-login-import input — never deleted client-side.
 - **`synapse-lang`** (`LanguageContext.tsx`), **`synapse-theme`** / **`synapse-mode`** / **`synapse-motion`** (`ThemeContext.tsx`) — UI prefs; theme palette id (`sunset` default), mode (`system` default), motion (`"on"`/`"off"` string; reduce-motion reads it as `=== "off"`).
 - All four UI keys are **lazy-written**: nothing is persisted on first load — the write happens inside the setter (`setLanguage`/`setTheme`/`setMode`/`setReduceMotion`), so a key exists in storage only after the user changes that setting once. Reads at provider init always fall back (lang `zh`, theme `sunset`, mode `system`, motion on).
 - There is **no `studyflow-lang`** anywhere in the code — the 2026-11-01 product rename moved the key to `synapse-lang` (commit `c07e669`) with no migration reading the old name. A `studyflow-lang` entry seen in a browser profile is orphaned pre-rename residue; nothing reads it.
@@ -91,7 +94,7 @@ Playwright (`frontend/playwright.config.ts`) imports `lovable-agent-playwright-c
 - **HMR error overlay is disabled** (`frontend/vite.config.ts`), so dev errors only appear in the terminal — watch it, not just the browser.
 - **Web dev server binds host `::` on port 8080** (not Vite's default 5173). The api serves on port 3000 (compose).
 - **`frontend/tsconfig.app.tsbuildinfo` / `frontend/tsconfig.node.tsbuildinfo` are committed** (policy unchanged — A6). Their contents are relative paths, so they survive the move; a stale one self-heals on the next `tsc -b` (regen verified byte-identical) — commit the regenerated file if a legit path change lands.
-- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → `tsc -b` → eslint → vitest → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec. Keep local green before pushing.
+- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → codegen (regenerate + diff — schema drift fails loudly) → `tsc -b` → eslint → vitest → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec. Keep local green before pushing.
 - `backend/README.md` is still the Rails generator stub — the backend's real doc is `backend/AGENTS.md`.
 - `lovable-tagger` is still a `frontend/` devDependency and runs as a dev-mode Vite plugin (`componentTagger`) — Lovable-scaffold residue that is inert at build time; removal belongs to a frontend-tooling change, not a docs edit.
 
