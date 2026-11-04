@@ -1,0 +1,117 @@
+# Render Blueprint for the Synapse api (AD-20: api → Render docker service).
+# Apply once with "New → Blueprint" in the Render dashboard (it reads this
+# file) — full owner walkthrough incl. the Neon/R2/Pages companion steps:
+# docs/deploy.md. Every `sync: false` var is pasted in the dashboard at first
+# apply (or later via Environment) and then persists; `generateValue` vars get
+# a random value at first apply that Render stores — neither is committed
+# anywhere (AD-12: config is ENV-only).
+#
+# POSTURE (AD-19 + AD-20 — read before changing this file):
+# - ONE web service, ONE process. Solid Queue runs IN-PROCESS with puma
+#   (SOLID_QUEUE_IN_PUMA below gates the plugin in config/puma.rb) — there is
+#   deliberately NO worker service: Render has no free worker instance type
+#   and this queue (one recurring scan / 10 min) does not earn a paid one.
+# - Free tier, NO keep-alive: the service sleeps when idle and takes ~1 min
+#   to wake (Render spin-up + Neon autosuspend resume). Cold starts are
+#   accepted; keeping it awake would drain Neon's free compute hours in ~8
+#   days (AD-19). Never add an uptime pinger. Before a graded demo, upgrade
+#   for the demo window instead — docs/deploy.md "Pre-demo paid-upgrade
+#   window" has the exact steps.
+# - DATABASE_URL must be Neon's DIRECT (non-pooled) hostname (no `-pooler`
+#   suffix, sslmode=require): this one process serves web requests AND polls
+#   the queue, and Solid Queue's polling dislikes transaction-mode pooling
+#   (AD-19).
+
+services:
+  - type: web
+    name: synapse-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    # Closest Render region to the HK demo audience; align with the Neon
+    # project's region when possible. Change both together or not at all.
+    region: singapore
+    branch: main
+    autoDeploy: true
+    # Rails 8 health route (config/routes.rb: get "up" => "rails/health#show");
+    # production.rb silences its logging. 200 = the app booted, 500 = not.
+    healthCheckPath: /up
+
+    envVars:
+      # --- fixed posture -------------------------------------------------
+      - key: RAILS_ENV
+        value: production
+      # Boots the Solid Queue supervisor INSIDE the puma process (AD-19).
+      # Unset = the plugin no-ops and the recurring due_scan never runs.
+      - key: SOLID_QUEUE_IN_PUMA
+        value: "1"
+
+      # --- random secrets (generated once at first apply, stored by Render)
+      # HS256 session-token signing secret (Accounts::TokenCodec, AD-15).
+      # Rotating invalidates every outstanding token (accepted, stateless).
+      - key: JWT_SECRET
+        generateValue: true
+      # Rails session/secret_key_base (Rails 7.1+ reads the ENV before the
+      # encrypted credentials; no config/master.key exists in this repo).
+      - key: SECRET_KEY_BASE
+        generateValue: true
+
+      # --- owner-provisioned values (paste at first apply) ---------------
+      # Neon Postgres 17, DIRECT (non-pooled) hostname + ?sslmode=require.
+      # NOT the pooled `-pooler` URL — see the header comment (AD-19).
+      - key: DATABASE_URL
+        sync: false
+      # The deployed Pages origin, e.g. https://<project>.pages.dev — the
+      # ONLY value CORS_ORIGIN ever holds (one origin; comma-separated format
+      # exists for multi-origin futures we do not have). Blank = no browser
+      # may call /graphql or /api/stream at all (backend/config/initializers/cors.rb).
+      - key: CORS_ORIGIN
+        sync: false
+      # Demo account (DemoSeed, AD-15) — seeded by every boot's db:seed
+      # (backend/Dockerfile CMD). Production fails fast when either is blank.
+      # DEMO_PASSWORD must be ≥ 8 chars (register-command parity).
+      - key: DEMO_EMAIL
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
+      # Cloudflare R2 (AD-13, epic P2-6): all four are REQUIRED in production —
+      # config/environments/production.rb fails fast at boot when any is blank.
+      # R2_ENDPOINT is the account S3 endpoint (https://<account>.r2.cloudflarestorage.com),
+      # R2_BUCKET the materials bucket; the access keys come from an R2 API token.
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      # AI provider (AD-16, GLM via the OpenAI-compatible seam). REQUIRED in
+      # production (boot fail-fast). Terms verification is the owner's OQ-4
+      # gate; live probe per config change: bin/rails ai:probe (never in CI).
+      - key: PROVIDER_KEY
+        sync: false
+
+      # --- optional tunables (code defaults shown; uncomment to override) --
+      # PROVIDER_BASE_URL:    https://open.bigmodel.cn/api/paas/v4
+      # PROVIDER_MODEL:       glm-4-flash
+      # PROVIDER_TIMEOUT_SECONDS: 120
+      # AI_DAILY_CALL_CAP:    50          (per user per UTC day, FR-34)
+      # AI_CONTEXT_BUDGET_TOKENS: 8000
+      # AI_STREAM_TICKET_TTL_SECONDS: 60
+      # LOGIN_RATE_LIMIT_THRESHOLD: 10
+      # LOGIN_RATE_LIMIT_WINDOW_SECONDS: 60
+      # SOLID_QUEUE_POLLING_INTERVAL: 10  (seconds; NOT a keep-alive lever —
+      #     a smaller value keeps Neon awake through idle windows, AD-19)
+      # JOB_CONCURRENCY: 1
+      # RAILS_LOG_LEVEL: info
+      #
+      # Deliberately NOT set (the defaults are the pool-arithmetic contract):
+      # RAILS_MAX_THREADS / WEB_CONCURRENCY — puma.rb defaults to 3 web
+      # threads and database.yml defaults the AR pool to 5, which exactly
+      # fits web (3) + worker (1) + dispatcher (1) in one process. Setting
+      # RAILS_MAX_THREADS moves BOTH sides of that arithmetic (pool = the
+      # same value) and can strand the queue's threads without a connection
+      # — leave unset or read docs/deploy.md first. PORT comes injected from
+      # Render and puma.rb binds it; never pin it here.

@@ -1,0 +1,19 @@
+# Keeps the Render build context (./backend) small and clean — docker COPY
+# does NOT respect .gitignore, so secrets/junk must be excluded here (AD-12:
+# config is ENV-only; .env files must never ride an image).
+/.env
+/.env.*
+!/.env.example
+
+# Local state — never needed inside a production image
+/.dockerdev
+/log
+/tmp
+/coverage
+/spec/examples.txt
+/vendor/bundle
+/db/*.sqlite3*
+/db/*.sqlite3-journal
+
+# Docs that add context weight without touching the runtime
+/README.md
