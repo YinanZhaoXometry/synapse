@@ -19,7 +19,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 | 05 | [ai-server](epic-05-ai-server/epic.md) | provider adapter, AI mutations, SSE + tickets, cost cap (AD-16/5, FR-33/34) | 01, 02, 03 | ✅ |
 | 06 | [storage-r2](epic-06-storage-r2/epic.md) | ActiveStorage→R2, presign, minio (AD-13/20) | 01 | cutover blocker, parallel lane |
 | 07 | [requeue](epic-07-requeue/epic.md) | Solid Queue, FR-24 due-scan (AD-19) | 01, 03 | ❌ (not needed for cutover) |
-| 08 | [cutover](epic-08-cutover/epic.md) | Apollo 4, login wall, import, SSE client, retirement, deploy (AD-18/15/20/16-web) — **T1 apollo-swap done 2026-11-04** (Apollo 4 live on `epic/p2-8-cutover`; T2–T6 next) | 02, 03, 04, 05, 06 | ✅ — the merge point |
+| 08 | [cutover](epic-08-cutover/epic.md) | Apollo 4, login wall, import, SSE client, retirement, deploy (AD-18/15/20/16-web) — **SHIPPED 2026-11-05 — all six tickets done, merged to main** (owner-approved merge-order amendment: live-stack ACs + rollback rehearsal moved post-merge, after provisioning per deploy.md §2) | 02, 03, 04, 05, 06 | ✅ — the merge point |
 | 09 | [hubs-progress](epic-09-hubs-progress/epic.md) | Mistakes/Today/Flashcards/Quiz hubs, Analytics, Achievements, Dashboard re-point, weekly goal (FR-23/26/27/28/41/42, FR-25 P2 halves) | 07, 08 | ❌ |
 | 10 | [nodes](epic-10-nodes/epic.md) | material–node mapping, node-pinned attach, node states, roadmap graph, adaptive targeting (FR-5/6/7/21/44/45) | 08 | ❌ |
 | 11 | [square-import](epic-11-square-import/epic.md) | visibility, Square read + fork, roadmap.sh import (FR-38/39/43) | 08 | ❌ |
@@ -62,7 +62,7 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 | any time | CF Pages initial configuration (root `frontend` — Pages not yet deployed; folder renamed from `web` 2026-11-04; no re-point step) | epic-00 close-out |
 | any time | R2 bucket + access token | 06-T3 |
 | before 05-T1 | GLM provider terms verification (OQ-4 gate) | 05 |
-| during 05 | Render + Neon accounts, env values | 08-T6 |
+| any time (now post-epic-08-merge) | Render + Neon accounts, env values → provision per deploy.md §2, then live ACs + rollback rehearsal | 08 close-out (post-merge) |
 | before a graded demo | Render/Neon paid upgrade for the demo window (AD-20) | ops |
 | before real users | mail provider (unblocks password reset), Neon backups | 14 |
 

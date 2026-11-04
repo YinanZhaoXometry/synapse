@@ -47,6 +47,10 @@ Login wall up; import round-trips a real Phase-1 `synapse-db:v1` idempotently; s
 - **SURFACED: quiz double-session on the server path** — GenerateQuiz persists a session (adapter's clientUuid); the driver's createQuizSession makes a second → one orphaned ACTIVE session per server-path quiz start. Fix options recorded on ticket 05 (thread the driver's uuid through the seam, or a generate-only server op). Epic-owner decision pending; do not absorb silently.
 - **Seam-factory design:** runtime default = ServerCompanionService; vitest setup calls forceSimulatedCompanion() once (the flag lives in a dependency-free leaf, src/ai/seam-preference.ts — importing the flag from companion-service.ts in setup.ts eager-loads the AI→Apollo graph before test vi.mock factories register).
 
+## Merge-order amendment (2026-11-05, owner-approved)
+
+The original merge gate held the branch until the rollback rehearsal. Amended: **the epic merges to main FIRST**; the owner-side live steps move AFTER the merge, in this order: (1) provisioning per docs/deploy.md §2 (Neon → R2 → Render → Pages), (2) the live-stack ACs (health/login/round-trip, CORS probe, cold start), (3) the rollback rehearsal (runbook §9). Basis: merging ≠ deploying — CF Pages was never configured (no production surface exists), so nothing the rehearsal guards is exposed by the merge; every machine-verifiable gate (CI double-green 461 web / 775 backend, both code-review axes + fix pass) is already green. Local AI end-to-end additionally verified 2026-11-05 with the owner's provider key (see deploy.md §1).
+
 ## Coordination notes
 
 - **Single integration branch** — no parallel lanes inside; T4 ∥ T5 mid-branch at most. Owner-side provisioning (Render/Neon/R2 ENV) must be in hand before T6 (roadmap owner table).
