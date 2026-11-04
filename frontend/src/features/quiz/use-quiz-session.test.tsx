@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import type { MaterialSection, Question } from "@/domain/entities";
+import type { Material, MaterialSection, Question } from "@/domain/entities";
 import type { QuizSessionView } from "@/api/views";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { getCompanionService } from "@/ai/companion-service";
@@ -74,8 +74,8 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
       return { session, questions };
     },
     RecordEvidence: (variables) => {
-      const input = variables.input as Record<string, Fixture>;
-      const sessionId = input.sessionId as string;
+      const input = variables.input as Record<string, unknown>;
+      const sessionId = String(input.sessionId);
       const results = input.results as Fixture[];
       const session = state.sessions.find((s) => s.id === sessionId);
       if (session) {
@@ -112,7 +112,7 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
       return { evidence, mistakes, session };
     },
     AbandonQuizSession: (variables) => {
-      const sessionId = String((variables.input as Record<string, Fixture>).sessionId);
+      const sessionId = String((variables.input as Record<string, unknown>).sessionId);
       const session = state.sessions.find((s) => s.id === sessionId);
       if (session && session.status === "active") session.status = "abandoned";
       return { session };
@@ -133,7 +133,7 @@ function mountDriver(
       </LanguageProvider>
     );
   };
-  const rendered = renderHook(() => useQuizSession({ materials }), { wrapper });
+  const rendered = renderHook(() => useQuizSession({ materials: materials as unknown as Material[] }), { wrapper });
   return { ...rendered, state };
 }
 

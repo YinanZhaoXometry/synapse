@@ -22,6 +22,18 @@ Milestone: Phase 2 — post-deadline
 
 Login wall up; import round-trips a real Phase-1 `synapse-db:v1` idempotently; streams restart-not-reconnect with cap notice; cross-user cache isolation regression-green; every AI-adjacent web test still passes offline on the double; server-computed scores render (client never recomputes); rollback rehearsed and documented; `just spec` + CI green; two-axis review clean; every ticket cites AD ids.
 
+## Kickoff delta-review log (2026-11-04, T1 in flight)
+
+- **Import mutation home** (spec check): epic-03's set has no ImportDocument mutation — confirmed MISSING, lands in this epic per the spec (T3's job). No delta needed.
+- **AD-14 flip is bigger than transport**: plan/task/quiz display shaping computed mastery client-side (planCardMetrics, nodeRowViews, taskMasteryView, quizNodeRows all called computeNodeScore/computePlanRollup/getNodeState). T1 reworks them to render the api's masteryScore/state fields; the ADR-0001 arithmetic leaves the web runtime (the TS domain stays as the golden-vector SOURCE for the anti-drift gate only).
+- **Contract gap #1 (surfaced, not absorbed)**: the api exposes no per-session score surface → the quiz results' before→after delta and the plan-home recent-activity score render WITHOUT those numbers (server current score + counts only). Candidate fix rides epic-09's Analytics re-point or an api addition; do not re-derive client-side.
+- **Contract gap #2 (surfaced)**: deletePlan's cascade removes materials; the client sweeps materials/progress lists on delete. Flashcard/session cleanup on cascade is server-side territory — verify behavior in the smoke pass.
+- **Entry gate reshaped (transitional)**: `/` now always lands on Plans Home (the creation chat is the front door for a first-run); the onboarding wizard stays reachable at /onboarding with no flag write. Ticket 02 (login wall) + ticket 03 (import invite) own the final entry states.
+- **Settings reset semantics**: client reset = clear UI prefs + sign out (token + cache wipe). It never deletes study data (server-side account surfaces = epic-14). i18n copy updated.
+- **Materials lists carry full sections** (not summaries): the continue-reading line resolves locators against sections and quiz generation sources them — one document serves both; plan.materials stays a summary on the plan detail.
+- **Codegen output committed**: src/types/graphql.ts flipped from gitignored to committed (runtime-load-bearing documents) with a regenerate+diff freshness gate in just spec + ci.yml.
+- **Test harness**: src/test/apollo-harness.tsx — a stub-GraphQL echo server (per-operation handlers deriving payloads from variables) for the driver/evidence-loop walks; static MockedProvider mocks for surface tests.
+
 ## Coordination notes
 
 - **Single integration branch** — no parallel lanes inside; T4 ∥ T5 mid-branch at most. Owner-side provisioning (Render/Neon/R2 ENV) must be in hand before T6 (roadmap owner table).

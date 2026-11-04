@@ -79,7 +79,7 @@ export function useParseMaterialMutation(material?: MaterialView | null | undefi
           optimisticResponse: parsingPaint,
         }).catch(() => undefined); // the paint is the point; the wire rejection is corrected below
 
-        const outcome = await parseMaterialBytes(material, blob, { language });
+        const outcome = await parseMaterialBytes(row, blob, { language });
         if (!outcome) return;
         await setParseResult({
           variables: {

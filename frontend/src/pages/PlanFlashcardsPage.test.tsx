@@ -323,22 +323,19 @@ describe("Plan Home flashcards tile (T3 entry)", () => {
     expect(await screen.findByTestId("flashcards-landing")).toBeInTheDocument();
   });
 
-  it("no cards yet: the tile is the generation entry (REPORTED runtime: the cutover's summary materials gate it off)", async () => {
+  it("no cards yet: the tile opens the FlashcardLauncher (Plan Home reads FULL materials — P2 fix)", async () => {
     renderAt(
       mocksFor({ planMaterials: [materialFull("m-1", "复习讲义.md", sectionsA)], cards: [], withPlanHome: true }),
       `/plan/${PLAN_ID}`,
       "planHome",
     );
     const tile = await screen.findByRole("button", { name: new RegExp(zh("plans.quickFlashcards")) });
-    // REPORTED(runtime, not fixed here): PlanHomePage gates the generation tiles on
-    // quizableMaterials(materials), but its materials are Plan-document SUMMARIES
-    // (mapMaterialSummary carries sections: []) — the gate can never open at the
-    // cutover, so a deckless plan's tile renders gated and the click names the
-    // gate instead of opening the FlashcardLauncher dialog. The dialog-open path
-    // itself is covered above through the route's inline launcher.
-    expect(tile).toHaveAttribute("aria-disabled", "true");
+    // FIXED after the page-tests rewrite: PlanHome sources the launch path from
+    // the full materials query (summaries carry no sections, which gated the
+    // FR-18 gate shut forever). A parsed material with sections now opens the
+    // generation dialog — the deckless-plan generation entry works again.
+    expect(tile).not.toHaveAttribute("aria-disabled", "true");
     fireEvent.click(tile);
-    expect(await screen.findByText(zh("plans.needMaterial"))).toBeInTheDocument(); // the gated tile names its gate
-    expect(screen.queryByTestId("flashcards-launcher")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("flashcards-launcher")).toBeInTheDocument();
   });
 });

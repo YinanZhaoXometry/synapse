@@ -45,7 +45,8 @@ const RULES: Array<{ pattern: RegExp; reason: string }> = [
 ];
 
 describe("architecture guard (epic P2-8 T1)", () => {
-  const files = collectFiles(SRC_ROOT);
+  // the enforcer skips itself — its rule literals match their own patterns
+  const files = collectFiles(SRC_ROOT).filter((file) => !file.endsWith("architecture.guard.test.ts"));
 
   it("keeps the retired data layer retired", () => {
     const violations: string[] = [];

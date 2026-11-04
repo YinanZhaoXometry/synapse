@@ -138,8 +138,6 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
     }
   }, [driver.run?.sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (evidenceQuery.loading || (sessionParam && sessionQuery.loading)) return null;
-
   if (!context.exists) {
     return (
       <div className="p-6 md:p-8 max-w-[1080px] mx-auto">
@@ -210,6 +208,10 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
       />
     );
   }
+
+  // Below this line the render needs query truth: gate the fetch ticks here —
+  // AFTER the live-run branch, so a retake's URL flip never blanks the runner.
+  if (evidenceQuery.loading || (sessionParam && sessionQuery.loading)) return null;
 
   // A ?session that is not a live run: honest state per repository status.
   if (sessionParam) {
