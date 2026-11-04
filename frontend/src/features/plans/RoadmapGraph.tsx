@@ -43,6 +43,8 @@ import {
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.25;
+/** Breathing room kept around a focused node when panning it into view (px). */
+const FOCUS_PAN_MARGIN = 16;
 
 const clampZoom = (zoom: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 
@@ -92,6 +94,19 @@ export default function RoadmapGraph({
     return () => canvas.removeEventListener("wheel", onWheel);
   }, []);
 
+  // The roving tabindex is seeded once at mount — if the focused node ever
+  // leaves `views` while mounted (plan rows change underneath the graph), no
+  // <g> would carry tabIndex=0 and the graph would be Tab-unreachable.
+  // Reconcile: whenever the focused id is no longer in the layout, reseed it
+  // to the first node (review finding 4).
+  useEffect(() => {
+    setFocusedId((current) =>
+      current !== null && layout.boxes[current]
+        ? current
+        : (layout.columns[0]?.nodeIds[0] ?? null),
+    );
+  }, [layout]);
+
   // The column/row grid for arrow traversal: (column, row) → box.
   const grid = useMemo(() => {
     const map = new Map<string, RoadmapBox>();
@@ -118,10 +133,40 @@ export default function RoadmapGraph({
     }
   };
 
+  // Keyboard focus must never land on a clipped, invisible node: the canvas
+  // is `overflow-hidden`, so arrowing past the visible rows would park focus
+  // where nothing paints. Pan just enough to bring the focused box fully
+  // into the measured viewport (transform space: screen = pan + layout·zoom,
+  // transformOrigin 0 0). The smooth transition is the CSS class already
+  // gated on data-motion, so reduced-motion pans instantly (review finding 2).
+  const ensureBoxVisible = (box: RoadmapBox) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const viewW = canvas.clientWidth;
+    const viewH = canvas.clientHeight;
+    if (viewW <= 0 || viewH <= 0) return; // unmeasured (hidden canvas / jsdom) — nothing to compute against
+    const left = pan.x + box.x * zoom;
+    const top = pan.y + box.y * zoom;
+    const right = left + ROADMAP_NODE_W * zoom;
+    const bottom = top + ROADMAP_NODE_H * zoom;
+    const dx = left < FOCUS_PAN_MARGIN
+      ? FOCUS_PAN_MARGIN - left
+      : right > viewW - FOCUS_PAN_MARGIN
+        ? viewW - FOCUS_PAN_MARGIN - right
+        : 0;
+    const dy = top < FOCUS_PAN_MARGIN
+      ? FOCUS_PAN_MARGIN - top
+      : bottom > viewH - FOCUS_PAN_MARGIN
+        ? viewH - FOCUS_PAN_MARGIN - bottom
+        : 0;
+    if (dx !== 0 || dy !== 0) setPan({ x: pan.x + dx, y: pan.y + dy });
+  };
+
   const focusNode = (box: RoadmapBox) => {
     setFocusedId(box.id);
     const el = nodeRefs.current.get(box.id);
     if (el && typeof el.focus === "function") el.focus();
+    ensureBoxVisible(box);
   };
 
   const onNodeKeyDown = (event: React.KeyboardEvent, box: RoadmapBox) => {
@@ -177,7 +222,7 @@ export default function RoadmapGraph({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="relative h-[440px] overflow-hidden rounded-2xl border border-border-soft bg-card shadow-raised cursor-grab active:cursor-grabbing"
+        className="relative h-[440px] overflow-hidden rounded-2xl border border-border-soft bg-card shadow-raised cursor-grab active:cursor-grabbing select-none"
       >
         <div
           data-testid="roadmap-viewport"
@@ -292,7 +337,15 @@ export default function RoadmapGraph({
           </svg>
         </div>
 
-        <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5">
+        {/* The toolbar floats INSIDE the pan-capturing canvas — without
+            stopping the pointerdown here, the canvas grabs pointer capture and
+            real-Chromium retargets the pointerup to the canvas, so the
+            buttons' onClick never fires (and a press-drag on a button pans).
+            Mirrors the node <g>'s stopPropagation (review finding 1). */}
+        <div
+          className="absolute top-2.5 right-2.5 flex flex-col gap-1.5"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
           <button
             type="button"
             data-testid="roadmap-zoom-in"
