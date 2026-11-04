@@ -8,9 +8,11 @@
 # (the map command skips it) and a confirmed mapping is never overwritten by
 # a re-run (the map command leaves it alone).
 #
-# `node` is null on proposals (the gap named by proposed_node_title, or the
-# truly-orphan Unmapped row carrying neither) and set on confirm — either the
-# mapped existing node or the ONE real node created per proposed-title group.
+# `node` is set whenever the row targets a node — proposals pointing at an
+# existing node carry it, rejection preserves it, and confirm assigns/keeps
+# it (either the mapped existing node or the ONE real node created per
+# proposed-title group); null only for the gap rows named by
+# proposed_node_title and the truly-orphan Unmapped rows carrying neither.
 class MaterialNodeMapping < ApplicationRecord
   belongs_to :user
   belongs_to :material

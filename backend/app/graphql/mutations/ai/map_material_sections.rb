@@ -1,16 +1,18 @@
 # frozen_string_literal: true
 
 module Mutations
-  module Materials
-    # materialsMapSections (FR-45, epic P2-10 T1; delta decisions 3+4): run
+  module Ai
+    # mapMaterialSections (FR-45, epic P2-10 T1; delta decisions 3+4): run
     # the AI mapping for one parsed, plan-attached material — thin per
     # AD-12: parse → authorize (current_user!) → command → map. The command
     # owns the whole contract (the AD-16 cap-counted provider call, the
     # coverage guarantee — every section lands proposed/confirmed/rejected —
     # and the never-overwrite/never-re-propose state machine). The payload
     # returns the material's mapping rows in section order; the coverage
-    # panel refetches through the materialNodeMappings read anyway.
-    class MapSections < BaseMutation
+    # panel refetches through the materialNodeMappings read anyway. Lives in
+    # the Ai namespace with its sibling AI mutations — it is the one AI
+    # command of the mapping surface.
+    class MapMaterialSections < BaseMutation
       description "Run AI section→node mapping for one parsed, plan-attached material (FR-45, epic P2-10 T1): every section lands in exactly one state — proposed onto an existing node, proposed under a new node title for a coverage gap, or the explicit Unmapped row. Confirmed rows are never overwritten; rejected sections are never re-proposed. One AI call per run (the daily cap counts it)."
 
       argument :material_id, String,

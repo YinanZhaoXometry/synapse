@@ -85,6 +85,31 @@ RSpec.describe Materials::ConfirmMappingProposalsCommand do
     expect(node_orders).to eq([ 1, 2 ])
   end
 
+  it "keeps same-title groups inside their own plan — a cross-plan batch never crosses plans" do
+    other_plan = create(:study_plan, user: user, topic: "Compiler design")
+    other_material = create(:material, user: user, plan: other_plan, sections: [
+      { "id" => "o-sec-1", "title" => "Parsing", "text" => "recursive descent" }
+    ])
+    other_gap = create(:material_node_mapping, user: user, material: other_material, section_id: "o-sec-1",
+                                               proposed_node_title: "Failure detection")
+
+    result = call([ gap_a.id, other_gap.id ])
+    expect(result).to be_success
+
+    # Same proposed title on two plans → TWO nodes, one per plan — never one
+    # collapsed group pinned to whichever row came first.
+    nodes = KnowledgeNode.where(title: "Failure detection")
+    expect(nodes.count).to eq(2)
+    plan_node = nodes.find_by(plan_id: plan.id)
+    other_node = nodes.find_by(plan_id: other_plan.id)
+    expect(plan_node).to be_present
+    expect(other_node).to be_present
+
+    rows = result.value![:mappings].index_by(&:id)
+    expect(rows[gap_a.id].reload.node_id).to eq(plan_node.id)      # plan A's row stays in plan A
+    expect(rows[other_gap.id].reload.node_id).to eq(other_node.id) # plan B's row stays in plan B
+  end
+
   it "returns decided rows unchanged (confirmed stays confirmed, rejected stays rejected)" do
     rejected = create(:material_node_mapping, :rejected, user: user, material: material, section_id: "sec-4",
                                                          proposed_node_title: "Was rejected once")

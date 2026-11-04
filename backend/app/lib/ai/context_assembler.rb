@@ -56,16 +56,31 @@ module Ai
       end
 
       # The mapping surface (FR-45, epic P2-10 T1): a plan's full node list +
-      # ONE attached material's sections. The full section index ALWAYS rides
-      # whole after the bounded section texts — every section id must be
-      # addressable even when its text hit the budget, because the coverage
-      # contract demands an answer for every section. The body assembles
-      # against a reduced budget so the index's own tokens are reserved
-      # (the assembled estimate never exceeds the budget, as everywhere).
+      # ONE attached material's sections. The section index is the
+      # addressability backbone — every section id must stay answerable — so
+      # its tokens are reserved FIRST and the body (nodes + bounded section
+      # texts) assembles against what remains; the joining newline is a
+      # token too (the estimate's ceil boundary). The assembled estimate
+      # never exceeds the budget, as everywhere: when the index alone
+      # exceeds the budget it is hard-truncated into it (marker + flag, the
+      # honest cut) and the body rides out entirely — a body after an
+      # over-budget index would overflow. When the index fits but leaves no
+      # room for any body, the index rides alone and the dropped body marks
+      # the assembly partial.
       def mapping_scope(plan, material, budget: default_budget)
         index = section_index_block(material)
         index_tokens = estimate_tokens(index)
-        body_budget = [ budget - index_tokens, 1 ].max
+
+        if index_tokens > budget
+          cut, = hard_truncate(index, budget)
+          return Assembled.new(text: cut, truncated: true)
+        end
+
+        body_budget = budget - index_tokens - (index_tokens.positive? ? 1 : 0)
+        if body_budget <= 0
+          return Assembled.new(text: index.strip, truncated: true)
+        end
+
         body = assemble_scope(nodes_block(plan.knowledge_nodes.order(:order, :id)),
                               Material.where(id: material.id), body_budget)
         text = index_tokens.positive? ? [ body.text, index.strip ].reject(&:empty?).join("\n") : body.text

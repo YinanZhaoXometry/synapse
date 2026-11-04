@@ -1,11 +1,14 @@
 import { MockedProvider } from "@apollo/client/testing/react";
+import type { MockedResponse } from "@apollo/client/testing";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
+import { usePlanNodesQuery } from "@/api";
 import {
   ConfirmMappingProposalsDocument,
   MaterialNodeMappingsDocument,
+  PlanDocument,
   RejectMappingProposalsDocument,
 } from "@/types/graphql";
 import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView } from "@/api/views";
@@ -17,8 +20,11 @@ import { coverageGroups } from "./coverage-grouping";
  * render seam, PlansHomePage.test.tsx precedent): the four collapsible
  * groups render from fixture views with every row in exactly ONE group
  * (nothing silently dropped), bulk confirm/reject ride the mapping
- * mutations with the group's row ids, and the mapping namespace exists in
- * BOTH dictionary languages (independent source, never recomputed).
+ * mutations with the group's row ids, the confirm sweep reaches the PLAN
+ * read so a confirmed group's new node renders by title (never a raw uuid),
+ * a failed coverage read renders a distinct failure state (never the
+ * affirmative empty state), and the mapping namespace exists in BOTH
+ * dictionary languages (independent source, never recomputed).
  */
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
@@ -91,7 +97,7 @@ const rejectMock = {
   result: { data: { rejectMappingProposals: { mappings: ROWS.filter((r) => r.id === "r-2" || r.id === "r-3").map(wire) } } },
 };
 
-function mount(mocks = [mappingsMock, confirmMock, rejectMock, refetchMock]) {
+function mount(mocks: MockedResponse[] = [mappingsMock, confirmMock, rejectMock, refetchMock]) {
   return render(
     <MockedProvider mocks={mocks}>
       <LanguageProvider>
@@ -157,6 +163,89 @@ describe("MaterialCoveragePanel", () => {
     ]);
     await waitFor(() => expect(screen.getByText(zhDict["mapping.noMappings"])).toBeInTheDocument());
     expect(screen.getByText(zhDict["mapping.mapAction"])).toBeInTheDocument();
+  });
+
+  it("renders a distinct failure state with retry when the mappings read errors — never the empty state", async () => {
+    mount([
+      { request: { query: MaterialNodeMappingsDocument, variables: { materialId: "m-1" } }, error: new Error("network down") },
+      // The retry consumes this follow-up read.
+      { request: { query: MaterialNodeMappingsDocument, variables: { materialId: "m-1" } }, result: { data: { materialNodeMappings: wiredRows() } } },
+    ]);
+    await waitFor(() => expect(screen.getByText(zhDict["mapping.loadFailed"])).toBeInTheDocument());
+    expect(screen.queryByText(zhDict["mapping.noMappings"])).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(zhDict["mapping.retryLoad"]));
+    await waitFor(() => expect(screen.getByText("Raft")).toBeInTheDocument());
+    expect(screen.queryByText(zhDict["mapping.loadFailed"])).not.toBeInTheDocument();
+  });
+
+  it("resolves a confirmed group's NEW node to its title — confirm sweeps the plan read, no uuid fallback", async () => {
+    // Production wiring under test: the panel's nodes prop rides the plan
+    // read (usePlanNodesQuery → PlanDocument); confirm must refetch that
+    // document or the created node never enters the plan cache and the
+    // mapped row shows its raw uuid until remount.
+    const wireNode = (id: string, title: string, order: number) => ({
+      __typename: "KnowledgeNode",
+      id,
+      planId: "plan-1",
+      taskId: null,
+      stage: null,
+      title,
+      order,
+      masteryScore: "0",
+      state: "uncovered",
+      createdAt: "2026-11-05T00:00:00Z",
+    });
+    const planData = (nodes: unknown[]) => ({
+      __typename: "Query",
+      plan: {
+        __typename: "StudyPlan",
+        id: "plan-1",
+        topic: "Distributed systems",
+        goal: null,
+        createdAt: "2026-11-05T00:00:00Z",
+        masteryScore: "0",
+        visibility: "private",
+        nodes,
+        materials: [],
+      },
+    });
+    const proposedOnly: MaterialNodeMappingView[] = [row({ id: "r-2", sectionId: "sec-2", proposedNodeTitle: "Failure detection" })];
+    const confirmedOntoNewNode: MaterialNodeMappingView[] = [row({ id: "r-2", sectionId: "sec-2", status: "confirmed", nodeId: "node-9" })];
+
+    function PlanFedPanel() {
+      const planNodes = usePlanNodesQuery("plan-1").data;
+      return <MaterialCoveragePanel material={MATERIAL} nodes={planNodes ?? []} />;
+    }
+
+    render(
+      <MockedProvider
+        mocks={[
+          { request: { query: PlanDocument, variables: { id: "plan-1" } }, result: { data: planData([]) } },
+          { request: { query: MaterialNodeMappingsDocument, variables: { materialId: "m-1" } }, result: { data: { materialNodeMappings: proposedOnly.map(wire) } } },
+          { request: { query: ConfirmMappingProposalsDocument, variables: { input: { mappingIds: ["r-2"] } } }, result: { data: { confirmMappingProposals: { mappings: confirmedOntoNewNode.map(wire) } } } },
+          { request: { query: MaterialNodeMappingsDocument, variables: { materialId: "m-1" } }, result: { data: { materialNodeMappings: confirmedOntoNewNode.map(wire) } } },
+          // The confirm mutation's refetchQueries sweep — WITHOUT this the
+          // node-9 title never arrives and the mapped row shows the uuid.
+          { request: { query: PlanDocument, variables: { id: "plan-1" } }, result: { data: planData([wireNode("node-9", "Failure detection", 1)]) } },
+        ]}
+      >
+        <LanguageProvider>
+          <PlanFedPanel />
+        </LanguageProvider>
+      </MockedProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Chains")).toBeInTheDocument());
+    fireEvent.click(screen.getAllByText(zhDict["mapping.confirmGroup"])[0]);
+    // Gate on the confirm having landed: the proposed group (and its verdict
+    // button) is gone once the row flipped to confirmed.
+    await waitFor(() => expect(screen.queryByText(zhDict["mapping.confirmGroup"])).not.toBeInTheDocument());
+    await waitFor(() => {
+      // Settled state: the mapped row names the node TITLE (the plan sweep
+      // landed) and the raw uuid never renders.
+      expect(screen.getAllByText("Failure detection").length).toBeGreaterThan(0);
+      expect(screen.queryByText("node-9")).not.toBeInTheDocument();
+    });
   });
 });
 

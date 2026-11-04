@@ -22,8 +22,9 @@ module Types
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult
 
     # The material↔node mapping surface (FR-45, epic P2-10 T1; delta
-    # decisions 3+4): the AI map run + the user's confirm/reject verdicts.
-    field :materials_map_sections, mutation: Mutations::Materials::MapSections
+    # decisions 3+4): the AI map run (the mutation class lives with its AI
+    # siblings under Mutations::Ai) + the user's confirm/reject verdicts.
+    field :map_material_sections, mutation: Mutations::Ai::MapMaterialSections
     field :confirm_mapping_proposals, mutation: Mutations::Materials::ConfirmMappingProposals
     field :reject_mapping_proposals, mutation: Mutations::Materials::RejectMappingProposals
 
