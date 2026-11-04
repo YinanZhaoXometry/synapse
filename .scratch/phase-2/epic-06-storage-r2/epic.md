@@ -1,6 +1,6 @@
 # Epic 6 (Phase 2) — File storage: ActiveStorage → R2, presigned URLs, minio parity
 
-Status: ready-for-agent (spec + tickets 2026-11-03; gate: epic-01 done; owner ticket 3 open from now)
+Status: ready-for-agent → code complete 2026-11-04 (tickets 01+02 done, integrated on epic/p2-6-storage; ticket 03 stays ready-for-human — owner-side, pre-cutover)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
@@ -12,7 +12,7 @@ Milestone: Phase 2 — post-deadline
 | # | Ticket | Blocked by | Delivers |
 | --- | --- | --- | --- |
 | 1 | [01-activestorage-minio-r2.md](issues/01-activestorage-minio-r2.md) | — | ActiveStorage dual-env config (minio dev / R2 prod), compose minio service, `R2_*` ENV |
-| 2 | [02-presign-urls.md](issues/02-presign-urls.md) | 1 | `createMaterialUpload` presigned PUT + presigned GET field, route scope guard |
+| 2 | [02-presign-urls.md](issues/02-presign-urls.md) | 1 | `createMaterialUpload` presigned PUT + presigned GET field, route scope guard — **done 2026-11-04** (607/607; see its Comments for the uuid-tables correction) |
 | 3 | [03-owner-r2-provisioning.md](issues/03-owner-r2-provisioning.md) | — (parallel, human-side) | R2 bucket + token + CORS rule + ENV handoff |
 
 ## Definition of done
@@ -35,3 +35,16 @@ Upload→download round-trips via minio in compose through GraphQL only · no di
 6. **TTLs:** PUT presign 15 minutes; GET presign 5 minutes (short-lived per AD-13). Values in config constants, not literals.
 7. **T03 (owner-side):** mark `ready-for-human` (already is), skip implementation tonight; the epic's DoD is satisfied by T01+T02 with minio; R2 provisioning remains the owner's pre-cutover item (documented in the owner to-do list).
 8. **`just up` shape:** `up` waits for the api health query as today — minio health is compose-internal; the spec recipe gains nothing (minio not needed for DB-backed rspec — the storage spike/round-trip specs DO need minio, so rspec runs gain `--deps` for the minio service? NO: gate runs use `run` (no --no-deps) which starts ALL services including minio — already the case; verify spike specs pass in the gate form).
+
+## Close-out note (2026-11-04, code complete)
+
+DoD assessment against tickets 01+02 (per kickoff choice 7, ticket 3 remains owner-side):
+
+- **Upload→download round-trips via minio through GraphQL only** — `spec/integration/storage_round_trip_spec.rb`: presign mutation → real PUT → `downloadUrl` serves bytes byte-identical; expiry honored both directions (1s seam + real lapse → 403 Request has expired).
+- **No direct-uploads route** — `draw_routes = false` + `spec/routes/active_storage_route_guard_spec.rb` (ticket 01) re-asserted alongside the flow (request spec, ticket 02).
+- **Cross-user URLs unusable** — ownership-checked scoping with uniform NOT_FOUND pinned at command, wire, and read-field levels; foreign reads never mint anything.
+- **Prod config documented for ticket-08 deploy** — storage.yml `:r2` shape + the four `R2_*` vars in `.env.example` (ticket 01 Comments carry the exact ENV contract).
+- **rubocop+rspec green** — 239 files clean; 607/607 (baseline was 568 at epic-04 close).
+- **AD-13/AD-20 citations** — every artifact carries them.
+
+Follow-ups consumed downstream, not here: the web-side upload re-point + first-login re-attach are epic-08's two presign-flow consumers (coordination note); the Apollo cutover (AD-18) consumes the regenerated codegen types. Discovery worth keeping: `db:migrate` on an empty database loads schema.rb instead of running migrations — a same-version migration content change is invisible until schema.rb is regenerated (recorded in ticket 02's Comments; bit the test DB mid-epic).
