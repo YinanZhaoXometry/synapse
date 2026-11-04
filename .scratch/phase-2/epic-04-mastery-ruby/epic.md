@@ -1,6 +1,6 @@
 # Epic 4 (Phase 2) — Mastery moves home: golden vectors, the Ruby port, server scores
 
-Status: ready-for-agent (spec + tickets 2026-11-03; gate: epic-01 done — ticket 1 needs only epic-00)
+Status: done (2026-11-04 — branch epic/p2-4-mastery @ efde453, two-axis review 2P1/6P2 all fixed, 568/568 rspec + 421 web tests, CI green, merged to main same day)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
