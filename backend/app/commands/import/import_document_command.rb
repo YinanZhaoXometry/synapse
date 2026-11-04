@@ -2,9 +2,9 @@
 
 module Import
   # The first-login document import (epic P2-8 ticket 03; AD-15): the whole
-  # Phase-1 document (synapse-db:v1) arrives as ONE mutation and lands in
-  # ONE transaction — the api command's home per the kickoff delta-review
-  # (the mutation was missing from epic-03's set; it lands here).
+  # Phase-1 document arrives as ONE mutation and lands in ONE transaction —
+  # the api command's home per the kickoff delta-review (the mutation was
+  # missing from epic-03's set; it lands here).
   #
   # Idempotency is the delta-3 triad generalized to a whole document:
   #   · same-user replay with the same client uuids → the owned rows are

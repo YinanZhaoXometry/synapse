@@ -692,7 +692,7 @@ type DeletePlanPayload {
 }
 
 """
-A whole Phase-1 local document (synapse-db:v1) being carried to the api — the first-login import's payload.
+A whole Phase-1 local document being carried to the api — the first-login import's payload.
 """
 input DocumentInput {
   """
@@ -2017,12 +2017,12 @@ type Mutation {
   ): GradeOpenAnswerPayload
 
   """
-  Carry a whole Phase-1 local document (synapse-db:v1) to the api in one
-  idempotent mutation — the first-login import (AD-15). Every row is keyed by
-  its client uuid (AD-12): a same-user replay skips owned rows (a mixed replay
-  merges — retry safe); a uuid owned by ANOTHER user fails VALIDATION_FAILED and
-  nothing is written (whole-document atomicity, FR-4). Materials arrive WITHOUT
-  bytes — the re-attach invite restores them afterward.
+  Carry a whole Phase-1 local document to the api in one idempotent mutation —
+  the first-login import (AD-15). Every row is keyed by its client uuid (AD-12):
+  a same-user replay skips owned rows (a mixed replay merges — retry safe); a
+  uuid owned by ANOTHER user fails VALIDATION_FAILED and nothing is written
+  (whole-document atomicity, FR-4). Materials arrive WITHOUT bytes — the
+  re-attach invite restores them afterward.
   """
   importDocument(
     """

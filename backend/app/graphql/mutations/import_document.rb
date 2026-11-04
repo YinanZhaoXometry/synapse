@@ -10,7 +10,7 @@ module Mutations
   # ErrorPresenter. Materials arrive byteless — the re-attach invite (the
   # epic-06 presign flow) restores them, matched by id.
   class ImportDocument < BaseMutation
-    description "Carry a whole Phase-1 local document (synapse-db:v1) to the api in one idempotent mutation — the first-login import (AD-15). Every row is keyed by its client uuid (AD-12): a same-user replay skips owned rows (a mixed replay merges — retry safe); a uuid owned by ANOTHER user fails VALIDATION_FAILED and nothing is written (whole-document atomicity, FR-4). Materials arrive WITHOUT bytes — the re-attach invite restores them afterward."
+    description "Carry a whole Phase-1 local document to the api in one idempotent mutation — the first-login import (AD-15). Every row is keyed by its client uuid (AD-12): a same-user replay skips owned rows (a mixed replay merges — retry safe); a uuid owned by ANOTHER user fails VALIDATION_FAILED and nothing is written (whole-document atomicity, FR-4). Materials arrive WITHOUT bytes — the re-attach invite restores them afterward."
 
     argument :document, Types::DocumentInput,
              required: true,

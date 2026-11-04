@@ -3,13 +3,13 @@
 module Types
   # The whole Phase-1 document as one value (epic P2-8 ticket 03; AD-4/AD-15
   # — the document's shape is the contract, read verbatim, never
-  # transformed): the synapse-db:v1 snapshot's keys, one collection per
+  # transformed): the snapshot's keys, one per collection, one collection per
   # entity, materials byteless (the re-attach invite restores them). The
   # import is idempotent per row on the client uuids; version and
   # onboardingComplete ride along for contract fidelity — the api has no
   # server-side state for them yet (entry-gate flags stayed client-side).
   class DocumentInput < Types::BaseInputObject
-    description "A whole Phase-1 local document (synapse-db:v1) being carried to the api — the first-login import's payload."
+    description "A whole Phase-1 local document being carried to the api — the first-login import's payload."
 
     argument :version, Int,
              required: false,
