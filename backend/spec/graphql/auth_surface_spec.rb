@@ -7,18 +7,20 @@ require "rails_helper"
 # ticket 01 legitimately grew MutationType with the four Plans mutations,
 # ticket 02 with the three Tasks/Materials mutations, ticket 03 with the
 # five Quiz/Flashcards mutations, and ticket 04 with the four Chat/Progress/
-# Markings mutations (byte-level idempotence against the committed
-# schema.graphql stays pinned by spec/graphql/schema_dump_spec.rb; this spec
-# pins the surface shape itself).
+# Markings mutations; epic P2-6 ticket 02 with the one Storage presign
+# mutation (byte-level idempotence against the committed schema.graphql
+# stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
+# surface shape itself).
 RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
-  it "exposes exactly the auth mutations plus the epic-03 domain mutations" do
+  it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign mutation" do
     expect(Types::MutationType.fields.keys).to contain_exactly(
       "register", "login",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan",
       "createTask", "attachMaterial", "setMaterialParseResult",
       "createQuizSession", "recordEvidence", "abandonQuizSession",
       "createFlashcards", "rateFlashcard",
-      "appendChatMessage", "saveReadingProgress", "claimSection", "unclaimSection"
+      "appendChatMessage", "saveReadingProgress", "claimSection", "unclaimSection",
+      "createMaterialUpload"
     )
   end
 

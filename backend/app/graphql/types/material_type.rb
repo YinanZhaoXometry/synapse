@@ -5,10 +5,12 @@ module Types
   # bounded extracted sections — the Phase-1 TS Material shape
   # (frontend/src/domain/entities.ts), verbatim where the wire is concerned.
   # NO bytes fields, ever: parsing stays client-side (AD-7), extracted text
-  # lives in Postgres (AD-13), and file bytes are epic-06's
-  # ActiveStorage/R2 story — this surface is text-only by design.
+  # lives in Postgres (AD-13), and file bytes never pass through the api.
+  # The one byte-ADJACENT field (epic P2-6 ticket 02) is downloadUrl — an
+  # address, not a body: a short-lived presigned GET pointing at the storage
+  # provider (R2/minio), minted per request and never persisted.
   class MaterialType < Types::BaseObject
-    description "A user-attached document: metadata, parse state, and extracted sections (AD-7 — file bytes are never on this surface)."
+    description "A user-attached document: metadata, parse state, and extracted sections (AD-7 — file bytes never pass through the api; downloadUrl is an address, not a body)."
 
     field :id, String,
           null: false,
@@ -49,5 +51,16 @@ module Types
     field :created_at, Types::DateTime,
           null: false,
           description: "When the material was attached."
+
+    field :download_url, String,
+          null: true,
+          description: "A short-lived presigned GET for the original document's bytes (AD-13, epic P2-6 ticket 02): minted per request against the storage provider (R2/minio — never the api), 5-minute TTL, never persisted. Null until createMaterialUpload has attached the blob; fetched before the browser's PUT has landed, the URL refuses with the provider's 403. Only reachable through the owner's scoped reads — no cross-user path ever mints one."
+
+    def download_url
+      attachment = object.original
+      return unless attachment.attached?
+
+      Storage.presigned_get_url(attachment.blob.key)
+    end
   end
 end

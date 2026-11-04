@@ -6,8 +6,8 @@ module Types
   # schema movement; the Plans operations with epic P2-3 ticket 01; the
   # Tasks/Materials operations with ticket 02; the quiz/evidence/flashcard
   # operations with ticket 03; the chat/progress/marking operations with
-  # ticket 04. No logout mutation by design (client-side token discard —
-  # epic-08).
+  # ticket 04; the presigned direct-upload operation with epic P2-6 ticket
+  # 02. No logout mutation by design (client-side token discard — epic-08).
   class MutationType < Types::BaseObject
     field :register, mutation: Mutations::Register
     field :login, mutation: Mutations::Login
@@ -32,5 +32,7 @@ module Types
     field :save_reading_progress, mutation: Mutations::Progress::SaveReadingProgress
     field :claim_section, mutation: Mutations::Markings::ClaimSection
     field :unclaim_section, mutation: Mutations::Markings::UnclaimSection
+
+    field :create_material_upload, mutation: Mutations::Storage::CreateMaterialUpload
   end
 end
