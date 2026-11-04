@@ -39,4 +39,9 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Object storage (AD-13, epic P2-6 ticket 01): same shape as dev — the
+  # compose minio service (backend/config/storage.yml holds both shapes); the
+  # presign spike spec round-trips against it.
+  config.active_storage.service = :minio
 end
