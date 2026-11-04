@@ -14,10 +14,12 @@ import {
 import type { ReadingProgress } from "@/domain/entities";
 import type { StudyPlanView, StudyTaskView } from "@/api/views";
 import { taskContinueTarget, tasksNewestFirst } from "@/features/tasks";
+import { shouldOfferImport } from "@/lib/import-offer";
 import { latestReading, mostRecentPlan, planCardMetrics, type LatestReadingView } from "./display-shaping";
 import { localeTag } from "./locale";
 import { MasteryRing, StateMiniBar } from "./atoms";
 import CreationChat from "./CreationChat";
+import ImportOfferDialog from "./ImportOfferDialog";
 
 /**
  * Plans Home (AD-8; FR-1; Q3/Q5) — the front door. Empty state: the creation
@@ -48,6 +50,9 @@ export default function PlansHomePage() {
 
   return (
     <div className="p-6 md:p-8 max-w-[984px] mx-auto">
+      {/* The first-login import offer (epic P2-8 T3, AD-15): one-time, only
+          when the legacy document holds data and the offer is unspent. */}
+      {shouldOfferImport() && <ImportOfferDialog />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">{t("plans.eyebrow")}</p>

@@ -1,0 +1,11 @@
+# Import operation (epic P2-8 T3, AD-15) — the first-login carry-over: the
+# whole Phase-1 document as ONE idempotent mutation; the
+# client uuids travel verbatim (AD-12), materials arrive byteless (the
+# re-attach invite restores them via createMaterialUpload).
+
+mutation ImportDocument($input: ImportDocumentInput!) {
+  importDocument(input: $input) {
+    imported
+    skipped
+  }
+}

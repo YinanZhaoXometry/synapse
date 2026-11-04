@@ -25,5 +25,6 @@ export type { PlanDetail } from "./queries/plan-queries";
 export * from "./queries/auth-queries";
 export * from "./queries/plan-queries";
 export * from "./queries/material-queries";
+export * from "./queries/import-queries";
 export * from "./queries/study-queries";
 export * from "./queries/quiz-queries";
