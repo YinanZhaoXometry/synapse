@@ -15,13 +15,28 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+// Non-React mirror (epic P2-8 T5): the AI server adapter (src/ai/
+// companion-service-server.ts) generates quiz/flashcards in the UI's language
+// but is not a component, so it cannot mount the hook. The provider keeps the
+// mirror current (init + setLanguage); zh is the same fallback the provider
+// initializes with, and the key is lazy-written so storage alone would lie.
+let uiLanguageMirror: Language = "zh";
+
+/** The UI's current language for non-React readers (the AI server adapter). */
+export function currentUiLanguage(): Language {
+  return uiLanguageMirror;
+}
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem("synapse-lang");
-    return (saved === "en" || saved === "zh") ? saved : "zh";
+    const resolved = (saved === "en" || saved === "zh") ? saved : "zh";
+    uiLanguageMirror = resolved;
+    return resolved;
   });
 
   const setLanguage = useCallback((lang: Language) => {
+    uiLanguageMirror = lang;
     setLang(lang);
     localStorage.setItem("synapse-lang", lang);
   }, []);

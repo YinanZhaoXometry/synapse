@@ -1,0 +1,43 @@
+# The server-side AI generation + grading mutations (epic P2-8 T5, FR-33):
+# the CompanionService seam's mutation half — streams ride /api/stream (T4's
+# createStreamTicket), these three ride the Apollo seam. Consumed verbatim
+# from backend/schema.graphql: generateQuiz generates SERVER-SIDE from the
+# plan/task scope (the wire carries no sections) and persists the session in
+# the same command — the clientUuid is the replay key (delta 3: a same-user
+# replay returns the existing session without a provider call);
+# generateFlashcards is per-material (one card per usable section);
+# gradeOpenAnswer grades by questionId — the server owns the keywords and the
+# cited source section, so grading inputs never ride the wire.
+mutation GenerateQuiz($input: GenerateQuizInput!) {
+  generateQuiz(input: $input) {
+    questions {
+      ...QuestionParts
+    }
+  }
+}
+
+mutation GenerateFlashcards($input: GenerateFlashcardsInput!) {
+  generateFlashcards(input: $input) {
+    cards {
+      front
+      back
+    }
+  }
+}
+
+mutation GradeOpenAnswer($input: GradeOpenAnswerInput!) {
+  gradeOpenAnswer(input: $input) {
+    gradedAnswer {
+      outcome
+      rationale
+      citation {
+        locator {
+          kind
+          page
+          sectionId
+        }
+        quote
+      }
+    }
+  }
+}

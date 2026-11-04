@@ -20,6 +20,19 @@ import { useCreationChat } from "./use-creation-chat";
 
 const STREAM_DISPLAY_CAP = 900;
 
+/**
+ * The four named goals (T5 · A3/FR-1 note): the selection feeds the proposal
+ * stream's goal param and, through the same lastInput.goal as free text, the
+ * createPlan input. The canonical value crosses the wire (stable across the
+ * UI language); the free-text goal input stays the optional override.
+ */
+const GOALS = [
+  { value: "exam-prep", labelKey: "plans.goalExam" },
+  { value: "deep-understanding", labelKey: "plans.goalDeep" },
+  { value: "revision", labelKey: "plans.goalRevision" },
+  { value: "daily-practice", labelKey: "plans.goalDaily" },
+] as const;
+
 export default function CreationChat() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
@@ -28,18 +41,29 @@ export default function CreationChat() {
 
   const [topicDraft, setTopicDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
+  // The named goal selection (null = none); a typed goal overrides it.
+  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
   // Renames are keyed by the node's proposal-wide order index (proposalNodeKey),
   // never by title — duplicate titles in one draft must rename independently.
   const [renames, setRenames] = useState<Record<string, string>>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
 
+  /** A named goal renders in the UI language; a free-text goal renders as typed. */
+  const goalDisplay = (goal: string | null | undefined) => {
+    if (!goal) return null;
+    const named = GOALS.find((g) => g.value === goal);
+    return named ? t(named.labelKey) : goal;
+  };
+
   const submit = () => {
     const topic = topicDraft.trim();
     if (!topic || chat.phase === "streaming") return;
-    chat.send(topic, goalDraft.trim() || null);
+    // free text wins over the chip — the input stays the honest override
+    chat.send(topic, goalDraft.trim() || selectedGoal);
     setTopicDraft("");
     setGoalDraft("");
+    setSelectedGoal(null);
     setRenames({});
   };
 
@@ -109,7 +133,7 @@ export default function CreationChat() {
               )}
             >
               <span className="whitespace-pre-wrap">{m.text}</span>
-              {m.goal && <span className="block text-[11px] opacity-80 mt-1">{t("plans.goalLabel")}{m.goal}</span>}
+              {m.goal && <span className="block text-[11px] opacity-80 mt-1">{t("plans.goalLabel")}{goalDisplay(m.goal)}</span>}
             </div>
           ))}
 
@@ -198,6 +222,28 @@ export default function CreationChat() {
             {t("plans.send")}
           </Button>
         </div>
+        {chat.phase === "idle" && (
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("plans.goalPickerLabel")}>
+            {GOALS.map((goal) => (
+              <button
+                key={goal.value}
+                type="button"
+                role="radio"
+                aria-checked={selectedGoal === goal.value}
+                data-testid={`creation-goal-${goal.value}`}
+                onClick={() => setSelectedGoal((current) => (current === goal.value ? null : goal.value))}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer",
+                  selectedGoal === goal.value
+                    ? "border-[color:var(--accent-edge)] bg-[var(--accent-tint)] text-accent-ink"
+                    : "border-border-soft text-muted-foreground hover:bg-[var(--glass-2)]",
+                )}
+              >
+                {t(goal.labelKey)}
+              </button>
+            ))}
+          </div>
+        )}
         <Input
           value={goalDraft}
           onChange={(e) => setGoalDraft(e.target.value)}

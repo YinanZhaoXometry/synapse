@@ -37,10 +37,12 @@ export function useCreationChat(language: UiLanguage) {
       setProposal(null);
       buf.current = "";
       void getCompanionService()
+        // The goal rides the proposal stream (T5 · A3/FR-1): a named selection
+        // or the free-text override — a generation input either way.
         .generatePlanStructure(topic, language, (chunk) => {
           buf.current += chunk;
           setStreamText(buf.current);
-        })
+        }, goal)
         .then((p) => {
           setProposal(p);
           setPhase("proposed");
