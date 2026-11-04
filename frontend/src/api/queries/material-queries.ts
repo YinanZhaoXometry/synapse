@@ -27,7 +27,7 @@ export function newClientUuid(): string {
 export function useMaterialQuery(materialId: string) {
   const result = useQuery(MaterialDocument, { variables: { id: materialId }, skip: !materialId });
   const material = result.data?.material ? mapMaterial(result.data.material) : undefined;
-  return { data: result.loading ? undefined : material, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? material : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 /** Every material across plans (Plans Home continue line, FR-25). Full rows:
@@ -36,19 +36,19 @@ export function useMaterialQuery(materialId: string) {
 export function useAllMaterialsQuery() {
   const result = useQuery(MaterialsDocument, { variables: {} });
   const materials = (result.data?.materials ?? []).map(mapMaterial);
-  return { data: result.loading ? undefined : materials, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? materials : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function usePlanMaterialsQuery(planId: string) {
   const result = useQuery(MaterialsDocument, { variables: { planId }, skip: !planId });
   const materials = (result.data?.materials ?? []).map(mapMaterial);
-  return { data: result.loading ? undefined : materials, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? materials : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useTaskMaterialsQuery(taskId: string) {
   const result = useQuery(MaterialsDocument, { variables: { taskId }, skip: !taskId });
   const materials = (result.data?.materials ?? []).map(mapMaterial);
-  return { data: result.loading ? undefined : materials, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? materials : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useCreateMaterialUploadMutation() {

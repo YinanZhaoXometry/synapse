@@ -25,20 +25,20 @@ import type { KnowledgeNodeView } from "../views";
 export function useTasksQuery() {
   const result = useQuery(TasksDocument);
   const tasks = (result.data?.tasks ?? []).map(mapTask);
-  return { data: result.loading ? undefined : tasks, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? tasks : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useTaskQuery(taskId: string) {
   const result = useQuery(TaskDocument, { variables: { id: taskId }, skip: !taskId });
   const task = result.data?.task ? mapTask(result.data.task) : undefined;
-  return { data: result.loading ? undefined : task, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? task : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 /** The task's single owned node (AD-6) — read off the Task document, never re-derived. */
 export function useTaskNodeQuery(taskId: string) {
   const result = useQuery(TaskDocument, { variables: { id: taskId }, skip: !taskId });
   const node: KnowledgeNodeView | undefined = result.data?.task ? mapNode(result.data.task.node) : undefined;
-  return { data: result.loading ? undefined : node, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? node : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useCreateTaskMutation() {
@@ -51,14 +51,14 @@ export function useCreateTaskMutation() {
 export function useReadingProgressQuery(materialId: string) {
   const result = useQuery(ReadingProgressDocument, { variables: { materialId }, skip: !materialId });
   const progress = result.data?.readingProgress ? mapReadingProgress(result.data.readingProgress) : undefined;
-  return { data: result.loading ? undefined : progress, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? progress : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 /** Every ReadingProgress across materials (Plans Home continue line, FR-25). */
 export function useAllReadingProgressQuery() {
   const result = useQuery(ReadingProgressListDocument);
   const progress = (result.data?.readingProgressList ?? []).map(mapReadingProgress);
-  return { data: result.loading ? undefined : progress, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? progress : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useSaveReadingProgressMutation() {
@@ -78,7 +78,7 @@ export function useSaveReadingProgressMutation() {
 export function useChatThreadQuery(materialId: string) {
   const result = useQuery(ChatThreadDocument, { variables: { materialId }, skip: !materialId });
   const thread: ChatThread | undefined = result.data?.chatThread ? mapChatThread(result.data.chatThread) : undefined;
-  return { data: result.loading ? undefined : thread, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? thread : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useAppendChatMessageMutation() {
@@ -99,5 +99,5 @@ export function useAppendChatMessageMutation() {
 export function useStreakQuery() {
   const result = useQuery(StreakDocument);
   const streak = result.data?.streak ?? 0;
-  return { data: result.loading ? undefined : streak, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? streak : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }

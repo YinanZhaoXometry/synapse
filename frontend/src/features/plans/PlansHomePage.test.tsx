@@ -1,11 +1,16 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MockedProvider } from "@apollo/client/testing/react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { createPlan, createStudyTask, registerMaterial, saveReadingProgress } from "@/data";
-import type { MaterialSection, ParseState } from "@/domain/entities";
+import {
+  MaterialsDocument,
+  PlanDocument,
+  PlansDocument,
+  ReadingProgressListDocument,
+  TasksDocument,
+} from "@/types/graphql";
 import PlansHomePage from "./PlansHomePage";
 
 /**
@@ -14,10 +19,11 @@ import PlansHomePage from "./PlansHomePage";
  * the create-task entry persisting next to create-new when plans exist, the
  * Study Tasks section rendering only when ≥ 1 task exists (no empty chrome),
  * rows carrying title + single-node ring + working task-home and
- * continue-reading links. Data seeds through the real repository write paths
- * (registerMaterial → createStudyTask — TaskHomePage.test.tsx precedent);
- * expected copy reads the dictionary directly (independent source, never
- * recomputed); stub routes capture navigation instead of mounting pages.
+ * continue-reading links. Data rides the Apollo cutover's seams (epic P2-8):
+ * server-shaped query mocks feed the page, and expected copy reads the
+ * dictionary directly (independent source, never recomputed); stub routes
+ * capture navigation instead of mounting pages. Mastery numbers are SERVER
+ * fields (AD-14) — the fixtures carry them and the rows render them verbatim.
  */
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
@@ -35,13 +41,137 @@ function ReaderLanding() {
   return <p data-testid="reader-landing" />;
 }
 
-function renderPlansHome() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+// -- server-shaped fixtures (the generated types' exact selections) ------------
+
+const NOW = "2026-11-01T00:00:00Z";
+
+const nodeFixture = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "KnowledgeNode",
+  id: "n-1",
+  planId: "plan-1",
+  taskId: null,
+  stage: null,
+  title: "node-1",
+  order: 0,
+  masteryScore: "0",
+  state: "uncovered",
+  createdAt: NOW,
+  ...overrides,
+});
+
+const materialFixture = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "Material",
+  id: "m-1",
+  title: "复习讲义.md",
+  kind: "markdown",
+  sizeBytes: 2048,
+  planId: null,
+  taskId: "t-1",
+  parseState: "parsed",
+  parseFailureReason: null,
+  createdAt: NOW,
+  downloadUrl: "https://storage.example/m-1",
+  sections: [{ __typename: "MaterialSection", id: "intro", title: "Intro", text: "intro text" }],
+  ...overrides,
+});
+
+const planRowFixture = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "StudyPlan",
+  id: "plan-1",
+  topic: "软件工程备考",
+  goal: null,
+  createdAt: NOW,
+  masteryScore: "12",
+  ...overrides,
+});
+
+const planDetailFixture = () => ({
+  __typename: "StudyPlan",
+  ...planRowFixture(),
+  visibility: "private",
+  nodes: [nodeFixture()],
+  materials: [{ ...materialFixture({ taskId: null, sections: [] }) }],
+});
+
+const taskFixture = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "StudyTask",
+  id: "t-1",
+  materialId: "m-1",
+  nodeId: "n-1",
+  createdAt: NOW,
+  node: nodeFixture(),
+  ...overrides,
+});
+
+const progressFixture = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "ReadingProgress",
+  id: "rp-1",
+  materialId: "m-1",
+  updatedAt: NOW,
+  position: {
+    __typename: "ReadingPosition",
+    text: "page three text",
+    locator: { __typename: "ReadingLocator", kind: "pdf", page: 3, sectionId: null },
+  },
+  ...overrides,
+});
+
+/** Generous usage counts — several watchers mount over the same documents. */
+const USAGE = 8;
+
+/** The mock set for one scenario; every list the page reads has an entry. */
+function mocksFor(scenario: {
+  plans?: Array<Record<string, unknown>>;
+  tasks?: Array<Record<string, unknown>>;
+  progress?: Array<Record<string, unknown>>;
+  planDetail?: Record<string, unknown> | null;
+  allMaterials?: Array<Record<string, unknown>>;
+  taskMaterials?: Array<Record<string, unknown>>;
+}) {
+  const {
+    plans = [],
+    tasks = [],
+    progress = [],
+    planDetail = null,
+    allMaterials = [],
+    taskMaterials = [],
+  } = scenario;
+  const mocks: Array<Record<string, unknown>> = [
+    { request: { query: PlansDocument, variables: {} }, result: { data: { plans } }, maxUsageCount: USAGE },
+    { request: { query: TasksDocument, variables: {} }, result: { data: { tasks } }, maxUsageCount: USAGE },
+    {
+      request: { query: ReadingProgressListDocument, variables: {} },
+      result: { data: { readingProgressList: progress } },
+      maxUsageCount: USAGE,
+    },
+  ];
+  if (planDetail !== null) {
+    mocks.push({
+      request: { query: PlanDocument, variables: { id: "plan-1" } },
+      result: { data: { plan: planDetail } },
+      maxUsageCount: USAGE,
+    });
+  }
+  mocks.push({
+    request: { query: MaterialsDocument, variables: {} },
+    result: { data: { materials: allMaterials } },
+    maxUsageCount: USAGE,
   });
+  // one mock per seeded task — the row's material rides Materials({ taskId: task.id })
+  for (const task of tasks) {
+    mocks.push({
+      request: { query: MaterialsDocument, variables: { taskId: (task as { id?: string }).id } },
+      result: { data: { materials: taskMaterials } },
+      maxUsageCount: USAGE,
+    });
+  }
+  return mocks;
+}
+
+function renderPlansHome(mocks: Array<Record<string, unknown>>) {
   return render(
     <LanguageProvider>
-      <QueryClientProvider client={client}>
+      <MockedProvider mocks={mocks as never}>
         <MemoryRouter initialEntries={["/plans"]}>
           <Routes>
             <Route path="/plans" element={<PlansHomePage />} />
@@ -50,46 +180,17 @@ function renderPlansHome() {
             <Route path="/read/:materialId" element={<ReaderLanding />} />
           </Routes>
         </MemoryRouter>
-      </QueryClientProvider>
+      </MockedProvider>
     </LanguageProvider>,
   );
-}
-
-function seedPlan(topic: string) {
-  return createPlan({ topic, goal: null, nodes: [{ title: "node-1", stage: null }] }).plan;
-}
-
-interface SeedOptions {
-  kind?: "pdf" | "markdown";
-  sections?: MaterialSection[];
-  parseState?: ParseState;
-}
-
-/** A task seeded through the real creation path: register material → createStudyTask. */
-function seedTask(title: string, options: SeedOptions = {}) {
-  const { material } = registerMaterial({
-    title,
-    kind: options.kind ?? "markdown",
-    sizeBytes: 2048,
-    planId: null,
-    taskId: null,
-    sections: options.sections ?? [{ id: "intro", title: "Intro", text: "intro text" }],
-    parseState: options.parseState ?? "parsed",
-  });
-  const { task, node } = createStudyTask({ materialId: material.id });
-  return { task, material, node };
 }
 
 const entryButton = () => screen.getByRole("button", { name: new RegExp(zh("tasks.createEntry")) });
 const sectionHeading = () => screen.queryByRole("heading", { name: zh("tasks.eyebrow") });
 
-beforeEach(() => {
-  localStorage.clear();
-});
-
 describe("PlansHomePage — create-task entries (FR-37; AD-8; UJ-6)", () => {
   it("empty state: the pitch and the create-task entry sit alongside the creation chat, no create-new", async () => {
-    renderPlansHome();
+    renderPlansHome(mocksFor({}));
 
     // the pitch copy (UX spine microcopy, verbatim key) + the entry beside the chat
     expect(await screen.findByText(zh("tasks.pitch"))).toBeInTheDocument();
@@ -103,14 +204,13 @@ describe("PlansHomePage — create-task entries (FR-37; AD-8; UJ-6)", () => {
   });
 
   it("empty-state create-task entry navigates to the creation route /task/new", async () => {
-    renderPlansHome();
+    renderPlansHome(mocksFor({}));
     fireEvent.click(await screen.findByRole("button", { name: new RegExp(zh("tasks.createEntry")) }));
     expect(await screen.findByTestId("task-new-landing")).toBeInTheDocument();
   });
 
   it("plans-exist state: the create-task entry persists next to create-new; zero tasks → no section", async () => {
-    seedPlan("软件工程备考");
-    renderPlansHome();
+    renderPlansHome(mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }));
 
     expect(await screen.findByRole("button", { name: new RegExp(zh("plans.createNew")) })).toBeInTheDocument();
     expect(entryButton()).toBeInTheDocument();
@@ -119,8 +219,7 @@ describe("PlansHomePage — create-task entries (FR-37; AD-8; UJ-6)", () => {
   });
 
   it("plans-exist create-new still navigates to /plan/new (existing behavior unchanged)", async () => {
-    seedPlan("软件工程备考");
-    renderPlansHome();
+    renderPlansHome(mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }));
     fireEvent.click(await screen.findByRole("button", { name: new RegExp(zh("plans.createNew")) }));
     expect(await screen.findByTestId("plan-new-landing")).toBeInTheDocument();
   });
@@ -128,51 +227,71 @@ describe("PlansHomePage — create-task entries (FR-37; AD-8; UJ-6)", () => {
 
 describe("PlansHomePage — Study Tasks section (FR-37; FR-10; UJ-6)", () => {
   it("with ≥ 1 task: rows of title + single-node ring, a task-home link (no dead link), and a continue-reading link", async () => {
-    seedPlan("软件工程备考");
-    const { task, material } = seedTask("lecture-04");
-    renderPlansHome();
+    const material = materialFixture();
+    renderPlansHome(
+      mocksFor({
+        plans: [planRowFixture()],
+        planDetail: planDetailFixture(),
+        tasks: [taskFixture()],
+        allMaterials: [],
+        taskMaterials: [material],
+      }),
+    );
 
     // the section appears with its heading
     expect(await screen.findByRole("heading", { name: zh("tasks.eyebrow") })).toBeInTheDocument();
     // the row carries the material's title and links to the task home route
-    const taskLink = await screen.findByRole("link", { name: new RegExp("lecture-04") });
-    expect(taskLink).toHaveAttribute("href", `/task/${task.id}`);
-    // the row's single-node mastery ring reads the honest uncovered 0 (AD-6, no evidence)
+    const taskLink = await screen.findByRole("link", { name: new RegExp("复习讲义") });
+    expect(taskLink).toHaveAttribute("href", "/task/t-1");
+    // the row's single-node mastery ring reads the server's honest uncovered 0 (AD-6, no evidence; AD-14)
     expect(within(taskLink).getByRole("img", { name: zhN("plans.masteryAria", 0) })).toBeInTheDocument();
     // no stored position → the plain reader link, labelled 打开 (not 继续)
     const openLink = await screen.findByRole("link", { name: new RegExp(zh("common.open")) });
-    expect(openLink).toHaveAttribute("href", `/read/${material.id}`);
+    expect(openLink).toHaveAttribute("href", "/read/m-1");
   });
 
   it("the continue-reading link deep-links into the reader at the stored position (?page=N)", async () => {
-    seedPlan("软件工程备考");
-    const { task, material } = seedTask("paper", {
+    const material = materialFixture({
+      id: "m-paper",
+      taskId: "t-paper",
+      title: "paper",
       kind: "pdf",
       sections: [
-        { id: "page-1", title: "p1", text: "a" },
-        { id: "page-3", title: "p3", text: "b" },
+        { __typename: "MaterialSection", id: "page-1", title: "p1", text: "a" },
+        { __typename: "MaterialSection", id: "page-3", title: "p3", text: "b" },
       ],
     });
-    saveReadingProgress(material.id, { locator: { kind: "pdf", page: 3 }, text: "page three text" });
-    renderPlansHome();
+    renderPlansHome(
+      mocksFor({
+        plans: [planRowFixture()],
+        planDetail: planDetailFixture(),
+        tasks: [taskFixture({ id: "t-paper", materialId: "m-paper", title: "paper" })],
+        progress: [progressFixture({ materialId: "m-paper" })],
+        allMaterials: [material],
+        taskMaterials: [material],
+      }),
+    );
 
     expect(await screen.findByRole("heading", { name: zh("tasks.eyebrow") })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: new RegExp("paper") })).toHaveAttribute("href", `/task/${task.id}`);
+    expect(await screen.findByRole("link", { name: new RegExp("paper") })).toHaveAttribute("href", "/task/t-paper");
     const continueLink = await screen.findByRole("link", { name: new RegExp(zh("plans.continueReading")) });
-    expect(continueLink).toHaveAttribute("href", `/read/${material.id}?page=3`);
+    expect(continueLink).toHaveAttribute("href", "/read/m-paper?page=3");
   });
 
   it("tasks render even with zero plans — the empty state carries the section too", async () => {
-    const { task } = seedTask("solo-notes");
-    renderPlansHome();
+    const material = materialFixture({ title: "solo-notes", taskId: "t-solo" });
+    renderPlansHome(
+      mocksFor({
+        tasks: [taskFixture({ id: "t-solo", title: "solo-notes" })],
+        allMaterials: [],
+        taskMaterials: [material],
+      }),
+    );
 
     // still the empty state (pitch + chat), plus the task section
     expect(await screen.findByText(zh("tasks.pitch"))).toBeInTheDocument();
     expect(screen.getByPlaceholderText(zh("plans.topicPlaceholder"))).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: zh("tasks.eyebrow") })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: new RegExp("solo-notes") })).toHaveAttribute(
-      "href",
-      `/task/${task.id}`,
-    );
+    expect(await screen.findByRole("link", { name: new RegExp("solo-notes") })).toHaveAttribute("href", "/task/t-solo");
   });
 });

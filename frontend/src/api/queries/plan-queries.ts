@@ -39,13 +39,13 @@ export function usePlansQuery() {
     createdAt: plan.createdAt,
     masteryScore: plan.masteryScore,
   }));
-  return { data: result.loading ? undefined : plans, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? plans : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function usePlanQuery(planId: string) {
   const result = useQuery(PlanDocument, { variables: { id: planId }, skip: !planId });
   let detail: PlanDetail | undefined;
-  if (!result.loading && result.data?.plan) {
+  if (result.data?.plan) {
     const row = result.data.plan;
     detail = {
       plan: {
@@ -61,7 +61,7 @@ export function usePlanQuery(planId: string) {
       materials: row.materials.map(mapMaterialSummary),
     };
   }
-  return { data: detail, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: detail, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function usePlanNodesQuery(planId: string) {
@@ -69,9 +69,9 @@ export function usePlanNodesQuery(planId: string) {
   const nodes: KnowledgeNodeView[] = (result.data?.plan?.nodes ?? []).map(mapNode);
   const materials: MaterialView[] = (result.data?.plan?.materials ?? []).map(mapMaterialSummary);
   return {
-    data: result.loading ? undefined : nodes,
-    materials: result.loading ? undefined : materials,
-    loading: result.loading,
+    data: result.data !== undefined ? nodes : undefined,
+    materials: result.data !== undefined ? materials : undefined,
+    loading: result.loading && !result.data,
     error: result.error,
     refetch: result.refetch,
   };

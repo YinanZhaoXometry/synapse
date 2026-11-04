@@ -29,19 +29,19 @@ import type { QuizSessionView } from "../views";
 export function useQuizSessionQuery(sessionId: string) {
   const result = useQuery(QuizSessionDocument, { variables: { id: sessionId }, skip: !sessionId });
   const session: QuizSessionView | undefined = result.data?.quizSession ? mapQuizSession(result.data.quizSession) : undefined;
-  return { data: result.loading ? undefined : session, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? session : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useNodeEvidenceQuery(nodeId: string) {
   const result = useQuery(EvidenceByNodeDocument, { variables: { nodeId }, skip: !nodeId });
   const evidence = (result.data?.evidence ?? []).map(mapEvidence);
-  return { data: result.loading ? undefined : evidence, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? evidence : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useAllEvidenceQuery() {
   const result = useQuery(AllEvidenceDocument);
   const evidence = (result.data?.evidence ?? []).map(mapEvidence);
-  return { data: result.loading ? undefined : evidence, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? evidence : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useCreateQuizSessionMutation() {
@@ -73,13 +73,13 @@ export function useAbandonQuizSessionMutation() {
 export function useFlashcardsByMaterialQuery(materialId: string) {
   const result = useQuery(FlashcardsByMaterialDocument, { variables: { materialId }, skip: !materialId });
   const cards = (result.data?.flashcards ?? []).map(mapFlashcard);
-  return { data: result.loading ? undefined : cards, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? cards : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useFlashcardsByPlanQuery(planId: string) {
   const result = useQuery(FlashcardsByPlanDocument, { variables: { planId }, skip: !planId });
   const cards = (result.data?.flashcards ?? []).map(mapFlashcard);
-  return { data: result.loading ? undefined : cards, loading: result.loading, error: result.error, refetch: result.refetch };
+  return { data: result.data !== undefined ? cards : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
 export function useCreateFlashcardsMutation() {

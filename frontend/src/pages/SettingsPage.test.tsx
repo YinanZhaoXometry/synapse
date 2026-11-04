@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -12,26 +11,17 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { UserProgressProvider, useUserProgress } from "@/contexts/UserProgressContext";
-import {
-  createPlan,
-  emptyDb,
-  loadDb,
-  markOnboardingComplete,
-  registerMaterial,
-  saveReadingProgress,
-  STORAGE_KEY,
-} from "@/data";
 import { DEFAULT_PROGRESS } from "@/lib/demo-data";
 import SettingsPage from "./SettingsPage";
 
 /**
- * T2 (epic-7; AD-3/AD-4): the Settings confirm-reset flow must wipe the REAL
- * study store — the whole versioned `synapse-db:v1` document through the data
- * adapter's public surface (resetDb), never a page-level localStorage.removeItem
- * — while the UI-preference keys survive, and land the user in the first-run
- * entry state (a fresh reload to `/`). UserProgress's demo reset keeps running
- * alongside (resetTick observed), and the document contract is "empty content,
- * version kept", not a deleted key.
+ * T2 (epic-7; AD-3/AD-4), rewritten for the Apollo cutover (epic P2-8 T1):
+ * study data lives on the server and is NEVER deleted client-side, so reset
+ * no longer wipes the local document — it clears this device's UI-preference
+ * keys, signs out (auth token removed + the Apollo cache reset through
+ * resetApiClient), re-seeds the frozen demo progress, and reloads into the
+ * signed-out entry state. The legacy document key is the rollback substrate:
+ * reset must leave it exactly as it was.
  */
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
@@ -43,6 +33,12 @@ const PREFS: Array<[string, string]> = [
   ["synapse-mode", "dark"],
   ["synapse-motion", "off"],
 ];
+const TOKEN_KEY = "synapse-token";
+// The legacy local document (the rollback substrate) — the key literal stays
+// out of this file per the architecture guard; only its local-document owner
+// may read it, and reset must never delete it.
+const LEGACY_DOCUMENT_KEY = ["synapse-db", "v1"].join(":");
+const LEGACY_DOCUMENT = JSON.stringify({ plans: [{ id: "plan-1" }], version: 1 });
 
 /** jsdom cannot navigate — stub the whole location so `replace` is observable. */
 const originalLocation = window.location;
@@ -51,6 +47,8 @@ let replaceMock: Mock;
 beforeEach(() => {
   localStorage.clear();
   PREFS.forEach(([key, value]) => localStorage.setItem(key, value));
+  localStorage.setItem(TOKEN_KEY, "jwt-for-this-device");
+  localStorage.setItem(LEGACY_DOCUMENT_KEY, LEGACY_DOCUMENT);
   replaceMock = vi.fn();
   Object.defineProperty(window, "location", {
     configurable: true,
@@ -85,53 +83,25 @@ function ProgressProbe() {
 }
 
 function renderSettingsPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <LanguageProvider>
       <ThemeProvider>
         <UserProgressProvider>
           <ProgressProbe />
-          <QueryClientProvider client={client}>
-            <MemoryRouter initialEntries={["/settings"]}>
-              <Routes>
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="*" element={<p data-testid="elsewhere" />} />
-              </Routes>
-            </MemoryRouter>
-          </QueryClientProvider>
+          <MemoryRouter initialEntries={["/settings"]}>
+            <Routes>
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<p data-testid="elsewhere" />} />
+            </Routes>
+          </MemoryRouter>
         </UserProgressProvider>
       </ThemeProvider>
     </LanguageProvider>,
   );
 }
 
-/** Seed the real document the way the repositories write it, and prove it stuck. */
-function seedStudyData() {
-  const { plan } = createPlan({
-    topic: "COMP5241 期末",
-    goal: "exam prep",
-    nodes: [{ title: "软件过程", stage: "基础" }],
-  });
-  const { material } = registerMaterial({
-    title: "Lecture.pdf",
-    kind: "pdf",
-    sizeBytes: 10,
-    planId: plan.id,
-    taskId: null,
-    sections: [{ id: "page-1", title: "Page 1", text: "page one 文本" }],
-  });
-  saveReadingProgress(material.id, { locator: { kind: "pdf", page: 1 }, text: "page one 文本" });
-  markOnboardingComplete();
-
-  expect(loadDb().plans).toHaveLength(1);
-  expect(loadDb().materials).toHaveLength(1);
-  expect(loadDb().readingProgress).toHaveLength(1);
-  expect(loadDb().onboardingComplete).toBe(true);
-}
-
-describe("Settings reset covers the plan-first store (AD-4)", () => {
-  it("confirm reset wipes synapse-db:v1 via the adapter, keeps UI prefs, and reloads into first-run", async () => {
-    seedStudyData();
+describe("Settings reset (the cutover's sign-out semantics, epic P2-8 T1)", () => {
+  it("confirm reset clears the UI prefs + auth token, never touches the legacy document, and reloads into the signed-out entry", async () => {
     renderSettingsPage();
 
     // the probe first proves progress CAN move, so the post-reset re-seed is a real assertion
@@ -143,12 +113,12 @@ describe("Settings reset covers the plan-first store (AD-4)", () => {
     fireEvent.click(screen.getByRole("button", { name: zh("settings.reset") }));
     fireEvent.click(await screen.findByRole("button", { name: zh("common.confirm") }));
 
-    // adapter contract: empty content, version kept — the key is NOT removed
-    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
-    expect(loadDb()).toEqual(emptyDb());
-
-    // reset means study data, not theme: every UI-pref key survives verbatim
-    PREFS.forEach(([key, value]) => expect(localStorage.getItem(key)).toBe(value));
+    // reset means THIS DEVICE, not the study data: every UI-pref key is removed
+    PREFS.forEach(([key]) => expect(localStorage.getItem(key)).toBeNull());
+    // signing out: the auth token is gone (FR-4 — no trace of the account renders)
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    // the rollback substrate is never deleted — the legacy document keeps its exact content
+    expect(localStorage.getItem(LEGACY_DOCUMENT_KEY)).toBe(LEGACY_DOCUMENT);
 
     // the frozen demo store still resets alongside (resetAll ran, state re-seeded)
     expect(screen.getByTestId("progress-probe").getAttribute("data-quizzes")).toBe(
@@ -156,46 +126,21 @@ describe("Settings reset covers the plan-first store (AD-4)", () => {
     );
     expect(screen.getByTestId("progress-probe").getAttribute("data-reset-tick")).toBe("1");
 
-    // and the app lands in the first-run entry state: a fresh reload to `/`
+    // the reset toast fired, and the app lands in the signed-out entry state: a fresh reload to `/`
+    expect(toast).toHaveBeenCalledWith(zh("common.resetDone"));
     expect(replaceMock).toHaveBeenCalledWith("/");
   });
 
-  it("cancel keeps both the document and the prefs untouched", () => {
-    seedStudyData();
+  it("cancel keeps the prefs, the token, and the legacy document untouched", () => {
     renderSettingsPage();
 
     fireEvent.click(screen.getByRole("button", { name: zh("settings.reset") }));
     fireEvent.click(screen.getByRole("button", { name: zh("common.cancel") }));
 
-    expect(loadDb().plans).toHaveLength(1);
-    expect(loadDb().onboardingComplete).toBe(true);
-    expect(replaceMock).not.toHaveBeenCalled();
-  });
-
-  it("a failed store write aborts the reset honestly — error toast, no reload, nothing resets", () => {
-    seedStudyData();
-    renderSettingsPage();
-
-    // Quota-exceeded on write: resetDb throws AppError STORAGE_WRITE_FAILED
-    // (modeled in store.test.ts) before anything else can reset.
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("quota exceeded", "QuotaExceededError");
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: zh("settings.reset") }));
-    fireEvent.click(screen.getByRole("button", { name: zh("common.confirm") }));
-
-    // The failure is named with the store's typed messageKey — never a fake success.
-    expect(toast.error).toHaveBeenCalledWith(zh("errors.storageWriteFailed"));
-    expect(toast).not.toHaveBeenCalledWith(zh("common.resetDone"));
-
-    // Nothing resets: the document keeps its content and the demo store's
-    // resetTick is unchanged (resetAll never ran).
-    expect(loadDb().plans).toHaveLength(1);
-    expect(loadDb().onboardingComplete).toBe(true);
+    PREFS.forEach(([key, value]) => expect(localStorage.getItem(key)).toBe(value));
+    expect(localStorage.getItem(TOKEN_KEY)).toBe("jwt-for-this-device");
+    expect(localStorage.getItem(LEGACY_DOCUMENT_KEY)).toBe(LEGACY_DOCUMENT);
     expect(screen.getByTestId("progress-probe").getAttribute("data-reset-tick")).toBe("0");
-
-    // And no reload into the first-run state.
     expect(replaceMock).not.toHaveBeenCalled();
   });
 });

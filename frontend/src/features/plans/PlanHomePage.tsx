@@ -26,6 +26,7 @@ import {
   useAllEvidenceQuery,
   useMaterialUpload,
   useFlashcardsByPlanQuery,
+  usePlanMaterialsQuery,
   usePlanNodesQuery,
   usePlanQuery,
   useReadingProgressQuery,
@@ -53,8 +54,9 @@ export default function PlanHomePage() {
   const { id } = useParams();
   const planQuery = usePlanQuery(id ?? "");
   const nodesQuery = usePlanNodesQuery(id ?? "");
-  const planNodesAndMaterials = usePlanNodesQuery(id ?? "");
-  const materialsQuery = { data: planNodesAndMaterials.materials, loading: planNodesAndMaterials.loading };
+  // Materials ride the FULL list query — the generation tiles and the launchers
+  // source sections (FR-18), which the plan detail's summaries deliberately omit.
+  const materialsQuery = usePlanMaterialsQuery(id ?? "");
   // Evidence still feeds the node rows' popover marks; the scores ride the
   // nodes themselves (server fields, AD-14).
   const evidenceQuery = useAllEvidenceQuery();
@@ -118,7 +120,7 @@ export default function PlanHomePage() {
       .catch(() => toast.error(t("errors.uploadFailed")));
   };
 
-  if (planQuery.loading || nodesQuery.loading || planNodesAndMaterials.loading || evidenceQuery.loading || flashcardsQuery.loading) return null;
+  if (planQuery.loading || nodesQuery.loading || materialsQuery.loading || evidenceQuery.loading || flashcardsQuery.loading) return null;
   const plan = planQuery.data?.plan;
   const nodes = nodesQuery.data ?? [];
   const materials = materialsQuery.data ?? [];

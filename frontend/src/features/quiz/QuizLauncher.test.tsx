@@ -1,13 +1,13 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MockedProvider } from "@apollo/client/testing/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { createPlan, loadDb, registerMaterial } from "@/data";
-import type { MaterialSection } from "@/domain/entities";
+import { CreateQuizSessionDocument } from "@/types/graphql";
+import type { Material, MaterialSection } from "@/domain/entities";
+import { echoQuestion } from "@/test/apollo-harness";
 import { QuizLauncher } from "./QuizLauncher";
 
 /**
@@ -17,6 +17,10 @@ import { QuizLauncher } from "./QuizLauncher";
  * NO session created on cancel, and generation failure as a neutral toast
  * with the form intact for retry (plan state untouched, no session — spec
  * story 8). Expected copy reads the copy deck directly, never recomputed.
+ * Since the Apollo cutover (epic P2-8) the driver persists through the
+ * CreateQuizSession mutation: the mock echoes the generated questions back
+ * as a server-shaped payload and CAPTURES the request — the old store
+ * assertions now read the captured mutations.
  */
 
 // The failure switch: one seam override — generateQuiz rejects while failed,
@@ -48,41 +52,70 @@ const sections: MaterialSection[] = [
   { id: "sec-2", title: "需求工程", text: "需求工程把用户需要转化为规约。验收标准来自规约。" },
 ];
 
-function seedPlan(materialSections: MaterialSection[] | null) {
-  const { plan, nodes } = createPlan({ topic: "软工备考", goal: null, nodes: [{ title: "软件测试", stage: "核心" }] });
-  const material =
-    materialSections === null
-      ? null
-      : registerMaterial({
-          title: "复习讲义.md",
-          kind: "markdown",
-          sizeBytes: 64,
-          planId: plan.id,
-          taskId: null,
-          sections: materialSections,
-          parseState: "parsed",
-        }).material;
-  return { plan, nodes, material };
-}
+/** The launcher's material prop is a domain entity (the feature seam) — a plain fixture. */
+const materialFixture = (id: string): Material =>
+  ({
+    id,
+    title: "复习讲义.md",
+    kind: "markdown",
+    sizeBytes: 64,
+    planId: "plan-1",
+    taskId: null,
+    parseState: "parsed",
+    parseFailureReason: null,
+    sections,
+    createdAt: "2026-11-01T00:00:00Z",
+  }) as unknown as Material;
+
+const PLAN_ID = "plan-1";
+const NODE_IDS = ["n-1"];
+
+/** Every CreateQuizSession the driver fires: the captured request + echoed row. */
+let createdSessions: Array<{ input: Record<string, unknown>; session: Record<string, unknown> }>;
+
+/** The echo mock: derives the persisted session + questions from ONE call's variables. */
+const createQuizSessionMock = {
+  request: {
+    query: CreateQuizSessionDocument,
+    variables: (variables: Record<string, unknown>) => !!variables?.input,
+  },
+  result: (variables: Record<string, unknown>) => {
+    const input = variables.input as Record<string, unknown>;
+    const sessionId = `s-echo-${createdSessions.length + 1}`;
+    const session = {
+      __typename: "QuizSession",
+      id: sessionId,
+      planId: input.planId ?? null,
+      taskId: input.taskId ?? null,
+      mode: input.mode,
+      status: "active",
+      createdAt: "2026-11-01T00:00:00Z",
+      completedAt: null,
+    };
+    const questions = (input.questions as Array<Record<string, unknown>>).map((q, i) => echoQuestion(q, sessionId, i));
+    createdSessions.push({ input, session });
+    return { data: { createQuizSession: { __typename: "CreateSessionPayload", session, questions } } };
+  },
+  maxUsageCount: 10,
+};
 
 function renderLauncher(props: Partial<Parameters<typeof QuizLauncher>[0]> = {}) {
-  const { plan, nodes, material } = seedPlan(props.materials === undefined ? sections : null);
+  const material = materialFixture("m-1");
   const onStarted = vi.fn();
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <LanguageProvider>
-      <QueryClientProvider client={client}>
+      <MockedProvider mocks={[createQuizSessionMock]}>
         <MemoryRouter>
           <Toaster />
           <QuizLauncher
-            planId={plan.id}
-            nodeIds={nodes.map((n) => n.id)}
-            materials={props.materials ?? (material ? [material] : [])}
+            planId={PLAN_ID}
+            nodeIds={NODE_IDS}
+            materials={props.materials ?? [material]}
             onStarted={onStarted}
             {...props}
           />
         </MemoryRouter>
-      </QueryClientProvider>
+      </MockedProvider>
     </LanguageProvider>,
   );
   return { onStarted, material };
@@ -91,8 +124,8 @@ function renderLauncher(props: Partial<Parameters<typeof QuizLauncher>[0]> = {})
 const flush = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 beforeEach(() => {
-  localStorage.clear();
   failState.fail = false;
+  createdSessions = [];
 });
 
 describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
@@ -101,7 +134,7 @@ describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
     expect(screen.getByTestId("quiz-launcher-disabled")).toBeInTheDocument();
     expect(screen.getByText(zh("quiz.launcher.needMaterial"))).toBeInTheDocument();
     expect(screen.queryByTestId("quiz-launcher-start")).not.toBeInTheDocument();
-    expect(loadDb().sessions).toHaveLength(0);
+    expect(createdSessions).toHaveLength(0); // nothing to launch from → no session, ever
   });
 
   it("form: the three modes + whole-plan and per-material scopes are offered; mix is the default", () => {
@@ -127,7 +160,7 @@ describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
     expect(screen.getByTestId("quiz-launcher")).toBeInTheDocument(); // form is back
 
     await flush(800); // longer than the simulated 600ms beat — nothing may land
-    expect(loadDb().sessions).toHaveLength(0); // cancel = no session, ever
+    expect(createdSessions).toHaveLength(0); // cancel = no session, ever
     expect(screen.getByTestId("quiz-launcher-start")).toBeInTheDocument();
   });
 
@@ -138,15 +171,15 @@ describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
     expect(await screen.findByText(zh("quiz.launcher.failed"))).toBeInTheDocument();
     expect(screen.queryByTestId("quiz-launcher-generating")).not.toBeInTheDocument();
     await flush(800);
-    expect(loadDb().sessions).toHaveLength(0); // plan state untouched, no session
+    expect(createdSessions).toHaveLength(0); // plan state untouched, no session
 
     failState.fail = false; // the retry
     fireEvent.click(screen.getByTestId("quiz-launcher-start"));
     await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
     const [sessionId] = onStarted.mock.calls[0];
-    expect(loadDb().sessions).toHaveLength(1);
-    expect(loadDb().sessions[0].id).toBe(sessionId);
-    expect(loadDb().sessions[0].status).toBe("active");
+    expect(createdSessions).toHaveLength(1); // exactly one persisted session
+    expect(createdSessions[0].session.id).toBe(sessionId);
+    expect(createdSessions[0].session.status).toBe("active");
   });
 
   it("success hands the persisted session id + the exact start input to the surface", async () => {
@@ -159,7 +192,9 @@ describe("QuizLauncher (FR-18; UX spine QuizLauncher contract)", () => {
     expect(input.mode).toBe("choice");
     expect(input.materials).toHaveLength(1);
     expect(input.planId).toBeTruthy();
-    expect(loadDb().sessions[0].mode).toBe("choice");
+    expect(createdSessions[0].session.mode).toBe("choice"); // the persisted row carries the chosen mode
+    expect(createdSessions[0].input.planId).toBe(PLAN_ID); // AD-6 ownership rides the mutation
+    expect(createdSessions[0].input.questions).toHaveLength(2); // one choice per section
   });
 });
 

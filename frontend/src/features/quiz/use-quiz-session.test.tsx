@@ -36,7 +36,7 @@ const sections: MaterialSection[] = [
   { id: "sec-2", title: "需求工程", text: "需求工程把用户需要转化为规约。验收标准来自规约。" },
 ];
 
-const gradingMaterial = (): any => ({
+const gradingMaterial = (): Fixture => ({
   id: "m-1",
   title: "复习讲义.md",
   kind: "markdown",
@@ -50,13 +50,17 @@ const gradingMaterial = (): any => ({
 });
 
 /** The quiz-mutation handlers every driver test rides (echo semantics). */
+// The echo fixtures are intentionally loose server shapes (they mirror the
+// wire, not the app's types) — Record<string, unknown> + targeted reads.
+type Fixture = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
   return {
     CreateQuizSession: (variables) => {
-      const input = variables.input as Record<string, any>;
+      const input = variables.input as Record<string, Fixture>;
       const sessionId = `s-echo-${state.sessions.length + 1}`;
-      const questions = (input.questions as Record<string, any>[]).map((q, i) => echoQuestion(q, sessionId, i));
-      const session = {
+      const questions = (input.questions as Fixture[]).map((q, i) => echoQuestion(q, sessionId, i));
+      const session: Fixture = {
         __typename: "QuizSession",
         id: sessionId,
         planId: input.planId ?? null,
@@ -70,15 +74,15 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
       return { session, questions };
     },
     RecordEvidence: (variables) => {
-      const input = variables.input as Record<string, any>;
+      const input = variables.input as Record<string, Fixture>;
       const sessionId = input.sessionId as string;
-      const results = input.results as Array<Record<string, any>>;
+      const results = input.results as Fixture[];
       const session = state.sessions.find((s) => s.id === sessionId);
       if (session) {
         session.status = "completed";
         session.completedAt = "2026-11-02T00:00:00Z";
       }
-      const evidence = results.map((r, i) => ({
+      const evidence = results.map((r, i): Fixture => ({
         __typename: "EvidenceRecord",
         id: `e-${sessionId}-${i}`,
         nodeId: "node-1",
@@ -89,7 +93,7 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
       }));
       const mistakes = results
         .filter((r) => r.outcome === "wrong")
-        .map((r, i) => ({
+        .map((r, i): Fixture => ({
           __typename: "MistakeEntry",
           id: `mist-${sessionId}-${i}`,
           questionId: r.questionId,
@@ -97,9 +101,9 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
           nodeId: "node-1",
           userAnswer: r.userAnswer,
           sourceLocation:
-            /^page-\d+$/.test((r as any).sourceSectionId ?? "")
+            /^page-\d+$/.test(String(r.sourceSectionId ?? ""))
               ? { __typename: "ReadingLocator", kind: "pdf", page: 1, sectionId: null }
-              : { __typename: "ReadingLocator", kind: "markdown", page: null, sectionId: (r as any).sourceSectionId ?? "sec-1" },
+              : { __typename: "ReadingLocator", kind: "markdown", page: null, sectionId: String(r.sourceSectionId ?? "sec-1") },
           forfeited: r.forfeited,
           createdAt: "2026-11-02T00:00:00Z",
         }));
@@ -108,7 +112,7 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
       return { evidence, mistakes, session };
     },
     AbandonQuizSession: (variables) => {
-      const sessionId = (variables.input as Record<string, any>).sessionId as string;
+      const sessionId = String((variables.input as Record<string, Fixture>).sessionId);
       const session = state.sessions.find((s) => s.id === sessionId);
       if (session && session.status === "active") session.status = "abandoned";
       return { session };
@@ -118,7 +122,7 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
 
 function mountDriver(
   state = createHarnessState(),
-  materials: any[] = [gradingMaterial()],
+  materials: Fixture[] = [gradingMaterial()],
   handlerOverrides: Record<string, OperationHandler> = {},
 ) {
   const client = createStubClient({ ...quizHandlers(state), ...handlerOverrides }, state);
@@ -333,11 +337,11 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
       // the persisted session's questions are server-known in production; the
       // echo derives the attribution from the fixture's question ids
       RecordEvidence: (variables) => {
-        const input = variables.input as Record<string, any>;
-        const results = input.results as Array<Record<string, any>>;
-        const evidence = results.map((r, i) => ({
+        const input = variables.input as Record<string, Fixture>;
+        const results = input.results as Fixture[];
+        const evidence = results.map((r, i): Fixture => ({
           __typename: "EvidenceRecord",
-          id: `e-${input.sessionId}-${i}`,
+          id: `e-${String(input.sessionId)}-${i}`,
           nodeId: "node-h",
           sessionId: input.sessionId,
           questionId: r.questionId,
