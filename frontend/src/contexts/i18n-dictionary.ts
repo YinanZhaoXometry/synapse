@@ -639,7 +639,19 @@ export const translations = {
       'errors.evidenceBatchUnknown': '作答数据不完整 · 请重新提交',
       'errors.uploadUnsupportedType': '目前仅支持 PDF 与 Markdown（PPT 将在 Phase 2 支持）',
       'errors.uploadTooLarge': '文件超过 20MB 上限，请换更小的文件',
-      'errors.uploadFailed': '上传失败，请重试'
+      'errors.uploadFailed': '上传失败，请重试',
+
+      // SSE 流客户端（epic P2-8 T4 — ai.stream. 命名空间；服务端契约 /api/stream）
+      'ai.stream.connectionLost': '连接中断，已用新票据重新开始生成（计入今日 AI 次数）',
+      'ai.stream.gaveUp': '连接多次中断，本次生成已停止，请重试',
+      'ai.stream.failed': '本次生成失败，请重试',
+      'ai.stream.capReached': '今日 AI 使用次数已达上限，重新开始同样计入次数，请明天再来',
+      'ai.stream.errorUnauthorized': '登录状态已过期，请重新登录',
+      'ai.stream.errorForbidden': '没有权限执行这个操作',
+      'ai.stream.errorNotFound': '找不到对应的学习资料',
+      'ai.stream.errorValidation': '请求内容不完整，请调整后重试',
+      'ai.stream.errorRateLimited': '请求太频繁，请稍等片刻再试',
+      'ai.stream.errorInternal': 'AI 服务暂时不可用，请重试'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -1278,7 +1290,19 @@ export const translations = {
       'errors.evidenceBatchUnknown': 'Answer data incomplete · please resubmit',
       'errors.uploadUnsupportedType': 'Only PDF and Markdown are supported today (PPT arrives in Phase 2)',
       'errors.uploadTooLarge': 'That file is over the 20 MB limit — try a smaller one',
-      'errors.uploadFailed': 'Upload failed — please try again'
+      'errors.uploadFailed': 'Upload failed — please try again',
+
+      // SSE stream client (epic P2-8 T4 — ai.stream. namespace; server contract /api/stream)
+      'ai.stream.connectionLost': 'Connection lost — the generation restarted with a fresh ticket (counts toward the daily AI cap)',
+      'ai.stream.gaveUp': 'The connection kept dropping — this generation stopped. Please try again',
+      'ai.stream.failed': 'This generation failed — please try again',
+      'ai.stream.capReached': 'The daily AI call cap is reached — restarts count toward it too. Please come back tomorrow',
+      'ai.stream.errorUnauthorized': 'Your session expired — please sign in again',
+      'ai.stream.errorForbidden': 'You do not have access to this action',
+      'ai.stream.errorNotFound': 'The referenced study material could not be found',
+      'ai.stream.errorValidation': 'The request content was incomplete — adjust it and try again',
+      'ai.stream.errorRateLimited': 'Too many requests — wait a moment and try again',
+      'ai.stream.errorInternal': 'The AI service is temporarily unavailable — please try again'
     }
-  
+
 } as const;

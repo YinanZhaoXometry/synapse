@@ -1,0 +1,12 @@
+# The stream-ticket mint (epic P2-8 T4, AD-16): the ONE GraphQL mutation that
+# pairs with the ONE non-GraphQL surface, GET /api/stream. The browser's
+# EventSource cannot set headers, so the stream authenticates by ticket alone;
+# the grounding inputs ride INSIDE the ticket (query params are log-exposed).
+# One mint, one redeem, one generation — on a drop the client mints a FRESH
+# ticket and restarts, and every redeem counts against the daily AI cap.
+mutation CreateStreamTicket($input: CreateStreamTicketInput!) {
+  createStreamTicket(input: $input) {
+    token
+    expiresAt
+  }
+}
