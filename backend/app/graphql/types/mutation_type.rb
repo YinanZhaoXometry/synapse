@@ -34,5 +34,12 @@ module Types
     field :unclaim_section, mutation: Mutations::Markings::UnclaimSection
 
     field :create_material_upload, mutation: Mutations::Storage::CreateMaterialUpload
+
+    # Server-side AI (AD-16, epic P2-5 ticket 03): the streamed surfaces
+    # (Companion chat, creation chat) are NOT here — they ride the one SSE
+    # endpoint (createStreamTicket + /api/stream, ticket 04).
+    field :generate_quiz, mutation: Mutations::Ai::GenerateQuiz
+    field :generate_flashcards, mutation: Mutations::Ai::GenerateFlashcards
+    field :grade_open_answer, mutation: Mutations::Ai::GradeOpenAnswer
   end
 end

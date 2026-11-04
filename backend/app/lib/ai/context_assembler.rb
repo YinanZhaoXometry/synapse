@@ -49,6 +49,12 @@ module Ai
         assemble_scope(nodes_block([ task.node ]), Material.where(id: task.material_id), budget)
       end
 
+      # One material, no nodes (the flashcard-deck surface: the deck IS the
+      # material's sections — FR-19).
+      def material_scope(material, budget: default_budget)
+        assemble_scope("", Material.where(id: material.id), budget)
+      end
+
       # Companion grounding (AD-5): the section under the ReadingPosition
       # locator in full focus, then the material's section index so the
       # model can cite other sections it saw. The position's own quoted text
