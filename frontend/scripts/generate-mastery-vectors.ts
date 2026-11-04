@@ -14,16 +14,22 @@
  *   2. Contract invariants: mastery-derived numerics as strings; timestamps
  *      timezone-tagged ISO-8601; case ids unique + sorted; category matrix complete.
  *   3. Determinism: the document is built twice in-process and must be byte-identical.
- * CI adds the fourth leg: regenerate + git diff --exit-code (anti-drift until cutover).
+ * CI adds the fourth leg: regenerate + stamp-insensitive diff (anti-drift until cutover).
  *
  * Determinism notes:
  *   - "now" is always injected; the host clock never enters the fixture.
  *   - The process timezone is pinned (TZ=UTC) before any Date is constructed, so the
  *     Phase-1 "local" day boundary is simulated on a fixed zone, never the host's.
  *     The local-vs-UTC divergence case pins a second fixed zone (Asia/Shanghai, no DST).
- *   - `generatedAtSourceCommit` is the last commit that touched the behavior-bearing
- *     files (mastery.ts, streak.ts, this script) — stable under unrelated commits, so
- *     the CI diff only fires when the pinned behavior itself moves.
+ *   - `generatedAtSourceCommit` is ADVISORY provenance, not part of the anti-drift
+ *     contract (epic P2-4 review): SOURCE_PATHS includes this generator and fixture
+ *     commits ride generator edits, so the stamp is self-referential — a vector-
+ *     extending commit always lands a stamp pointing at the commit BEFORE it (fired
+ *     in practice: 7a6c4b3, f69f7aa). CI's regenerate-and-diff therefore strips
+ *     .meta.generatedAtSourceCommit from both sides before diffing; refreshing the
+ *     stamp on a vector-extending commit is a courtesy, never a chore the gate
+ *     demands. Its FORMAT (a full 40-hex sha) stays pinned by
+ *     backend/spec/lib/mastery_spec.rb.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
