@@ -5,7 +5,10 @@ require "rails"
 require "active_model/railtie"
 require "active_job/railtie"
 require "active_record/railtie"
-# require "active_storage/engine"
+# ActiveStorage (AD-13, epic P2-6 ticket 01): config-only — the direct-uploads
+# REST surface is never mounted (draw_routes below; presign goes through
+# GraphQL from ticket 02) and no app model attaches blobs yet.
+require "active_storage/engine"
 require "action_controller/railtie"
 # require "action_mailer/railtie"
 # require "action_mailbox/engine"
@@ -49,5 +52,11 @@ module Api
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # AD-13 (epic P2-6 ticket 01): the ActiveStorage direct-uploads REST
+    # surface is never mounted — uploads presign through GraphQL (ticket 02)
+    # and the browser PUTs to R2/minio directly. The route-absence spec
+    # (spec/routes/active_storage_route_guard_spec.rb) is the guard.
+    config.active_storage.draw_routes = false
   end
 end
