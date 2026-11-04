@@ -28,6 +28,10 @@ services:
   # backend/config/storage.yml (backend/.env.example documents the contract;
   # production reads R2_* from real ENV with no defaults).
   minio:
+    # NOT pullable anywhere since the community archive (docker.io repo gone,
+    # quay/ghcr 401/403, dl.min.io 410) — the local machine's tag is a
+    # from-source build of this release (ticket 01 Comments); CI builds the
+    # same pinned source itself (.github/workflows/ci.yml).
     image: minio/minio:RELEASE.2025-10-15T17-29-55Z
     command: ["server", "/data"]
     ports:

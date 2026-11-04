@@ -116,23 +116,6 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
-      # The presign spike spec (epic P2-6 ticket 01) round-trips v4 presigned
-      # PUT/GET against minio — the dev compose's R2 stand-in. Creds are the
-      # documented dev defaults (backend/config/storage.yml minio section);
-      # the spec ensures the bucket itself (CI has no init step, mirroring
-      # compose's minio-init).
-      minio:
-        image: minio/minio:RELEASE.2025-10-15T17-29-55Z
-        env:
-          MINIO_ROOT_USER: synapse-dev
-          MINIO_ROOT_PASSWORD: synapse-dev-password
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 30
     env:
       # database.yml defaults are dev-compose-shaped; in CI this points at the
       # service container above (localhost, mapped port).
@@ -145,11 +128,36 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libpq-dev
 
       # The storage spike spec (epic P2-6 ticket 01) targets the dev-compose
-      # endpoint http://minio:9000 straight from config/storage.yml; the job
-      # runs on the VM, where service containers answer on localhost:port —
-      # map the service label onto loopback for it.
-      - name: Point "minio" at the service container (loopback)
+      # endpoint http://minio:9000 straight from config/storage.yml; minio
+      # runs as a VM process on loopback (below), so map the hostname onto it.
+      - name: Point "minio" at loopback
         run: sudo sh -c 'echo "127.0.0.1 minio" >> /etc/hosts'
+
+      # MinIO's community distribution was archived in late 2025, and the
+      # pinned release is now unobtainable as an image anywhere — docker.io
+      # (the whole minio/minio repo is gone), quay.io and ghcr.io (401/403),
+      # dl.min.io archives (410), and the GitHub release carries no binaries.
+      # The dev machine's image is a from-source build of this same tag
+      # (backend/.dockerdev/compose.yaml + ticket 01's Comments); CI builds
+      # the identical pinned source itself — self-contained, nothing
+      # published, no extra credentials. GOTOOLCHAIN=auto fetches the
+      # go.mod-pinned toolchain; the specs ensure the bucket themselves.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build minio from the pinned release source (no registry carries it)
+        run: |
+          git clone --depth 1 --branch RELEASE.2025-10-15T17-29-55Z https://github.com/minio/minio.git /tmp/minio-src
+          cd /tmp/minio-src
+          GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /usr/local/bin/minio .
+      - name: Start minio (dev defaults, loopback only)
+        run: |
+          MINIO_ROOT_USER=synapse-dev MINIO_ROOT_PASSWORD=synapse-dev-password \
+            nohup /usr/local/bin/minio server /tmp/minio-data --address 127.0.0.1:9000 > /tmp/minio.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break || sleep 1
+          done
+          curl -sf http://localhost:9000/minio/health/live
 
       # .ruby-version is read from backend/ (working-directory below).
       - uses: ruby/setup-ruby@v1
