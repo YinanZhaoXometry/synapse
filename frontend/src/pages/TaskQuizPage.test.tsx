@@ -1,48 +1,142 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MockedProvider } from "@apollo/client/testing/react";
+import type { MockedResponse } from "@apollo/client/testing";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import {
+  AbandonQuizSessionDocument,
+  AllEvidenceDocument,
+  MaterialsDocument,
+  QuizSessionDocument,
+  TaskDocument,
+} from "@/types/graphql";
+import { QUIZ_FRESH_LAUNCH_KEY } from "@/features/quiz";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { createPlan, createQuizSession, createStudyTask, registerMaterial } from "@/data";
-import type { MaterialSection } from "@/domain/entities";
-import { QUIZ_FRESH_LAUNCH_KEY } from "@/features/quiz";
 import TaskQuizPage from "./TaskQuizPage";
 
 /**
  * TaskQuizPage observable states (T4; spec testing seam 3 — the LEAN
- * context-routing suite): the task page wires the shared QuizSessionPage shell
- * to the task's context. Full runner/launcher/results behavior is already
- * covered by the plan twin's suite (T2 — same components, same shell) and by
- * the task-loop integration walk; these tests assert only what is
+ * context-routing suite over MockedProvider, the cutover's Apollo test seam):
+ * the task page wires the shared QuizSessionPage shell to the task's context.
+ * Full runner/launcher/results behavior is already covered by the plan twin's
+ * suite (T2 — same components, same shell); these tests assert only what is
  * task-scoped: the honest not-found, the inline launcher's task shape (mode
  * select, NO scope picker — the single material IS the scope), back targets
  * (Task Home / Plans Home), and AD-6 session ownership (a plan-owned session
- * id never runs on the task route; a task-owned one resumes). Expected copy
- * reads the copy deck directly.
+ * id never runs on the task route; a task-owned one resumes). Mock data is
+ * server-shaped (fixtures off the generated fragment types, `__typename`
+ * everywhere an id lives). Expected copy reads the copy deck directly.
  */
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const zh = (key: string) => zhDict[key];
 
-const sections: MaterialSection[] = [
-  { id: "sec-1", title: "集成测试", text: "集成测试关注组件之间的交互。接口契约必须先验证。" },
-  { id: "sec-2", title: "需求工程", text: "需求工程把用户需要转化为规约。验收标准来自规约。" },
-];
+const TASK_ID = "t-1";
+const MATERIAL_ID = "m-1";
+const NODE_ID = "n-1";
+const SESSION_ID = "s-1";
 
-function seedTask() {
-  const { material } = registerMaterial({
-    title: "复习讲义.md",
-    kind: "markdown",
-    sizeBytes: 64,
-    planId: null,
-    taskId: null,
-    sections,
-    parseState: "parsed",
-  });
-  const { task, node } = createStudyTask({ materialId: material.id });
-  return { task, node, material };
+const serverNode = {
+  __typename: "KnowledgeNode",
+  id: NODE_ID,
+  planId: null,
+  taskId: TASK_ID,
+  stage: null,
+  title: "lecture-04",
+  order: 0,
+  masteryScore: "0",
+  state: "uncovered",
+  createdAt: "2026-11-01T00:00:00Z",
+};
+
+const serverTask = {
+  __typename: "StudyTask",
+  id: TASK_ID,
+  materialId: MATERIAL_ID,
+  nodeId: NODE_ID,
+  createdAt: "2026-11-01T00:00:00Z",
+  node: serverNode,
+};
+
+const serverMaterial = {
+  __typename: "Material",
+  id: MATERIAL_ID,
+  title: "复习讲义.md",
+  kind: "markdown",
+  sizeBytes: 64,
+  planId: null,
+  taskId: TASK_ID,
+  parseState: "parsed",
+  parseFailureReason: null,
+  createdAt: "2026-11-01T00:00:00Z",
+  downloadUrl: null,
+  sections: [
+    { __typename: "MaterialSection", id: "sec-1", title: "集成测试", text: "集成测试关注组件之间的交互。" },
+    { __typename: "MaterialSection", id: "sec-2", title: "需求工程", text: "需求工程把用户需要转化为规约。" },
+  ],
+};
+
+const serverQuestion = (id: string, prompt: string, correct: number, sectionId: string) => ({
+  __typename: "Question",
+  id,
+  sessionId: SESSION_ID,
+  nodeId: NODE_ID,
+  kind: "choice",
+  prompt,
+  options: ["right", "wrong"],
+  correctOptionIndex: correct,
+  sourceMaterialId: MATERIAL_ID,
+  sourceSectionId: sectionId,
+  keywords: null,
+  explanation: "because",
+});
+
+const serverSession = (owner: { planId: string | null; taskId: string | null }) => ({
+  __typename: "QuizSession",
+  id: SESSION_ID,
+  planId: owner.planId,
+  taskId: owner.taskId,
+  mode: "choice",
+  status: "active",
+  createdAt: "2026-11-01T00:00:00Z",
+  completedAt: null,
+  questions: [
+    serverQuestion("q-1", "Choice one", 0, "sec-1"),
+    serverQuestion("q-2", "Choice two", 1, "sec-2"),
+  ],
+});
+
+function pageMocks(options: { session?: Record<string, unknown> | null } = {}) {
+  const { session = null } = options;
+  const mocks: MockedResponse[] = [
+    // useTaskQuery AND useTaskNodeQuery both watch the Task document; an
+    // unknown route id reads as server null (the honest not-found path)
+    {
+      request: {
+        query: TaskDocument,
+        variables: () => true,
+      },
+      result: (vars) => ({ data: { task: vars.id === TASK_ID ? serverTask : null } }),
+      maxUsageCount: 4,
+    },
+    {
+      request: { query: MaterialsDocument, variables: () => true },
+      result: (vars) => ({ data: { materials: vars.taskId === TASK_ID ? [serverMaterial] : [] } }),
+      maxUsageCount: 4,
+    },
+    { request: { query: AllEvidenceDocument, variables: {} }, result: { data: { evidence: [] } }, maxUsageCount: 4 },
+    { request: { query: AbandonQuizSessionDocument, variables: () => true }, result: { data: { __typename: "Mutation", abandonQuizSession: { __typename: "AbandonSessionPayload", session: { __typename: "QuizSession", id: SESSION_ID, status: "abandoned" } } } }, maxUsageCount: 4 },
+  ];
+  if (options.session !== undefined) {
+    mocks.push({
+      request: { query: QuizSessionDocument, variables: { id: SESSION_ID } },
+      result: { data: { quizSession: session } },
+      maxUsageCount: 6, // remounts re-fire the session read
+    });
+  }
+  return mocks;
 }
 
 function TaskLanding() {
@@ -52,11 +146,10 @@ function PlansLanding() {
   return <p data-testid="plans-landing" />;
 }
 
-function renderQuizPage(path: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+function renderQuizPage(path: string, options: Parameters<typeof pageMocks>[0] = {}) {
   return render(
     <LanguageProvider>
-      <QueryClientProvider client={client}>
+      <MockedProvider mocks={pageMocks(options)}>
         <MemoryRouter initialEntries={[path]}>
           <Toaster />
           <Routes>
@@ -65,13 +158,12 @@ function renderQuizPage(path: string) {
             <Route path="/plans" element={<PlansLanding />} />
           </Routes>
         </MemoryRouter>
-      </QueryClientProvider>
+      </MockedProvider>
     </LanguageProvider>,
   );
 }
 
 beforeEach(() => {
-  localStorage.clear();
   sessionStorage.clear();
 });
 
@@ -83,8 +175,7 @@ describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
   });
 
   it("no ?session: the inline QuizLauncher is task-scoped — mode radios, NO scope picker; back goes to Task Home", async () => {
-    const { task } = seedTask();
-    renderQuizPage(`/task/${task.id}/quiz`);
+    renderQuizPage(`/task/${TASK_ID}/quiz`);
 
     expect(await screen.findByTestId("quiz-launcher")).toBeInTheDocument();
     // the mode select is here (all three radios)…
@@ -102,60 +193,17 @@ describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
   });
 
   it("a PLAN-owned session id reads as not-found on the task route (AD-6: sessions never cross)", async () => {
-    const { task } = seedTask();
-    const { plan, nodes } = createPlan({ topic: "别的计划", goal: null, nodes: [{ title: "n", stage: null }] });
-    const { session } = createQuizSession({
-      planId: plan.id,
-      taskId: null,
-      mode: "choice",
-      questions: [
-        {
-          prompt: "Choice one",
-          nodeId: nodes[0].id,
-          kind: "choice",
-          options: ["right", "wrong"],
-          correctOptionIndex: 0,
-          sourceMaterialId: "m-any",
-          sourceSectionId: "sec-1",
-          explanation: "because",
-        },
-      ],
+    renderQuizPage(`/task/${TASK_ID}/quiz?session=${SESSION_ID}`, {
+      session: serverSession({ planId: "p-other", taskId: null }),
     });
-    renderQuizPage(`/task/${task.id}/quiz?session=${session.id}`);
     expect(await screen.findByText(zh("quiz.runner.notFound"))).toBeInTheDocument();
     expect(screen.queryByTestId("quiz-runner")).not.toBeInTheDocument();
   });
 
   it("a task-owned active session resumes honestly — and exit-leave abandons back to Task Home", async () => {
-    const { task, node, material } = seedTask();
-    const { session } = createQuizSession({
-      planId: null,
-      taskId: task.id,
-      mode: "choice",
-      questions: [
-        {
-          prompt: "Choice one",
-          nodeId: node.id,
-          kind: "choice",
-          options: ["right", "wrong"],
-          correctOptionIndex: 0,
-          sourceMaterialId: material.id,
-          sourceSectionId: "sec-1",
-          explanation: "because",
-        },
-        {
-          prompt: "Choice two",
-          nodeId: node.id,
-          kind: "choice",
-          options: ["wrong", "right"],
-          correctOptionIndex: 1,
-          sourceMaterialId: material.id,
-          sourceSectionId: "sec-2",
-          explanation: "because too",
-        },
-      ],
+    renderQuizPage(`/task/${TASK_ID}/quiz?session=${SESSION_ID}`, {
+      session: serverSession({ planId: null, taskId: TASK_ID }),
     });
-    renderQuizPage(`/task/${task.id}/quiz?session=${session.id}`);
 
     // the shared shell's honest resume contract (T1: hydration lands on q1)
     expect(await screen.findByTestId("quiz-resumed-note")).toHaveTextContent(zh("quiz.runner.resumedNote"));
@@ -169,38 +217,10 @@ describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
   });
 
   it("a Task Home DIALOG launch is a fresh start, not a resume — no 「已恢复」 note, marker consumed; a genuine reload of the same session keeps the honest note (T6)", async () => {
-    const { task, node, material } = seedTask();
-    const { session } = createQuizSession({
-      planId: null,
-      taskId: task.id,
-      mode: "choice",
-      questions: [
-        {
-          prompt: "Choice one",
-          nodeId: node.id,
-          kind: "choice",
-          options: ["right", "wrong"],
-          correctOptionIndex: 0,
-          sourceMaterialId: material.id,
-          sourceSectionId: "sec-1",
-          explanation: "because",
-        },
-        {
-          prompt: "Choice two",
-          nodeId: node.id,
-          kind: "choice",
-          options: ["wrong", "right"],
-          correctOptionIndex: 1,
-          sourceMaterialId: material.id,
-          sourceSectionId: "sec-2",
-          explanation: "because too",
-        },
-      ],
+    sessionStorage.setItem(QUIZ_FRESH_LAUNCH_KEY, SESSION_ID);
+    const first = renderQuizPage(`/task/${TASK_ID}/quiz?session=${SESSION_ID}`, {
+      session: serverSession({ planId: null, taskId: TASK_ID }),
     });
-    // what TaskHomePage's dialog onStarted just did before navigating: the
-    // QuizLauncher marked the session fresh, then carried its id in the URL
-    sessionStorage.setItem(QUIZ_FRESH_LAUNCH_KEY, session.id);
-    const first = renderQuizPage(`/task/${task.id}/quiz?session=${session.id}`);
 
     // the runner is up WITHOUT the resume note — nothing was resumed
     expect(await screen.findByTestId("quiz-runner")).toBeInTheDocument();
@@ -208,9 +228,11 @@ describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
     // the marker was consumed, not leaked: a later reload finds none
     expect(sessionStorage.getItem(QUIZ_FRESH_LAUNCH_KEY)).toBeNull();
 
-    // the reload simulation: a fresh mount over the same localStorage + URL
+    // the reload simulation: a fresh mount over the same mocked api + URL
     first.unmount();
-    renderQuizPage(`/task/${task.id}/quiz?session=${session.id}`);
+    renderQuizPage(`/task/${TASK_ID}/quiz?session=${SESSION_ID}`, {
+      session: serverSession({ planId: null, taskId: TASK_ID }),
+    });
     expect(await screen.findByTestId("quiz-resumed-note")).toHaveTextContent(zh("quiz.runner.resumedNote"));
     expect(screen.getByTestId("quiz-progress")).toHaveTextContent(zh("quiz.question").replace("{i}", "1").replace("{n}", "2"));
   });
