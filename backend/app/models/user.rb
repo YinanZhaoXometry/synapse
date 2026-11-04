@@ -20,6 +20,7 @@ class User < ApplicationRecord
   has_many :reading_progresses
   has_many :section_markings
   has_many :annotations
+  has_many :requeue_schedules
 
   validates :email, presence: true, uniqueness: true
 end

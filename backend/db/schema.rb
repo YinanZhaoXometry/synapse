@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_04_120002) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_04_120301) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -190,6 +190,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_120002) do
     t.datetime "updated_at", null: false
     t.index ["material_id"], name: "index_reading_progresses_on_material_id", unique: true
     t.index ["user_id"], name: "index_reading_progresses_on_user_id"
+  end
+
+  create_table "requeue_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.string "schedulable_type", null: false
+    t.uuid "schedulable_id", null: false
+    t.integer "stage", default: 0, null: false
+    t.datetime "next_due_at", null: false
+    t.datetime "last_source_timestamp", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["next_due_at"], name: "index_requeue_schedules_on_next_due_at"
+    t.index ["schedulable_type", "schedulable_id"], name: "index_requeue_schedules_on_schedulable_uniqueness", unique: true
+    t.index ["user_id", "next_due_at"], name: "index_requeue_schedules_on_user_id_and_next_due_at"
+    t.index ["user_id"], name: "index_requeue_schedules_on_user_id"
   end
 
   create_table "section_markings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -416,6 +431,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_120002) do
   add_foreign_key "quiz_sessions", "users"
   add_foreign_key "reading_progresses", "materials"
   add_foreign_key "reading_progresses", "users"
+  add_foreign_key "requeue_schedules", "users"
   add_foreign_key "section_markings", "materials"
   add_foreign_key "section_markings", "users"
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade

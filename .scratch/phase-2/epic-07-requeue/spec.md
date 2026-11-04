@@ -42,6 +42,12 @@ FR-24 promises wrong answers and flashcards resurface on a spaced schedule (wron
 
 Today hub UI (09) · adaptive *suggestions* (FR-21 — epic-10; this epic only schedules what exists) · decay values interplay (epic-04 ticket 4 — if both land, the freshness spec reconciles) · any Redis/Sidekiq anything (not adopted, AD-12/19).
 
+## Interval values (finalized at kickoff 2026-11-04 — A1)
+
+- **Mistakes** — stage ladder `[1d, 2d, 4d, 7d cap]`; stage = consecutive `correct` evidence for the same question after the mistake's creation (`wrong`/`partial` reset to 0); the due anchor is the newer of the mistake's creation and the latest post-mistake evidence.
+- **Flashcards** — by self-rating (rateFlashcard's difficulty, never evidence per ADR-0001): hard 2d, medium 5d, easy 10d, unrated ⇒ due immediately; anchor = the flashcard's updated_at (the rating moment).
+- Wrong-sooner holds at every comparable point: mistake floor 1d < flashcard floor 2d; mistake cap 7d < easy 10d.
+
 ## Further Notes
 
 - Assumption A1: intervals start simple (fixed ladders, wrong < flashcard), revisited only with real usage — matches OQ-6's "deferred to implementation spec" spirit; values land in this spec at kickoff.
