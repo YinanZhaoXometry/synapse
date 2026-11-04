@@ -24,12 +24,25 @@ export interface HarnessState {
 
 export type OperationHandler = (variables: Record<string, unknown>, state: HarnessState) => Record<string, unknown> | undefined;
 
+/**
+ * The echo fixtures intentionally mirror the WIRE, not app types: handlers
+ * derive payloads from request variables and the captured server rows, whose
+ * shapes are the server's own — every fixture rides this one loose record
+ * instead of bare `any` annotations (payload structure is checked on read by
+ * the mappers, never by the fixture types).
+ */
+export type EchoFixture = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 /** The harness's captured server state — a test's assertion surface. */
 export function createHarnessState(): HarnessState {
   return { sessions: [], evidence: [], mistakes: [] };
 }
 
-function answerOperation(operation: Operation, handlers: Record<string, OperationHandler>, state: HarnessState) {
+function answerOperation(
+  operation: Operation,
+  handlers: Record<string, (variables: EchoFixture, state: HarnessState) => unknown>,
+  state: HarnessState,
+) {
   const operationName = operation.operationName;
   const handler = operationName ? handlers[operationName] : undefined;
   const variables = (operation.variables ?? {}) as Record<string, unknown>;
@@ -47,7 +60,14 @@ function answerOperation(operation: Operation, handlers: Record<string, Operatio
   return rootField ? { data: { [rootField]: payload ?? { __typename: rootField } } } : { data: {} };
 }
 
-export function createStubClient(handlers: Record<string, OperationHandler>, state: HarnessState): ApolloClient {
+/** The handler map accepts BOTH shapes: the strict OperationHandler contract
+ * (the reference driver tests) and the walks' EchoFixture-widened maps — list
+ * roots return arrays, so the loose entry type is the wire-record one, with
+ * `unknown` returns. */
+export function createStubClient(
+  handlers: Record<string, (variables: EchoFixture, state: HarnessState) => unknown>,
+  state: HarnessState,
+): ApolloClient {
   const link = new ApolloLink((operation) => {
     // run on the next tick so mutations resolve like a network round trip
     return new Observable<FetchResult>((observer) => {
