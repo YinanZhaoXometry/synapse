@@ -158,6 +158,9 @@ export function useQuizSession(options: { materials?: Material[] } = {}) {
           sourceText: section?.text ?? "",
           source: questionSourceLocator(question.sourceSectionId),
           language,
+          // T5 additive pass-through: the server grades by questionId (it owns
+          // the keywords + the source); the double grades locally and ignores it.
+          questionId: question.id,
         });
         applyTransition((prev) => applyOpenGrading(prev, graded));
       } catch {
@@ -180,6 +183,10 @@ export function useQuizSession(options: { materials?: Material[] } = {}) {
           materials: input.materials,
           nodeIds: input.nodeIds,
           mode: input.mode,
+          // T5 additive pass-through: the server adapter generates from the
+          // plan/task scope (exactly one — AD-6); the double ignores both.
+          planId: input.planId,
+          taskId: input.taskId,
         });
         // cancelled mid-generation → stale: no session is created, ever
         if (startGenRef.current !== genId) return;

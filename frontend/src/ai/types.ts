@@ -45,6 +45,13 @@ export interface GroundedChatRequest {
    * that predate the amendment.
    */
   escalated?: boolean;
+  /**
+   * Additive (epic P2-8 T5): the grounding material's uuid. The server
+   * companion stream is material-scoped — the ticket carries it
+   * (CreateStreamTicketInput.materialId, ownership-checked) — so the server
+   * adapter refuses a chat without it. The simulated adapter ignores it.
+   */
+  materialId?: string;
 }
 
 /** Plan-structure proposal (creation chat): stage-grouped node titles. */

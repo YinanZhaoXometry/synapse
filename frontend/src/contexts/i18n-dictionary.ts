@@ -635,7 +635,24 @@ export const translations = {
       'ai.stream.errorNotFound': '找不到对应的学习资料',
       'ai.stream.errorValidation': '请求内容不完整，请调整后重试',
       'ai.stream.errorRateLimited': '请求太频繁，请稍等片刻再试',
-      'ai.stream.errorInternal': 'AI 服务暂时不可用，请重试'
+      'ai.stream.errorInternal': 'AI 服务暂时不可用，请重试',
+
+      // AI 服务端适配器（epic P2-8 T5 — ai.generate. 命名空间；出题/闪卡生成/开放题评分走 GraphQL mutation）
+      'ai.generate.errorUnauthorized': '登录状态已过期，请重新登录',
+      'ai.generate.errorForbidden': '没有权限执行这个操作',
+      'ai.generate.errorNotFound': '找不到对应的学习内容',
+      'ai.generate.errorValidation': '生成请求不完整，请调整后重试',
+      'ai.generate.errorRateLimited': '请求太频繁，请稍等片刻再试',
+      'ai.generate.capReached': '今日 AI 使用次数已达上限，请明天再来',
+      'ai.generate.errorInternal': 'AI 服务暂时不可用，请重试',
+      'ai.generate.failed': '本次生成失败，请重试',
+
+      // 创建聊天的目标选择（epic P2-8 T5 · A3/FR-1 — 四个命名目标；自由文本仍是可选覆盖）
+      'plans.goalPickerLabel': '选择一个学习目标',
+      'plans.goalExam': '备考冲刺',
+      'plans.goalDeep': '深入理解',
+      'plans.goalRevision': '复习巩固',
+      'plans.goalDaily': '日常练习'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -1270,7 +1287,24 @@ export const translations = {
       'ai.stream.errorNotFound': 'The referenced study material could not be found',
       'ai.stream.errorValidation': 'The request content was incomplete — adjust it and try again',
       'ai.stream.errorRateLimited': 'Too many requests — wait a moment and try again',
-      'ai.stream.errorInternal': 'The AI service is temporarily unavailable — please try again'
+      'ai.stream.errorInternal': 'The AI service is temporarily unavailable — please try again',
+
+      // AI server adapter (epic P2-8 T5 — ai.generate. namespace; quiz/flashcard generation + open grading ride GraphQL mutations)
+      'ai.generate.errorUnauthorized': 'Your session expired — please sign in again',
+      'ai.generate.errorForbidden': 'You do not have access to this action',
+      'ai.generate.errorNotFound': 'The referenced study content could not be found',
+      'ai.generate.errorValidation': 'The generation request was incomplete — adjust it and try again',
+      'ai.generate.errorRateLimited': 'Too many requests — wait a moment and try again',
+      'ai.generate.capReached': 'The daily AI call cap is reached — please come back tomorrow',
+      'ai.generate.errorInternal': 'The AI service is temporarily unavailable — please try again',
+      'ai.generate.failed': 'This generation failed — please try again',
+
+      // Creation chat goal selection (epic P2-8 T5 · A3/FR-1 — four named goals; free text stays the optional override)
+      'plans.goalPickerLabel': 'Pick a study goal',
+      'plans.goalExam': 'Exam prep',
+      'plans.goalDeep': 'Deep understanding',
+      'plans.goalRevision': 'Revision',
+      'plans.goalDaily': 'Daily practice'
     }
 
 } as const;

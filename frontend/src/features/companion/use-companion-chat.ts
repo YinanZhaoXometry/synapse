@@ -121,6 +121,9 @@ export function useCompanionChat(
             position: request.position,
             language,
             escalated: request.escalated,
+            // T5 additive pass-through: the companion stream is material-scoped
+            // — the server ticket carries this id; the double ignores it.
+            materialId: turnMaterialId,
           },
           (chunk) => {
             buf.current += chunk;

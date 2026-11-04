@@ -107,7 +107,9 @@ export function mapTask(task: { id: string; materialId: string; nodeId: string; 
   };
 }
 
-function readingLocator(locator: ReadingPositionPartsFragment["locator"]): ReadingLocator {
+/** Wire locator → domain union (epic P2-8 T5: exported for the AI server
+ * adapter's citation mapping — the one normalizer for both consumers). */
+export function readingLocator(locator: ReadingPositionPartsFragment["locator"]): ReadingLocator {
   if (locator.kind === "pdf") {
     return { kind: "pdf", page: locator.page ?? 1 };
   }
