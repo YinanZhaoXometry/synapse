@@ -1,0 +1,67 @@
+# Quiz session + evidence operations (epic P2-8 T1). Question generation stays
+# client-side and deterministic in T1 (createQuizSession accepts the generated
+# questions); the AI-generation mutations ride ticket 05's seam swap. Grading
+# results move scores SERVER-side through recordEvidence (AD-14: no local
+# recompute — surfaces refetch plan/task reads after it).
+
+query QuizSession($id: String!) {
+  quizSession(id: $id) {
+    ...QuizSessionParts
+  }
+}
+
+mutation CreateQuizSession($input: CreateSessionInput!) {
+  createQuizSession(input: $input) {
+    session {
+      id
+      planId
+      taskId
+      mode
+      status
+      createdAt
+      completedAt
+    }
+    questions {
+      ...QuestionParts
+    }
+  }
+}
+
+mutation AbandonQuizSession($input: AbandonSessionInput!) {
+  abandonQuizSession(input: $input) {
+    session {
+      id
+      status
+    }
+  }
+}
+
+mutation RecordEvidence($input: RecordEvidenceInput!) {
+  recordEvidence(input: $input) {
+    evidence {
+      id
+      nodeId
+      sessionId
+      questionId
+      outcome
+      createdAt
+    }
+    mistakes {
+      id
+      questionId
+      sessionId
+      nodeId
+      userAnswer
+      sourceLocation {
+        kind
+        page
+        sectionId
+      }
+      forfeited
+      createdAt
+    }
+    session {
+      ...QuizSessionParts
+    }
+  }
+}

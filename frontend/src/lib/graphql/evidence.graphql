@@ -1,0 +1,23 @@
+# Evidence reads (epic P2-8 T1) — node-attributed quiz evidence history.
+
+query EvidenceByNode($nodeId: String!) {
+  evidence(nodeId: $nodeId) {
+    id
+    nodeId
+    sessionId
+    questionId
+    outcome
+    createdAt
+  }
+}
+
+query AllEvidence {
+  evidence {
+    id
+    nodeId
+    sessionId
+    questionId
+    outcome
+    createdAt
+  }
+}

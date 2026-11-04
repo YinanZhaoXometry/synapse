@@ -1,0 +1,21 @@
+# Companion transcript persistence (epic P2-8 T1) — the data half of the
+# Companion surface. The stream half rides the SSE ticket contract (ticket 05).
+
+query ChatThread($materialId: String!) {
+  chatThread(materialId: $materialId) {
+    id
+    materialId
+    updatedAt
+    messages {
+      ...ChatMessageParts
+    }
+  }
+}
+
+mutation AppendChatMessage($input: AppendMessageInput!) {
+  appendChatMessage(input: $input) {
+    message {
+      ...ChatMessageParts
+    }
+  }
+}

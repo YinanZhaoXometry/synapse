@@ -1,0 +1,40 @@
+# Reading progress + streak (epic P2-8 T1).
+
+query ReadingProgress($materialId: String!) {
+  readingProgress(materialId: $materialId) {
+    id
+    materialId
+    updatedAt
+    position {
+      ...ReadingPositionParts
+    }
+  }
+}
+
+query ReadingProgressList {
+  readingProgressList {
+    id
+    materialId
+    updatedAt
+    position {
+      ...ReadingPositionParts
+    }
+  }
+}
+
+mutation SaveReadingProgress($input: SaveReadingProgressInput!) {
+  saveReadingProgress(input: $input) {
+    readingProgress {
+      id
+      materialId
+      updatedAt
+      position {
+        ...ReadingPositionParts
+      }
+    }
+  }
+}
+
+query Streak {
+  streak
+}

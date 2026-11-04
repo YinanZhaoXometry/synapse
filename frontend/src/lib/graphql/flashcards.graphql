@@ -1,0 +1,49 @@
+# Flashcard operations (epic P2-8 T1). Ratings are self-ratings: they persist
+# on the card and never create evidence (ADR-0001).
+
+query FlashcardsByMaterial($materialId: String!) {
+  flashcards(materialId: $materialId) {
+    id
+    materialId
+    nodeId
+    front
+    back
+    difficulty
+    createdAt
+  }
+}
+
+query FlashcardsByPlan($planId: String!) {
+  flashcards(planId: $planId) {
+    id
+    materialId
+    nodeId
+    front
+    back
+    difficulty
+    createdAt
+  }
+}
+
+mutation CreateFlashcards($input: CreateFlashcardsInput!) {
+  createFlashcards(input: $input) {
+    cards {
+      id
+      materialId
+      nodeId
+      front
+      back
+      difficulty
+      createdAt
+    }
+  }
+}
+
+mutation RateFlashcard($input: RateFlashcardInput!) {
+  rateFlashcard(input: $input) {
+    flashcard {
+      id
+      difficulty
+    }
+  }
+}

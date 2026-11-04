@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ApolloProvider } from "@apollo/client/react";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -6,7 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProgressProvider } from "@/contexts/UserProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { isOnboardingComplete } from "@/data";
+import { apolloClient } from "@/apollo";
+import { readLocalOnboardingComplete } from "@/lib/local-document";
 import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entry-decision";
 import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
@@ -35,22 +36,21 @@ const ReaderPage = lazy(() => import("@/features/reader/ReaderPage"));
 const TaskCreatePage = lazy(() => import("@/features/tasks/TaskCreatePage"));
 const TaskHomePage = lazy(() => import("@/features/tasks/TaskHomePage"));
 
-const queryClient = new QueryClient();
-
 /**
  * Front-door guard (AD-8): first run renders the onboarding wizard at `/`,
  * every later visit redirects to Plans Home. The flag read is synchronous —
  * the decision lands before first paint, so a returning user never glimpses
- * the wizard behind a pending query cache.
+ * the wizard behind a pending query cache. The flag lives in the legacy local
+ * document (lib/local-document) until ticket 02's login wall re-shapes entry.
  */
 function EntryGate() {
-  const destination = resolveEntryDestination(isOnboardingComplete());
+  const destination = resolveEntryDestination(readLocalOnboardingComplete());
   if (destination === "plans") return <Navigate to={PLANS_HOME_ROUTE} replace />;
   return <OnboardingPage />;
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <ApolloProvider client={apolloClient}>
     <TooltipProvider>
       <LanguageProvider>
         <ThemeProvider>
@@ -119,7 +119,7 @@ const App = () => (
         </ThemeProvider>
       </LanguageProvider>
     </TooltipProvider>
-  </QueryClientProvider>
+  </ApolloProvider>
 );
 
 export default App;

@@ -1,15 +1,26 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
 
-// Schema-only codegen: compile-level proof of the contract→client pipeline
-// (AD-17: api-committed schema.graphql is the only cross-stack contract).
-// No runtime GraphQL client here — that is AD-18's Apollo cutover epic.
-// Output is gitignored (see frontend/.gitignore); the generated file carries the
-// graphql-codegen banner marking it clearly generated.
+// The contract→client pipeline (AD-17: backend/schema.graphql is the only
+// cross-stack contract; AD-18: Apollo + codegen typed-document-node own domain
+// data). Epic P2-8 T1 grew this from schema-only type proof to the full
+// operations pipeline, and flipped the output policy: the generated file is
+// COMMITTED now — the typed documents are runtime-load-bearing (features
+// import them), so CI pins freshness with a regenerate+diff gate instead of a
+// gitignore. The generated file still carries the graphql-codegen banner.
 const config: CodegenConfig = {
   schema: "../backend/schema.graphql",
+  documents: ["src/lib/graphql/*.graphql"],
   generates: {
     "src/types/graphql.ts": {
-      plugins: ["typescript"],
+      // typescript-operations alone (no bare `typescript` plugin): both emit
+      // input types — together they collide as duplicate identifiers. The
+      // operations-reachable types are exactly what the app consumes.
+      plugins: ["typescript-operations", "typed-document-node"],
+      config: {
+        scalars: {
+          DateTime: { input: "string", output: "string" },
+        },
+      },
     },
   },
 };

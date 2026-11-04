@@ -1,0 +1,70 @@
+# Plan operations (epic P2-8 T1) — the plan-first front door's reads/writes.
+# Lists stay light (id/topic/goal + the rollup score); detail carries the full
+# node tree and material summaries.
+
+query Plans {
+  plans {
+    id
+    topic
+    goal
+    createdAt
+    masteryScore
+  }
+}
+
+query Plan($id: String!) {
+  plan(id: $id) {
+    id
+    topic
+    goal
+    createdAt
+    masteryScore
+    visibility
+    nodes {
+      ...KnowledgeNodeParts
+    }
+    materials {
+      ...MaterialSummaryParts
+    }
+  }
+}
+
+mutation CreatePlan($input: CreatePlanInput!) {
+  createPlan(input: $input) {
+    plan {
+      id
+      topic
+      goal
+      createdAt
+      masteryScore
+    }
+    nodes {
+      ...KnowledgeNodeParts
+    }
+  }
+}
+
+mutation UpdatePlan($input: UpdatePlanInput!) {
+  updatePlan(input: $input) {
+    plan {
+      id
+      topic
+      goal
+      createdAt
+      masteryScore
+      visibility
+      nodes {
+        ...KnowledgeNodeParts
+      }
+      materials {
+        ...MaterialSummaryParts
+      }
+    }
+  }
+}
+
+mutation DeletePlan($input: DeletePlanInput!) {
+  deletePlan(input: $input) {
+    deletedPlanId
+  }
+}

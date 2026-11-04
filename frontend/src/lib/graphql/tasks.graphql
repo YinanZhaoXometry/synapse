@@ -1,0 +1,40 @@
+# Study Task operations (epic P2-8 T1). A task owns exactly one auto-created
+# node (AD-6) — read off the task, never re-derived client-side.
+
+query Tasks {
+  tasks {
+    id
+    materialId
+    nodeId
+    createdAt
+    node {
+      ...KnowledgeNodeParts
+    }
+  }
+}
+
+query Task($id: String!) {
+  task(id: $id) {
+    id
+    materialId
+    nodeId
+    createdAt
+    node {
+      ...KnowledgeNodeParts
+    }
+  }
+}
+
+mutation CreateTask($input: CreateTaskInput!) {
+  createTask(input: $input) {
+    task {
+      id
+      materialId
+      nodeId
+      createdAt
+    }
+    node {
+      ...KnowledgeNodeParts
+    }
+  }
+}

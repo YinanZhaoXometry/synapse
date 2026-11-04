@@ -1,0 +1,39 @@
+# Material operations (epic P2-8 T1). Attach is the two-step cutover flow:
+# createMaterialUpload mints the presigned PUT (epic P2-6), the browser PUTs
+# the bytes, attachMaterial lands metadata + client-extracted sections.
+
+query Materials($planId: String, $taskId: String) {
+  materials(planId: $planId, taskId: $taskId) {
+    ...MaterialSummaryParts
+  }
+}
+
+query Material($id: String!) {
+  material(id: $id) {
+    ...MaterialParts
+  }
+}
+
+mutation CreateMaterialUpload($input: CreateMaterialUploadInput!) {
+  createMaterialUpload(input: $input) {
+    materialId
+    uploadUrl
+    expiresAt
+  }
+}
+
+mutation AttachMaterial($input: AttachMaterialInput!) {
+  attachMaterial(input: $input) {
+    material {
+      ...MaterialParts
+    }
+  }
+}
+
+mutation SetMaterialParseResult($input: SetMaterialParseResultInput!) {
+  setMaterialParseResult(input: $input) {
+    material {
+      ...MaterialParts
+    }
+  }
+}

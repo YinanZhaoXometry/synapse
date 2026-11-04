@@ -1,0 +1,87 @@
+# Shared entity fragments (epic P2-8 T1). Every list/detail operation spreads
+# these so all surfaces read identical fields — and every node read carries the
+# server-computed masteryScore/state (AD-14: the client renders, never
+# recomputes).
+fragment KnowledgeNodeParts on KnowledgeNode {
+  id
+  planId
+  taskId
+  stage
+  title
+  order
+  masteryScore
+  state
+  createdAt
+}
+
+fragment MaterialSummaryParts on Material {
+  id
+  title
+  kind
+  sizeBytes
+  planId
+  taskId
+  parseState
+  parseFailureReason
+  createdAt
+}
+
+# Full material — detail views (reader, attach flows). downloadUrl is the
+# short-lived presigned GET (epic P2-6): minted per request, never persisted.
+fragment MaterialParts on Material {
+  ...MaterialSummaryParts
+  sections {
+    id
+    title
+    text
+  }
+  downloadUrl
+}
+
+fragment QuestionParts on Question {
+  id
+  sessionId
+  nodeId
+  kind
+  prompt
+  options
+  correctOptionIndex
+  sourceMaterialId
+  sourceSectionId
+  keywords
+  explanation
+}
+
+fragment QuizSessionParts on QuizSession {
+  id
+  planId
+  taskId
+  mode
+  status
+  createdAt
+  completedAt
+  questions {
+    ...QuestionParts
+  }
+}
+
+fragment ChatMessageParts on ChatMessage {
+  id
+  role
+  text
+  createdAt
+  citations {
+    kind
+    page
+    sectionId
+  }
+}
+
+fragment ReadingPositionParts on ReadingPosition {
+  text
+  locator {
+    kind
+    page
+    sectionId
+  }
+}
