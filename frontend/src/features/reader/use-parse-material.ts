@@ -11,6 +11,7 @@
  * while bytes exist somewhere.
  */
 import { useCallback } from "react";
+import { toast } from "sonner";
 import { sessionBlobs, useSetMaterialParseResultMutation } from "@/api";
 import type { MaterialView } from "@/api/views";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -19,7 +20,7 @@ import { parseMaterialBytes } from "./parse-material";
 
 export function useParseMaterialMutation(material?: MaterialView | null | undefined) {
   const [setParseResult] = useSetMaterialParseResultMutation();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
 
   const mutate = useCallback(
     // Two call shapes: a row-scoped instance (MaterialRow) calls mutate(id)
@@ -90,10 +91,15 @@ export function useParseMaterialMutation(material?: MaterialView | null | undefi
               reason: outcome.reason,
             },
           },
-        }).catch(() => undefined); // persistence failed — the row keeps its honest pre-parse state
+        }).catch(() => {
+          // Never silent: the parse succeeded locally but the write-back
+          // failed — same failure class as progress/chat persistence, same
+          // neutral retry toast (the row keeps its honest pre-parse state).
+          toast.error(t("errors.persistFailed"));
+        });
       })();
     },
-    [material, language, setParseResult],
+    [material, language, t, setParseResult],
   );
 
   return { mutate };

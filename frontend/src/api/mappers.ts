@@ -48,6 +48,11 @@ export function mapNode(node: KnowledgeNodePartsFragment): KnowledgeNodeView {
   };
 }
 
+function materialKind(kind: string): Material["kind"] {
+  if (kind === "pdf" || kind === "markdown") return kind;
+  throw new Error(`unknown material kind from the api: ${kind}`);
+}
+
 function parseState(state: string): Material["parseState"] {
   if (state === "pending" || state === "parsing" || state === "parsed" || state === "failed") return state;
   throw new Error(`unknown parse state from the api: ${state}`);
@@ -63,7 +68,7 @@ export function mapMaterialSummary(material: MaterialSummaryPartsFragment): Mate
   return {
     id: material.id,
     title: material.title,
-    kind: material.kind as Material["kind"],
+    kind: materialKind(material.kind),
     sizeBytes: material.sizeBytes,
     planId: material.planId,
     taskId: material.taskId,
@@ -80,7 +85,7 @@ export function mapMaterial(material: MaterialPartsFragment): MaterialView {
   return {
     id: material.id,
     title: material.title,
-    kind: material.kind as Material["kind"],
+    kind: materialKind(material.kind),
     sizeBytes: material.sizeBytes,
     planId: material.planId,
     taskId: material.taskId,
