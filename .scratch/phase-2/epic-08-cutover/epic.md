@@ -34,6 +34,13 @@ Login wall up; import round-trips a real Phase-1 `synapse-db:v1` idempotently; s
 - **Codegen output committed**: src/types/graphql.ts flipped from gitignored to committed (runtime-load-bearing documents) with a regenerate+diff freshness gate in just spec + ci.yml.
 - **Test harness**: src/test/apollo-harness.tsx — a stub-GraphQL echo server (per-operation handlers deriving payloads from variables) for the driver/evidence-loop walks; static MockedProvider mocks for surface tests.
 
+## T3/T4 delta-log additions (2026-11-04)
+
+- **T3 built the api's importDocument** (delta-review had confirmed it missing): whole-document, idempotent (same-user replay merges; any foreign uuid → VALIDATION_FAILED pre-write, atomic), byteless materials, evidence createdAt verbatim, 13 Imported*Input types mirroring the live doc. Frontend: one-time offer (marker on NEW key `synapse-import:done` — "not now" spends it) + re-attach invite via refreshBytes; legacy doc never deleted.
+- **Guard-vs-codegen**: schema descriptions must not carry the literal `synapse-db:v1` — codegen copies descriptions into the committed types and the guard forbids the literal there (rephrased as "the Phase-1 local document").
+- **T4 wrapper**: drop → close-then-fresh-ticket restart (cap counts REDEEMS, Ai::DailyCap 50/user/UTC-day, server env-owned — the client never hardcodes the number); client-side drop-loop guard (maxRestarts=3 → INTERNAL) added beyond ticket wording; terminators register per-SESSION (no stacking), resetApiClient cancels whole sessions. Apollo 4 mutate rejects with CombinedGraphQLErrors (singular `error` on MutateResult).
+- **Worktree env note**: a fresh test DB's db:prepare auto-seeds the demo account and breaks the 3 global-count confirm_proposal specs — use `db:drop db:create db:migrate` (the CI form) in agent worktrees.
+
 ## Coordination notes
 
 - **Single integration branch** — no parallel lanes inside; T4 ∥ T5 mid-branch at most. Owner-side provisioning (Render/Neon/R2 ENV) must be in hand before T6 (roadmap owner table).

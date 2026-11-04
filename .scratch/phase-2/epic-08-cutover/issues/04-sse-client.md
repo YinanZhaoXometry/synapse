@@ -4,7 +4,7 @@
 
 **Blocked by:** 1.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-04, `1edbab5` — 19 offline tests; review pending the epic's pre-merge pass)
 
 **Bound by:** AD-16 (client restart semantics verbatim), AD-5 (UI renders the contract, never guesses), AD-9 (codes → keys, never server strings).
 

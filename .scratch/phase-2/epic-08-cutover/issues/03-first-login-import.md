@@ -4,7 +4,7 @@
 
 **Blocked by:** 2.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-04, merged `bad9dc6` — backend 775 / web 428 green; review pending the epic's pre-merge pass)
 
 **Bound by:** AD-15 (import contract verbatim), AD-4 (the document's shape is the contract — read it, don't transform it), AD-13 (re-attach via presign).
 
