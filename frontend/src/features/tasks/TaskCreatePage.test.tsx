@@ -69,6 +69,8 @@ const attachedMaterial = (title: string) => ({
   sizeBytes: 2048,
   planId: null,
   taskId: null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "pending",
   parseFailureReason: null,
   createdAt: "2026-11-04T00:00:00Z",

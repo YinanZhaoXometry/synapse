@@ -38,14 +38,28 @@ export type ParseState = "pending" | "parsing" | "parsed" | "failed";
  */
 export type ParseFailureReason = "corrupt" | "encrypted" | "empty" | "unknown";
 
+/**
+ * Where a Material's content feeds (FR-44, epic P2-10 T2): "plan" rides every
+ * plan-scoped generation surface; "node" is pinned to exactly one node
+ * (nodeId) — the api's ContextAssembler enforces the split at assembly time.
+ */
+export type AttachmentScope = "plan" | "node";
+
 export interface Material {
   id: string;
   title: string;
   kind: "pdf" | "markdown";
   sizeBytes: number;
-  /** Plan-wide attachment (FR-2 default); pinned attachment is FR-44, Phase 2. */
+  /** Plan-wide attachment (FR-2 default); pinned attachment is FR-44 (epic P2-10 T2). */
   planId: string | null;
   taskId: string | null;
+  /**
+   * Where the content feeds (FR-44, server field): "plan" — the whole plan's
+   * generation surfaces (the default) — or "node" — only the pinned node's.
+   */
+  attachmentScope: AttachmentScope;
+  /** The pinned plan node — set only while attachmentScope is "node". */
+  nodeId: string | null;
   parseState: ParseState;
   /** Set only while parseState is "failed" — the bilingual reason lives in i18n (NFR-5). */
   parseFailureReason?: ParseFailureReason;

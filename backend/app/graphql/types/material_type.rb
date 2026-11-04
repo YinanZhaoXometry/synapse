@@ -36,6 +36,14 @@ module Types
           null: true,
           description: "The Study Task studying this material (the one-task-per-material back-link), if any."
 
+    field :attachment_scope, String,
+          null: false,
+          description: "Where the material's content feeds (FR-44, epic P2-10 T2): \"plan\" (the whole plan's generation surfaces — the default) or \"node\" (only the pinned node's surfaces)."
+
+    field :node_id, String,
+          null: true,
+          description: "The plan node the material is pinned to (FR-44) — set only while attachmentScope is \"node\"."
+
     field :parse_state, String,
           null: false,
           description: "pending | parsing | parsed | failed (the Phase-1 ParseState vocabulary)."

@@ -114,6 +114,17 @@ export default function MaterialsPage() {
               <span className="px-2 py-[3px] rounded-full bg-[var(--surface-warm)] border border-border-soft text-[10px] font-semibold text-muted-foreground whitespace-nowrap">
                 {t(materialTagKey(m.tag))}
               </span>
+              {/* Attachment-scope chip (FR-44, epic P2-10 T2). These prototype
+                  rows are demo data without server rows — they read plan-wide
+                  by definition, so the chip is honest while the pin/widen
+                  affordances live on the plan's material rows (PlanHome),
+                  where real materials + the plan's nodes exist. */}
+              <span
+                className="px-2 py-[3px] rounded-full bg-[var(--glass-3)] border border-border-soft text-[10px] font-semibold text-muted-foreground whitespace-nowrap"
+                data-testid="scope-chip"
+              >
+                {t("scope.chipPlan")}
+              </span>
             </div>
             <div className="flex-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button

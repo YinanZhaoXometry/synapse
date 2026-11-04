@@ -21,6 +21,8 @@ fragment MaterialSummaryParts on Material {
   sizeBytes
   planId
   taskId
+  attachmentScope
+  nodeId
   parseState
   parseFailureReason
   createdAt

@@ -62,6 +62,8 @@ const materialFixture = (id: string, owner: { planId?: string; taskId?: string }
   sizeBytes: 64,
   planId: owner.planId ?? null,
   taskId: owner.taskId ?? null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   parseFailureReason: null,
   createdAt: NOW,

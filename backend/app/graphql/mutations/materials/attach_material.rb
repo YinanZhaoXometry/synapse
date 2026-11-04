@@ -36,6 +36,14 @@ module Mutations
                required: false,
                description: "Attach under a task. A task always already studies its material (the link is created with the task), so this conflicts VALIDATION_FAILED against a live task."
 
+      argument :attachment_scope, String,
+               required: false,
+               description: "Where the material's content feeds (FR-44): \"plan\" (default — the whole plan's generation surfaces) or \"node\" (pinned to one node's surfaces only)."
+
+      argument :node_id, String,
+               required: false,
+               description: "The plan node to pin to — required with attachmentScope node, refused otherwise. Must be a node of the material's plan; unknown or foreign ids are NOT_FOUND."
+
       argument :sections, [ Types::MaterialSectionInput ],
                required: true,
                description: "The client-extracted sections (Phase-1 MaterialSection[]). May be empty when nothing was parsed yet."
@@ -53,7 +61,7 @@ module Mutations
             description: "The attached (or replayed) material."
 
       def resolve(client_uuid:, title:, kind:, size_bytes:, sections:, plan_id: nil, task_id: nil,
-                  parse_state: nil, parse_failure_reason: nil)
+                  attachment_scope: nil, node_id: nil, parse_state: nil, parse_failure_reason: nil)
         command_result(::Materials::AttachMaterialCommand.call(
           current_user: current_user!,
           client_uuid: client_uuid,
@@ -62,6 +70,8 @@ module Mutations
           size_bytes: size_bytes,
           plan_id: plan_id,
           task_id: task_id,
+          attachment_scope: attachment_scope,
+          node_id: node_id,
           sections: sections.map(&:to_h),
           parse_state: parse_state,
           parse_failure_reason: parse_failure_reason

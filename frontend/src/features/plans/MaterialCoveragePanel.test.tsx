@@ -54,6 +54,8 @@ const MATERIAL: MaterialView = {
   sizeBytes: 1234,
   planId: "plan-1",
   taskId: null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   parseFailureReason: undefined,
   sections: [

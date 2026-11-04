@@ -37,6 +37,8 @@ const material: Material = {
   sizeBytes: 64,
   planId: null,
   taskId: null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   sections: [
     { id: "sec-1", title: "集成测试", text: "集成测试关注组件之间的交互。" },
