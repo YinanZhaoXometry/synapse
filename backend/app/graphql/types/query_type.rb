@@ -120,7 +120,10 @@ module Types
       description: "The current user's evidence-day streak: consecutive UTC calendar days with at least one EvidenceRecord, ending at the latest evidence day — alive only while that day is today or yesterday (UTC), otherwise 0. Computed by the api's Mastery module; the boundary is UTC by contract (ADR-0001, amended 2026-11-04)."
 
     def streak
-      Mastery.compute_streak(current_user!.evidence_records, now: Time.current)
+      # (created_at, id) order — the Mastery feed sites load deterministically
+      # at the SQL seam (review P2-5a). The streak's day-key math is
+      # order-insensitive; the seam stays uniform across the feed sites.
+      Mastery.compute_streak(current_user!.evidence_records.order(:created_at, :id), now: Time.current)
     end
 
     field :flashcards, [ Types::FlashcardType ], null: false,

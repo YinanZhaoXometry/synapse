@@ -21,6 +21,13 @@
  *   - The process timezone is pinned (TZ=UTC) before any Date is constructed, so the
  *     Phase-1 "local" day boundary is simulated on a fixed zone, never the host's.
  *     The local-vs-UTC divergence case pins a second fixed zone (Asia/Shanghai, no DST).
+ *   - Equal-timestamp evidence ties are pinned (review P2-5): the window's recency
+ *     sort breaks them by insertion order, the EARLIER-inserted record being the
+ *     OLDER recency (the later-inserted survives at the window boundary). On the TS
+ *     side that is the V8-observed behavior of the comparator in domain/mastery.ts;
+ *     the Ruby port makes the same tiebreak explicit because Ruby's sort is not
+ *     stable. The regenerate-and-diff leg guards that this still holds on whatever
+ *     engine regenerates.
  *   - `generatedAtSourceCommit` is ADVISORY provenance, not part of the anti-drift
  *     contract (epic P2-4 review): SOURCE_PATHS includes this generator and fixture
  *     commits ride generator edits, so the stamp is self-referential — a vector-
@@ -297,6 +304,18 @@ function buildDocument(): FixtureDocument {
       "node-score.window-recency-by-createdAt-not-insertion",
       "The window follows createdAt recency, not array insertion order (corpus case): shuffled input sorts to c,c,c,w,c → 80.",
       [ev("correct", "2026-11-05T10:00:00Z"), ev("correct", "2026-11-01T10:00:00Z"), ev("wrong", "2026-11-03T10:00:00Z"), ev("correct", "2026-11-02T10:00:00Z"), ev("correct", "2026-11-04T10:00:00Z")],
+    ),
+    nodeCase(
+      "node-score.window-tie-equal-createdAt-earlier-insert-ages-out",
+      "Equal-timestamp tie straddling the window boundary: 6 records, the two oldest sharing one createdAt — the tie breaks by insertion order with the EARLIER-inserted record as the OLDER recency, so the later-inserted wrong stays in the window (80) while the earlier-inserted correct ages out (a reverse tiebreak would read 100). Ruby's sort is not stable — the index tiebreak is explicit on both sides (review P2-5).",
+      [
+        ev("correct", "2026-11-01T10:00:00Z"),
+        ev("wrong", "2026-11-01T10:00:00Z"),
+        ev("correct", "2026-11-02T10:00:00Z"),
+        ev("correct", "2026-11-03T10:00:00Z"),
+        ev("correct", "2026-11-04T10:00:00Z"),
+        ev("correct", "2026-11-05T10:00:00Z"),
+      ],
     ),
   );
 
@@ -626,6 +645,7 @@ function buildDocument(): FixtureDocument {
       "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
       "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99).",
       "Freshness landed (ticket 04, amendment 2026-11-04): category 'decay' pins the freshness cap both directions at the 14-day boundary (exactly-14d fresh certifies; +1s stale caps 99/partial), the mastered→partial drop, cap-not-drift (stale 83 stays 83), the rollup-with-one-decayed-node hold below 100, the gate×freshness max-cap interplay, and the streak's independence. The 33 pre-flight cases inject no 'now' and are value-identical to their pre-decay expectations.",
+      "Equal-timestamp tie pinned (review P2-5): node-score.window-tie-equal-createdAt-earlier-insert-ages-out — a window tie breaks by insertion order, the EARLIER-inserted record being the OLDER recency (the TS comparator's V8-observed behavior; Ruby's sort is not stable, so its index tiebreak is explicit — the sides agree by contract, not by coincidence).",
     ],
   };
 
@@ -650,6 +670,7 @@ const KNOWN_ANSWERS: Record<string, string> = {
   "node-score.window-edge-six-records-oldest-wrong-ages-out": "100",
   "node-score.window-edge-six-records-oldest-correct-excluded": "80",
   "node-score.window-recency-by-createdAt-not-insertion": "80",
+  "node-score.window-tie-equal-createdAt-earlier-insert-ages-out": "80",
   "rollup.empty-plan-scores-zero": "0",
   "rollup.uncovered-node-counts-zero": "50",
   "rollup.rounding-mean-of-scores-83": "83",
@@ -684,7 +705,7 @@ const KNOWN_ANSWERS: Record<string, string> = {
 
 /** The boundary matrix — the categories and case counts tickets 01 + 04's ACs pin. */
 const EXPECTED_INVENTORY: Record<VectorCategory, number> = {
-  node_score: 12,
+  node_score: 13,
   rollup: 7,
   task_rollup: 2,
   streak: 10,

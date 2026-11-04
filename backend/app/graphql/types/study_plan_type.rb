@@ -57,7 +57,13 @@ module Types
 
     def mastery_score
       nodes = object.knowledge_nodes.to_a
-      records = EvidenceRecord.where(user_id: object.user_id, node_id: nodes.map(&:id)).group_by(&:node_id)
+      # (created_at, id) order = the deterministic SQL seam (review P2-5a,
+      # same posture as the node fields' DataloaderSources::EvidenceRecordsSource):
+      # Mastery's window sort resolves equal-timestamp ties against this
+      # array's order, so the rollup is order-deterministic too.
+      records = EvidenceRecord.where(user_id: object.user_id, node_id: nodes.map(&:id))
+        .order(:created_at, :id)
+        .group_by(&:node_id)
       Mastery.compute_plan_rollup(nodes.to_h { |node| [ node.id, records.fetch(node.id, []) ] }, now: Time.current).to_s
     end
 

@@ -54,11 +54,11 @@ RSpec.describe Mastery do
       expect(META.fetch("generatedAtSourceCommit")).to match(/\A[0-9a-f]{40}\z/)
     end
 
-    it "consumes the whole matrix — 40 cases across the six categories" do
+    it "consumes the whole matrix — 41 cases across the six categories" do
       counts = CASES.group_by { |c| c["category"] }.transform_values(&:length)
-      expect(CASES.length).to eq(40)
+      expect(CASES.length).to eq(41)
       expect(counts).to eq(
-        "node_score" => 12,
+        "node_score" => 13,
         "rollup" => 7,
         "task_rollup" => 2,
         "streak" => 10,
