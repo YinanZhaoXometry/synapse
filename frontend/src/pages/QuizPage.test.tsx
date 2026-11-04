@@ -12,6 +12,8 @@ import {
   createHarnessState,
   createStubClient,
   echoQuestion,
+  echoTouchedNodes,
+  echoTouchedPlan,
   makeStubWrapper,
   type HarnessState,
   type OperationHandler,
@@ -194,17 +196,17 @@ function makeDemoHarness(nodeOverrides: Array<Record<string, unknown>> = [{}, {}
       }
       state.evidence.push(...evidence);
       state.mistakes.push(...mistakes);
-      // The payload's live-update half (epic P2-10 T3): the fixture nodes ARE
-      // this stub's computed values, echoed verbatim; a task session has no plan.
-      const payloadNodes = [...new Set(evidence.map((e) => e.nodeId as string))]
-        .map((id) => [...nodes, taskNode].find((n) => n.id === id))
-        .filter(Boolean) as Array<Record<string, unknown>>;
+      // The payload's live-update half (epic P2-10 T3): the shared echo
+      // helpers compute SERVER-shaped values — node scores over the FULL
+      // evidence history, the plan rollup over ALL the plan's nodes (a task
+      // session has no plan; the task node is not a plan node) — the same
+      // contract the real api answers with.
       return {
         evidence,
         mistakes,
         session,
-        nodes: payloadNodes,
-        plan: session?.planId ? { __typename: "StudyPlan", id: session.planId, masteryScore: "0" } : null,
+        nodes: echoTouchedNodes(state, evidence, (id) => [...nodes, taskNode].find((n) => n.id === id)),
+        plan: echoTouchedPlan(state, (session?.planId as string | null) ?? null, nodes),
       };
     },
     AbandonQuizSession: (variables) => {

@@ -244,13 +244,14 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
           });
         state.evidence.push(...evidence);
         state.mistakes.push(...mistakes);
-        // The payload's live-update half (epic P2-10 T3) — a task session's plan is null.
+        // The payload's live-update half (epic P2-10 T3) — a task session's
+        // plan is null; the nodes echo SERVER-shaped (full history) scores.
     return {
       evidence,
       mistakes,
       session,
-      nodes: echoTouchedNodes(evidence, (id) => server.nodes.find((n) => n.id === id)),
-      plan: echoTouchedPlan((session?.planId as string) ?? null, evidence),
+      nodes: echoTouchedNodes(state, evidence, (id) => server.nodes.find((n) => n.id === id)),
+      plan: echoTouchedPlan(state, (session?.planId as string) ?? null, server.nodes),
     };
       },
       AllEvidence: () => state.evidence,
