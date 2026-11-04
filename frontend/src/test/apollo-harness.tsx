@@ -117,15 +117,24 @@ export function echoQuestion(input: Record<string, unknown>, sessionId: string, 
  * The recordEvidence echo's live-update half (epic P2-10 T3): the mutation
  * document selects the touched nodes + the owning plan, so every RecordEvidence
  * echo must answer them or the cache write logs missing-field errors. The
- * nodes carry FRESH scores — the stub computes them with the REAL domain
- * functions over the just-echoed evidence (the evidence-loop nodeRow precedent:
- * the stub plays by the api's rules, AD-14). `nodeRow` lets a walk spread its
- * stored fixture row (title/order/…) under the computed scores.
+ * nodes carry FRESH SERVER-SHAPED scores — the stub computes them with the
+ * REAL domain functions over the node's FULL evidence history
+ * (state.evidence — the Plan handler's nodeEvidence accumulation precedent;
+ * the server's KnowledgeNodeType#mastery_score reads the node's whole
+ * evidence, never just the batch; the stub plays by the api's rules, AD-14).
+ * `evidence` (the just-recorded batch) still defines the TOUCHED set only;
+ * the handler must have pushed it into state.evidence BEFORE echoing.
+ * `nodeRow` lets a walk spread its stored fixture row (title/order/…) under
+ * the computed scores.
  */
-export function echoTouchedNodes(evidence: EchoFixture[], nodeRow?: (nodeId: string) => EchoFixture | undefined): EchoFixture[] {
+export function echoTouchedNodes(
+  state: HarnessState,
+  evidence: EchoFixture[],
+  nodeRow?: (nodeId: string) => EchoFixture | undefined,
+): EchoFixture[] {
   const nodeIds = [...new Set(evidence.map((e) => e.nodeId as string))];
   return nodeIds.map((id) => {
-    const records = evidence.filter((e) => e.nodeId === id).map(mapEvidence);
+    const records = state.evidence.filter((e) => e.nodeId === id).map(mapEvidence);
     return {
       __typename: "KnowledgeNode",
       ...(nodeRow?.(id) ?? {}),
@@ -136,13 +145,19 @@ export function echoTouchedNodes(evidence: EchoFixture[], nodeRow?: (nodeId: str
   });
 }
 
-/** The plan payload half — null for a task-scoped session (no plan rollup). */
-export function echoTouchedPlan(planId: string | null | undefined, evidence: EchoFixture[]): EchoFixture | null {
+/**
+ * The plan payload half — null for a task-scoped session (no plan rollup).
+ * SERVER-SHAPED: the rollup covers ALL the plan's nodes — the caller feeds
+ * the plan's node list (`planNodes`) — with uncovered ones counting 0
+ * (StudyPlanType#mastery_score), each node's evidence read from the
+ * accumulated state.evidence. Call AFTER the batch lands in state.evidence.
+ */
+export function echoTouchedPlan(state: HarnessState, planId: string | null | undefined, planNodes: EchoFixture[]): EchoFixture | null {
   if (!planId) return null;
   const byNode = Object.fromEntries(
-    [...new Set(evidence.map((e) => e.nodeId as string))].map((id) => [
-      id,
-      evidence.filter((e) => e.nodeId === id).map(mapEvidence),
+    planNodes.map((node) => [
+      node.id as string,
+      state.evidence.filter((e) => e.nodeId === node.id).map(mapEvidence),
     ]),
   );
   return { __typename: "StudyPlan", id: planId, masteryScore: String(computePlanRollup(byNode, new Date())) };

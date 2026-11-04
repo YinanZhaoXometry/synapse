@@ -112,8 +112,10 @@ function quizHandlers(state: HarnessState): Record<string, OperationHandler> {
       state.evidence.push(...evidence);
       state.mistakes.push(...mistakes);
       // The payload's live-update half (epic P2-10 T3): the stub computes the
-      // touched nodes + the plan rollup with the REAL domain functions.
-      return { evidence, mistakes, session, nodes: echoTouchedNodes(evidence), plan: echoTouchedPlan((session?.planId as string | null) ?? null, evidence) };
+      // touched nodes + the plan rollup with the REAL domain functions,
+      // SERVER-shaped (full node history; this harness's sessions are
+      // task-scoped, so the plan half is null and no node list is known).
+      return { evidence, mistakes, session, nodes: echoTouchedNodes(state, evidence), plan: echoTouchedPlan(state, (session?.planId as string | null) ?? null, []) };
     },
     AbandonQuizSession: (variables) => {
       const sessionId = String((variables.input as Record<string, unknown>).sessionId);
@@ -353,7 +355,7 @@ describe("useQuizSession — the evidence loop through the driver (FR-18; AD-5/6
           createdAt: "2026-11-02T00:00:00Z",
         }));
         state.evidence.push(...evidence);
-        return { evidence, mistakes: [], session: null, nodes: echoTouchedNodes(evidence), plan: null };
+        return { evidence, mistakes: [], session: null, nodes: echoTouchedNodes(state, evidence), plan: null };
       },
     });
     let revived = false;

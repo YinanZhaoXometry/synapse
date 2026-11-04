@@ -25,6 +25,7 @@ import type { NodeRowView } from "./display-shaping";
 import { OUTCOME_LABEL_KEY } from "./outcome-labels";
 import { NodeStateBadge } from "./node-state-badge";
 import { nodeJumpTargets, nodePrimaryAction, nodeQuickTestHref } from "./node-state";
+import type { NodePrimaryAction } from "./node-state";
 
 const ACTION_CLASS =
   "inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none";
@@ -32,12 +33,18 @@ const ACTION_CLASS =
 export default function NodeRow({ view, planId, materials }: { view: NodeRowView; planId: string; materials: MaterialView[] }) {
   const { t } = useLanguage();
   const mappingsQuery = useNodeMaterialMappingsQuery(view.node.id);
-  // While the read is in flight there is no honest action to show (the
-  // primary action DEPENDS on it — flip once, never lie); a failed read falls
-  // back to the always-valid Quick Test.
-  const targets = mappingsQuery.data ? nodeJumpTargets(mappingsQuery.data, materials) : null;
-  const action = targets ? nodePrimaryAction(targets, planId, view.node.id) : null;
   const quickTestHref = nodeQuickTestHref(planId, view.node.id);
+  // While the read is in flight there is no honest action to show (the
+  // primary action DEPENDS on it — flip once, never lie); a FAILED read falls
+  // back to the always-valid Quick Test (the docstring's promise — the row
+  // never renders with NO click-through). Stale data on a refetch failure
+  // still wins: real mappings beat the fallback.
+  const targets = mappingsQuery.data ? nodeJumpTargets(mappingsQuery.data, materials) : null;
+  const action: NodePrimaryAction | null = targets
+    ? nodePrimaryAction(targets, planId, view.node.id)
+    : mappingsQuery.error
+      ? { kind: "quiz", href: quickTestHref }
+      : null;
   const quickTestAria = t("plans.nodeQuickTestAria", { node: view.node.title });
 
   return (

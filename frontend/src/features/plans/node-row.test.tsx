@@ -186,6 +186,20 @@ describe("NodeRow click-through (FR-7)", () => {
     expect(screen.queryByTestId("node-study-action")).not.toBeInTheDocument();
     expect(screen.queryByTestId("node-jump-trigger")).not.toBeInTheDocument();
   });
+
+  it("the mappings read FAILS → the always-valid Quick Test still renders (no study action)", async () => {
+    // The spec floor the module docstring promises: a failed mapping read must
+    // not strip the row of EVERY action — the Quick Test is always valid.
+    mount([
+      planMock(),
+      { request: { query: NodeMaterialMappingsDocument, variables: { nodeId: "n-1" } }, error: new Error("mapping read failed") },
+    ]);
+
+    const quickTest = await screen.findByTestId("node-quick-test");
+    expect(quickTest).toHaveAttribute("href", "/plan/plan-1/quiz?nodeId=n-1");
+    expect(screen.queryByTestId("node-study-action")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("node-jump-trigger")).not.toBeInTheDocument();
+  });
 });
 
 describe("NodeRow live update (the AC: no whole-plan refetch)", () => {

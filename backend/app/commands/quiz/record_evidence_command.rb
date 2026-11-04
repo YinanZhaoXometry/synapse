@@ -94,8 +94,6 @@ module Quiz
                   .order(:created_at, :id)
     end
 
-    private
-
     def validate_results!
       results.each do |result|
         unless Quiz::OUTCOMES.include?(result[:outcome].to_s)

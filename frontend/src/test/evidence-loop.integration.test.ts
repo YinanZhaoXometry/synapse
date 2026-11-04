@@ -161,13 +161,14 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
           });
         state.evidence.push(...evidence);
         state.mistakes.push(...mistakes);
-        // The payload's live-update half (epic P2-10 T3) — fresh stub-computed scores.
+        // The payload's live-update half (epic P2-10 T3) — fresh stub-computed
+        // SERVER-shaped scores: full node history + the all-plan-nodes rollup.
         return {
           evidence,
           mistakes,
           session,
-          nodes: echoTouchedNodes(evidence, (id) => server.nodes.find((n) => n.id === id)),
-          plan: echoTouchedPlan((session?.planId as string) ?? null, evidence),
+          nodes: echoTouchedNodes(state, evidence, (id) => server.nodes.find((n) => n.id === id)),
+          plan: echoTouchedPlan(state, (session?.planId as string) ?? null, server.nodes),
         };
       },
       AllEvidence: () => state.evidence,
