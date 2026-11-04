@@ -2410,16 +2410,23 @@ type Query {
   ): Material
 
   """
-  One material's node-mapping rows (FR-45, epic P2-10 T1) — the per-material
-  coverage read: proposed / confirmed / rejected rows, one active row per
-  section (delta decision 4). A plain list (AD-12). A foreign or unknown
-  material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence).
+  One material's OR one node's mapping rows (FR-45, epic P2-10 T1; the node side
+  lands with T3's click-through) — proposed / confirmed / rejected rows, one
+  active row per user+material+section (delta decision 4). Exactly one of
+  materialId / nodeId is required (the flashcards xor precedent). A plain list
+  (AD-12). A foreign or unknown material/node id is uniformly NOT_FOUND (kickoff
+  delta 2 — never reveals existence).
   """
   materialNodeMappings(
     """
-    The material's uuid.
+    Scope to a material's mapping rows (the per-material coverage read).
     """
-    materialId: String!
+    materialId: String
+
+    """
+    Scope to one node's mapping rows (the node click-through read — every status rides; the consumer filters confirmed).
+    """
+    nodeId: String
   ): [MaterialNodeMapping!]!
 
   """
@@ -2861,6 +2868,21 @@ type RecordEvidencePayload {
   The MistakeEntries just auto-logged (one per wrong answer).
   """
   mistakes: [MistakeEntry!]!
+
+  """
+  The nodes the evidence touched, carrying their FRESH server-computed
+  masteryScore/state (AD-14) — the targeted live-update payload: the client
+  normalizes these into its cached node entities, so score-rendering surfaces
+  update without refetching any plan (epic P2-10 T3).
+  """
+  nodes: [KnowledgeNode!]!
+
+  """
+  The session's owning plan with its FRESH rollup masteryScore (null for a
+  task-scoped session — the task triangle has no plan rollup). The rollup's
+  targeted live-update counterpart of the nodes field.
+  """
+  plan: StudyPlan
 
   """
   The completed session.

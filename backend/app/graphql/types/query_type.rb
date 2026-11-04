@@ -91,13 +91,26 @@ module Types
     end
 
     field :material_node_mappings, [ Types::MaterialNodeMappingType ], null: false,
-      description: "One material's node-mapping rows (FR-45, epic P2-10 T1) — the per-material coverage read: proposed / confirmed / rejected rows, one active row per section (delta decision 4). A plain list (AD-12). A foreign or unknown material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
-      argument :material_id, String, required: true, description: "The material's uuid."
+      description: "One material's OR one node's mapping rows (FR-45, epic P2-10 T1; the node side lands with T3's click-through) — proposed / confirmed / rejected rows, one active row per user+material+section (delta decision 4). Exactly one of materialId / nodeId is required (the flashcards xor precedent). A plain list (AD-12). A foreign or unknown material/node id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :material_id, String, required: false, description: "Scope to a material's mapping rows (the per-material coverage read)."
+      argument :node_id, String, required: false, description: "Scope to one node's mapping rows (the node click-through read — every status rides; the consumer filters confirmed)."
     end
 
-    def material_node_mappings(material_id:)
-      material = scoped_material(material_id)
-      current_user!.material_node_mappings.where(material_id: material.id).order(:created_at, :id)
+    def material_node_mappings(material_id: nil, node_id: nil)
+      if material_id && node_id
+        validation_failed("scope a mapping list by material or node, not both", :materialId)
+      end
+      unless material_id || node_id
+        validation_failed("scope a mapping list by material or node", :materialId)
+      end
+
+      if material_id
+        material = scoped_material(material_id)
+        current_user!.material_node_mappings.where(material_id: material.id).order(:created_at, :id)
+      else
+        node = scoped_node(node_id)
+        current_user!.material_node_mappings.where(node_id: node.id).order(:created_at, :id)
+      end
     end
 
     field :quiz_session, Types::QuizSessionType, null: true,

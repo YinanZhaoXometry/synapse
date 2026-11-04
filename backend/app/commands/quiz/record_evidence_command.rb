@@ -79,7 +79,19 @@ module Quiz
         end
         session.update!(status: "completed", completed_at: Time.current)
       end
-      Success(evidence: evidence, mistakes: mistakes, session: session)
+      Success(evidence: evidence, mistakes: mistakes, session: session, nodes: touched_nodes(session), plan: session.plan)
+    end
+
+    private
+
+    # The evidence batch's DISTINCT nodes, one fresh query through the owner's
+    # association path (AD-13) — the live-update payload's node half (epic
+    # P2-10 T3). The masteryScore/state fields compute on serialization
+    # (KnowledgeNodeType), so the wire values are the post-write SERVER truth.
+    def touched_nodes(session)
+      current_user.knowledge_nodes
+                  .where(id: session.questions.map(&:node_id).uniq)
+                  .order(:created_at, :id)
     end
 
     private

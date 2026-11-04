@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 import type { KnowledgeNodeView } from "@/api/views";
 import type { Material } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
-import { ContractNote, MasteryRing, OutcomeMark, OUTCOME_LABEL_KEY, StateGlyph, useSessionBlob } from "@/features/plans";
+import { ContractNote, MasteryRing, NodeStateBadge, OutcomeMark, OUTCOME_LABEL_KEY, useSessionBlob } from "@/features/plans";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation, validateReupload } from "@/features/reader";
@@ -292,7 +292,7 @@ function NodeEvidenceRow({ node, view }: { node: KnowledgeNodeView; view: TaskMa
   const { t } = useLanguage();
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <StateGlyph state={view.state} />
+      <NodeStateBadge state={view.state} />
       <span className="text-sm font-medium truncate flex-1">{node.title}</span>
       <span className="font-display font-bold tabular-nums text-[13px] text-muted-foreground">
         {view.hasEvidence ? `${view.score}%` : "—"}

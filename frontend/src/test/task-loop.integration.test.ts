@@ -32,7 +32,9 @@ import { mapEvidence, mapMaterial } from "@/api/mappers";
 import type { MaterialView } from "@/api/views";
 import { useMaterialUpload } from "@/api";
 import { createSessionBlobRegistry, sessionBlobs } from "@/lib/session-blobs";
-import { createHarnessState, createStubClient, echoQuestion, makeStubWrapper, type HarnessState, type EchoFixture } from "@/test/apollo-harness";
+import { createHarnessState, createStubClient, echoQuestion,
+  echoTouchedNodes,
+  echoTouchedPlan, makeStubWrapper, type HarnessState, type EchoFixture } from "@/test/apollo-harness";
 import {
   AllEvidenceDocument,
   AttachMaterialDocument,
@@ -242,7 +244,14 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
           });
         state.evidence.push(...evidence);
         state.mistakes.push(...mistakes);
-        return { evidence, mistakes, session };
+        // The payload's live-update half (epic P2-10 T3) — a task session's plan is null.
+    return {
+      evidence,
+      mistakes,
+      session,
+      nodes: echoTouchedNodes(evidence, (id) => server.nodes.find((n) => n.id === id)),
+      plan: echoTouchedPlan((session?.planId as string) ?? null, evidence),
+    };
       },
       AllEvidence: () => state.evidence,
     };

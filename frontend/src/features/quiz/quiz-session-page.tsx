@@ -253,11 +253,22 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
 
   // No session yet → the launcher inline (the abandoned phase after an exit
   // navigates away via onAbandoned before this branch can commit).
+  // The node click-through (epic P2-10 T3) lands here with ?nodeId=<id>: name
+  // the node's context above the launcher, honestly — node-scoped GENERATION
+  // still rides the plan flow until T5's node_scope, and the note says so.
+  const nodeParam = searchParams.get("nodeId");
+  const nodeContext = nodeParam ? (context.nodes.find((n) => n.id === nodeParam) ?? null) : null;
   return (
     <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="quiz-launch-page">
       {backLink}
       <div className="mt-6 rounded-2xl border border-border-soft bg-card p-6 md:p-8 shadow-raised">
         {context.launchHeader}
+        {nodeContext && (
+          <div className="mb-4" data-testid="quiz-node-context">
+            <p className="text-[13px] font-semibold">{t("quiz.nodeContext", { node: nodeContext.title })}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t("quiz.nodeContextNote")}</p>
+          </div>
+        )}
         <QuizLauncher
           planId={context.kind === "plan" ? context.ownerId : null}
           taskId={context.kind === "task" ? context.ownerId : null}

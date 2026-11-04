@@ -14,14 +14,10 @@ import {
   EvidenceByNodeDocument,
   FlashcardsByMaterialDocument,
   FlashcardsByPlanDocument,
-  PlanDocument,
   QuizSessionDocument,
-  PlansDocument,
   RateFlashcardDocument,
   RecordEvidenceDocument,
   StreakDocument,
-  TaskDocument,
-  TasksDocument,
 } from "@/types/graphql";
 import { mapEvidence, mapFlashcard, mapMistake, mapQuestion, mapQuizSession } from "../mappers";
 import type { QuizSessionView } from "../views";
@@ -51,17 +47,14 @@ export function useCreateQuizSessionMutation() {
 
 export function useRecordEvidenceMutation() {
   return useMutation(RecordEvidenceDocument, {
-    // scores moved server-side: sweep every score-rendering surface (plan rollup,
-    // node rows, task rings, streak). The session itself returns in the payload.
-    refetchQueries: [
-      PlansDocument,
-      PlanDocument,
-      TasksDocument,
-      TaskDocument,
-      AllEvidenceDocument,
-      EvidenceByNodeDocument,
-      StreakDocument,
-    ],
+    // The targeted live update (epic P2-10 T3, FR-6): the payload now carries
+    // the touched nodes (FRESH server masteryScore/state, AD-14) and the
+    // owning plan (fresh rollup) — Apollo normalizes both by id, so every
+    // score-rendering surface (plan node rows, the rollup ring, task rings,
+    // the plans list) updates live from the cache WITHOUT refetching any
+    // plan. The remaining sweeps carry the NON-node data the payload doesn't:
+    // the evidence history (results pill, popover marks) and the streak.
+    refetchQueries: [AllEvidenceDocument, EvidenceByNodeDocument, StreakDocument],
   });
 }
 

@@ -16,7 +16,9 @@ import { computeNodeScore, computePlanRollup, getNodeState } from "@/domain/mast
 import { computeStreak } from "@/domain/streak";
 import { mapEvidence } from "@/api/mappers";
 import { createSessionBlobRegistry } from "@/lib/session-blobs";
-import { createHarnessState, createStubClient, echoQuestion, type HarnessState, type EchoFixture } from "@/test/apollo-harness";
+import { createHarnessState, createStubClient, echoQuestion,
+  echoTouchedNodes,
+  echoTouchedPlan, type HarnessState, type EchoFixture } from "@/test/apollo-harness";
 import {
   AllEvidenceDocument,
   AppendChatMessageDocument,
@@ -159,7 +161,14 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
           });
         state.evidence.push(...evidence);
         state.mistakes.push(...mistakes);
-        return { evidence, mistakes, session };
+        // The payload's live-update half (epic P2-10 T3) — fresh stub-computed scores.
+        return {
+          evidence,
+          mistakes,
+          session,
+          nodes: echoTouchedNodes(evidence, (id) => server.nodes.find((n) => n.id === id)),
+          plan: echoTouchedPlan((session?.planId as string) ?? null, evidence),
+        };
       },
       AllEvidence: () => state.evidence,
       SaveReadingProgress: (variables) => {

@@ -14,11 +14,10 @@
  */
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Sparkles, Upload } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
@@ -37,18 +36,12 @@ import {
 import { cn } from "@/lib/utils";
 import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
-import {
-  nodeRowViews,
-  planCardMetrics,
-  planRecentActivity,
-  stageGroups,
-  type NodeRowView,
-} from "./display-shaping";
+import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "./display-shaping";
+import NodeRow from "./node-row";
 import { localeTag } from "./locale";
-import { OUTCOME_LABEL_KEY } from "./outcome-labels";
 import { validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
-import { ContractNote, MasteryRing, OutcomeMark, StateGlyph, StreakChip } from "./atoms";
+import { ContractNote, MasteryRing, StreakChip } from "./atoms";
 
 export default function PlanHomePage() {
   const { t, language } = useLanguage();
@@ -229,7 +222,7 @@ export default function PlanHomePage() {
               <h2 className="eyebrow mb-2">{group.stage ?? t("plans.stageUntitled")}</h2>
               <div className="bg-card border border-border-soft rounded-2xl shadow-raised divide-y divide-border-soft">
                 {group.rows.map((view) => (
-                  <NodeRow key={view.node.id} view={view} />
+                  <NodeRow key={view.node.id} view={view} planId={plan.id} materials={materials} />
                 ))}
               </div>
             </section>
@@ -396,49 +389,7 @@ export default function PlanHomePage() {
   );
 }
 
-/** One node row (UX display contract): state glyph + tint + label, server score when evidence exists, evidence popover. */
-function NodeRow({ view }: { view: NodeRowView }) {
-  const { t } = useLanguage();
-  return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <StateGlyph state={view.state} />
-      <span className="text-sm font-medium truncate flex-1">{view.node.title}</span>
-      <span className="font-display font-bold tabular-nums text-[13px] text-muted-foreground">
-        {view.hasEvidence ? `${view.score}%` : "—"}
-      </span>
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("plans.viewEvidenceAria")}
-            className="text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-64 text-xs">
-          <p className="font-semibold mb-2">{view.node.title}</p>
-          <div className="flex items-center gap-1.5 mb-2">
-            {view.lastOutcomes.length === 0 ? (
-              <span className="text-muted-foreground">{t("plans.noEvidence")}</span>
-            ) : (
-              view.lastOutcomes.map((outcome, i) => <OutcomeMark key={`${outcome}-${i}`} outcome={outcome} />)
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mb-2 text-[10px] text-muted-foreground">
-            {(["correct", "partial", "wrong"] as const).map((outcome) => (
-              <span key={outcome} className="inline-flex items-center gap-1">
-                <OutcomeMark outcome={outcome} small />
-                {t(OUTCOME_LABEL_KEY[outcome])}
-              </span>
-            ))}
-          </div>
-          <p className="text-muted-foreground leading-[1.5]">{t("plans.evidenceRule")}</p>
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-}
+
 
 /**
  * One material row (Q1): kind + size + an honest parse chip while bytes are

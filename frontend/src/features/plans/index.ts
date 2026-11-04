@@ -19,4 +19,17 @@ export {
 } from "./upload-validation";
 export { useSessionBlob } from "./use-session-blob";
 export { OUTCOME_LABEL_KEY } from "./outcome-labels";
-export { ContractNote, MasteryRing, OutcomeMark, StateGlyph } from "./atoms";
+export { ContractNote, MasteryRing, OutcomeMark } from "./atoms";
+export { NodeStateBadge } from "./node-state-badge";
+export {
+  NODE_STATE_DISPLAY,
+  nodeJumpTargets,
+  nodePrimaryAction,
+  nodeQuickTestHref,
+  nodeStateAriaLabel,
+  type NodeJumpTarget,
+  type NodePrimaryAction,
+  type NodeStateDisplay,
+  type NodeStateTranslate,
+  type NodeStateVocabulary,
+} from "./node-state";

@@ -31,6 +31,14 @@ module Mutations
             null: false,
             description: "The MistakeEntries just auto-logged (one per wrong answer)."
 
+      field :nodes, [ Types::KnowledgeNodeType ],
+            null: false,
+            description: "The nodes the evidence touched, carrying their FRESH server-computed masteryScore/state (AD-14) — the targeted live-update payload: the client normalizes these into its cached node entities, so score-rendering surfaces update without refetching any plan (epic P2-10 T3)."
+
+      field :plan, Types::StudyPlanType,
+            null: true,
+            description: "The session's owning plan with its FRESH rollup masteryScore (null for a task-scoped session — the task triangle has no plan rollup). The rollup's targeted live-update counterpart of the nodes field."
+
       def resolve(session_id:, results:)
         command_result(::Quiz::RecordEvidenceCommand.call(
           current_user: current_user!,
