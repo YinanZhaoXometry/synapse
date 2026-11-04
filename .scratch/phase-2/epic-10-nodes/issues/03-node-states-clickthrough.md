@@ -4,7 +4,7 @@
 
 **Blocked by:** 1.
 
-**Status:** done (2026-11-05 — gates: rspec 855 / rubocop clean / vitest 497 / tsc+eslint clean / build ok)
+**Status:** done (2026-11-05 — merged to `epic/p2-10-nodes` after fix round; gates: rspec 855 / rubocop clean / vitest 502 / tsc+eslint clean / build ok)
 
 **Bound by:** FR-6/7, AD-14 (server scores only — client never recomputes), AD-8 (anchor channel is the only reader command), AD-9 (never-color-only, keyboard-complete).
 
@@ -21,3 +21,5 @@
 - **HONEST SCOPING (per the orchestrator's pin):** the server has no node-scoped quiz GENERATION yet — the Quick Test launch satisfies "launches" at this layer (the plan flow opens, the nodeId param names the node's context); node-scoped generation lands with T5 (which consumes T2's `node_scope`). Likewise TaskHome's task-node row renders the same state badge but carries no click-through (a task node's material IS its row's open action already; the graph + T5 own the remaining wiring).
 - **PERF note (per-row read):** the click-through rides the pinned per-node mapping read — one small `materialNodeMappings(nodeId:)` query per mounted row (Apollo dedupes; rows are tiny). At the PRD's 30+ node bar this is 30 small reads per plan page; if it ever shows, the batch is T4's graph surface to consolidate (it needs the same data at plan scope).
 - i18n: `plans.nodeStateAria`, `plans.nodeStudyAction/Aria`, `plans.nodeJumpMenuLabel/Aria`, `plans.nodeQuickTest/Aria`, `quiz.nodeContext/Note` in BOTH languages; semantic tokens only; every action a native link/button (keyboard-complete).
+- **Two-axis review round 1** (merge `0c840cc`): compliance FAIL (2P1+2P2) / contract PASS (4P2). Resolution: the "no-refetch pin unenforced" P1 was refuted EMPIRICALLY by the contract axis (a transient probe restoring the old sweep made the committed assertions fail — the pin holds; source-analysis vs running probe, probe wins). Fixed on `epic/p2-10-t03-fix` (merge after `0c840cc`): [P1] node-row error fallback → Quick Test action on a failed mapping read (comment's promise now true, test-pinned); [P2] duplicate `private` merged; [P2] `echoTouchedNodes`/`echoTouchedPlan` now server-shaped (full evidence history per node, all-plan rollup with uncovered=0) + all 6 callers updated; [P2] PlanQuizPage/QuizPage hand-rolled echoes switched to the shared helpers. Post-fix baselines: rspec 855 / vitest 502.
+- **T4 BINDINGS carried from this review:** (1) consolidate the per-node mapping reads into a plan-scope batch read on the graph surface (the N+1 is real and eager — one request per mounted row); (2) fold `AnalyticsPage` MasteryPill + `MistakesPage` hand-rolled state pills onto `NodeStateBadge` (the "ONE renderer" contract becomes repo-wide).
