@@ -35,6 +35,11 @@ module Types
 
     field :create_material_upload, mutation: Mutations::Storage::CreateMaterialUpload
 
+    # The first-login import (epic P2-8 ticket 03; AD-15): the whole
+    # Phase-1 document as ONE idempotent mutation — the api command's home
+    # per the kickoff delta-review (missing from epic-03's set, lands here).
+    field :import_document, mutation: Mutations::ImportDocument
+
     # Server-side AI (AD-16, epic P2-5 ticket 03): the streamed surfaces
     # (Companion chat, creation chat) are NOT here — they ride the one SSE
     # endpoint (/api/stream) with tickets minted by createStreamTicket
