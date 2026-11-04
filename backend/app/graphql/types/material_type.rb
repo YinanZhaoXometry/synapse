@@ -54,7 +54,7 @@ module Types
 
     field :download_url, String,
           null: true,
-          description: "A short-lived presigned GET for the original document's bytes (AD-13, epic P2-6 ticket 02): minted per request against the storage provider (R2/minio — never the api), 5-minute TTL, never persisted. Null until createMaterialUpload has attached the blob; fetched before the browser's PUT has landed, the URL refuses with the provider's 403. Only reachable through the owner's scoped reads — no cross-user path ever mints one."
+          description: "A short-lived presigned GET for the original document's bytes (AD-13, epic P2-6 ticket 02): minted per request against the storage provider (R2/minio — never the api), 5-minute TTL, never persisted. Null until createMaterialUpload has attached the blob. Fetching before the browser's PUT has landed gets the provider's 404 (NoSuchKey); once the 5-minute TTL lapses, the provider refuses with 403. Only reachable through the owner's scoped reads — no cross-user path ever mints one."
 
     def download_url
       attachment = object.original

@@ -17,13 +17,21 @@ services:
 
   # R2 stand-in for dev/test (AD-13, epic P2-6 ticket 01) — the api's
   # ActiveStorage :minio service (backend/config/storage.yml) targets
-  # http://minio:9000 here. Port 9000 ONLY (no console port). Dev creds are
-  # the documented dev defaults — they MUST stay aligned with the dev
-  # defaults in backend/config/storage.yml (backend/.env.example documents
-  # the contract; production reads R2_* from real ENV with no defaults).
+  # http://minio:9000 here. The data port is published (kickoff choice 3:
+  # "ports 9000 only") but bound to loopback — the dev credentials are the
+  # documented weak defaults, so the bucket must never leave the machine;
+  # the console port stays unexposed. Caveat for the browser PUT (epic-08's
+  # consumer): presigned URLs carry the CONTAINER hostname (minio:9000), so
+  # a host browser needs a `127.0.0.1 minio` /etc/hosts entry (mirroring CI)
+  # plus CORS on the bucket — a provisioning item on ticket 03, not code.
+  # Dev creds MUST stay aligned with the dev defaults in
+  # backend/config/storage.yml (backend/.env.example documents the contract;
+  # production reads R2_* from real ENV with no defaults).
   minio:
     image: minio/minio:RELEASE.2025-10-15T17-29-55Z
     command: ["server", "/data"]
+    ports:
+      - "127.0.0.1:9000:9000"
     environment:
       MINIO_ROOT_USER: synapse-dev
       MINIO_ROOT_PASSWORD: synapse-dev-password

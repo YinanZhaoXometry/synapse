@@ -32,6 +32,10 @@ module Storage
     # constant. The Presigner refuses non-positive values itself — expired
     # URLs are proven via a past signing time, not a negative TTL.
     option :upload_ttl_seconds, default: -> { Storage::UPLOAD_PRESIGN_TTL_SECONDS }
+    # The blob row's filename column is varchar(255); without this bound an
+    # over-long client filename would surface as ValueTooLong → INTERNAL —
+    # a user-reachable input must never map onto that code (review round 1).
+    MAX_FILENAME_LENGTH = 255
 
     def call
       validation = validate!
@@ -55,6 +59,10 @@ module Storage
     def validate!
       if filename.to_s.strip.empty?
         return Failure(:VALIDATION_FAILED, { message: "filename is required", field: :filename })
+      end
+      if filename.to_s.length > MAX_FILENAME_LENGTH
+        return Failure(:VALIDATION_FAILED,
+                       { message: "filename exceeds #{MAX_FILENAME_LENGTH} characters", field: :filename })
       end
       unless Storage::UPLOADABLE_CONTENT_TYPES.key?(content_type.to_s)
         return Failure(:VALIDATION_FAILED,
@@ -83,37 +91,45 @@ module Storage
     end
 
     def mint_and_attach(material)
-      # The direct-upload builder's exact row shape
-      # (ActiveStorage::Blob.create_before_direct_upload!) minus one
-      # validation: that builder validates checksum presence, and this flow
-      # has no client checksum — the mutation surface carries none, the
-      # browser PUTs raw bytes against the signed URL, so checksum stays
-      # null, exactly what the column's nullability allows (upstream dropped
-      # its NOT NULL in 2021). Built with the same arguments the builder
-      # passes to create!; service_name is filled from the configured
-      # service the same way the builder's after_initialize does.
-      blob = ActiveStorage::Blob.new(
-        key: object_key,
-        filename: filename.to_s,
-        byte_size: size,
-        content_type: content_type,
-        service_name: ActiveStorage::Blob.service.name
-      )
-      # The attachment path identifies blobs by downloading their first 4 KiB
-      # from the service (Attached::Changes::CreateOne) and re-analyzes them
-      # on attach (Attachment#analyze_blob_later) — both need the bytes,
-      # which have not been uploaded yet (that is the whole point of the
-      # presign). Marking the blob identified + analyzed stands for: the
-      # content type was decided deliberately, from the validated allowlist
-      # value (the same decision create_and_upload!(identify: false)
-      # expresses), and analysis is already terminal — the NullAnalyzer
-      # (the only analyzer that accepts pdf/markdown/text) would produce
-      # exactly metadata { analyzed: true } and nothing else.
-      blob.identified = true
-      blob.analyzed = true
-      blob.save!(validate: false)
-      material.original.attach(blob)
-      blob
+      # One transaction (review round 1): a raise between the blob save and
+      # the attach would otherwise strand an orphan blob row — invisible
+      # (downloadUrl null) and permanent.
+      ActiveRecord::Base.transaction do
+        # The direct-upload builder's exact row shape
+        # (ActiveStorage::Blob.create_before_direct_upload!) minus one
+        # validation: that builder validates checksum presence, and this flow
+        # has no client checksum — the mutation surface carries none, the
+        # browser PUTs raw bytes against the signed URL, so checksum stays
+        # null, exactly what the column's nullability allows (upstream dropped
+        # its NOT NULL in 2021). Built with the same arguments the builder
+        # passes to create!; service_name is filled from the configured
+        # service the same way the builder's after_initialize does.
+        blob = ActiveStorage::Blob.new(
+          key: object_key,
+          filename: filename.to_s,
+          byte_size: size,
+          content_type: content_type,
+          service_name: ActiveStorage::Blob.service.name
+        )
+        # The bytes do not exist yet (that is the whole point of the presign),
+        # so nothing may later try to download them. Two flags stand for that:
+        # `analyzed` (the load-bearing one, a persisted column) — on attach,
+        # Attachment#analyze_blob_later enqueues an AnalyzeJob for any
+        # un-analyzed blob, a download-hungry job this flow can never satisfy;
+        # marking analysis terminal up front keeps the AD-19 posture (the only
+        # analyzer accepting pdf/markdown/text, the NullAnalyzer, would produce
+        # exactly metadata { analyzed: true } and nothing else).
+        # `identified` is parity/defense, not persisted — identification
+        # (CreateOne's first-4-KiB download) only runs for IO attachables, and
+        # this call attaches an already-built Blob instance, which skips it;
+        # setting the flag matches the builder's create_and_upload!(
+        # identify: false) semantics anyway.
+        blob.identified = true
+        blob.analyzed = true
+        blob.save!(validate: false)
+        material.original.attach(blob)
+        blob
+      end
     end
 
     def object_key
@@ -122,7 +138,7 @@ module Storage
     end
 
     def presigned_put(key)
-      Storage.presigned_put_url(key, expires_in: upload_ttl_seconds)
+      Storage.presigned_put_url(key, expires_in: upload_ttl_seconds, content_type: content_type)
     end
   end
 end

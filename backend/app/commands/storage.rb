@@ -44,8 +44,19 @@ module Storage
   # Material.downloadUrl field (GET) — so the construction exists exactly
   # once. URLs point at the storage provider, never at the backend
   # (backend/AGENTS.md).
-  def self.presigned_put_url(key, expires_in: UPLOAD_PRESIGN_TTL_SECONDS)
-    presigner.presigned_url(:put_object, bucket: service.bucket.name, key: key, expires_in: expires_in)
+  #
+  # The PUT signs content_type when given (review round 1): without it the
+  # provider stores whatever Content-Type the client sent, decoupling the
+  # served bytes' type from the validated allowlist value — with it, the
+  # browser MUST PUT with exactly the declared type or the signature check
+  # refuses. (Size cannot be pinned by a presigned PUT — Content-Length is
+  # set by the HTTP client after signing — so the 100 MiB cap stays a
+  # validation-time claim; enforcing it byte-wise would need a POST policy,
+  # not a presigned URL.)
+  def self.presigned_put_url(key, expires_in: UPLOAD_PRESIGN_TTL_SECONDS, content_type: nil)
+    params = { bucket: service.bucket.name, key: key, expires_in: expires_in }
+    params[:content_type] = content_type if content_type
+    presigner.presigned_url(:put_object, **params)
   end
 
   def self.presigned_get_url(key, expires_in: DOWNLOAD_PRESIGN_TTL_SECONDS)

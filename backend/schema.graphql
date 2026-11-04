@@ -351,13 +351,16 @@ input CreateMaterialUploadInput {
   clientMutationId: String
 
   """
-  The file's content type — allowlisted to application/pdf, text/markdown, text/plain (VALIDATION_FAILED beyond).
+  The file's content type — allowlisted to application/pdf, text/markdown,
+  text/plain (VALIDATION_FAILED beyond). The presigned PUT signs this value: the
+  browser must PUT with exactly this Content-Type header.
   """
   contentType: String!
 
   """
-  The client filename — kept as blob metadata only; the object key derives its
-  extension from the validated content type, never from this name.
+  The client filename — kept as blob metadata only (255-character cap,
+  VALIDATION_FAILED beyond); the object key derives its extension from the
+  validated content type, never from this name.
   """
   filename: String!
 
@@ -367,7 +370,9 @@ input CreateMaterialUploadInput {
   materialId: String!
 
   """
-  The file's size in bytes; positive and capped at 100 MiB (VALIDATION_FAILED beyond).
+  The file's size in bytes; positive and capped at 100 MiB (VALIDATION_FAILED
+  beyond). Advisory on the wire — a presigned PUT cannot pin Content-Length —
+  but pinned at validation time.
   """
   size: Int!
 }
@@ -392,7 +397,9 @@ type CreateMaterialUploadPayload {
   materialId: String!
 
   """
-  The presigned PUT URL (15-minute TTL) — the browser PUTs the bytes here, never to the api.
+  The presigned PUT URL (15-minute TTL, signed over the declared content type) —
+  the browser PUTs the bytes here, never to the api. Usable until expiry; a
+  re-PUT within the window replaces the bytes.
   """
   uploadUrl: String!
 }
@@ -804,9 +811,10 @@ type Material {
   A short-lived presigned GET for the original document's bytes (AD-13, epic
   P2-6 ticket 02): minted per request against the storage provider (R2/minio —
   never the api), 5-minute TTL, never persisted. Null until createMaterialUpload
-  has attached the blob; fetched before the browser's PUT has landed, the URL
-  refuses with the provider's 403. Only reachable through the owner's scoped
-  reads — no cross-user path ever mints one.
+  has attached the blob. Fetching before the browser's PUT has landed gets the
+  provider's 404 (NoSuchKey); once the 5-minute TTL lapses, the provider refuses
+  with 403. Only reachable through the owner's scoped reads — no cross-user path
+  ever mints one.
   """
   downloadUrl: String
 

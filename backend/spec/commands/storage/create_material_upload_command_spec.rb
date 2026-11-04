@@ -65,6 +65,11 @@ RSpec.describe Storage::CreateMaterialUploadCommand do
         expect(blob.byte_size).to eq(1_234)
         expect(blob.service_name).to eq("minio")
         expect(material.original.attached?).to be(true)
+        # The review-round pin on the no-jobs mechanism: analysis is marked
+        # terminal up front (a persisted column), so attaching never enqueues
+        # the download-hungry AnalyzeJob. (`identified` is in-memory parity —
+        # it does not survive the reload.)
+        expect(blob.analyzed).to be(true)
       end
     end
 
@@ -112,6 +117,17 @@ RSpec.describe Storage::CreateMaterialUploadCommand do
       expect(result.failure.code).to eq(:VALIDATION_FAILED)
       expect(result.failure.context[:field]).to eq(:filename)
       expect(user.materials.find(material.id).original.attached?).to be(false)
+    end
+
+    it "fails VALIDATION_FAILED for a filename beyond the blob row's 255-character column (never INTERNAL)" do
+      result = call(filename: "x" * 256)
+
+      aggregate_failures do
+        expect(result.failure?).to be(true)
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:filename)
+      end
+      expect(ActiveStorage::Blob.where(filename: "x" * 256).count).to eq(0)
     end
 
     it "fails VALIDATION_FAILED for a content type outside the allowlist" do

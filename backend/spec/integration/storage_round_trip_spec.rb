@@ -70,21 +70,32 @@ RSpec.describe "storage round trip (epic P2-6 ticket 02)", minio: true, type: :r
 
     expect(presigned["errors"]).to be_nil
     upload_url = presigned.dig("data", "createMaterialUpload", "uploadUrl")
+    # The review-round pin: the validated content type rides the signature.
+    expect(URI.decode_www_form_component(upload_url)).to include("content-type")
+
+    # The ordering claim the downloadUrl field documents, proven against the
+    # real provider: between the presign and the PUT the URL is mintable but
+    # the object does not exist — NoSuchKey (404), not an auth failure.
+    pre_put = graphql(
+      'query { material(id: "' + material.id + '") { downloadUrl } }', token: token
+    )
+    pre_uri = URI(pre_put.dig("data", "material", "downloadUrl"))
+    pre_response = Net::HTTP.start(pre_uri.host, pre_uri.port) { |http| http.request(Net::HTTP::Get.new(pre_uri)) }
+    aggregate_failures do
+      expect(pre_response.code).to eq("404")
+      expect(pre_response.body).to include("NoSuchKey")
+    end
 
     put_uri = URI(upload_url)
     put = Net::HTTP::Put.new(put_uri)
     put.body = body
-    # The browser PUTs with the file's content type; minio stores it and the
-    # presigned GET echoes it back. (The URL's signature does not cover it —
-    # only the signed headers do, host by default.)
+    # The presigned PUT signs the validated content type (review round 1) —
+    # the browser MUST PUT with exactly that header or the signature check
+    # refuses; minio stores it and the presigned GET echoes it back.
     put["Content-Type"] = "application/pdf"
     put_response = Net::HTTP.start(put_uri.host, put_uri.port) { |http| http.request(put) }
     expect(put_response.code).to eq("200")
 
-    # The ordering claim the downloadUrl field documents: between the presign
-    # and the PUT the URL is mintable but the bytes are not there — the
-    # provider refuses (this read happens after our PUT above; the fresh
-    # presign below mints the GET for the bytes now present).
     download = graphql(
       'query { material(id: "' + material.id + '") { downloadUrl } }', token: token
     )
@@ -114,6 +125,9 @@ RSpec.describe "storage round trip (epic P2-6 ticket 02)", minio: true, type: :r
     put_uri = URI(result.value![:upload_url])
     put = Net::HTTP::Put.new(put_uri)
     put.body = "too late\n"
+    # The signed content type must still match — the refusal below is then
+    # genuinely the expiry, not a signature mismatch.
+    put["Content-Type"] = "application/pdf"
     put_response = Net::HTTP.start(put_uri.host, put_uri.port) { |http| http.request(put) }
 
     aggregate_failures do

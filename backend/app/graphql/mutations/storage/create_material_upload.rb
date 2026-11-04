@@ -18,19 +18,19 @@ module Mutations
 
       argument :filename, String,
                required: true,
-               description: "The client filename — kept as blob metadata only; the object key derives its extension from the validated content type, never from this name."
+               description: "The client filename — kept as blob metadata only (255-character cap, VALIDATION_FAILED beyond); the object key derives its extension from the validated content type, never from this name."
 
       argument :content_type, String,
                required: true,
-               description: "The file's content type — allowlisted to application/pdf, text/markdown, text/plain (VALIDATION_FAILED beyond)."
+               description: "The file's content type — allowlisted to application/pdf, text/markdown, text/plain (VALIDATION_FAILED beyond). The presigned PUT signs this value: the browser must PUT with exactly this Content-Type header."
 
       argument :size, Int,
                required: true,
-               description: "The file's size in bytes; positive and capped at 100 MiB (VALIDATION_FAILED beyond)."
+               description: "The file's size in bytes; positive and capped at 100 MiB (VALIDATION_FAILED beyond). Advisory on the wire — a presigned PUT cannot pin Content-Length — but pinned at validation time."
 
       field :upload_url, String,
             null: false,
-            description: "The presigned PUT URL (15-minute TTL) — the browser PUTs the bytes here, never to the api."
+            description: "The presigned PUT URL (15-minute TTL, signed over the declared content type) — the browser PUTs the bytes here, never to the api. Usable until expiry; a re-PUT within the window replaces the bytes."
 
       field :material_id, String,
             null: false,

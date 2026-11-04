@@ -6,7 +6,7 @@
 
 **Status:** done (2026-11-04)
 
-**Bound by:** AD-13 (presign pattern verbatim; downloads as GraphQL fields), AD-12 (mutation → command → Result), AD-13 scoping (cross-user → no usable URL).
+**Bound by:** AD-13 (presign pattern verbatim; downloads as GraphQL fields), AD-12 (mutation → command → Result), AD-20 (presigned URLs keep the api's web surface GraphQL-only — they point at the provider, never the backend), AD-13 scoping (cross-user → no usable URL).
 
 - [x] Round-trip spec via minio: presign → PUT → GET field serves bytes; TTL expiry honored
 - [x] Route-table spec asserts no `direct-uploads` route
@@ -23,4 +23,4 @@
 
 **Expiry proof (no sleeps beyond 2s):** the command carries a `upload_ttl_seconds` injection seam; the minio round-trip spec drives it to 1s, lets real time lapse, and expects the provider's `403 Request has expired` — same for the GET seam behind `downloadUrl`. The "never persisted" property is pinned structurally (nothing `X-Amz`-shaped on the blob row); same-second presigns legitimately produce identical URLs, so per-request minting is pinned by usability, not byte inequality.
 
-**Gates:** rubocop 239 files clean; rspec 607/607 (was 568 — +16 command, +8 request, +4 round-trip, +1 surface/AC); schema_dump byte-identity green; web codegen regenerates against the new IDL (output gitignored — the AD-18 client consumes it at the Apollo cutover). CI's minio service container + loopback hosts mapping landed with ticket 01 and covers the minio-tagged specs.
+**Gates:** rubocop clean (239 files at the ticket pass); rspec 607/607 (was 568 — +15 command, +8 request, +3 round-trip; the auth-surface example was edited in place, +26 total); schema_dump byte-identity green; web codegen regenerates against the new IDL (output gitignored — the AD-18 client consumes it at the Apollo cutover). CI's minio service container + loopback hosts mapping landed with ticket 01 and covers the minio-tagged specs.

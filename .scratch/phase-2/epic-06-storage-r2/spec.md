@@ -36,7 +36,7 @@ Material files cannot live on Render's ephemeral disk (AD-13): original files ne
 - Request-specs against **minio in compose**: createMaterialUpload returns a working PUT URL; the presigned GET field round-trips after a PUT; expiry honored.
 - Scope guard: assert no `direct-uploads` route exists in the api's route table.
 - Cross-user: another user's material yields no usable URL (scoping context).
-- Gates: rubocop + rspec (compose-dependent specs marked, skipped gracefully without compose).
+- Gates: rubocop + rspec (compose-dependent specs marked, skipped gracefully without compose — SUPERSEDED at kickoff (2026-11-04, choice 8): the minio-tagged specs hard-require minio instead; the DB-backed gate form starts it via depends_on and CI runs a service container, so the skip guard never landed).
 
 ## Out of Scope
 

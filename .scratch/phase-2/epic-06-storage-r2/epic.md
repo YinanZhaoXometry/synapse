@@ -45,6 +45,6 @@ DoD assessment against tickets 01+02 (per kickoff choice 7, ticket 3 remains own
 - **Cross-user URLs unusable** — ownership-checked scoping with uniform NOT_FOUND pinned at command, wire, and read-field levels; foreign reads never mint anything.
 - **Prod config documented for ticket-08 deploy** — storage.yml `:r2` shape + the four `R2_*` vars in `.env.example` (ticket 01 Comments carry the exact ENV contract).
 - **rubocop+rspec green** — 239 files clean; 607/607 (baseline was 568 at epic-04 close).
-- **AD-13/AD-20 citations** — every artifact carries them.
+- **AD-13/AD-20 citations** — every ticket carries them (code artifacts cite AD-13 throughout; AD-20 where the GraphQL-only surface rule bears).
 
 Follow-ups consumed downstream, not here: the web-side upload re-point + first-login re-attach are epic-08's two presign-flow consumers (coordination note); the Apollo cutover (AD-18) consumes the regenerated codegen types. Discovery worth keeping: `db:migrate` on an empty database loads schema.rb instead of running migrations — a same-version migration content change is invisible until schema.rb is regenerated (recorded in ticket 02's Comments; bit the test DB mid-epic).
