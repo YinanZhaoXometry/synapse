@@ -1,6 +1,6 @@
 # Epic 6 (Phase 2) — File storage: ActiveStorage → R2, presigned URLs, minio parity
 
-Status: **SHIPPED 2026-11-04** — main `a2b2b76..97618dd` (FF; 31 files, +1507/−30), two-axis review clean (1×P1 + 5×P2 + doc nits, all fixed `6532c11`), 608/608, CI pending-push. Ticket 03 stays ready-for-human — owner-side, pre-cutover (blocks epic-08's R2 deploy, not this epic's DoD).
+Status: **SHIPPED 2026-11-04** — main `a2b2b76..aae9d07` pushed, CI double-green (run 41772526343: web 1m11s / api 2m57s incl. the minio source build). 31 files +1507/−30; two-axis review clean (1×P1 + 5×P2 + doc nits, all fixed `6532c11`); 608/608. One CI incident fixed en route (`aae9d07`): the pinned minio image is unobtainable from every registry post-archive — CI now builds it from the release's source tag (verified by local amd64 cross-build first). Ticket 03 stays ready-for-human — owner-side, pre-cutover (blocks epic-08's R2 deploy, not this epic's DoD).
 Milestone: Phase 2 — post-deadline
 
 ## Parent
