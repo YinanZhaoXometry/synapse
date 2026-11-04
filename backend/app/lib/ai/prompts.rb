@@ -67,6 +67,32 @@ module Ai
         ]
       end
 
+      # Section→node mapping (FR-45, epic P2-10 T1): a material's sections
+      # against the plan's existing nodes — map onto node ids, propose new
+      # node titles for coverage gaps, and leave truly out-of-scope sections
+      # with nulls (the command turns those into explicit Unmapped rows —
+      # nothing is silently dropped, the model just declines to place them).
+      def mapping(language:, context:)
+        [ system,
+          user(<<~PROMPT)
+            Study material context (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            Map EVERY [section id=…] above onto the plan's [node id=…] entries. For each section return exactly one entry:
+            - The section teaches an existing node's topic → "nodeId" is that node's exact id, "proposedNodeTitle" null.
+            - NO existing node covers the section → "proposedNodeTitle" is a short new node title (2–8 words); reuse the SAME title for every section that belongs to one new node. "nodeId" null.
+            - The section does not belong to this plan's scope at all → both null.
+            Every section id in the index MUST appear exactly once in "mappings" — never drop a section.
+            Write every proposedNodeTitle in #{language_word(language)}.
+
+            Reply ONLY with JSON: {"mappings":[{"sectionId":"…","nodeId":"…","proposedNodeTitle":null}]}
+          PROMPT
+        ]
+      end
+
       # Open-answer grading (AD-5): grade + rationale against the section the
       # question cites. The keyword-count rule is Phase-1's documented
       # simulated-adapter rule (≥2 hits correct, 1 partial, 0 wrong), passed

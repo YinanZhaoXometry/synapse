@@ -90,6 +90,16 @@ module Types
       current_user!.materials.find_by(id: id) || not_found("material not found")
     end
 
+    field :material_node_mappings, [ Types::MaterialNodeMappingType ], null: false,
+      description: "One material's node-mapping rows (FR-45, epic P2-10 T1) — the per-material coverage read: proposed / confirmed / rejected rows, one active row per section (delta decision 4). A plain list (AD-12). A foreign or unknown material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :material_id, String, required: true, description: "The material's uuid."
+    end
+
+    def material_node_mappings(material_id:)
+      material = scoped_material(material_id)
+      current_user!.material_node_mappings.where(material_id: material.id).order(:created_at, :id)
+    end
+
     field :quiz_session, Types::QuizSessionType, null: true,
       description: "One quiz session by id — detail with its node-attributed questions in generation order (the getQuizSession + listQuestionsBySession mirrors). A foreign or unknown id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
       argument :id, String, required: true, description: "The session's uuid."

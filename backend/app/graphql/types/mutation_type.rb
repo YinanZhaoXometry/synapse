@@ -21,6 +21,12 @@ module Types
     field :attach_material, mutation: Mutations::Materials::AttachMaterial
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult
 
+    # The material↔node mapping surface (FR-45, epic P2-10 T1; delta
+    # decisions 3+4): the AI map run + the user's confirm/reject verdicts.
+    field :materials_map_sections, mutation: Mutations::Materials::MapSections
+    field :confirm_mapping_proposals, mutation: Mutations::Materials::ConfirmMappingProposals
+    field :reject_mapping_proposals, mutation: Mutations::Materials::RejectMappingProposals
+
     field :create_quiz_session, mutation: Mutations::Quiz::CreateSession
     field :record_evidence, mutation: Mutations::Quiz::RecordEvidence
     field :abandon_quiz_session, mutation: Mutations::Quiz::AbandonSession

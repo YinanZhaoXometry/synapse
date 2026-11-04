@@ -20,6 +20,7 @@ class User < ApplicationRecord
   has_many :reading_progresses
   has_many :section_markings
   has_many :annotations
+  has_many :material_node_mappings
   has_many :requeue_schedules
   has_many :ai_usage_counters
   has_many :stream_tickets
