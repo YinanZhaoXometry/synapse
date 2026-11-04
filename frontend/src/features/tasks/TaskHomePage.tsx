@@ -4,9 +4,10 @@
  * to Plans Home (the task is never a trap); the material row opens the
  * Immersive Reader and offers re-upload when the session-only bytes are gone
  * after a reload — through the reader's own re-upload contract (kind-matched
- * validateReupload + sessionBlobs.put, pending/failed re-parse; AD-7); the
- * Mastery Ring shows the task rollup — exactly its single owned node's score
- * via `computeTaskRollup` through pure display-shaping selectors, never a
+ * validateReupload + sessionBlobs.put, pending/failed re-parse; AD-7), plus a
+ * fresh presigned PUT so the server copy recovers too (FR-29); the
+ * Mastery Ring shows the task rollup — exactly its single owned node's SERVER
+ * score (AD-14) through pure display-shaping selectors, never a
  * share-of-mastered collapse (ADR-0001) — with the shared state vocabulary
  * (uncovered/partial/mastered, glyph + label) and an evidence popover that
  * names what moved the number, including the cap-99-below-gate behavior. The
@@ -30,13 +31,14 @@ import {
   sessionBlobs,
   useAllEvidenceQuery,
   useFlashcardsByMaterialQuery,
+  useMaterialUpload,
   useReadingProgressQuery,
   useTaskMaterialsQuery,
-  useTaskNodeQuery,
   useTaskQuery,
-} from "@/data";
+} from "@/api";
 import { cn } from "@/lib/utils";
-import type { KnowledgeNode, Material } from "@/domain/entities";
+import type { KnowledgeNodeView } from "@/api/views";
+import type { Material } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
 import { ContractNote, MasteryRing, OutcomeMark, OUTCOME_LABEL_KEY, StateGlyph, useSessionBlob } from "@/features/plans";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
@@ -49,28 +51,24 @@ export default function TaskHomePage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const taskQuery = useTaskQuery(id ?? "");
-  const nodeQuery = useTaskNodeQuery(id ?? "");
   const materialsQuery = useTaskMaterialsQuery(id ?? "");
   const evidenceQuery = useAllEvidenceQuery();
   // T4: the flashcards entry reads the task's persisted deck — cards exist →
   // the tile opens the study directly; none → the launcher dialog generates.
   const cardsQuery = useFlashcardsByMaterialQuery(taskQuery.data?.materialId ?? "");
-  const parseMaterial = useParseMaterialMutation();
+  const upload = useMaterialUpload();
+  // The eager-parse seam binds to the task's single material row (it resolves
+  // bytes session-first, then the row's presigned GET — never a fake parse).
+  const parseMaterial = useParseMaterialMutation(materialsQuery.data?.[0]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // T4: the launcher dialogs (Plan Home's quick-action pattern).
   const [quizOpen, setQuizOpen] = useState(false);
   const [flashcardsOpen, setFlashcardsOpen] = useState(false);
 
-  if (
-    taskQuery.isPending ||
-    nodeQuery.isPending ||
-    materialsQuery.isPending ||
-    evidenceQuery.isPending ||
-    cardsQuery.isPending
-  )
-    return null;
+  if (taskQuery.loading || materialsQuery.loading || evidenceQuery.loading || cardsQuery.loading) return null;
   const task = taskQuery.data;
-  const node = nodeQuery.data;
+  // The single auto-owned node rides on the task view (AD-6) — server-scored.
+  const node: KnowledgeNodeView | undefined = task?.node;
   const materials = materialsQuery.data ?? [];
   const material = materials[0]; // strictly 1:1 (StudyTask ||--|| Material) — no upload zone
   const evidence = evidenceQuery.data ?? [];
@@ -103,7 +101,8 @@ export default function TaskHomePage() {
   // Re-upload (FR-29 contract): fresh session bytes for the SAME material —
   // metadata and already-extracted sections stay the row's truth; a
   // pending/failed material re-runs the parse right away (the reader's own
-  // re-upload card semantics, through its public contract).
+  // re-upload card semantics, through its public contract), and the bytes
+  // re-PUT through a fresh presign so the server copy recovers too.
   const handleReupload = (file: File | undefined) => {
     if (!file || !material) return;
     const verdict = validateReupload(file, material.kind);
@@ -115,6 +114,7 @@ export default function TaskHomePage() {
     if (material.parseState === "pending" || material.parseState === "failed") {
       parseMaterial.mutate(material.id);
     }
+    upload.refreshBytes(material.id, file).catch(() => toast.error(t("errors.uploadFailed")));
   };
 
   // T4 quick actions — the Plan Home policy mirrored on the single material:
@@ -288,7 +288,7 @@ export default function TaskHomePage() {
  * window's outcome marks, the legend, the shared rule, and the cap-99 note
  * while the node sits under the anti-inflation gate (ADR-0001).
  */
-function NodeEvidenceRow({ node, view }: { node: KnowledgeNode; view: TaskMasteryView }) {
+function NodeEvidenceRow({ node, view }: { node: KnowledgeNodeView; view: TaskMasteryView }) {
   const { t } = useLanguage();
   return (
     <div className="flex items-center gap-3 px-4 py-3">

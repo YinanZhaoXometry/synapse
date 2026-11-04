@@ -1,28 +1,34 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MockedProvider } from "@apollo/client/testing/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  CreateFlashcardsDocument,
+  FlashcardsByMaterialDocument,
+  FlashcardsByPlanDocument,
+} from "@/types/graphql";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { createPlan, loadDb, registerMaterial } from "@/data";
-import type { MaterialSection } from "@/domain/entities";
+import type { Material, MaterialSection } from "@/domain/entities";
 import { FlashcardLauncher } from "./FlashcardLauncher";
 
 /**
  * FlashcardLauncher observable states (T3; spec testing seam 3 — component
- * render seam over the real driver + the simulated AI): no-studyable-materials
- * disabled with its bilingual reason, 「来自 N 份材料 · 正在生成闪卡」
- * cancellable with NO card created on cancel, generation failure as a neutral
- * toast with the form intact for retry (plan state untouched, no cards — spec
- * story 8), and success persisting cards that carry their SOURCE material
- * reference (AC 1). Expected copy reads the copy deck directly, never
- * recomputed.
+ * render seam over MockedProvider, the cutover's Apollo test seam, with the
+ * real driver + the simulated AI): no-studyable-materials disabled with its
+ * bilingual reason, 「来自 N 份材料 · 正在生成闪卡」 cancellable with NO card
+ * created on cancel, generation failure as a neutral toast with the form
+ * intact for retry (no cards — spec story 8), and success persisting cards
+ * that carry their SOURCE material reference plus per-card clientUuid
+ * idempotency keys (AD-12). The mutation variables captured on the mock are
+ * the persistence contract — the deck itself lives server-side now. Expected
+ * copy reads the copy deck directly, never recomputed.
  */
 
 // The failure switch: one seam override — generateFlashcards rejects while
 // failed, every other call delegates to the real simulated adapter.
-const failState = { fail: false };
+const failState = vi.hoisted(() => ({ fail: false }));
+
 vi.mock("@/ai/companion-service", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/ai/companion-service")>();
   const real = actual.getCompanionService();
@@ -50,29 +56,76 @@ const sections: MaterialSection[] = [
   { id: "sec-2", title: "需求工程", text: "需求工程把用户需要转化为规约。验收标准来自规约。" },
 ];
 
-function seedMaterial(overrides: { parseState?: "parsed" | "pending"; sections?: MaterialSection[]; title?: string } = {}) {
-  const { plan } = createPlan({ topic: "软工备考", goal: null, nodes: [{ title: "软件测试", stage: "核心" }] });
-  const { material } = registerMaterial({
-    title: overrides.title ?? "复习讲义.md",
-    kind: "markdown",
-    sizeBytes: 64,
-    planId: plan.id,
-    taskId: null,
-    sections: overrides.sections ?? sections,
-    parseState: overrides.parseState ?? "parsed",
-  });
-  return { plan, material };
+const material = (id: string, overrides: Partial<Material> = {}): Material => ({
+  id,
+  title: `讲义-${id}.md`,
+  kind: "markdown",
+  sizeBytes: 64,
+  planId: "p-1",
+  taskId: null,
+  parseState: "parsed",
+  sections,
+  createdAt: "2026-11-01T09:00:00Z",
+  ...overrides,
+});
+
+// The persistence capture: every createFlashcards input lands here in order —
+// the deck's slices per material, each card minting its clientUuid (AD-12).
+interface CapturedCardsInput {
+  materialId: string;
+  nodeId: string | null;
+  cards: Array<{ clientUuid: string; front: string; back: string }>;
+}
+let createInputs: CapturedCardsInput[] = [];
+
+function createCardsMock() {
+  return {
+    request: {
+      query: CreateFlashcardsDocument,
+      variables: (vars) => {
+        createInputs.push(vars.input);
+        return true;
+      },
+    },
+    result: (vars) => ({
+      data: {
+        __typename: "Mutation",
+        createFlashcards: {
+          __typename: "CreateFlashcardsPayload",
+          cards: vars.input.cards.map((card: { front: string; back: string }, i: number) => ({
+            __typename: "Flashcard",
+            id: `${vars.input.materialId}-card-${i}`,
+            materialId: vars.input.materialId,
+            nodeId: vars.input.nodeId,
+            front: card.front,
+            back: card.back,
+            difficulty: null,
+            createdAt: "2026-11-04T00:00:00Z",
+          })),
+        },
+      },
+    }),
+    maxUsageCount: 10,
+  };
 }
 
-function renderLauncher(materials: ReturnType<typeof seedMaterial>["material"][]) {
+function renderLauncher(materials: Material[]) {
   const onCreated = vi.fn();
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <LanguageProvider>
-      <QueryClientProvider client={client}>
-        <Toaster />
-        <FlashcardLauncher materials={materials} onCreated={onCreated} />
-      </QueryClientProvider>
+      <MockedProvider
+        mocks={[
+          createCardsMock(),
+          // the create's refetch sweep — the deck lists gain rows through these
+          { request: { query: FlashcardsByMaterialDocument, variables: () => true }, result: { data: { flashcards: [] } }, maxUsageCount: 5 },
+          { request: { query: FlashcardsByPlanDocument, variables: () => true }, result: { data: { flashcards: [] } }, maxUsageCount: 5 },
+        ]}
+      >
+        <div>
+          <Toaster />
+          <FlashcardLauncher materials={materials} onCreated={onCreated} />
+        </div>
+      </MockedProvider>
     </LanguageProvider>,
   );
   return { onCreated };
@@ -81,25 +134,30 @@ function renderLauncher(materials: ReturnType<typeof seedMaterial>["material"][]
 const flush = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 beforeEach(() => {
-  localStorage.clear();
+  createInputs = [];
   failState.fail = false;
+  // the AD-12 mint rides crypto.randomUUID — jsdom's Crypto predates it
+  vi.stubGlobal("crypto", { ...crypto, randomUUID: () => "uuid-" + Math.random().toString(36).slice(2) });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("FlashcardLauncher (FR-19; UX spine FlashcardStudy entry)", () => {
-  it("no studyable materials: disabled with the bilingual reason, no start affordance, no cards", () => {
-    const { material } = seedMaterial({ parseState: "pending", sections: [] });
-    renderLauncher([material]);
+  it("no studyable materials: disabled with the bilingual reason, no start affordance", () => {
+    renderLauncher([material("m-0", { parseState: "pending", sections: [] })]);
     expect(screen.getByTestId("flashcards-launcher-disabled")).toBeInTheDocument();
     expect(screen.getByText(zh("flashcards.launcher.needMaterial"))).toBeInTheDocument();
     expect(screen.queryByTestId("flashcards-launcher-start")).not.toBeInTheDocument();
-    expect(loadDb().flashcards).toHaveLength(0);
+    expect(createInputs).toHaveLength(0);
   });
 
   it("a parsed material with sections is offered as a deck source; generating shows 「来自 N 份材料 · 正在生成闪卡」 and cancel creates NO card, returning to the form", async () => {
-    const { material } = seedMaterial();
-    const { onCreated } = renderLauncher([material]);
+    const first = material("m-1");
+    const { onCreated } = renderLauncher([first]);
     expect(screen.getByTestId("flashcards-launcher")).toBeInTheDocument();
-    expect(screen.getByTestId(`flashcards-source-${material.id}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`flashcards-source-${first.id}`)).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("flashcards-launcher-start"));
     expect(await screen.findByTestId("flashcards-launcher-generating")).toBeInTheDocument();
@@ -109,50 +167,54 @@ describe("FlashcardLauncher (FR-19; UX spine FlashcardStudy entry)", () => {
     expect(screen.getByTestId("flashcards-launcher")).toBeInTheDocument(); // form is back
 
     await flush(800); // longer than the simulated 600ms beat — nothing may land
-    expect(loadDb().flashcards).toHaveLength(0); // cancel = no card, ever
+    expect(createInputs).toHaveLength(0); // cancel = no card, ever
     expect(onCreated).not.toHaveBeenCalled(); // a cancelled start never navigates to the study
     expect(screen.getByTestId("flashcards-launcher-start")).toBeInTheDocument();
   });
 
   it("generation failure: neutral toast, no card created, the form stays for a retry that succeeds", async () => {
-    const { material } = seedMaterial();
-    const { onCreated } = renderLauncher([material]);
+    const first = material("m-1");
+    const { onCreated } = renderLauncher([first]);
     failState.fail = true;
     fireEvent.click(screen.getByTestId("flashcards-launcher-start"));
     expect(await screen.findByText(zh("flashcards.launcher.failed"))).toBeInTheDocument();
     expect(screen.queryByTestId("flashcards-launcher-generating")).not.toBeInTheDocument();
     await flush(800);
-    expect(loadDb().flashcards).toHaveLength(0); // plan state untouched, no cards
+    expect(createInputs).toHaveLength(0); // no cards — plan state untouched
 
     failState.fail = false; // the retry
     fireEvent.click(screen.getByTestId("flashcards-launcher-start"));
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
-    const cards = loadDb().flashcards;
-    expect(cards).toHaveLength(2); // one card per section (the generator's contract)
-    expect(cards.every((c) => c.materialId === material.id)).toBe(true); // source material references
-    expect(cards.every((c) => c.difficulty === null)).toBe(true); // self-rating starts honest — unrated
-    expect(cards[0].front).toContain("集成测试");
-    expect(cards[1].front).toContain("需求工程");
+    expect(createInputs).toHaveLength(1); // one persisted deck for the one material
+    expect(createInputs[0].materialId).toBe(first.id);
+    expect(createInputs[0].nodeId).toBeNull();
+    expect(createInputs[0].cards).toHaveLength(2); // one card per section (the generator's contract)
+    // the persistence contract: source material references + per-card idempotency
+    // keys (AD-12), self-rating starts honest — unrated
+    for (const card of createInputs[0].cards) {
+      expect(typeof card.clientUuid).toBe("string");
+    }
+    expect(createInputs[0].cards[0].front).toContain("集成测试");
+    expect(createInputs[0].cards[1].front).toContain("需求工程");
   });
 
-  it("success across TWO materials: cards carry their own material's reference in section order", async () => {
-    const first = seedMaterial({ title: "讲义一.md" }).material;
-    const second = seedMaterial({
-      title: "讲义二.md",
+  it("success across TWO materials: cards persist per material in section order", async () => {
+    const first = material("m-1");
+    const second = material("m-2", {
       sections: [{ id: "sec-b1", title: "测试金字塔", text: "测试金字塔分层排序自动化测试。" }],
-    }).material;
+    });
     const { onCreated } = renderLauncher([first, second]);
 
     fireEvent.click(screen.getByTestId("flashcards-launcher-start"));
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
 
-    const cards = loadDb().flashcards;
-    expect(cards).toHaveLength(3); // 2 sections + 1 section
-    expect(cards.map((c) => c.materialId)).toEqual([first.id, first.id, second.id]);
-    expect(cards.map((c) => c.front)).toEqual([
+    expect(createInputs).toHaveLength(2); // one persist tick per material
+    expect(createInputs[0].materialId).toBe(first.id);
+    expect(createInputs[1].materialId).toBe(second.id);
+    expect(createInputs[0].cards.map((c) => c.front)).toEqual([
       "集成测试 — 要点是什么？",
       "需求工程 — 要点是什么？",
-      "测试金字塔 — 要点是什么？",
     ]);
+    expect(createInputs[1].cards.map((c) => c.front)).toEqual(["测试金字塔 — 要点是什么？"]);
   });
 });

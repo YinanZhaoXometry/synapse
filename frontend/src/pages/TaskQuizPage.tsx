@@ -8,7 +8,7 @@
  * node and mastery never bleeds between plans and tasks.
  */
 import { useParams } from "react-router-dom";
-import { useTaskMaterialsQuery, useTaskNodeQuery, useTaskQuery } from "@/data";
+import { useTaskMaterialsQuery, useTaskNodeQuery, useTaskQuery } from "@/api";
 import { QuizSessionPage } from "@/features/quiz";
 
 export default function TaskQuizPage() {
@@ -17,7 +17,7 @@ export default function TaskQuizPage() {
   const nodeQuery = useTaskNodeQuery(id ?? "");
   const materialsQuery = useTaskMaterialsQuery(id ?? "");
 
-  if (taskQuery.isPending || nodeQuery.isPending || materialsQuery.isPending) return null;
+  if (taskQuery.loading || nodeQuery.loading || materialsQuery.loading) return null;
 
   const task = taskQuery.data;
   const node = nodeQuery.data;

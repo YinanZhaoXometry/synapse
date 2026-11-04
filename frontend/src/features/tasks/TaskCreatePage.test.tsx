@@ -1,89 +1,51 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MockedProvider } from "@apollo/client/testing/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  AttachMaterialDocument,
+  CreateMaterialUploadDocument,
+  CreateTaskDocument,
+  MaterialsDocument,
+  TasksDocument,
+} from "@/types/graphql";
+import { sessionBlobs } from "@/api";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { loadDb, type RegisterMaterialInput } from "@/data";
 import TaskCreatePage from "./TaskCreatePage";
 
 /**
- * Hook-boundary harness for the retry contract (code-review Fix 2): everything
- * below the page's hooks stays real (shipped repositories over localStorage,
- * the reader's eager-parse hook) — only the two creation mutations are wrapped
- * to count calls and to inject a deterministic create-task failure. The real
- * mutate still runs for every non-failing call, so the other tests walk the
- * production seams unchanged.
+ * TaskCreatePage observable states (T1; spec testing seam 4 — component render
+ * seam over MockedProvider, the cutover's Apollo test seam): idle, bilingual
+ * invalid-file rejection, valid upload progressing through the two-step upload
+ * (attach → presigned PUT → createTask) and landing in the Reader. The Apollo
+ * boundary is mocked server-shaped (fixtures off the generated fragment types,
+ * `__typename` everywhere an id lives); the reader's eager-parse hook is
+ * stubbed to a spy so the walk asserts the page's OWN contract — the parse
+ * kick against the bound row — without coupling to the reader's in-flight
+ * internals. Expected copy reads the copy deck directly (independent source,
+ * never recomputed); the stub reader route captures the landing instead of
+ * mounting pdfjs.
  */
-const h = vi.hoisted(() => ({
-  registerCalls: [] as string[],
-  createTaskCalls: [] as string[],
-  failNextCreate: { value: false },
-}));
 
-vi.mock("@/data", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/data")>();
+// The eager-parse spy: one seam override — the page binds the hook to the
+// attached row; the stub records the binding and the mutate calls.
+const parseSeam = vi.hoisted(() => ({ bound: [] as unknown[], calls: [] as string[] }));
+
+vi.mock("@/features/reader", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/reader")>();
   return {
     ...actual,
-    useRegisterMaterialMutation: () => {
-      const real = actual.useRegisterMaterialMutation();
+    useParseMaterialMutation: (material: unknown) => {
+      parseSeam.bound.push(material);
       return {
-        ...real,
-        mutate: (input: RegisterMaterialInput, handlers?: unknown) => {
-          h.registerCalls.push(input.title);
-          real.mutate(input, handlers);
-        },
-      };
-    },
-    useCreateTaskMutation: () => {
-      const real = actual.useCreateTaskMutation();
-      return {
-        ...real,
-        mutate: (input: { materialId: string }, handlers?: { onError?: (e: unknown) => void }) => {
-          h.createTaskCalls.push(input.materialId);
-          if (h.failNextCreate.value) {
-            h.failNextCreate.value = false;
-            handlers?.onError?.(new Error("create failed"));
-            return;
-          }
-          real.mutate(input, handlers);
+        mutate: (materialId: string) => {
+          parseSeam.calls.push(materialId);
         },
       };
     },
   };
-});
-
-/**
- * TaskCreatePage observable states (T1; spec testing seam 4 — component render
- * seam): idle, bilingual invalid-file rejection, valid upload progressing to
- * creation and landing in the Reader. Everything below the page's hook
- * boundaries is real — the shipped repositories over localStorage and the
- * reader's eager-parse hook — so the walk exercises the production seams
- * (prior art: the reader's use-reading-position.test.tsx harness). Expected
- * copy reads the copy deck directly (independent source, never recomputed);
- * the stub reader route captures the landing instead of mounting pdfjs.
- */
-
-/**
- * jsdom 20's File predates .arrayBuffer(), which the parse seam (and the
- * browser runtime it mirrors) reads bytes through. The reader-loop prior art
- * hands Node's Blob to the registry directly; here the File legitimately
- * arrives through the input element, so the prototype is bridged instead —
- * with the FileReader the same jsdom provides — letting the production path
- * run unmodified.
- */
-beforeAll(() => {
-  if (!File.prototype.arrayBuffer) {
-    File.prototype.arrayBuffer = function (this: File): Promise<ArrayBuffer> {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsArrayBuffer(this);
-      });
-    };
-  }
 });
 
 const zh = (key: string) => (translations as Record<string, Record<string, string>>).zh[key];
@@ -93,13 +55,132 @@ function ReaderLanding() {
   return <p data-testid="reader-landing">{materialId}</p>;
 }
 
-function renderPage() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+// ---- server-shaped fixtures (the mock data is what the api would return) ----
+
+const MATERIAL_ID = "m-1";
+const TASK_ID = "t-1";
+const NODE_ID = "n-1";
+
+const attachedMaterial = (title: string) => ({
+  __typename: "Material",
+  id: MATERIAL_ID,
+  title,
+  kind: "markdown",
+  sizeBytes: 2048,
+  planId: null,
+  taskId: null,
+  parseState: "pending",
+  parseFailureReason: null,
+  createdAt: "2026-11-04T00:00:00Z",
+  downloadUrl: null,
+  sections: [],
+});
+
+const createdTask = (materialId: string) => ({
+  __typename: "CreateTaskPayload",
+  task: {
+    __typename: "StudyTask",
+    id: TASK_ID,
+    materialId,
+    nodeId: NODE_ID,
+    createdAt: "2026-11-04T00:00:01Z",
+  },
+  node: {
+    __typename: "KnowledgeNode",
+    id: NODE_ID,
+    planId: null,
+    taskId: TASK_ID,
+    stage: null,
+    title: "lecture-04",
+    order: 0,
+    masteryScore: "0",
+    state: "uncovered",
+    createdAt: "2026-11-04T00:00:01Z",
+  },
+});
+
+// Mutation variables carry randomly minted clientUuids (AD-12) — the mocks
+// match on a variables FUNCTION and capture the inputs for the assertions.
+interface AttachInputShape {
+  title: string;
+  kind: string;
+  planId: string | null;
+  taskId: string | null;
+}
+interface CreateTaskInputShape {
+  clientUuid: string;
+  materialId: string;
+}
+let attachInputs: AttachInputShape[] = [];
+let createTaskInputs: CreateTaskInputShape[] = [];
+
+function mocks(options: { failFirstCreate?: boolean } = {}) {
+  attachInputs = [];
+  createTaskInputs = [];
+  return [
+    {
+      request: {
+        query: AttachMaterialDocument,
+        variables: (vars) => {
+          attachInputs.push(vars.input);
+          return true;
+        },
+      },
+      result: (vars) => ({
+        data: { __typename: "Mutation", attachMaterial: { __typename: "AttachMaterialPayload", material: attachedMaterial(vars.input.title) } },
+      }),
+      maxUsageCount: 5,
+    },
+    {
+      request: { query: CreateMaterialUploadDocument, variables: () => true },
+      result: {
+        data: {
+          __typename: "Mutation",
+          createMaterialUpload: {
+            __typename: "CreateMaterialUploadPayload",
+            materialId: MATERIAL_ID,
+            uploadUrl: "http://storage.test/put",
+            expiresAt: "2026-11-04T01:00:00Z",
+          },
+        },
+      },
+      maxUsageCount: 5,
+    },
+    ...(options.failFirstCreate
+      ? [
+          {
+            request: {
+              query: CreateTaskDocument,
+              variables: (vars) => {
+                createTaskInputs.push(vars.input);
+                return true;
+              },
+            },
+            error: new Error("create failed"),
+          },
+        ]
+      : []),
+    {
+      request: {
+        query: CreateTaskDocument,
+        variables: (vars) => {
+          createTaskInputs.push(vars.input);
+          return true;
+        },
+      },
+      result: (vars) => ({ data: { __typename: "Mutation", createTask: createdTask(vars.input.materialId) } }),
+      maxUsageCount: 5,
+    },
+    // createTask's refetch sweep (the tasks list + the material back-link view)
+    { request: { query: TasksDocument, variables: () => true }, result: { data: { tasks: [] } }, maxUsageCount: 5 },
+    { request: { query: MaterialsDocument, variables: () => true }, result: { data: { materials: [] } }, maxUsageCount: 5 },
+  ];
+}
+
+function renderPage(options: { failFirstCreate?: boolean } = {}) {
   return render(
     <LanguageProvider>
-      <QueryClientProvider client={client}>
+      <MockedProvider mocks={mocks(options)}>
         <MemoryRouter initialEntries={["/task/new"]}>
           <Toaster />
           <Routes>
@@ -107,7 +188,7 @@ function renderPage() {
             <Route path="/read/:materialId" element={<ReaderLanding />} />
           </Routes>
         </MemoryRouter>
-      </QueryClientProvider>
+      </MockedProvider>
     </LanguageProvider>,
   );
 }
@@ -120,34 +201,44 @@ const markdownFile = (name: string) =>
   });
 
 beforeEach(() => {
-  localStorage.clear();
-  h.registerCalls.length = 0;
-  h.createTaskCalls.length = 0;
-  h.failNextCreate.value = false;
+  // jsdom's Crypto predates randomUUID — the AD-12 mint is stubbed with the
+  // same interface (the values themselves are never asserted).
+  vi.stubGlobal("crypto", { ...crypto, randomUUID: () => "uuid-" + Math.random().toString(36).slice(2) });
+  // the presigned PUT goes straight to storage (never through the api) — a
+  // plain ok response stands in for the provider
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ ok: true, status: 200 })),
+  );
+  parseSeam.bound.length = 0;
+  parseSeam.calls.length = 0;
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
-  it("idle: offers the single-file upload with the shared constraint hint, no confirm yet, nothing registered", () => {
+  it("idle: offers the single-file upload with the shared constraint hint, no confirm yet", () => {
     renderPage();
     expect(screen.getByText(zh("tasks.uploadCta"))).toBeInTheDocument();
     expect(screen.getByText(zh("tasks.uploadHint"))).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: zh("tasks.confirm") })).not.toBeInTheDocument();
-    expect(loadDb().tasks).toHaveLength(0);
-    expect(loadDb().materials).toHaveLength(0);
+    expect(screen.queryByLabelText(zh("tasks.nameLabel"))).not.toBeInTheDocument();
   });
 
-  it("rejects an unsupported type with the bilingual reason and registers nothing", async () => {
+  it("rejects an unsupported type with the bilingual reason and attaches nothing", async () => {
     const { container } = renderPage();
     const file = new File(["plain text"], "slides.txt", { type: "text/plain" });
     fireEvent.change(fileInputOf(container), { target: { files: [file] } });
 
     // the toast is an observable state — sonner renders it asynchronously
     expect(await screen.findByText(zh("errors.uploadUnsupportedType"))).toBeInTheDocument();
-    expect(loadDb().materials).toHaveLength(0);
-    expect(loadDb().tasks).toHaveLength(0);
+    expect(attachInputs).toHaveLength(0);
+    expect(screen.queryByTestId("reader-landing")).not.toBeInTheDocument();
   });
 
-  it("rejects an over-cap file with the bilingual reason and registers nothing", async () => {
+  it("rejects an over-cap file with the bilingual reason and attaches nothing", async () => {
     const { container } = renderPage();
     const oversized = new File([new ArrayBuffer(20 * 1024 * 1024 + 1)], "huge.pdf", {
       type: "application/pdf",
@@ -155,11 +246,10 @@ describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
     fireEvent.change(fileInputOf(container), { target: { files: [oversized] } });
 
     expect(await screen.findByText(zh("errors.uploadTooLarge"))).toBeInTheDocument();
-    expect(loadDb().materials).toHaveLength(0);
-    expect(loadDb().tasks).toHaveLength(0);
+    expect(attachInputs).toHaveLength(0);
   });
 
-  it("creating: the name pre-fills from the filename and is editable; confirming shows the creating state", async () => {
+  it("creating: the name pre-fills from the filename and is editable; confirming rides attach → createTask → the Reader", async () => {
     const { container } = renderPage();
     fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("lecture-04.md")] } });
 
@@ -175,30 +265,24 @@ describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
     expect(screen.getByRole("button", { name: zh("tasks.creating") })).toBeDisabled();
 
     // the user lands in the Reader on the created material (UJ-6; AD-8)
-    const materialId = await waitFor(() => {
-      const landed = screen.getByTestId("reader-landing").textContent;
-      expect(landed).toBeTruthy();
-      return landed as string;
-    });
+    await waitFor(() => expect(screen.getByTestId("reader-landing")).toHaveTextContent(MATERIAL_ID));
 
-    // exactly one Material registered against the task, one task, one auto node (AD-6)
-    const db = loadDb();
-    expect(db.materials).toHaveLength(1);
-    expect(db.materials[0].id).toBe(materialId);
-    expect(db.materials[0].title).toBe("我的讲义");
-    expect(db.tasks).toHaveLength(1);
-    const task = db.tasks[0];
-    expect(task.materialId).toBe(materialId);
-    expect(db.materials[0].taskId).toBe(task.id);
-    const owned = db.nodes.filter((n) => n.taskId === task.id);
-    expect(owned).toHaveLength(1);
-    expect(owned[0].planId).toBeNull();
-    expect(owned[0].title).toBe("我的讲义"); // the node is titled from the material (AD-6)
-
-    // the eager parse ran through the reader's public API to its honest end state (AD-7)
-    await waitFor(() => {
-      expect(loadDb().materials[0].parseState).toBe("parsed");
-    });
+    // exactly one attach against the task-to-be: the edited title, taskId null
+    // (the material cannot know the task yet), markdown kind (AD-6 flow)
+    expect(attachInputs).toHaveLength(1);
+    expect(attachInputs[0].title).toBe("我的讲义");
+    expect(attachInputs[0].kind).toBe("markdown");
+    expect(attachInputs[0].taskId).toBeNull();
+    expect(attachInputs[0].planId).toBeNull();
+    // createTask back-links the attached material (its single auto-node is
+    // server-owned — AD-6); the idempotency key rides per call (AD-12)
+    expect(createTaskInputs).toHaveLength(1);
+    expect(createTaskInputs[0].materialId).toBe(MATERIAL_ID);
+    expect(typeof createTaskInputs[0].clientUuid).toBe("string");
+    // the bytes are parked in the session registry for this session's reader
+    expect(sessionBlobs.has(MATERIAL_ID)).toBe(true);
+    // the eager parse kicked against the bound row (AD-7)
+    expect(parseSeam.calls).toContain(MATERIAL_ID);
   });
 
   it("confirming with a blank name falls back to the filename-derived title", async () => {
@@ -210,50 +294,44 @@ describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
 
     await waitFor(() => expect(screen.getByTestId("reader-landing")).toBeInTheDocument());
-    expect(loadDb().materials[0].title).toBe("paper-draft");
+    expect(attachInputs[0].title).toBe("paper-draft");
   });
 
-  it("create-task failure then retry reuses the registered material — one registration, no orphan duplicate", async () => {
-    h.failNextCreate.value = true;
-    const { container } = renderPage();
+  it("create-task failure then retry reuses the attached material — one attach, no orphan duplicate", async () => {
+    const { container } = renderPage({ failFirstCreate: true });
     fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("retry-case.md")] } });
 
-    // attempt 1: the material registers, task creation fails
+    // attempt 1: the material attaches, task creation fails
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
-    await waitFor(() => expect(h.createTaskCalls).toHaveLength(1));
-    expect(h.registerCalls).toHaveLength(1);
+    await waitFor(() => expect(createTaskInputs).toHaveLength(1));
+    expect(attachInputs).toHaveLength(1);
     await waitFor(() => expect(screen.getByRole("button", { name: zh("tasks.confirm") })).toBeEnabled());
 
     // retry skips straight to task creation on the SAME material
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
     await waitFor(() => expect(screen.getByTestId("reader-landing")).toBeInTheDocument());
 
-    expect(h.registerCalls).toHaveLength(1); // never registered twice
-    expect(h.createTaskCalls).toHaveLength(2);
-    const db = loadDb();
-    expect(db.materials).toHaveLength(1); // the orphan is re-linked, not duplicated
-    expect(db.tasks).toHaveLength(1);
-    expect(db.materials[0].taskId).toBe(db.tasks[0].id);
+    expect(attachInputs).toHaveLength(1); // never attached twice
+    expect(createTaskInputs).toHaveLength(2);
+    expect(createTaskInputs[1].materialId).toBe(createTaskInputs[0].materialId);
+    // the eager parse ran once against the bound row — the retry never re-parses
+    expect(parseSeam.calls).toHaveLength(1);
   });
 
-  it("choosing a different file after a failed attempt registers the new file, not a stale reuse", async () => {
-    h.failNextCreate.value = true;
-    const { container } = renderPage();
+  it("choosing a different file after a failed attempt attaches the new file, not a stale reuse", async () => {
+    const { container } = renderPage({ failFirstCreate: true });
     fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("first.md")] } });
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
-    await waitFor(() => expect(h.createTaskCalls).toHaveLength(1));
+    await waitFor(() => expect(createTaskInputs).toHaveLength(1));
     await waitFor(() => expect(screen.getByRole("button", { name: zh("tasks.confirm") })).toBeEnabled());
 
     fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("second.md")] } });
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
     await waitFor(() => expect(screen.getByTestId("reader-landing")).toBeInTheDocument());
 
-    expect(h.registerCalls).toHaveLength(2); // one per file — the stale id is not reused
-    expect(h.createTaskCalls).toHaveLength(2);
-    const db = loadDb();
-    expect(db.tasks).toHaveLength(1);
-    const linked = db.materials.find((m) => m.id === db.tasks[0].materialId);
-    expect(linked?.title).toBe("second");
-    expect(screen.getByTestId("reader-landing").textContent).toBe(db.tasks[0].materialId);
+    expect(attachInputs).toHaveLength(2); // one per file — the stale id is not reused
+    expect(attachInputs[1].title).toBe("second");
+    expect(createTaskInputs).toHaveLength(2);
+    expect(screen.getByTestId("reader-landing")).toHaveTextContent(MATERIAL_ID);
   });
 });

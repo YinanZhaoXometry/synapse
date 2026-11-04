@@ -3,23 +3,26 @@
  * door — one document in, straight into the Immersive Reader, no plan UI. The
  * flow is the spec's creation sequence: validate the upload through the SAME
  * seam as plan attach (the plans feature's public surface, PDF/Markdown ≤ 20 MB
- * inclusive) → register the Material parse-pending with session-only bytes
- * (AD-4; taskId null — the material cannot know the task yet) → createStudyTask
- * back-links the material and auto-creates its exactly-one KnowledgeNode titled
- * from the material (AD-6) → eager parse through the reader's public parse API
- * (AD-7) → navigate to the reader route. Parse failure never kills the task:
- * the reader's failed-card retry/re-upload is the recovery path. Rejection
- * reasons surface as bilingual sonner toasts (AD-9); every string is a
- * task-namespaced i18n key (zh/en parity) and every color a semantic token.
+ * inclusive) → attach the Material parse-pending — metadata lands idempotently,
+ * the bytes PUT straight to storage through the presigned URL and park in the
+ * session registry (the cutover's two-step upload; taskId null — the material
+ * cannot know the task yet) → createTask back-links the material and
+ * auto-creates its exactly-one KnowledgeNode titled from the material (AD-6) →
+ * eager parse through the reader's public parse API (AD-7) → navigate to the
+ * reader route. Parse failure never kills the task: the reader's failed-card
+ * retry/re-upload is the recovery path. Rejection reasons surface as bilingual
+ * sonner toasts (AD-9); every string is a task-namespaced i18n key (zh/en
+ * parity) and every color a semantic token.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCreateTaskMutation, useRegisterMaterialMutation } from "@/data";
+import { newClientUuid, useCreateTaskMutation, useMaterialUpload } from "@/api";
+import type { MaterialView } from "@/api/views";
 import { cn } from "@/lib/utils";
 import { validateUpload, type UploadKind } from "@/features/plans";
 import { useParseMaterialMutation } from "@/features/reader";
@@ -28,18 +31,30 @@ import { resolveTaskName } from "./task-name";
 export default function TaskCreatePage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const registerMaterial = useRegisterMaterialMutation();
-  const createTask = useCreateTaskMutation();
-  const parseMaterial = useParseMaterialMutation();
+  const upload = useMaterialUpload();
+  const [createTask] = useCreateTaskMutation();
+  // The eager parse seam binds to the attached row (the hook resolves bytes
+  // through the session registry the attach just filled); it flips to the row
+  // once task creation succeeds — the effect below kicks the parse then.
+  const [attached, setAttached] = useState<MaterialView | null>(null);
+  const parseMaterial = useParseMaterialMutation(attached);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [chosen, setChosen] = useState<{ file: File; kind: UploadKind } | null>(null);
   const [name, setName] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [creating, setCreating] = useState(false);
-  // The material already registered for `chosen` (code-review Fix 2): if task
-  // creation fails after registration, a retry must reuse THIS material — not
-  // register a duplicate orphan. Reset when a different file is chosen.
+  // The material already attached for `chosen` (code-review Fix 2): if task
+  // creation fails after the attach, a retry must reuse THIS material — not
+  // attach a duplicate orphan. Reset when a different file is chosen.
   const [registeredMaterialId, setRegisteredMaterialId] = useState<string | null>(null);
+
+  // The eager parse (AD-7) once the row is bound: the reader owns the honest
+  // pending → parsing → parsed UI from here on, and the parse chain keeps
+  // running across the reader-route navigation.
+  useEffect(() => {
+    if (!attached) return;
+    parseMaterial.mutate(attached.id);
+  }, [attached]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openPicker = () => fileInputRef.current?.click();
 
@@ -60,46 +75,32 @@ export default function TaskCreatePage() {
     setCreating(true);
     const { file, kind } = chosen;
     const title = resolveTaskName(name, file.name);
-    // Task creation on a registered material — the eager parse (AD-7) kicks off
-    // before landing: the reader owns the honest pending → parsing → parsed UI
-    // from here on. One path for both fresh and retried attempts.
+    // Task creation on the attached material — landing binds the eager-parse
+    // seam to the row (the effect above) and hands the route to the reader.
+    // One path for both fresh and retried attempts.
     const startTask = (materialId: string) =>
-      createTask.mutate(
-        { materialId },
-        {
-          onError: () => setCreating(false),
-          onSuccess: () => {
-            parseMaterial.mutate(materialId);
-            navigate(`/read/${materialId}`);
-          },
-        },
-      );
-    // A previous attempt already registered the material — retry adopts it.
+      createTask({
+        variables: { input: { clientUuid: newClientUuid(), materialId } },
+        onError: () => setCreating(false),
+        onCompleted: () => navigate(`/read/${materialId}`),
+      });
+    // A previous attempt already attached the material — retry adopts it.
     if (registeredMaterialId) {
       startTask(registeredMaterialId);
       return;
     }
-    // Register first with taskId null — createStudyTask then back-links the
-    // material (material.taskId) and auto-creates the single node (AD-6).
-    registerMaterial.mutate(
-      {
-        title,
-        kind,
-        sizeBytes: file.size,
-        planId: null,
-        taskId: null,
-        blob: file, // session-only bytes (AD-4) — the eager parse needs them now
-        sections: [],
-        parseState: "pending",
-      },
-      {
-        onError: () => setCreating(false),
-        onSuccess: ({ material }) => {
-          setRegisteredMaterialId(material.id);
-          startTask(material.id);
-        },
-      },
-    );
+    // Attach first with taskId null — createTask then back-links the material
+    // (material.taskId) and auto-creates the single node (AD-6). The bytes ride
+    // the presigned PUT straight to storage and park in the session registry
+    // for the eager parse (the cutover's two-step upload, AD-4).
+    upload
+      .attach({ file, title, kind, planId: null, taskId: null })
+      .then((material) => {
+        setRegisteredMaterialId(material.id);
+        setAttached(material); // binds the parse seam — the effect parses eagerly
+        startTask(material.id);
+      })
+      .catch(() => setCreating(false));
   };
 
   return (

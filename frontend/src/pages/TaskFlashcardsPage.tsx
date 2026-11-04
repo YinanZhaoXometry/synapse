@@ -8,7 +8,7 @@
  * the plan twin's contract scoped to the task's single material.
  */
 import { useParams } from "react-router-dom";
-import { useFlashcardsByMaterialQuery, useTaskMaterialsQuery, useTaskQuery } from "@/data";
+import { useFlashcardsByMaterialQuery, useTaskMaterialsQuery, useTaskQuery } from "@/api";
 import { FlashcardsStudyPage } from "@/features/flashcards";
 
 export default function TaskFlashcardsPage() {
@@ -18,7 +18,7 @@ export default function TaskFlashcardsPage() {
   // The task's deck is its single material's deck (StudyTask ||--|| Material).
   const cardsQuery = useFlashcardsByMaterialQuery(taskQuery.data?.materialId ?? "");
 
-  if (taskQuery.isPending || materialsQuery.isPending || cardsQuery.isPending) return null;
+  if (taskQuery.loading || materialsQuery.loading || cardsQuery.loading) return null;
 
   const task = taskQuery.data;
   const materials = materialsQuery.data ?? [];

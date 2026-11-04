@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Eye, Info, Layers } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useRateFlashcardMutation } from "@/data";
+import { useRateFlashcardMutation } from "@/api";
 import { cn } from "@/lib/utils";
 import type { Flashcard, Material } from "@/domain/entities";
 import { flashcardSourceTitle, ratingBreakdown } from "./display-shaping";
@@ -45,12 +45,13 @@ const TRIO = [
 
 export function FlashcardStudy({ cards, materials, backLabelKey = "flashcards.summary.backToPlan", onExit }: FlashcardStudyProps) {
   const { t } = useLanguage();
-  const rateCard = useRateFlashcardMutation();
+  const [rateCard] = useRateFlashcardMutation();
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(false);
-  // This mount's fresh ratings, merged over the props (the query refetch
-  // confirms them): the trio's saved mark renders even before the refetch.
+  // This mount's fresh ratings, merged over the props (the normalized cache
+  // refresh confirms them): the trio's saved mark renders even before the
+  // deck's persisted rows catch up.
   const [savedRatings, setSavedRatings] = useState<Record<string, Difficulty>>({});
 
   const total = cards.length;
@@ -84,7 +85,8 @@ export function FlashcardStudy({ cards, materials, backLabelKey = "flashcards.su
   const rate = async (difficulty: Difficulty) => {
     if (done || !card) return;
     try {
-      await rateCard.mutateAsync({ id: card.id, difficulty }); // self-rating only — no evidence (ADR-0001)
+      // self-rating only — no evidence (ADR-0001); no onError → a failure rejects
+      await rateCard({ variables: { input: { id: card.id, difficulty } } });
     } catch {
       toast.error(t("flashcards.rateSaveFailed"));
       return;
