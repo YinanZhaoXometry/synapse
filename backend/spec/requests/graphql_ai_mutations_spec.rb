@@ -26,13 +26,14 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
   end
 
   describe "the auth guard" do
-    it "answers UNAUTHORIZED without a token on all three AI mutations" do
+    it "answers UNAUTHORIZED without a token on all four AI mutations" do
       uuid = SecureRandom.uuid
       mutations = [
         "mutation { generateQuiz(input: { clientUuid: \"#{uuid}\", mode: \"open\", language: \"zh\", " \
           "planId: \"#{uuid}\" }) { session { id } } }",
         "mutation { generateFlashcards(input: { materialId: \"#{uuid}\", language: \"zh\" }) { cards { id } } }",
-        "mutation { gradeOpenAnswer(input: { questionId: \"#{uuid}\", answer: \"a\", language: \"zh\" }) { gradedAnswer { outcome } } }"
+        "mutation { gradeOpenAnswer(input: { questionId: \"#{uuid}\", answer: \"a\", language: \"zh\" }) { gradedAnswer { outcome } } }",
+        "mutation { createStreamTicket(input: { op: \"proposal\", language: \"zh\", topic: \"t\" }) { token } }"
       ]
       mutations.each do |mutation|
         expect(error_code(graphql(mutation))).to eq("UNAUTHORIZED")
@@ -131,3 +132,33 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
     end
   end
 end
+
+  describe "createStreamTicket", type: :request do
+    it "mints a ticket over the wire and carries the frozen payload inputs" do
+      user, token = user_with_token("ai-ticket@example.com")
+      material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+
+      variables = { input: { op: "companion", language: "zh", materialId: material.id,
+                             question: "这一节讲了什么？",
+                             position: { locator: { kind: "markdown", sectionId: "sec-1" }, text: "view" } } }
+      result = graphql(
+        <<~GRAPHQL, variables: variables, token: token
+          mutation CreateStreamTicket($input: CreateStreamTicketInput!) {
+            createStreamTicket(input: $input) { token expiresAt }
+          }
+        GRAPHQL
+      )
+      payload = result.dig("data", "createStreamTicket")
+      expect(payload["token"]).to be_present
+      expect(payload["expiresAt"]).to be_present
+      minted = user.stream_tickets.sole
+      expect(minted.payload["material_id"]).to eq(material.id)
+      expect(minted.payload["locator"]).to eq({ "kind" => "markdown", "sectionId" => "sec-1" })
+
+      invalid = graphql(
+        "mutation { createStreamTicket(input: { op: \"chat\", language: \"zh\", topic: \"t\" }) { token } }",
+        token: token
+      )
+      expect(error_code(invalid)).to eq("VALIDATION_FAILED")
+    end
+  end

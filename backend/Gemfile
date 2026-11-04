@@ -31,11 +31,17 @@ gem "aws-sdk-s3", "~> 1.237.0"
 # Solid Queue (AD-19, epic P2-7 ticket 01): the DB-backed job queue, running
 # IN-PROCESS with puma (the puma plugin, gated by SOLID_QUEUE_IN_PUMA) — no
 # separate worker service, no Redis. Spine stack table posture: floor pin at
-# current stable (rubygems 1.7.2, verified 2026-11-04); Gemfile.lock holds
-# the exact version. The queue shares the app's Postgres via DATABASE_URL;
+# current stable (rubygems 1.7.2, verified 2026-11-04); Gemfile.lock holds the
+# exact version. The queue shares the app's Postgres via DATABASE_URL;
 # production must point that URL at Neon's DIRECT (non-pooled) endpoint —
 # Solid Queue's polling dislikes transaction-mode pooling (AD-19).
 gem "solid_queue", "~> 1.7.2"
+
+# CORS (AD-16/AD-20, epic P2-5 ticket 04 — kickoff delta 2): the web origin
+# allowlist for the api's two browser-facing surfaces, /graphql and
+# /api/stream. Origins come from CORS_ORIGIN (comma-separated; blank = no
+# cross-origin allowed — the safe pre-cutover default; epic P2-8 sets it).
+gem "rack-cors", "~> 2.0.2"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]

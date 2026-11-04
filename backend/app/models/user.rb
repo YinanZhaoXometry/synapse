@@ -22,6 +22,7 @@ class User < ApplicationRecord
   has_many :annotations
   has_many :requeue_schedules
   has_many :ai_usage_counters
+  has_many :stream_tickets
 
   validates :email, presence: true, uniqueness: true
 end

@@ -95,6 +95,59 @@ module Ai
         ]
       end
 
+      # Companion chat (FR-11/12, AD-5): single-turn, grounded on the
+      # ReadingPosition the ticket carried. The reply is plain prose — every
+      # character streams as token events. The guardrail posture (rung) is
+      # REQUEST-derived server-side (escalated → "answer", else "hint") —
+      # the ladder rule rides the contract, never the model's mood.
+      def companion(question:, position_text:, language:, escalated:, context:)
+        [ system,
+          user(<<~PROMPT)
+            The learner is reading a material. Study material context (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+            Their current reading position text:
+            ---
+            #{position_text}
+            ---
+
+            Their question: #{question}
+
+            #{escalated ? "The learner explicitly asked for the direct answer — give it, grounded and cited." : "Stay hint-first: guide toward the answer rather than dumping it (the ladder rule — the learner can escalate with one click)."}
+            Answer ONLY from the material above; if it does not cover the question, say so honestly.
+            Write your entire reply in #{language_word(language)}.
+          PROMPT
+        ]
+      end
+
+      # Plan-creation proposal (FR-1/AD-5): topic (+ optional goal) → a
+      # staged node proposal. The reply format is the frozen tag contract
+      # (ticket 04): a readable outline between the outline tags (what the
+      # client streams as tokens) and the strict proposal JSON between the
+      # proposal tags (what the terminal event carries — the client's
+      # follow-up confirmProposal consumes it verbatim).
+      def proposal(topic:, goal:, language:)
+        goal_line = goal.to_s.strip.empty? ? "" : "\nThe learner's goal: #{goal}"
+        [ system,
+          user(<<~PROMPT)
+            Design a study plan. Topic: #{topic}.#{goal_line}
+
+            Reply in EXACTLY this format — nothing before, between, or after the tags:
+            <outline>
+            A short readable outline of the plan: one line per stage ("第 1 阶段：…" / "Stage 1: …"), then its node titles as "- …" lines.
+            </outline>
+            <proposal>
+            {"topic":"#{topic}","stages":[{"name":"…","nodeTitles":["…","…"]}]}
+            </proposal>
+
+            2–5 stages, 3–8 nodes total, ordered from foundations to practice.
+            Write the outline lines AND the JSON's strings in #{language_word(language)}.
+          PROMPT
+        ]
+      end
+
       private
 
       def system

@@ -15,6 +15,22 @@ module Ai
   # is prompted to answer in it).
   LANGUAGES = %w[zh en].freeze
 
+  # The stream-op vocabulary (AD-16, ticket 04 — the ticket contract): the
+  # two streamed surfaces. "companion" = position-grounded study chat on a
+  # material; "proposal" = the plan-creation chat's staged proposal (the
+  # transcript is ephemeral per AD-5 — only the confirmed plan persists,
+  # via the existing confirmProposal flow).
+  STREAM_OPS = %w[companion proposal].freeze
+
+  # The stream-ticket TTL (AD-16: "opaque single-use secret, TTL ~60s").
+  # Read from ENV at call time; garbage falls back to the default.
+  DEFAULT_STREAM_TICKET_TTL_SECONDS = 60
+
+  def self.stream_ticket_ttl_seconds
+    value = ENV["AI_STREAM_TICKET_TTL_SECONDS"].to_s.strip.to_i
+    value.positive? ? value : DEFAULT_STREAM_TICKET_TTL_SECONDS
+  end
+
   # Command-layer doctrine (AD-12/AD-16): the AI commands (app/commands/ai/)
   # are deliberately NOT idempotent, unlike the delta-3 creates — every call
   # is a NEW generation, and the per-user daily cap bounds retries (FR-34).
