@@ -1,6 +1,16 @@
 # Epic 5 (Phase 2) — Server-side AI: provider adapter, mutations, SSE tickets, cost cap
 
-Status: in-progress (kickoff 2026-11-04; delta-grill below)
+Status: shipped (2026-11-04 — 4 tickets done, two-axis review clean, 751/751)
+
+## Close-out (2026-11-04)
+
+All four tickets done and re-verified against code (Axis A spec-conformance audit proved every AC — verdict SHIP; Axis B adversarial audit — verdict FIX-FIRST, all findings landed in `fix(p2-5)`): **1×P1** (stream-ticket mint was uncapped while the migration comment claimed cap-bounded volume → `MAX_LIVE_TICKETS=10` at mint, RATE_LIMITED, comment corrected), **4×P2** (generateQuiz uuid-shape + mode guards before anything is spent; gradeOpenAnswer's `answer` bounded at 20k; `GlmClient#stream`'s dead method-level rescue moved inside the Enumerator block so pull-time timeouts surface as the typed `Ai::ProviderError` — hung-server spec added; companion grounding budgets its position header/padding). P3s: `:ticket` in filter_parameters, orphaned spec describe re-nested, `ReadingPositionInput` description says truncate, ticket 04 Bound by + AD-5, schema re-dumped.
+
+**DoD:** quiz/flashcard/grade answered by commands over the seam with node-attributed, materials-sourced output; the proposal persistence path = the epic P2-3 `confirmProposal` (delta 1) + ticket 04's terminal payload; the cap trips at the boundary with `CAP_REACHED` (49→50→refused, restarts counted); `/api/stream` streams the frozen contract and 401s every bad ticket; **no provider key anywhere in frontend/** (grepped); rubocop+rspec green (**751 backend examples**, from 643; web: tsc/eslint/vitest 421/build all green — eslint warnings are the pre-existing shadcn react-refresh baseline); every ticket cites AD-16/AD-5 (02's Bound by is AD-16/AD-12 by nature — the cap doesn't touch the response contract; noted per Axis A finding 5).
+
+**OQ-4 assumption (logged for the owner):** GLM-first proceeds under the standing decide-all delegation; provider identity is pure config (`PROVIDER_BASE_URL`/`PROVIDER_MODEL`/`PROVIDER_KEY`), so a terms-driven swap is config-only. `bin/rails ai:probe` is the S6-pattern manual live probe — run it after the terms check clears. Ticket 01's probe AC stays honestly unchecked until then.
+
+**Growth:** schema +4 mutations (generateQuiz/generateFlashcards/gradeOpenAnswer/createStreamTicket) + Citation/GradedAnswer types; 2 tables (`ai_usage_counters`, `stream_tickets`, both strong_migrations two-step); 1 gem (rack-cors, the CORS_ORIGIN allowlist — blank = closed until epic-08 sets it). Epic-08 now has every gate met (02/03/04/05/06) — it consumes ticket 04's contract verbatim.
 
 ## Kickoff delta-grill (2026-11-04)
 
