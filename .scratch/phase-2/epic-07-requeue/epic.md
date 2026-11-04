@@ -1,6 +1,6 @@
 # Epic 7 (Phase 2) — Re-queue: Solid Queue + the FR-24 due-scan
 
-Status: ready-for-agent → kickoff done 2026-11-04 (delta review below; standing decide-all delegation — "全部按推荐")
+Status: ready-for-agent → **code complete 2026-11-04** (3/3 tickets done, 642/642, integrated on epic/p2-7-requeue; review pending)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
@@ -36,3 +36,15 @@ Scan recomputes due-ness on wake with no backlog inflation · wrong-sooner order
 7. **Scheduling state = one side table (T2's ER delta):** `requeue_schedules` (uuid PK, `user_id` FK, polymorphic `schedulable` → MistakeEntry | Flashcard, `stage` int, `next_due_at` indexed, `last_source_timestamp` for audit) with a unique `[item_type, item_id]` index. Deliberately NOT columns on the two entities: one mechanism, no ER sprawl, and epic-10's adaptive scheduling gets a home. **Correct-on-wake:** the scan always recomputes `stage` + `next_due_at` from source rows' timestamps (`requeue_schedules` is a materialized view of derivable state, refreshed every wake — never accumulated while asleep). Multi-day sleep ⇒ recompute, no backlog inflation (Timecop-pinned).
 8. **Interval values (A1 fixed ladders, recorded here + spec.md):** mistakes — stage ladder `[1d, 2d, 4d, 7d cap]` where stage = consecutive `correct` evidence_records for the same question after the mistake's creation (`wrong`/`partial` reset to 0); flashcards — by difficulty rating: hard 2d, medium 5d, easy 10d, unrated ⇒ due immediately. Wrong-sooner holds at every stage: the mistake ladder's floor (1d) beats the flashcard ladder's floor (2d) and its cap (7d) beats easy's 10d.
 9. **dueItems read posture (T3):** the Today hub reads the materialized side table through the owner's scope — a **sanctioned bare read** (resolver body, no command; scoping IS the logic), `date` defaulting to now with the **UTC day boundary** (the streak's convention, epic-04). Force-due trigger: a rake task `requeue:force_due`, guarded to development/test (raises in production) — the rake form needs no schema surface.
+
+## Close-out note (2026-11-04, code complete — pending review)
+
+DoD assessment (all three tickets):
+
+- **Scan recomputes on wake, no backlog inflation** — the five-day-sleep spec: identical rows after sleeping, due_count exactly the fallen-due items; `requeue_schedules` is a derivable cache re-derived from source timestamps every wake.
+- **Wrong-sooner proven** — fresh mistake (1d) < hard flashcard (2d); capped mistake (7d) < easy flashcard (10d).
+- **Recurring job calls one command** — `Requeue::ScanJob` wraps `Requeue::ScanDueItemsCommand` exactly once per wake (job spec); no retries (the next wake recomputes).
+- **No keep-alive anywhere** — lexical grep-guard over app/config/lib (`spec/config/no_keep_alive_spec.rb`), live-verified supervisor is in-process with puma (SOLID_QUEUE_IN_PUMA gate).
+- **dueItems answers for epic-09** — inclusive-day read with the FR-27 deep-link set (node→plan/task, material, question, source locator); UTC day boundary per the streak convention.
+- **rubocop+rspec green** — 254 files clean; 642/642 (epic-06 close baseline was 608).
+- **AD-19 citations** — every ticket + artifact carries them; AGENTS.md's Jobs section moved from deferred to landed, deploy.md carries the ops checklist (SOLID_QUEUE_IN_PUMA + Neon direct URL).
