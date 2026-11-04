@@ -22,6 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
+import MaterialScopeControls from "./MaterialScopeControls";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
@@ -34,7 +35,7 @@ import {
   useStreakQuery,
 } from "@/api";
 import { cn } from "@/lib/utils";
-import type { MaterialView } from "@/api/views";
+import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import {
   nodeRowViews,
@@ -255,6 +256,7 @@ export default function PlanHomePage() {
                   <div key={material.id}>
                     <MaterialRow
                       material={material}
+                      nodes={nodes}
                       onReupload={() => openPicker(material.id)}
                       onRetryParse={(row) => parseMaterial.mutate(row.id, row)}
                       coverageOpen={coverageFor === material.id}
@@ -455,12 +457,15 @@ function NodeRow({ view }: { view: NodeRowView }) {
  */
 function MaterialRow({
   material,
+  nodes,
   onReupload,
   onRetryParse,
   coverageOpen,
   onToggleCoverage,
 }: {
   material: MaterialView;
+  /** The plan's nodes — the scope chip's title lookup + the pin picker's options. */
+  nodes: KnowledgeNodeView[];
   onReupload: () => void;
   onRetryParse: (row: MaterialView) => void;
   coverageOpen: boolean;
@@ -509,6 +514,9 @@ function MaterialRow({
           {t("mapping.title")}
         </button>
       )}
+      {/* Attachment scope (FR-44, epic P2-10 T2): the chip + pin/widen affordance.
+          Task materials render nothing (the triangle has no node pinning). */}
+      <MaterialScopeControls material={material} nodes={nodes} />
       {needsReupload ? (
         <span className="flex items-center gap-2 flex-none">
           <span className="pill pill-muted cursor-help" title={t("plans.materialsSessionNote")}>

@@ -67,6 +67,8 @@ const materialFixture = (overrides: Record<string, unknown> = {}) => ({
   sizeBytes: 2048,
   planId: null,
   taskId: "t-1",
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   parseFailureReason: null,
   createdAt: NOW,

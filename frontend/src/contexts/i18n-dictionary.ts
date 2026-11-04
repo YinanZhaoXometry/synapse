@@ -695,7 +695,23 @@ export const translations = {
       'mapping.errorRateLimited': '请求太频繁，请稍等片刻再试',
       'mapping.capReached': '今日 AI 使用次数已达上限，请明天再来',
       'mapping.errorInternal': 'AI 服务暂时不可用，请重试',
-      'mapping.failed': '映射失败，请重试'
+      'mapping.failed': '映射失败，请重试',
+      'scope.chipPlan': '整个计划',
+      'scope.chipNode': '仅节点 {node}',
+      'scope.pinAction': '钉到节点',
+      'scope.pinHint': '选择一个节点——该材料只喂给它的学习与出题',
+      'scope.widenAction': '改为整个计划',
+      'scope.widenHint': '取消钉定，重新喂给整个计划',
+      'scope.pinnedToast': '已钉到节点「{node}」，内容只喂给该节点',
+      'scope.widenedToast': '已改为整个计划，内容重新喂给全部学习面',
+      'scope.errorUnauthorized': '登录状态已过期，请重新登录',
+      'scope.errorForbidden': '没有权限执行这个操作',
+      'scope.errorNotFound': '找不到对应的学习内容',
+      'scope.errorValidation': '钉定请求不完整，请调整后重试',
+      'scope.errorRateLimited': '请求太频繁，请稍等片刻再试',
+      'scope.capReached': '今日使用次数已达上限，请明天再来',
+      'scope.errorInternal': '服务暂时不可用，请重试',
+      'scope.failed': '操作失败，请重试'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -1390,7 +1406,23 @@ export const translations = {
       'mapping.errorRateLimited': 'Too many requests — please wait a moment',
       'mapping.capReached': 'Daily AI limit reached — try again tomorrow',
       'mapping.errorInternal': 'The AI service is unavailable — please retry',
-      'mapping.failed': 'Mapping failed — please retry'
+      'mapping.failed': 'Mapping failed — please retry',
+      'scope.chipPlan': 'Whole plan',
+      'scope.chipNode': 'Node only: {node}',
+      'scope.pinAction': 'Pin to a node',
+      'scope.pinHint': 'Pick a node — this material will feed only that node',
+      'scope.widenAction': 'Make plan-wide',
+      'scope.widenHint': 'Unpin — feed the whole plan again',
+      'scope.pinnedToast': 'Pinned to “{node}” — its content now feeds only that node',
+      'scope.widenedToast': 'Plan-wide again — its content feeds every study surface',
+      'scope.errorUnauthorized': 'Your session expired — please sign in again',
+      'scope.errorForbidden': 'You do not have permission for this action',
+      'scope.errorNotFound': 'The study content was not found',
+      'scope.errorValidation': 'The pin request was incomplete — adjust and retry',
+      'scope.errorRateLimited': 'Too many requests — please wait a moment',
+      'scope.capReached': 'Daily limit reached — try again tomorrow',
+      'scope.errorInternal': 'The service is unavailable — please retry',
+      'scope.failed': 'The action failed — please retry'
     }
 
 } as const;

@@ -32,4 +32,31 @@ RSpec.describe Material, type: :model do
     expect(material.reload.sections).to eq(sections)
     expect(described_class.column_names).not_to include("blob", "file_data")
   end
+
+  # Attachment scope (FR-44, epic P2-10 T2; kickoff delta decision 4): the
+  # default IS plan — existing rows read plan-wide with no backfill.
+  it "defaults the attachment scope to plan-wide (backward compatible — no backfill needed)" do
+    expect(described_class.new.attachment_scope).to eq("plan")
+
+    material = described_class.create!(model_attributes)
+
+    expect(material.reload.attachment_scope).to eq("plan")
+    expect(material.node_id).to be_nil
+  end
+
+  it "pins the attachment scope to the closed two values (plan | node)" do
+    expect { described_class.new(attachment_scope: "section") }.to raise_error(ArgumentError)
+
+    plan = StudyPlan.create!(user: user, topic: "Scoping")
+    node = KnowledgeNode.create!(user: user, plan: plan, title: "A node", order: 0)
+    material = described_class.create!(model_attributes.merge(attachment_scope: "node", node: node))
+    expect(material.reload.attachment_scope).to eq("node")
+
+    # The database floor: anything outside the two values is refused by the
+    # check constraint, not just the enum seam.
+    saved = described_class.create!(model_attributes)
+    expect {
+      saved.update_columns(attachment_scope: "banana")
+    }.to raise_error(ActiveRecord::StatementInvalid)
+  end
 end

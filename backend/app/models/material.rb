@@ -3,11 +3,16 @@
 # A user-attached document: metadata + extracted sections only (AD-7 — bytes
 # go to ActiveStorage/R2 in the storage epic, no blob columns). plan_id
 # realizes the StudyPlan ↔ Material attachment (the M2M is plan-side; no join
-# table); task_id mirrors the one task studying this material.
+# table); task_id mirrors the one task studying this material. The attachment
+# scope (FR-44, epic P2-10 T2) realizes node pinning: "plan" (default — the
+# material feeds the whole plan's generation surfaces) or "node" (the
+# material feeds ONLY its pinned node's surfaces — nullable node_id).
 class Material < ApplicationRecord
   belongs_to :user
   belongs_to :plan, class_name: "StudyPlan", optional: true
   belongs_to :task, class_name: "StudyTask", optional: true
+  # The pinned plan node when attachment_scope is "node" (nullable otherwise).
+  belongs_to :node, class_name: "KnowledgeNode", optional: true
 
   # The original document's bytes (AD-13, epic P2-6 ticket 02): the ActiveStorage
   # attachment minted server-side at presign time (Storage::
@@ -30,4 +35,5 @@ class Material < ApplicationRecord
        default: :pending, scopes: false
   enum :parse_failure_reason, { corrupt: "corrupt", encrypted: "encrypted", empty: "empty", unknown: "unknown" },
        scopes: false
+  enum :attachment_scope, { plan: "plan", node: "node" }, default: :plan, scopes: false
 end

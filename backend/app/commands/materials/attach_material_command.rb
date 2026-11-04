@@ -22,6 +22,15 @@ module Materials
   # (foreign/unknown → NOT_FOUND per delta 2), where Phase-1 trusted the
   # client's ids; and the one-task-per-material invariant is enforced
   # instead of Phase-1's silent task_id re-point.
+  #
+  # Attachment scope (FR-44, epic P2-10 T2): optional attachmentScope
+  # (default "plan" — backward compatible) + nodeId pin the material at
+  # attach time. The pairing rules: scope=node requires nodeId; a nodeId
+  # rides only with scope=node; the task triangle has no node pinning (a
+  # task_id + node pin → VALIDATION_FAILED); the node must live in the
+  # material's plan; unknown/foreign/malformed node ids are uniformly
+  # NOT_FOUND (delta 2 — no existence leak). Re-attaching plan-wide to WIDEN
+  # an existing row is NOT this op — that's setMaterialScope.
   class AttachMaterialCommand < ApplicationCommand
     include SectionValidation
 
@@ -32,6 +41,8 @@ module Materials
     option :size_bytes
     option :plan_id, optional: true
     option :task_id, optional: true
+    option :attachment_scope, optional: true
+    option :node_id, optional: true
     option :sections
     option :parse_state, optional: true
     option :parse_failure_reason, optional: true
@@ -55,6 +66,19 @@ module Materials
       task = task_scope
       return task if task.failure?
 
+      scope_failure = validate_scope_pairing!(plan.value!)
+      return scope_failure if scope_failure
+
+      node = nil
+      if scope == "node"
+        node = resolve_node
+        return node if node.failure?
+        unless node.value!.plan_id == plan.value!.id
+          return Failure(:VALIDATION_FAILED,
+                         { message: "the node is not in the material's plan", field: :nodeId })
+        end
+      end
+
       material = current_user.materials.create!(
         id: client_uuid,
         title: title,
@@ -62,6 +86,8 @@ module Materials
         size_bytes: size_bytes,
         plan_id: plan.value!&.id,
         task_id: task.value!&.id,
+        attachment_scope: scope,
+        node_id: node&.value!&.id,
         parse_state: parse_state || (sections.any? ? "parsed" : "pending"),
         parse_failure_reason: parse_state == "failed" ? parse_failure_reason : nil,
         sections: sections_as_jsonb(sections)
@@ -96,6 +122,8 @@ module Materials
       unless Material.kinds.key?(kind.to_s)
         return Failure(:VALIDATION_FAILED, { message: "kind is invalid", field: :kind })
       end
+      scope_failure = validate_scope_shape!
+      return scope_failure if scope_failure
       if parse_state && !Material.parse_states.key?(parse_state.to_s)
         return Failure(:VALIDATION_FAILED, { message: "parse state is invalid", field: :parseState })
       end
@@ -130,6 +158,53 @@ module Materials
       end
       plan = current_user.study_plans.find_by(id: plan_id)
       plan ? Success(plan) : Failure(:NOT_FOUND, { message: "plan not found" })
+    end
+
+    # The attachment scope's shape-level pairing rules (FR-44): no database
+    # reads — the enum vocabulary, the task-triangle rejection, and the
+    # scope↔nodeId pairing. The DB-dependent checks (a plan to pin into, the
+    # node's existence/plan membership) live in #call after the scopes
+    # resolve.
+    def validate_scope_shape!
+      if attachment_scope && !Material.attachment_scopes.key?(attachment_scope.to_s)
+        return Failure(:VALIDATION_FAILED,
+                       { message: "attachment scope is invalid", field: :attachmentScope })
+      end
+      if task_id && (scope == "node" || node_id.present?)
+        return Failure(:VALIDATION_FAILED,
+                       { message: "a task material cannot pin to a plan node", field: :taskId })
+      end
+      if scope == "node" && node_id.blank?
+        return Failure(:VALIDATION_FAILED,
+                       { message: "a node pin needs a node id", field: :nodeId })
+      end
+      if scope != "node" && node_id.present?
+        return Failure(:VALIDATION_FAILED,
+                       { message: "a node id requires attachmentScope node", field: :nodeId })
+      end
+      nil
+    end
+
+    def validate_scope_pairing!(plan)
+      return nil unless scope == "node"
+      return Failure(:VALIDATION_FAILED,
+                     { message: "a node pin needs a plan attachment", field: :nodeId }) unless plan
+
+      nil
+    end
+
+    # The node address is ownership-checked like the plan/task ids (delta 2):
+    # unknown, foreign, and malformed ids are uniformly NOT_FOUND.
+    def resolve_node
+      unless node_id.to_s.match?(Accounts::UUID_REGEX)
+        return Failure(:NOT_FOUND, { message: "node not found" })
+      end
+      node = current_user.knowledge_nodes.find_by(id: node_id)
+      node ? Success(node) : Failure(:NOT_FOUND, { message: "node not found" })
+    end
+
+    def scope
+      attachment_scope || "plan"
     end
 
     # Same for the task scope — plus the one-task-per-material invariant

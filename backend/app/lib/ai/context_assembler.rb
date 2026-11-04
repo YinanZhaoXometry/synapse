@@ -3,11 +3,13 @@
 module Ai
   # Context assembly (AD-16 / AD-5, epic P2-5 ticket 01): everything an AI
   # prompt is grounded on is loaded from Postgres here — never trusted from
-  # the client. Three variants: plan scope (all attached materials, the
-  # generation surface for quiz/flashcards on a plan), task scope (a Study
-  # Task's single material), and companion grounding (the ReadingPosition
-  # chat surface). The streamed surfaces receive the assembled text through
-  # the stream ticket (ticket 04); the mutations assemble at command time.
+  # the client. Four variants: plan scope (the PLAN-WIDE materials — FR-44's
+  # enforcement point since epic P2-10 T2: node-pinned materials never ride),
+  # node scope (one node's plan-wide + own-pinned materials), task scope (a
+  # Study Task's single material), and companion grounding (the
+  # ReadingPosition chat surface). The streamed surfaces receive the
+  # assembled text through the stream ticket (ticket 04); the mutations
+  # assemble at command time.
   #
   # Bounding is deterministic (ticket 02's ~8k context-in budget, NFR-4):
   # whole sections are included in a stable order while they fit; when
@@ -35,13 +37,29 @@ module Ai
         (text.to_s.length / CHARS_PER_TOKEN).ceil
       end
 
-      # A plan's nodes (attribution targets, AD-6) + every attached
+      # A plan's nodes (attribution targets, AD-6) + every PLAN-WIDE attached
       # material's sections, in stable order (nodes by `order`, materials by
-      # attach time).
+      # attach time). FR-44 enforcement (epic P2-10 T2, AD-16): ONLY
+      # plan-scoped materials ride here — a node-pinned material's sections
+      # feed its node alone (node_scope) and are provably absent from this
+      # surface.
       def plan_scope(plan, budget: default_budget)
         nodes = plan.knowledge_nodes.order(:order, :id)
-        materials = Material.where(plan_id: plan.id).order(:created_at, :id)
+        materials = Material.where(plan_id: plan.id, attachment_scope: "plan").order(:created_at, :id)
         assemble_scope(nodes_block(nodes), materials, budget)
+      end
+
+      # One node's grounding + quiz generation surface (FR-44, epic P2-10 T2)
+      # — the primitive node-scoped surfaces and T5's targeted generation
+      # consume. The nodes block carries THE single node; the materials pool
+      # is the plan-wide pool PLUS this node's own pinned materials, in one
+      # stable attach-time order. Another node's pinned material never
+      # enters: pinned content stays with its node unless it is plan-wide.
+      def node_scope(plan, node, budget: default_budget)
+        materials = Material.where(plan_id: plan.id, attachment_scope: "plan")
+                            .or(Material.where(attachment_scope: "node", node_id: node.id))
+                            .order(:created_at, :id)
+        assemble_scope(nodes_block([ node ]), materials, budget)
       end
 
       # A Study Task's single auto-node + its material.

@@ -63,6 +63,8 @@ const material = (id: string, overrides: Partial<Material> = {}): Material => ({
   sizeBytes: 64,
   planId: "p-1",
   taskId: null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   sections,
   createdAt: "2026-11-01T09:00:00Z",

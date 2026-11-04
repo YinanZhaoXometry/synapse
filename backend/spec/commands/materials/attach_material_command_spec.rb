@@ -241,6 +241,113 @@ RSpec.describe Materials::AttachMaterialCommand do
       expect(user.materials.count).to eq(1) # only the factory's own material
     end
 
+    # Attachment scope (FR-44, epic P2-10 T2): the op gains optional
+    # attachmentScope (default "plan") + nodeId — pin-to-node at attach time.
+    describe "attachment scope (FR-44)" do
+      let(:plan) { create(:study_plan, user: user) }
+      let(:node) { create(:knowledge_node, user: user, plan: plan, title: "Consensus") }
+
+      it "defaults to plan-wide with no node — the backward-compatible shape" do
+        result = call(plan_id: plan.id)
+
+        material = result.value![:material]
+        expect(material.attachment_scope).to eq("plan")
+        expect(material.node_id).to be_nil
+      end
+
+      it "pins to a plan node when scope=node + nodeId travel together" do
+        result = call(plan_id: plan.id, attachment_scope: "node", node_id: node.id)
+
+        material = result.value![:material]
+        expect(material.attachment_scope).to eq("node")
+        expect(material.node_id).to eq(node.id)
+      end
+
+      it "fails VALIDATION_FAILED when scope=node arrives without a nodeId" do
+        result = call(plan_id: plan.id, attachment_scope: "node")
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:nodeId)
+        expect(user.materials.count).to eq(0)
+      end
+
+      it "fails VALIDATION_FAILED when a nodeId rides with the plan scope" do
+        result = call(plan_id: plan.id, attachment_scope: "plan", node_id: node.id)
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:nodeId)
+        expect(user.materials.count).to eq(0)
+      end
+
+      it "fails VALIDATION_FAILED when a nodeId rides without any scope (the default is plan)" do
+        result = call(plan_id: plan.id, node_id: node.id)
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:nodeId)
+      end
+
+      it "fails VALIDATION_FAILED for a scope outside the closed vocabulary" do
+        result = call(plan_id: plan.id, attachment_scope: "banana", node_id: node.id)
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:attachmentScope)
+        expect(user.materials.count).to eq(0)
+      end
+
+      it "fails VALIDATION_FAILED for scope=node on a task material (the task triangle has no node pinning)" do
+        # Every task is born with its material — naming a live task can only
+        # conflict, so pin the REAL task to prove the task-material rejection.
+        task = create(:study_task, user: user)
+
+        result = call(task_id: task.id, client_uuid: SecureRandom.uuid, attachment_scope: "node")
+
+        aggregate_failures do
+          expect(result.failure.code).to eq(:VALIDATION_FAILED)
+          expect(result.failure.context[:field]).to eq(:taskId)
+        end
+        expect(user.materials.where(task_id: task.id).count).to eq(1) # only the factory's own material
+      end
+
+      it "fails VALIDATION_FAILED when the node is not in the material's plan" do
+        other_plan = create(:study_plan, user: user)
+        foreign_node = create(:knowledge_node, user: user, plan: other_plan, title: "Elsewhere")
+
+        result = call(plan_id: plan.id, attachment_scope: "node", node_id: foreign_node.id)
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:nodeId)
+        expect(user.materials.count).to eq(0)
+      end
+
+      it "fails VALIDATION_FAILED when the pinned node belongs to no plan (a task node)" do
+        orphan_node = create(:knowledge_node, user: user, title: "Task auto-node")
+
+        result = call(plan_id: plan.id, attachment_scope: "node", node_id: orphan_node.id)
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:nodeId)
+      end
+
+      it "fails VALIDATION_FAILED for scope=node without a plan attachment" do
+        result = call(attachment_scope: "node", node_id: node.id)
+
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:nodeId)
+        expect(user.materials.count).to eq(0)
+      end
+
+      it "answers NOT_FOUND for an unknown, foreign, or malformed node id (uniform, no existence leak)" do
+        foreign_node = create(:knowledge_node, user: create(:user), plan: create(:study_plan, user: create(:user)))
+
+        aggregate_failures do
+          expect(call(plan_id: plan.id, attachment_scope: "node", node_id: SecureRandom.uuid).failure.code).to eq(:NOT_FOUND)
+          expect(call(plan_id: plan.id, attachment_scope: "node", node_id: foreign_node.id).failure.code).to eq(:NOT_FOUND)
+          expect(call(plan_id: plan.id, attachment_scope: "node", node_id: "garbage").failure.code).to eq(:NOT_FOUND)
+        end
+        expect(user.materials.count).to eq(0)
+      end
+    end
+
     # The two race candidates the RecordNotUnique rescue must disambiguate
     # (the epic P2-3 review, P2-1): both are exercised deterministically by
     # staging the winner's committed row at the moment the INSERT raises —

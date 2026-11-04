@@ -142,6 +142,8 @@ const serverMaterial = (overrides: Record<string, unknown> = {}) => ({
   sizeBytes: 0,
   planId: null,
   taskId: TASK_ID,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   parseFailureReason: null,
   createdAt: "2026-11-01T00:00:00Z",

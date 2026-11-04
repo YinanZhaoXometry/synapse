@@ -1,0 +1,15 @@
+# Material attachment-scope operations (epic P2-10 T2, FR-44). The
+# pin/widen op on an EXISTING material: attachmentScope "node" + nodeId pins
+# it to one plan node (its content then feeds only that node's grounding +
+# generation surfaces); "plan" widens it back (nodeId must be null). The
+# mutation returns the full updated row — Apollo's normalized cache write
+# updates the material lists in place, with the Materials read-back sweep
+# declared on the hook.
+
+mutation SetMaterialScope($input: SetMaterialScopeInput!) {
+  setMaterialScope(input: $input) {
+    material {
+      ...MaterialSummaryParts
+    }
+  }
+}

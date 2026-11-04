@@ -21,6 +21,8 @@ const material: Material = {
   sizeBytes: 10,
   planId: null,
   taskId: null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   sections: [
     { id: "page-1", title: "Page 1", text: "first page" },

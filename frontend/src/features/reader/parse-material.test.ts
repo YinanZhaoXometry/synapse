@@ -25,6 +25,8 @@ const material = (overrides: Partial<MaterialView> = {}): MaterialView => ({
   sizeBytes: 100,
   planId: "p-1",
   taskId: null,
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "pending",
   parseFailureReason: undefined,
   sections: [],

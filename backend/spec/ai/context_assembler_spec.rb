@@ -85,6 +85,144 @@ RSpec.describe Ai::ContextAssembler do
       expect(first.text).to eq(second.text)
       expect(first.truncated).to eq(second.truncated)
     end
+
+    # THE AC HEART (FR-44, epic P2-10 T2; AD-16 assembly-level enforcement):
+    # a node-pinned material's sections feed only its node — they are
+    # PROVABLY ABSENT from the plan-wide generation surface, asserted on the
+    # exact section text substring.
+    it "provably excludes a node-pinned material's section text from the plan scope" do
+      wide_marker = "PLAN-WIDE-ONLY-SENTENCE-ABOUT-CONSISTENCY"
+      pinned_marker = "NODE-PINNED-SECRET-SENTENCE-ABOUT-BYZANTINE-AGREEMENT"
+      create(:material, user: user, plan: plan, sections: [
+        { "id" => "wide-1", "title" => "Wide", "text" => wide_marker }
+      ])
+      pinned_node = plan.knowledge_nodes.order(:order, :id).first
+      create(:material, user: user, plan: plan, attachment_scope: "node", node: pinned_node, sections: [
+        { "id" => "pinned-1", "title" => "Pinned", "text" => pinned_marker }
+      ])
+
+      assembled = described_class.plan_scope(plan)
+
+      aggregate_failures do
+        expect(assembled.text).to include(wide_marker) # plan-wide material still feeds
+        expect(assembled.text).not_to include(pinned_marker) # the pinned text NEVER rides
+        expect(assembled.text).not_to include("[section id=pinned-1")
+        expect(assembled.truncated).to be(false) # nothing silently cut — it was scoped, not truncated
+      end
+    end
+
+    it "keeps assembling every plan-wide material when node-pinned siblings exist" do
+      first = create(:material, user: user, plan: plan, sections: [ long_section("wide-1", 60) ])
+      second = create(:material, user: user, plan: plan, sections: [ long_section("wide-2", 60) ])
+      pinned_node = plan.knowledge_nodes.order(:order, :id).first
+      create(:material, user: user, plan: plan, attachment_scope: "node", node: pinned_node,
+                        sections: [ long_section("pinned-1", 60) ])
+
+      assembled = described_class.plan_scope(plan)
+
+      aggregate_failures do
+        expect(assembled.text).to include("[material id=#{first.id}")
+        expect(assembled.text).to include("[material id=#{second.id}")
+        expect(assembled.text).not_to include("[section id=pinned-1")
+      end
+    end
+  end
+
+  describe ".node_scope" do
+    let(:user) { create(:user) }
+    let(:plan) { create(:study_plan, user: user) }
+
+    before do
+      create(:knowledge_node, user: user, plan: plan, title: "Node A", order: 1)
+      create(:knowledge_node, user: user, plan: plan, title: "Node B", order: 2)
+    end
+
+    def long_section(id, chars)
+      { "id" => id, "title" => "Section #{id}", "text" => ("a" * chars) }
+    end
+
+    # The FR-44 primitive (epic P2-10 T2): one node's grounding + quiz
+    # generation surface — the single node, plan-wide materials, and the
+    # node's OWN pinned materials, in stable attach-time order. This is what
+    # node-scoped generation consumes (T5's targeting); nothing wires it yet.
+    it "assembles the single node, plan-wide materials, and its own pinned material" do
+      node_a = plan.knowledge_nodes.order(:order, :id).first
+      wide = create(:material, user: user, plan: plan, sections: [
+        { "id" => "wide-1", "title" => "Wide", "text" => "PLAN-WIDE-SHARED-TEXT" }
+      ])
+      pinned = create(:material, user: user, plan: plan, attachment_scope: "node", node: node_a, sections: [
+        { "id" => "pinned-a", "title" => "Pinned A", "text" => "NODE-A-PINNED-TEXT" }
+      ])
+
+      assembled = described_class.node_scope(plan, node_a)
+
+      aggregate_failures do
+        expect(assembled.truncated).to be(false)
+        expect(assembled.text).to include("[node id=#{node_a.id}")
+        expect(assembled.text).to include("Node A")
+        expect(assembled.text).to include("[material id=#{wide.id}")
+        expect(assembled.text).to include("PLAN-WIDE-SHARED-TEXT")
+        expect(assembled.text).to include("[material id=#{pinned.id}")
+        expect(assembled.text).to include("NODE-A-PINNED-TEXT")
+      end
+    end
+
+    it "provably excludes ANOTHER node's pinned material (pinned content never leaks, FR-44)" do
+      node_a = plan.knowledge_nodes.order(:order, :id).first
+      node_b = plan.knowledge_nodes.order(:order, :id).second
+      create(:material, user: user, plan: plan, attachment_scope: "node", node: node_b, sections: [
+        { "id" => "pinned-b", "title" => "Pinned B", "text" => "NODE-B-PINNED-SECRET-TEXT" }
+      ])
+
+      assembled = described_class.node_scope(plan, node_a)
+
+      aggregate_failures do
+        expect(assembled.text).not_to include("NODE-B-PINNED-SECRET-TEXT")
+        expect(assembled.text).not_to include("[section id=pinned-b")
+        expect(assembled.truncated).to be(false) # scoped away, never truncated away
+      end
+    end
+
+    it "renders ONLY the one node — the other plan nodes never ride" do
+      node_a = plan.knowledge_nodes.order(:order, :id).first
+
+      assembled = described_class.node_scope(plan, node_a)
+
+      expect(assembled.text).not_to include("Node B")
+    end
+
+    it "orders materials by attach time across both scopes (plan-wide and pinned interleaved)" do
+      node_a = plan.knowledge_nodes.order(:order, :id).first
+      first = create(:material, user: user, plan: plan, title: "First attach", sections: [ long_section("f", 30) ])
+      pinned = create(:material, user: user, plan: plan, title: "Second attach — pinned", attachment_scope: "node", node: node_a,
+                                  sections: [ long_section("p", 30) ])
+      third = create(:material, user: user, plan: plan, title: "Third attach", sections: [ long_section("t", 30) ])
+
+      assembled = described_class.node_scope(plan, node_a)
+
+      aggregate_failures do
+        expect(assembled.text.index("First attach")).to be < assembled.text.index("Second attach — pinned")
+        expect(assembled.text.index("Second attach — pinned")).to be < assembled.text.index("Third attach")
+      end
+      expect(first.created_at).to be <= pinned.created_at
+      expect(pinned.created_at).to be <= third.created_at
+    end
+
+    it "stays inside the budget with the same bounding rules as the other scopes" do
+      node_a = plan.knowledge_nodes.order(:order, :id).first
+      create(:material, user: user, plan: plan, sections: [ long_section("s1", 900) ])
+      create(:material, user: user, plan: plan, attachment_scope: "node", node: node_a,
+                        sections: [ long_section("s2", 30) ])
+
+      assembled = described_class.node_scope(plan, node_a, budget: 200)
+
+      aggregate_failures do
+        expect(assembled.truncated).to be(true)
+        expect(assembled.text).to include("[section id=s1")
+        expect(assembled.text).not_to include("[section id=s2")
+        expect(described_class.estimate_tokens(assembled.text)).to be <= 200
+      end
+    end
   end
 
   describe ".task_scope" do

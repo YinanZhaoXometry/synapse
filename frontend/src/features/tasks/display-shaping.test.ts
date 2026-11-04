@@ -145,6 +145,8 @@ const pdfMaterial: Material = {
   sizeBytes: 1024,
   planId: null,
   taskId: "t1",
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   sections: [
     { id: "page-1", title: "p1", text: "" },
@@ -160,6 +162,8 @@ const mdMaterial: Material = {
   sizeBytes: 1024,
   planId: null,
   taskId: "t1",
+  attachmentScope: "plan",
+  nodeId: null,
   parseState: "parsed",
   sections: [
     { id: "intro", title: "Intro", text: "" },

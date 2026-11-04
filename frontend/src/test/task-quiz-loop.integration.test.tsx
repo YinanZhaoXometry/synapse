@@ -123,6 +123,8 @@ function makeWorld(): World {
         sizeBytes: input.sizeBytes,
         planId: input.planId ?? null,
         taskId: input.taskId ?? null,
+        attachmentScope: "plan",
+        nodeId: null,
         parseState: input.parseState ?? "pending",
         parseFailureReason: input.parseFailureReason ?? null,
         sections: (input.sections as EchoFixture[]).map((s) => ({ __typename: "MaterialSection", ...s })),

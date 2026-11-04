@@ -579,9 +579,91 @@ RSpec.describe "GraphQL study task + material operations (epic P2-3 ticket 02)",
     end
   end
 
+  # Attachment scope on the wire (FR-44, epic P2-10 T2): attachMaterial gains
+  # optional attachmentScope + nodeId, Material carries attachmentScope/nodeId,
+  # and the NEW setMaterialScope mutation pins/widens an existing row.
+  describe "attachment scope (FR-44, epic P2-10 T2)" do
+    it "attaches pinned to a node and reads the scope fields back off the material" do
+      user, token = user_with_token("scope-attacher@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan, title: "Consensus")
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: attach_input(SecureRandom.uuid, planId: plan.id) }, token: token
+          mutation AttachPinned($input: AttachMaterialInput!) {
+            attachMaterial(input: $input) { material { id attachmentScope nodeId } }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "attachMaterial", "material", "attachmentScope")).to eq("plan")
+      expect(result.dig("data", "attachMaterial", "material", "nodeId")).to be_nil
+
+      pinned = graphql(
+        <<~GRAPHQL, variables: { input: attach_input(SecureRandom.uuid, planId: plan.id, attachmentScope: "node", nodeId: node.id) }, token: token
+          mutation AttachPinned($input: AttachMaterialInput!) {
+            attachMaterial(input: $input) { material { id attachmentScope nodeId } }
+          }
+        GRAPHQL
+      )
+      expect(pinned.dig("data", "attachMaterial", "material", "attachmentScope")).to eq("node")
+      expect(pinned.dig("data", "attachMaterial", "material", "nodeId")).to eq(node.id)
+    end
+
+    it "pins an attached material via setMaterialScope and widens it back plan-wide" do
+      user, token = user_with_token("scope-pinner@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan, title: "Gossip")
+      material = create(:material, user: user, plan: plan)
+
+      pinned = graphql(
+        <<~GRAPHQL, variables: { input: { materialId: material.id, attachmentScope: "node", nodeId: node.id } }, token: token
+          mutation Pin($input: SetMaterialScopeInput!) {
+            setMaterialScope(input: $input) { material { id attachmentScope nodeId } }
+          }
+        GRAPHQL
+      )
+      expect(pinned.dig("data", "setMaterialScope", "material", "attachmentScope")).to eq("node")
+      expect(pinned.dig("data", "setMaterialScope", "material", "nodeId")).to eq(node.id)
+
+      widened = graphql(
+        <<~GRAPHQL, variables: { input: { materialId: material.id, attachmentScope: "plan" } }, token: token
+          mutation Widen($input: SetMaterialScopeInput!) {
+            setMaterialScope(input: $input) { material { id attachmentScope nodeId } }
+          }
+        GRAPHQL
+      )
+      expect(widened.dig("data", "setMaterialScope", "material", "attachmentScope")).to eq("plan")
+      expect(widened.dig("data", "setMaterialScope", "material", "nodeId")).to be_nil
+    end
+
+    it "refuses scope/node combos with VALIDATION_FAILED and foreign material ids with NOT_FOUND" do
+      user, token = user_with_token("scope-refuser@example.com")
+      material = create(:material, user: user)
+
+      pin_without_node = graphql(
+        'mutation { setMaterialScope(input: { materialId: "%s", attachmentScope: "node" }) { material { id } } }' % material.id,
+        token: token
+      )
+      expect(error_code(pin_without_node)).to eq("VALIDATION_FAILED")
+
+      widen_with_node = graphql(
+        'mutation { setMaterialScope(input: { materialId: "%s", attachmentScope: "plan", nodeId: "%s" }) { material { id } } }' % [ material.id, SecureRandom.uuid ],
+        token: token
+      )
+      expect(error_code(widen_with_node)).to eq("VALIDATION_FAILED")
+
+      foreign = graphql(
+        'mutation { setMaterialScope(input: { materialId: "%s", attachmentScope: "plan" }) { material { id } } }' % create(:material, user: create(:user)).id,
+        token: token
+      )
+      expect(error_code(foreign)).to eq("NOT_FOUND")
+    end
+  end
+
   private
 
-  def attach_input(client_uuid, planId: nil, title: "Lecture notes: distributed systems")
+  def attach_input(client_uuid, planId: nil, attachmentScope: nil, nodeId: nil, title: "Lecture notes: distributed systems")
     {
       clientUuid: client_uuid,
       title: title,
@@ -591,8 +673,10 @@ RSpec.describe "GraphQL study task + material operations (epic P2-3 ticket 02)",
       sections: [
         { id: "sec-1", title: "Introduction", text: "Scoping, commands, and the spine ER." },
         { id: "page-2", title: "Page 2", text: "The bounded extracted text." }
-      ]
-    }
+      ],
+      attachmentScope: attachmentScope,
+      nodeId: nodeId
+    }.compact
   end
 
   def parse_input(material_id)

@@ -82,6 +82,13 @@ function parseFailureReason(reason: string | null): Material["parseFailureReason
   throw new Error(`unknown parse failure reason from the api: ${reason}`);
 }
 
+// FR-44 (epic P2-10 T2): the api is the scope's one source — map it honestly,
+// never guess a default (an unknown value is a contract break, not a "plan").
+function attachmentScope(scope: string): Material["attachmentScope"] {
+  if (scope === "plan" || scope === "node") return scope;
+  throw new Error(`unknown attachment scope from the api: ${scope}`);
+}
+
 export function mapMaterialSummary(material: MaterialSummaryPartsFragment): MaterialView {
   return {
     id: material.id,
@@ -90,6 +97,8 @@ export function mapMaterialSummary(material: MaterialSummaryPartsFragment): Mate
     sizeBytes: material.sizeBytes,
     planId: material.planId,
     taskId: material.taskId,
+    attachmentScope: attachmentScope(material.attachmentScope),
+    nodeId: material.nodeId,
     parseState: parseState(material.parseState),
     parseFailureReason: parseFailureReason(material.parseFailureReason),
     sections: [], // summaries carry no sections — detail views use mapMaterial
@@ -107,6 +116,8 @@ export function mapMaterial(material: MaterialPartsFragment): MaterialView {
     sizeBytes: material.sizeBytes,
     planId: material.planId,
     taskId: material.taskId,
+    attachmentScope: attachmentScope(material.attachmentScope),
+    nodeId: material.nodeId,
     parseState: parseState(material.parseState),
     parseFailureReason: parseFailureReason(material.parseFailureReason),
     sections,

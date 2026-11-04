@@ -21,6 +21,10 @@ module Types
     field :attach_material, mutation: Mutations::Materials::AttachMaterial
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult
 
+    # The attachment-scope surface (FR-44, epic P2-10 T2): pin an existing
+    # material to one plan node or widen it back plan-wide.
+    field :set_material_scope, mutation: Mutations::Materials::SetMaterialScope
+
     # The material↔node mapping surface (FR-45, epic P2-10 T1; delta
     # decisions 3+4): the AI map run (the mutation class lives with its AI
     # siblings under Mutations::Ai) + the user's confirm/reject verdicts.
