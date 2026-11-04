@@ -4,14 +4,14 @@
 
 **Blocked by:** None (epic gate: 08 done).
 
-**Status:** ready-for-agent (delta-grill: proposal UX density at 40+ sections)
+**Status:** done (2026-11-05 — merged to `epic/p2-10-nodes` @ `d836a99` after fix round; gates: rspec 810 / rubocop clean / vitest 469 / tsc+eslint clean / build ok)
 
 **Bound by:** FR-45 (every section maps or proposes; nothing silently dropped; user confirms), owner Q5(a), AD-16 (mapping runs through the adapter → cap-counted), AD-13 (user-scoped rows).
 
-- [ ] Mapping command + confirm/reject ops; scoping context green
-- [ ] Unmapped content surfaced in UI (explicit list, never dropped)
-- [ ] Confirmed proposals become real nodes (evidence-ready); rejected proposals stay rejected (not re-proposed forever)
-- [ ] Factory-based specs: full/partial/empty-mapping paths
+- [x] Mapping command + confirm/reject ops; scoping context green
+- [x] Unmapped content surfaced in UI (explicit list, never dropped)
+- [x] Confirmed proposals become real nodes (evidence-ready); rejected proposals stay rejected (not re-proposed forever)
+- [x] Factory-based specs: full/partial/empty-mapping paths
 
 ## Comments
 
