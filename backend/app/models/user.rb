@@ -16,6 +16,7 @@ class User < ApplicationRecord
   has_many :evidence_records
   has_many :flashcards
   has_many :mistake_entries
+  has_many :notes
   has_many :chat_threads
   has_many :reading_progresses
   has_many :section_markings

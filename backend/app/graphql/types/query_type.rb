@@ -126,6 +126,20 @@ module Types
                    .order(:created_at, :id)
     end
 
+    field :notes, [ Types::NoteType ], null: false,
+      description: "One plan's study notes (FR-40, epic P2-12 T1; delta decision 3 — plan-scoped, no separate destination): the plan's own notes PLUS the notes scoped to its nodes or its materials (the DB's exactly-one scope check keeps a note on exactly one id, so the plan's list is the union of all three). Newest first. A foreign or unknown plan id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence). A plain list (AD-12)." do
+      argument :plan_id, String, required: true, description: "The plan's uuid."
+    end
+
+    def notes(plan_id:)
+      plan = scoped_plan(plan_id)
+      current_user!.notes
+                   .where(plan_id: plan.id)
+                   .or(current_user!.notes.where(node_id: plan.knowledge_nodes.ids))
+                   .or(current_user!.notes.where(material_id: plan.materials.ids))
+                   .order(created_at: :desc, id: :desc)
+    end
+
     field :quiz_session, Types::QuizSessionType, null: true,
       description: "One quiz session by id — detail with its node-attributed questions in generation order (the getQuizSession + listQuestionsBySession mirrors). A foreign or unknown id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
       argument :id, String, required: true, description: "The session's uuid."

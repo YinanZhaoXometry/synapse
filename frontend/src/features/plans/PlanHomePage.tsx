@@ -26,6 +26,7 @@ import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import MaterialScopeControls from "./MaterialScopeControls";
+import NotesSection from "./NotesSection";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
@@ -319,6 +320,12 @@ export default function PlanHomePage() {
               {t("plans.materialsSessionNote")}
             </p>
           </section>
+
+          {/* Epic P2-12 T1 (FR-40; delta decision 3): the plan-scoped 学习笔记
+              section — the plan's notes (plan + node + material scopes ride
+              the ONE server union) plus the generate control with the
+              user-requested annotation input. */}
+          <NotesSection planId={plan.id} nodes={nodes} materials={materials} />
         </div>
 
         {/* right zone: attach CTA + quick actions + activity */}

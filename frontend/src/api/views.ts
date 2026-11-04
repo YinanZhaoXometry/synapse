@@ -54,3 +54,32 @@ export interface MaterialNodeMappingView {
   status: "proposed" | "confirmed" | "rejected";
   createdAt: string;
 }
+
+/**
+ * One structured enrichment marker (FR-40, epic P2-12 T1; delta decision 1 —
+ * markers-only v1): where the model placed a visual and what it should show.
+ * The body keeps the [[enrich|…]] lines verbatim; this array is the
+ * structured read. "user" rides a user-requested annotation (the enrichAt
+ * input), not the model's choice.
+ */
+export interface NoteMarkerView {
+  kind: string;
+  suggestion: string;
+}
+
+/**
+ * One AI-authored Markdown study note (FR-40): standalone, exportable,
+ * user-scoped. One scope per note (the server's exactly-one check) —
+ * `scopeId` is the id of the plan/node/material it grounds on. The body is
+ * exportable verbatim, markers included.
+ */
+export interface NoteView {
+  id: string;
+  title: string;
+  body: string;
+  scope: "plan" | "node" | "material";
+  scopeId: string;
+  enrichment: NoteMarkerView[];
+  targeting: unknown;
+  createdAt: string;
+}
