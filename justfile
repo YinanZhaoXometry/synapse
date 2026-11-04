@@ -47,8 +47,10 @@ up:
     echo "backend did not answer the health query within 60s" >&2
     exit 1
 
-# Every gate for both stacks; any failure exits nonzero.
-# Frontend: tsc -b → eslint → vitest run → vite build
+# Every gate for both stacks; any failure exits nonzero (shebang recipe: one
+# bash script, `set -euo pipefail` — a failed step stops the run).
+# Frontend: tsc -b → eslint → vitest run → vite build → mastery-vector
+#   anti-drift (regenerate + stamp-insensitive diff)
 #   (gate sequence: keep in sync with .github/workflows/ci.yml frontend job
 #    and the frontend gates block in AGENTS.md)
 # Backend: rubocop → rspec. RuboCop is DB-free: --no-deps + the dev entrypoint
@@ -60,11 +62,33 @@ up:
 # RAILS_ENV=test — the compose service default (development) would trip
 # request specs' Host Authorization and other dev-only behavior.
 spec:
-    pnpm --dir frontend exec tsc -b && \
-    pnpm --dir frontend exec eslint . && \
-    pnpm --dir frontend exec vitest run && \
-    pnpm --dir frontend exec vite build && \
-    {{compose}} run --no-deps --entrypoint "" -e RAILS_ENV=test backend sh -c 'bundle check || bundle install && bundle exec rubocop' && \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pnpm --dir frontend exec tsc -b
+    pnpm --dir frontend exec eslint .
+    pnpm --dir frontend exec vitest run
+    pnpm --dir frontend exec vite build
+    # Mastery-vector anti-drift (AD-14): the TS domain (frontend/src/domain/
+    # mastery.ts + streak.ts) is the golden-vector source of truth until the
+    # cutover retires it — regenerate the committed fixture and require the
+    # same pinned behavior. The diff is STAMP-INSENSITIVE (epic P2-4 review):
+    # meta.generatedAtSourceCommit is advisory provenance, not contract — it is
+    # self-referential (SOURCE_PATHS includes the generator; fixture commits
+    # ride generator edits), so vector-extending commits provably land stale
+    # stamps (7a6c4b3, f69f7aa). Strip the stamp from BOTH the committed and the
+    # regenerated fixture (temp files out of the tree), diff those, and restore
+    # the pre-regen file on success so a stamp-only rewrite leaves no residue.
+    # Mirrors ci.yml's anti-drift step; retires with the TS side at cutover.
+    fixture=backend/spec/fixtures/mastery_vectors.json
+    snapshot="$(mktemp)"; committed="$(mktemp)"; regenerated="$(mktemp)"
+    trap 'rm -f "$snapshot" "$committed" "$regenerated"' EXIT
+    cp "$fixture" "$snapshot"
+    jq 'del(.meta.generatedAtSourceCommit)' "$fixture" > "$committed"
+    pnpm --dir frontend run generate:mastery-vectors
+    jq 'del(.meta.generatedAtSourceCommit)' "$fixture" > "$regenerated"
+    diff -u "$committed" "$regenerated"
+    cmp -s "$fixture" "$snapshot" || cp "$snapshot" "$fixture"
+    {{compose}} run --no-deps --entrypoint "" -e RAILS_ENV=test backend sh -c 'bundle check || bundle install && bundle exec rubocop'
     {{compose}} run -e RAILS_ENV=test -e DATABASE_URL=postgres://postgres:postgres@db:5432/backend_test backend sh -c 'bundle exec rspec'
 
 # Stop the backend stack (images stay cached).

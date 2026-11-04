@@ -6,7 +6,7 @@
       "streak": "frontend/src/domain/streak.ts",
       "note": "The TS implementation IS the source until the cutover retires it (AD-6/AD-14). The Ruby port pins itself to these vectors verbatim; ambiguities amend ADR-0001 first, both sides together."
     },
-    "generatedAtSourceCommit": "cc2d947af45a192b17669ea2206a8b7446c394ea",
+    "generatedAtSourceCommit": "c1a7f349e4ecd129a2f43ee3030a6069a0e52381",
     "generator": "frontend/scripts/generate-mastery-vectors.ts (pnpm run generate:mastery-vectors)",
     "fixtureEncoding": {
       "decimals": "Every mastery-derived numeric (scores, rollups, streaks, intermediate means) is a decimal STRING — parse on the Ruby side; never compare JSON number literals (AD-14).",
@@ -49,7 +49,8 @@
     "notes": [
       "Score lattice: with window 5 and outcomes {1, 0.5, 0}, a full-window score is a multiple of 10, and an exact 79 is unreachable — the 79↔80 threshold edge is covered as just-below (75, four records), at (80), and above-with-rounding (83).",
       "RESOLVED (ticket 01 flagged → ticket 02 amendment): the golden vectors caught the half-up rollup reading 100 while a node was partial — Math.round((100+99)/2) = 99.5 → 100 outweighed the cap at small plan sizes (ticket 01's Comments carried it verbatim as rollup.cap-two-node-tie-reaches-100). ADR-0001 amended 2026-11-04: the rollup mean now FLOORS, so a plan reads 100 only when every node scores 100 (⇔ every node mastered). The tie case is rollup.cap-two-node-tie-floors-below-100 (99), next to rollup.cap-two-unverified-hold-below-100 (99.33… → 99).",
-      "Freshness landed (ticket 04, amendment 2026-11-04): category 'decay' pins the freshness cap both directions at the 14-day boundary (exactly-14d fresh certifies; +1s stale caps 99/partial), the mastered→partial drop, cap-not-drift (stale 83 stays 83), the rollup-with-one-decayed-node hold below 100, the gate×freshness max-cap interplay, and the streak's independence. The 33 pre-flight cases inject no 'now' and are value-identical to their pre-decay expectations."
+      "Freshness landed (ticket 04, amendment 2026-11-04): category 'decay' pins the freshness cap both directions at the 14-day boundary (exactly-14d fresh certifies; +1s stale caps 99/partial), the mastered→partial drop, cap-not-drift (stale 83 stays 83), the rollup-with-one-decayed-node hold below 100, the gate×freshness max-cap interplay, and the streak's independence. The 33 pre-flight cases inject no 'now' and are value-identical to their pre-decay expectations.",
+      "Equal-timestamp tie pinned (review P2-5): node-score.window-tie-equal-createdAt-earlier-insert-ages-out — a window tie breaks by insertion order, the EARLIER-inserted record being the OLDER recency (the TS comparator's V8-observed behavior; Ruby's sort is not stable, so its index tiebreak is explicit — the sides agree by contract, not by coincidence)."
     ]
   },
   "cases": [
@@ -61,7 +62,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-118",
+            "id": "rec-124",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -69,7 +70,7 @@
             "createdAt": "2026-11-03T10:00:00Z"
           },
           {
-            "id": "rec-119",
+            "id": "rec-125",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -77,7 +78,7 @@
             "createdAt": "2026-11-04T10:00:00Z"
           },
           {
-            "id": "rec-120",
+            "id": "rec-126",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -101,7 +102,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-115",
+            "id": "rec-121",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -109,7 +110,7 @@
             "createdAt": "2026-11-03T10:00:00Z"
           },
           {
-            "id": "rec-116",
+            "id": "rec-122",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -117,7 +118,7 @@
             "createdAt": "2026-11-04T10:00:00Z"
           },
           {
-            "id": "rec-117",
+            "id": "rec-123",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -141,7 +142,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-135",
+            "id": "rec-141",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -149,7 +150,7 @@
             "createdAt": "2026-10-21T10:00:00Z"
           },
           {
-            "id": "rec-136",
+            "id": "rec-142",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -173,7 +174,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-121",
+            "id": "rec-127",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -181,7 +182,7 @@
             "createdAt": "2026-11-01T10:00:00Z"
           },
           {
-            "id": "rec-122",
+            "id": "rec-128",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -189,7 +190,7 @@
             "createdAt": "2026-11-02T10:00:00Z"
           },
           {
-            "id": "rec-123",
+            "id": "rec-129",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -197,7 +198,7 @@
             "createdAt": "2026-11-03T10:00:00Z"
           },
           {
-            "id": "rec-124",
+            "id": "rec-130",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -205,7 +206,7 @@
             "createdAt": "2026-11-04T10:00:00Z"
           },
           {
-            "id": "rec-125",
+            "id": "rec-131",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -230,7 +231,7 @@
         "evidenceByNode": {
           "decayedNode": [
             {
-              "id": "rec-132",
+              "id": "rec-138",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -238,7 +239,7 @@
               "createdAt": "2026-10-21T10:00:00Z"
             },
             {
-              "id": "rec-133",
+              "id": "rec-139",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -246,7 +247,7 @@
               "createdAt": "2026-10-22T10:00:00Z"
             },
             {
-              "id": "rec-134",
+              "id": "rec-140",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -256,7 +257,7 @@
           ],
           "freshNode": [
             {
-              "id": "rec-129",
+              "id": "rec-135",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -264,7 +265,7 @@
               "createdAt": "2026-11-06T10:00:00Z"
             },
             {
-              "id": "rec-130",
+              "id": "rec-136",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -272,7 +273,7 @@
               "createdAt": "2026-11-07T10:00:00Z"
             },
             {
-              "id": "rec-131",
+              "id": "rec-137",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -308,7 +309,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-126",
+            "id": "rec-132",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -316,7 +317,7 @@
             "createdAt": "2026-11-03T10:00:00Z"
           },
           {
-            "id": "rec-127",
+            "id": "rec-133",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -324,7 +325,7 @@
             "createdAt": "2026-11-04T10:00:00Z"
           },
           {
-            "id": "rec-128",
+            "id": "rec-134",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -348,7 +349,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-137",
+            "id": "rec-143",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -880,6 +881,69 @@
       }
     },
     {
+      "id": "node-score.window-tie-equal-createdAt-earlier-insert-ages-out",
+      "category": "node_score",
+      "description": "Equal-timestamp tie straddling the window boundary: 6 records, the two oldest sharing one createdAt — the tie breaks by insertion order with the EARLIER-inserted record as the OLDER recency, so the later-inserted wrong stays in the window (80) while the earlier-inserted correct ages out (a reverse tiebreak would read 100). Ruby's sort is not stable — the index tiebreak is explicit on both sides (review P2-5).",
+      "call": "computeNodeScore",
+      "input": {
+        "evidence": [
+          {
+            "id": "rec-043",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-044",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "wrong",
+            "createdAt": "2026-11-01T10:00:00Z"
+          },
+          {
+            "id": "rec-045",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-02T10:00:00Z"
+          },
+          {
+            "id": "rec-046",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-03T10:00:00Z"
+          },
+          {
+            "id": "rec-047",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-04T10:00:00Z"
+          },
+          {
+            "id": "rec-048",
+            "nodeId": "n1",
+            "sessionId": null,
+            "questionId": null,
+            "outcome": "correct",
+            "createdAt": "2026-11-05T10:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "score": "80",
+        "state": "mastered",
+        "meanOfWindowedValues": "0.8"
+      }
+    },
+    {
       "id": "rollup.all-mastered-exactly-100",
       "category": "rollup",
       "description": "Every node mastered → the rollup is exactly 100 — the readiness display contract (SM-C2).",
@@ -887,58 +951,6 @@
       "input": {
         "evidenceByNode": {
           "alphaMastered": [
-            {
-              "id": "rec-058",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-01T10:00:00Z"
-            },
-            {
-              "id": "rec-059",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-02T10:00:00Z"
-            },
-            {
-              "id": "rec-060",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-03T10:00:00Z"
-            }
-          ],
-          "betaMastered": [
-            {
-              "id": "rec-061",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-01T10:00:00Z"
-            },
-            {
-              "id": "rec-062",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-02T10:00:00Z"
-            },
-            {
-              "id": "rec-063",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-03T10:00:00Z"
-            }
-          ],
-          "gammaMastered": [
             {
               "id": "rec-064",
               "nodeId": "n1",
@@ -957,6 +969,58 @@
             },
             {
               "id": "rec-066",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaMastered": [
+            {
+              "id": "rec-067",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-068",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-069",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "gammaMastered": [
+            {
+              "id": "rec-070",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-071",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-072",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -996,7 +1060,7 @@
         "evidenceByNode": {
           "alphaMastered": [
             {
-              "id": "rec-067",
+              "id": "rec-073",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1004,7 +1068,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-068",
+              "id": "rec-074",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1012,7 +1076,7 @@
               "createdAt": "2026-11-02T10:00:00Z"
             },
             {
-              "id": "rec-069",
+              "id": "rec-075",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1022,7 +1086,7 @@
           ],
           "betaPerfectUnverified": [
             {
-              "id": "rec-070",
+              "id": "rec-076",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1030,7 +1094,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-071",
+              "id": "rec-077",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1066,7 +1130,7 @@
         "evidenceByNode": {
           "alphaMastered": [
             {
-              "id": "rec-072",
+              "id": "rec-078",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1074,7 +1138,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-073",
+              "id": "rec-079",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1082,7 +1146,7 @@
               "createdAt": "2026-11-02T10:00:00Z"
             },
             {
-              "id": "rec-074",
+              "id": "rec-080",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1092,7 +1156,7 @@
           ],
           "betaUnverified": [
             {
-              "id": "rec-075",
+              "id": "rec-081",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1100,7 +1164,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-076",
+              "id": "rec-082",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1110,7 +1174,7 @@
           ],
           "gammaUnverified": [
             {
-              "id": "rec-077",
+              "id": "rec-083",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1118,7 +1182,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-078",
+              "id": "rec-084",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1171,58 +1235,6 @@
         "evidenceByNode": {
           "alphaMastered": [
             {
-              "id": "rec-049",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-01T10:00:00Z"
-            },
-            {
-              "id": "rec-050",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-02T10:00:00Z"
-            },
-            {
-              "id": "rec-051",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-03T10:00:00Z"
-            }
-          ],
-          "betaMastered": [
-            {
-              "id": "rec-052",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-01T10:00:00Z"
-            },
-            {
-              "id": "rec-053",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-02T10:00:00Z"
-            },
-            {
-              "id": "rec-054",
-              "nodeId": "n1",
-              "sessionId": null,
-              "questionId": null,
-              "outcome": "correct",
-              "createdAt": "2026-11-03T10:00:00Z"
-            }
-          ],
-          "gammaHalf": [
-            {
               "id": "rec-055",
               "nodeId": "n1",
               "sessionId": null,
@@ -1235,11 +1247,63 @@
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
-              "outcome": "partial",
+              "outcome": "correct",
               "createdAt": "2026-11-02T10:00:00Z"
             },
             {
               "id": "rec-057",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "betaMastered": [
+            {
+              "id": "rec-058",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-059",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-060",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-03T10:00:00Z"
+            }
+          ],
+          "gammaHalf": [
+            {
+              "id": "rec-061",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "correct",
+              "createdAt": "2026-11-01T10:00:00Z"
+            },
+            {
+              "id": "rec-062",
+              "nodeId": "n1",
+              "sessionId": null,
+              "questionId": null,
+              "outcome": "partial",
+              "createdAt": "2026-11-02T10:00:00Z"
+            },
+            {
+              "id": "rec-063",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1279,7 +1343,7 @@
         "evidenceByNode": {
           "solo": [
             {
-              "id": "rec-079",
+              "id": "rec-085",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1287,7 +1351,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-080",
+              "id": "rec-086",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1295,7 +1359,7 @@
               "createdAt": "2026-11-02T10:00:00Z"
             },
             {
-              "id": "rec-081",
+              "id": "rec-087",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1325,7 +1389,7 @@
         "evidenceByNode": {
           "alphaMastered": [
             {
-              "id": "rec-043",
+              "id": "rec-049",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1333,7 +1397,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-044",
+              "id": "rec-050",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1341,7 +1405,7 @@
               "createdAt": "2026-11-02T10:00:00Z"
             },
             {
-              "id": "rec-045",
+              "id": "rec-051",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1351,7 +1415,7 @@
           ],
           "betaHalf": [
             {
-              "id": "rec-046",
+              "id": "rec-052",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1359,7 +1423,7 @@
               "createdAt": "2026-11-01T10:00:00Z"
             },
             {
-              "id": "rec-047",
+              "id": "rec-053",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1367,7 +1431,7 @@
               "createdAt": "2026-11-02T10:00:00Z"
             },
             {
-              "id": "rec-048",
+              "id": "rec-054",
               "nodeId": "n1",
               "sessionId": null,
               "questionId": null,
@@ -1407,7 +1471,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-113",
+            "id": "rec-119",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1415,7 +1479,7 @@
             "createdAt": "2026-11-04T18:00:00Z"
           },
           {
-            "id": "rec-114",
+            "id": "rec-120",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1439,7 +1503,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-111",
+            "id": "rec-117",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1447,7 +1511,7 @@
             "createdAt": "2026-11-04T18:00:00Z"
           },
           {
-            "id": "rec-112",
+            "id": "rec-118",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1470,7 +1534,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-105",
+            "id": "rec-111",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1478,7 +1542,7 @@
             "createdAt": "2026-11-03T12:00:00Z"
           },
           {
-            "id": "rec-106",
+            "id": "rec-112",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1486,7 +1550,7 @@
             "createdAt": "2026-11-04T12:00:00Z"
           },
           {
-            "id": "rec-107",
+            "id": "rec-113",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1510,7 +1574,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-108",
+            "id": "rec-114",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1518,7 +1582,7 @@
             "createdAt": "2026-11-01T12:00:00Z"
           },
           {
-            "id": "rec-109",
+            "id": "rec-115",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1526,7 +1590,7 @@
             "createdAt": "2026-11-02T12:00:00Z"
           },
           {
-            "id": "rec-110",
+            "id": "rec-116",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1549,7 +1613,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-085",
+            "id": "rec-091",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1557,7 +1621,7 @@
             "createdAt": "2026-11-03T12:00:00Z"
           },
           {
-            "id": "rec-086",
+            "id": "rec-092",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1565,7 +1629,7 @@
             "createdAt": "2026-11-04T12:00:00Z"
           },
           {
-            "id": "rec-087",
+            "id": "rec-093",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1588,7 +1652,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-101",
+            "id": "rec-107",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1596,7 +1660,7 @@
             "createdAt": "2026-11-04T23:59:00Z"
           },
           {
-            "id": "rec-102",
+            "id": "rec-108",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1633,7 +1697,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-095",
+            "id": "rec-101",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1641,7 +1705,7 @@
             "createdAt": "2026-10-20T12:00:00Z"
           },
           {
-            "id": "rec-096",
+            "id": "rec-102",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1649,7 +1713,7 @@
             "createdAt": "2026-11-01T12:00:00Z"
           },
           {
-            "id": "rec-097",
+            "id": "rec-103",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1657,7 +1721,7 @@
             "createdAt": "2026-11-02T12:00:00Z"
           },
           {
-            "id": "rec-098",
+            "id": "rec-104",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1665,7 +1729,7 @@
             "createdAt": "2026-11-03T12:00:00Z"
           },
           {
-            "id": "rec-099",
+            "id": "rec-105",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1673,7 +1737,7 @@
             "createdAt": "2026-11-04T12:00:00Z"
           },
           {
-            "id": "rec-100",
+            "id": "rec-106",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1696,7 +1760,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-092",
+            "id": "rec-098",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1704,7 +1768,7 @@
             "createdAt": "2026-11-05T08:00:00Z"
           },
           {
-            "id": "rec-093",
+            "id": "rec-099",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1712,7 +1776,7 @@
             "createdAt": "2026-11-05T12:00:00Z"
           },
           {
-            "id": "rec-094",
+            "id": "rec-100",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1735,7 +1799,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-103",
+            "id": "rec-109",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1743,7 +1807,7 @@
             "createdAt": "2026-11-04T22:00:00Z"
           },
           {
-            "id": "rec-104",
+            "id": "rec-110",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1766,7 +1830,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-089",
+            "id": "rec-095",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1774,7 +1838,7 @@
             "createdAt": "2026-11-01T12:00:00Z"
           },
           {
-            "id": "rec-090",
+            "id": "rec-096",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1782,7 +1846,7 @@
             "createdAt": "2026-11-02T12:00:00Z"
           },
           {
-            "id": "rec-091",
+            "id": "rec-097",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1805,7 +1869,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-088",
+            "id": "rec-094",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1840,7 +1904,7 @@
       "input": {
         "evidence": [
           {
-            "id": "rec-082",
+            "id": "rec-088",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1848,7 +1912,7 @@
             "createdAt": "2026-11-01T10:00:00Z"
           },
           {
-            "id": "rec-083",
+            "id": "rec-089",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,
@@ -1856,7 +1920,7 @@
             "createdAt": "2026-11-02T10:00:00Z"
           },
           {
-            "id": "rec-084",
+            "id": "rec-090",
             "nodeId": "n1",
             "sessionId": null,
             "questionId": null,

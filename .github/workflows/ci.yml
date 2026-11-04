@@ -1,5 +1,6 @@
 # CI — the gates the project already trusts, made real (AD-17, Q2=a):
-# frontend: pnpm frozen install → tsc -b → eslint → vitest → vite build (from frontend/)
+# frontend: pnpm frozen install → tsc -b → eslint → vitest → vite build →
+#   mastery-vector anti-drift (regenerate + stamp-insensitive diff) (from frontend/)
 # backend: RuboCop → RSpec (from backend/)
 # (gate sequences: keep in sync with the root justfile spec recipe and the
 #  Web gates block in AGENTS.md)
@@ -67,10 +68,28 @@ jobs:
       # pinned mastery/streak behavior moved without regenerating the contract the
       # Ruby port (backend/spec/fixtures/mastery_vectors.json, ticket 02's RSpec)
       # pins itself against. This step retires with the TS side at cutover.
-      - name: Mastery vector anti-drift (regenerate + diff)
+      #
+      # The diff is STAMP-INSENSITIVE (epic P2-4 review): meta.generatedAtSourceCommit
+      # is advisory provenance, not contract — SOURCE_PATHS includes the generator and
+      # fixture commits ride generator edits, so the stamp is self-referential and every
+      # vector-extending commit provably lands a stale stamp (fired in practice: 7a6c4b3,
+      # f69f7aa). The gate strips the stamp from BOTH the committed and the regenerated
+      # fixture (temp files out of the tree) and diffs those; the stamp's format stays
+      # pinned by backend/spec/lib/mastery_spec.rb.
+      - name: Mastery vector anti-drift (regenerate + stamp-insensitive diff)
         run: |
+          fixture=../backend/spec/fixtures/mastery_vectors.json
+          snapshot="$(mktemp)"; committed="$(mktemp)"; regenerated="$(mktemp)"
+          trap 'rm -f "$snapshot" "$committed" "$regenerated"' EXIT
+          cp "$fixture" "$snapshot"
+          jq 'del(.meta.generatedAtSourceCommit)' "$fixture" > "$committed"
           pnpm run generate:mastery-vectors
-          git -C .. diff --exit-code -- backend/spec/fixtures/mastery_vectors.json
+          jq 'del(.meta.generatedAtSourceCommit)' "$fixture" > "$regenerated"
+          diff -u "$committed" "$regenerated"
+          # The stripped forms matched: any rewrite the generator did above is
+          # stamp-only (advisory) — restore the pre-regen file so the gate leaves
+          # no residue in the tree.
+          cmp -s "$fixture" "$snapshot" || cp "$snapshot" "$fixture"
 
   backend:
     name: backend (rubocop · rspec)

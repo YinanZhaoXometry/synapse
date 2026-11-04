@@ -36,6 +36,11 @@ cd web && node_modules/.bin/tsc -b          # typecheck (no `typecheck` script e
 cd web && node_modules/.bin/eslint .        # eslint 9 flat config
 cd web && node_modules/.bin/vitest run      # tests (watch: pnpm run test:watch)
 cd web && node_modules/.bin/vite build      # build only — does NOT typecheck
+# Mastery-vector anti-drift (after build; part of just spec + ci.yml's web job,
+# not a standalone command): regenerate backend/spec/fixtures/mastery_vectors.json
+# from the TS domain and require a STAMP-INSENSITIVE match — the diff strips
+# meta.generatedAtSourceCommit (advisory, self-referential provenance) from both
+# sides first. See the justfile spec recipe / ci.yml for the exact step.
 # …or through pnpm directly: ~/Library/pnpm/pnpm --dir web run <script>
 
 # Api gates (dev containers only — your local Ruby is irrelevant):
@@ -86,7 +91,7 @@ Playwright (`frontend/playwright.config.ts`) imports `lovable-agent-playwright-c
 - **HMR error overlay is disabled** (`frontend/vite.config.ts`), so dev errors only appear in the terminal — watch it, not just the browser.
 - **Web dev server binds host `::` on port 8080** (not Vite's default 5173). The api serves on port 3000 (compose).
 - **`frontend/tsconfig.app.tsbuildinfo` / `frontend/tsconfig.node.tsbuildinfo` are committed** (policy unchanged — A6). Their contents are relative paths, so they survive the move; a stale one self-heals on the next `tsc -b` (regen verified byte-identical) — commit the regenerated file if a legit path change lands.
-- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → `tsc -b` → eslint → vitest → `vite build`; api = rubocop → rspec. Keep local green before pushing.
+- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → `tsc -b` → eslint → vitest → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec. Keep local green before pushing.
 - `backend/README.md` is still the Rails generator stub — the backend's real doc is `backend/AGENTS.md`.
 - `lovable-tagger` is still a `frontend/` devDependency and runs as a dev-mode Vite plugin (`componentTagger`) — Lovable-scaffold residue that is inert at build time; removal belongs to a frontend-tooling change, not a docs edit.
 

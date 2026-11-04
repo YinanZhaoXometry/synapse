@@ -154,12 +154,20 @@ module Mastery
     private
 
     # Newest first by createdAt — the window is over recency, not insertion
-    # order. Ties keep insertion order (the sane stable-sort reading of the TS
-    # comparator; the golden vectors hold no ties to distinguish further).
+    # order. Equal-timestamp ties are PINNED by the golden vectors
+    # (node-score.window-tie-equal-createdAt-earlier-insert-ages-out, review
+    # P2-5): the tiebreak is insertion order with the EARLIER-inserted record
+    # as the OLDER recency — the later insertion sorts first here (newer) and
+    # the earlier insertion ages out of the window first. This matches the TS
+    # comparator's V8-observed behavior (frontend/src/domain/mastery.ts
+    # recentFirst); Ruby's sort is NOT stable, so the index tiebreak is explicit
+    # — the sides agree by contract, not by coincidence. The array order this
+    # receives is the wire's deterministic (created_at, id) SQL seam, so the
+    # tie outcome is deterministic on the wire too.
     def recent_first(records)
       records.each_with_index.sort do |(a, ai), (b, bi)|
         if a.created_at == b.created_at
-          ai <=> bi
+          bi <=> ai
         else
           b.created_at <=> a.created_at
         end

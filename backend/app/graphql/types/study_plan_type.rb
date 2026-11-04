@@ -53,11 +53,17 @@ module Types
     # survives the freshness layer.
     field :mastery_score, String,
           null: false,
-          description: "The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — the floored mean of its nodes' scores with uncovered nodes counting 0; computed by the api's Mastery module (the client renders, never recomputes, AD-14). Rollup 100 ⇔ every node mastered."
+          description: "The plan's Mastery Score rollup (ADR-0001) as a string carrying the integer percent \"0\"..\"100\" — the floored mean of its nodes' scores with uncovered nodes counting 0; computed by the api's Mastery module (the client renders, never recomputes, AD-14). Node scores carry the freshness cap (ADR-0001 amendment 2026-11-04): a node whose latest evidence is more than 14 days old caps at \"99\", so a decayed node can never certify. Rollup 100 ⇔ every node mastered."
 
     def mastery_score
       nodes = object.knowledge_nodes.to_a
-      records = EvidenceRecord.where(user_id: object.user_id, node_id: nodes.map(&:id)).group_by(&:node_id)
+      # (created_at, id) order = the deterministic SQL seam (review P2-5a,
+      # same posture as the node fields' DataloaderSources::EvidenceRecordsSource):
+      # Mastery's window sort resolves equal-timestamp ties against this
+      # array's order, so the rollup is order-deterministic too.
+      records = EvidenceRecord.where(user_id: object.user_id, node_id: nodes.map(&:id))
+        .order(:created_at, :id)
+        .group_by(&:node_id)
       Mastery.compute_plan_rollup(nodes.to_h { |node| [ node.id, records.fetch(node.id, []) ] }, now: Time.current).to_s
     end
 

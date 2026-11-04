@@ -25,3 +25,22 @@ Public reads structurally cannot expose Materials/Annotations/Mastery (reduced t
 - **Gate: epic-08 done**; mostly api-side → parallelizes with 09/10/13 (T4 is api-only + license-gated — start it whenever the license check clears).
 - T1 uses epic-01's `visibility` column — no migration expected; if a field is missing it goes here, noted in Comments.
 - Surface placement (sidebar vs plans-home) is a delta-grail UX call — confirm against the UX spine before T3.
+
+## Coordination note (from epic P2-4 review, 2026-11-04)
+
+Forward-note for T2 (02-square-read-path.md): when the FR-38/39 public-plan
+read lands, `KnowledgeNodeType`'s score fields (`masteryScore`/`state`) will
+compute for ANY node handed to them — they are plain field resolvers and know
+nothing about the Square. NFR-7 (never Materials/Annotations/Mastery Scores on
+the public path) therefore depends on the public wiring exposing a
+STRUCTURE-ONLY node type — a separate public type without the score fields,
+not the shared `KnowledgeNodeType` with fields toggled off.
+
+Scoping postures, post-P2-4-review: the Mastery evidence loads are explicitly
+user-scoped in both places — `DataloaderSources::EvidenceRecordsSource` (the
+node score fields' batched load) and `StudyPlanType#mastery_score`'s grouped
+load both run `EvidenceRecord.where(user_id: …)`. The surrounding structural
+reads (plan/task/node/material lists) still ride the association-path
+convention (the caller's own association chain is the scope). The public path
+must use the stricter explicit scoping for anything it reads, and — per NFR-7
+— it must not reach the score fields at all.
