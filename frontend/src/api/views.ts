@@ -35,3 +35,22 @@ export interface MaterialView extends Material {
 export interface QuizSessionView extends QuizSession {
   questions: Question[];
 }
+
+/**
+ * One material section's node-mapping state (FR-45, epic P2-10 T1; delta
+ * decision 4): the AI map run proposes, the user confirms or rejects — the
+ * row IS the durable proposal. ONE ACTIVE row per user+material+section:
+ * `rejected` sections are never re-proposed, `confirmed` mappings never
+ * overwritten. `nodeId` set ⇒ confirmed (or a proposed row already pointed
+ * at an existing node, awaiting the verdict); `proposedNodeTitle` names the
+ * coverage gap; both null on a proposal = the explicit Unmapped group.
+ */
+export interface MaterialNodeMappingView {
+  id: string;
+  materialId: string;
+  nodeId: string | null;
+  sectionId: string;
+  proposedNodeTitle: string | null;
+  status: "proposed" | "confirmed" | "rejected";
+  createdAt: string;
+}

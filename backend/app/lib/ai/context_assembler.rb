@@ -55,6 +55,23 @@ module Ai
         assemble_scope("", Material.where(id: material.id), budget)
       end
 
+      # The mapping surface (FR-45, epic P2-10 T1): a plan's full node list +
+      # ONE attached material's sections. The full section index ALWAYS rides
+      # whole after the bounded section texts — every section id must be
+      # addressable even when its text hit the budget, because the coverage
+      # contract demands an answer for every section. The body assembles
+      # against a reduced budget so the index's own tokens are reserved
+      # (the assembled estimate never exceeds the budget, as everywhere).
+      def mapping_scope(plan, material, budget: default_budget)
+        index = section_index_block(material)
+        index_tokens = estimate_tokens(index)
+        body_budget = [ budget - index_tokens, 1 ].max
+        body = assemble_scope(nodes_block(plan.knowledge_nodes.order(:order, :id)),
+                              Material.where(id: material.id), body_budget)
+        text = index_tokens.positive? ? [ body.text, index.strip ].reject(&:empty?).join("\n") : body.text
+        Assembled.new(text: text, truncated: body.truncated)
+      end
+
       # Companion grounding (AD-5): the section under the ReadingPosition
       # locator in full focus, then the material's section index so the
       # model can cite other sections it saw. The position's own quoted text

@@ -14,9 +14,10 @@
  * rendering reads them; no client recompute anywhere.
  */
 export { newClientUuid } from "./queries/material-queries";
-export { apiErrorCode, isNetworkError } from "./errors";
+export { apiErrorCode, apiErrorKeys, isNetworkError } from "./errors";
 export type { ApiErrorCode } from "./errors";
 export type { KnowledgeNodeView, MaterialView, StudyPlanView, StudyTaskView, MasteryScoreString } from "./views";
+export type { MaterialNodeMappingView } from "./views";
 export { MATERIAL_SECTION_MAX_CHARS } from "@/lib/material-bounds";
 export { AppError } from "@/lib/app-error";
 export { sessionBlobs, createSessionBlobRegistry, type SessionBlobRegistry } from "@/lib/session-blobs";
@@ -25,6 +26,7 @@ export type { PlanDetail } from "./queries/plan-queries";
 export * from "./queries/auth-queries";
 export * from "./queries/plan-queries";
 export * from "./queries/material-queries";
+export * from "./queries/mapping-queries";
 export * from "./queries/import-queries";
 export * from "./queries/study-queries";
 export * from "./queries/quiz-queries";

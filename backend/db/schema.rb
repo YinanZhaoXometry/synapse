@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_090001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -85,7 +85,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.index ["question_id"], name: "index_evidence_records_on_question_id"
     t.index ["session_id"], name: "index_evidence_records_on_session_id"
     t.index ["user_id"], name: "index_evidence_records_on_user_id"
-    t.check_constraint "outcome::text = ANY (ARRAY['correct'::character varying::text, 'partial'::character varying::text, 'wrong'::character varying::text])", name: "evidence_records_outcome_check"
+    t.check_constraint "outcome::text = ANY (ARRAY['correct'::character varying, 'partial'::character varying, 'wrong'::character varying]::text[])", name: "evidence_records_outcome_check"
   end
 
   create_table "flashcards", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -100,7 +100,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.index ["material_id"], name: "index_flashcards_on_material_id"
     t.index ["node_id"], name: "index_flashcards_on_node_id"
     t.index ["user_id"], name: "index_flashcards_on_user_id"
-    t.check_constraint "difficulty IS NULL OR (difficulty::text = ANY (ARRAY['hard'::character varying::text, 'medium'::character varying::text, 'easy'::character varying::text]))", name: "flashcards_difficulty_check"
+    t.check_constraint "difficulty IS NULL OR (difficulty::text = ANY (ARRAY['hard'::character varying, 'medium'::character varying, 'easy'::character varying]::text[]))", name: "flashcards_difficulty_check"
   end
 
   create_table "knowledge_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -115,6 +115,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.index ["plan_id"], name: "index_knowledge_nodes_on_plan_id"
     t.index ["task_id"], name: "index_knowledge_nodes_on_task_id", unique: true
     t.index ["user_id"], name: "index_knowledge_nodes_on_user_id"
+  end
+
+  create_table "material_node_mappings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "material_id", null: false
+    t.uuid "node_id"
+    t.string "section_id", null: false
+    t.string "proposed_node_title"
+    t.string "status", default: "proposed", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["material_id"], name: "index_material_node_mappings_on_material_id"
+    t.index ["node_id"], name: "index_material_node_mappings_on_node_id"
+    t.index ["user_id", "material_id", "section_id"], name: "index_material_node_mappings_on_user_material_section", unique: true
+    t.index ["user_id"], name: "index_material_node_mappings_on_user_id"
+    t.check_constraint "status::text = ANY (ARRAY['proposed'::character varying, 'confirmed'::character varying, 'rejected'::character varying]::text[])", name: "material_node_mappings_status_check"
   end
 
   create_table "materials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -132,9 +148,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.index ["plan_id"], name: "index_materials_on_plan_id"
     t.index ["task_id"], name: "index_materials_on_task_id", unique: true
     t.index ["user_id"], name: "index_materials_on_user_id"
-    t.check_constraint "kind::text = ANY (ARRAY['pdf'::character varying::text, 'markdown'::character varying::text])", name: "materials_kind_check"
-    t.check_constraint "parse_failure_reason IS NULL OR (parse_failure_reason::text = ANY (ARRAY['corrupt'::character varying::text, 'encrypted'::character varying::text, 'empty'::character varying::text, 'unknown'::character varying::text]))", name: "materials_parse_failure_reason_check"
-    t.check_constraint "parse_state::text = ANY (ARRAY['pending'::character varying::text, 'parsing'::character varying::text, 'parsed'::character varying::text, 'failed'::character varying::text])", name: "materials_parse_state_check"
+    t.check_constraint "kind::text = ANY (ARRAY['pdf'::character varying, 'markdown'::character varying]::text[])", name: "materials_kind_check"
+    t.check_constraint "parse_failure_reason IS NULL OR (parse_failure_reason::text = ANY (ARRAY['corrupt'::character varying, 'encrypted'::character varying, 'empty'::character varying, 'unknown'::character varying]::text[]))", name: "materials_parse_failure_reason_check"
+    t.check_constraint "parse_state::text = ANY (ARRAY['pending'::character varying, 'parsing'::character varying, 'parsed'::character varying, 'failed'::character varying]::text[])", name: "materials_parse_state_check"
   end
 
   create_table "mistake_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -172,7 +188,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.index ["session_id"], name: "index_questions_on_session_id"
     t.index ["source_material_id"], name: "index_questions_on_source_material_id"
     t.index ["user_id"], name: "index_questions_on_user_id"
-    t.check_constraint "kind::text = ANY (ARRAY['open'::character varying::text, 'choice'::character varying::text])", name: "questions_kind_check"
+    t.check_constraint "kind::text = ANY (ARRAY['open'::character varying, 'choice'::character varying]::text[])", name: "questions_kind_check"
   end
 
   create_table "quiz_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -188,8 +204,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.index ["task_id"], name: "index_quiz_sessions_on_task_id"
     t.index ["user_id"], name: "index_quiz_sessions_on_user_id"
     t.check_constraint "(plan_id IS NOT NULL) <> (task_id IS NOT NULL)", name: "quiz_sessions_exactly_one_owner_check"
-    t.check_constraint "mode::text = ANY (ARRAY['open'::character varying::text, 'choice'::character varying::text, 'mix'::character varying::text])", name: "quiz_sessions_mode_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'completed'::character varying::text, 'abandoned'::character varying::text])", name: "quiz_sessions_status_check"
+    t.check_constraint "mode::text = ANY (ARRAY['open'::character varying, 'choice'::character varying, 'mix'::character varying]::text[])", name: "quiz_sessions_mode_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'completed'::character varying, 'abandoned'::character varying]::text[])", name: "quiz_sessions_status_check"
   end
 
   create_table "reading_progresses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -401,7 +417,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_study_plans_on_user_id"
-    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'public'::character varying::text])", name: "study_plans_visibility_check"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying, 'public'::character varying]::text[])", name: "study_plans_visibility_check"
   end
 
   create_table "study_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -440,6 +456,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_131001) do
   add_foreign_key "knowledge_nodes", "study_plans", column: "plan_id"
   add_foreign_key "knowledge_nodes", "study_tasks", column: "task_id"
   add_foreign_key "knowledge_nodes", "users"
+  add_foreign_key "material_node_mappings", "knowledge_nodes", column: "node_id"
+  add_foreign_key "material_node_mappings", "materials"
+  add_foreign_key "material_node_mappings", "users"
   add_foreign_key "materials", "study_plans", column: "plan_id"
   add_foreign_key "materials", "study_tasks", column: "task_id"
   add_foreign_key "materials", "users"

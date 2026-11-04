@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
+import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
@@ -78,6 +79,9 @@ export default function PlanHomePage() {
   // Epic-6 T3: the flashcards quick action — the FlashcardLauncher dialog when
   // the plan has no cards yet.
   const [flashcardsOpen, setFlashcardsOpen] = useState(false);
+  // Epic P2-10 T1 (FR-45; delta decision 3): the per-material coverage panel
+  // expands under its parsed row — one open at a time keeps the list scannable.
+  const [coverageFor, setCoverageFor] = useState<string | null>(null);
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -248,12 +252,18 @@ export default function PlanHomePage() {
             ) : (
               <div className="bg-card border border-border-soft rounded-2xl shadow-raised divide-y divide-border-soft">
                 {materials.map((material) => (
-                  <MaterialRow
-                    key={material.id}
-                    material={material}
-                    onReupload={() => openPicker(material.id)}
-                    onRetryParse={(row) => parseMaterial.mutate(row.id, row)}
-                  />
+                  <div key={material.id}>
+                    <MaterialRow
+                      material={material}
+                      onReupload={() => openPicker(material.id)}
+                      onRetryParse={(row) => parseMaterial.mutate(row.id, row)}
+                      coverageOpen={coverageFor === material.id}
+                      onToggleCoverage={() => setCoverageFor(coverageFor === material.id ? null : material.id)}
+                    />
+                    {coverageFor === material.id && (
+                      <MaterialCoveragePanel material={material} nodes={nodes} />
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -447,10 +457,14 @@ function MaterialRow({
   material,
   onReupload,
   onRetryParse,
+  coverageOpen,
+  onToggleCoverage,
 }: {
   material: MaterialView;
   onReupload: () => void;
   onRetryParse: (row: MaterialView) => void;
+  coverageOpen: boolean;
+  onToggleCoverage: () => void;
 }) {
   const { t } = useLanguage();
   const hasSessionBytes = !!useSessionBlob(material.id);
@@ -460,6 +474,10 @@ function MaterialRow({
   const hasProgress = !!progressQuery.data;
   const openLabelKey = hasProgress ? "plans.continueReading" : "common.open";
   const kind = material.kind === "pdf" ? t("plans.materialKindPdf") : t("plans.materialKindMarkdown");
+  // The coverage panel's door (FR-45, delta decision 3): only a parsed
+  // material with content has sections to map — the action never shows for
+  // pending/failed rows (there is nothing honest to map yet).
+  const hasSections = material.parseState === "parsed" && material.sections.length > 0;
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
@@ -478,6 +496,19 @@ function MaterialRow({
       <span className="text-[10px] text-muted-foreground tabular-nums flex-none">
         {t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}
       </span>
+      {hasSections && (
+        <button
+          type="button"
+          onClick={onToggleCoverage}
+          aria-expanded={coverageOpen}
+          className={cn(
+            "pill cursor-pointer flex-none",
+            coverageOpen ? "pill-mastered" : "pill-muted",
+          )}
+        >
+          {t("mapping.title")}
+        </button>
+      )}
       {needsReupload ? (
         <span className="flex items-center gap-2 flex-none">
           <span className="pill pill-muted cursor-help" title={t("plans.materialsSessionNote")}>

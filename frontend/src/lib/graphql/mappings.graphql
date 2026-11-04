@@ -1,0 +1,43 @@
+# Material↔node mapping operations (epic P2-10 T1, FR-45). The per-material
+# coverage read + the three mutations: the AI map run and the user's bulk
+# confirm/reject verdicts on proposed rows.
+
+fragment MaterialNodeMappingParts on MaterialNodeMapping {
+  id
+  materialId
+  nodeId
+  sectionId
+  proposedNodeTitle
+  status
+  createdAt
+}
+
+query MaterialNodeMappings($materialId: String!) {
+  materialNodeMappings(materialId: $materialId) {
+    ...MaterialNodeMappingParts
+  }
+}
+
+mutation MaterialsMapSections($input: MapSectionsInput!) {
+  materialsMapSections(input: $input) {
+    mappings {
+      ...MaterialNodeMappingParts
+    }
+  }
+}
+
+mutation ConfirmMappingProposals($input: ConfirmMappingProposalsInput!) {
+  confirmMappingProposals(input: $input) {
+    mappings {
+      ...MaterialNodeMappingParts
+    }
+  }
+}
+
+mutation RejectMappingProposals($input: RejectMappingProposalsInput!) {
+  rejectMappingProposals(input: $input) {
+    mappings {
+      ...MaterialNodeMappingParts
+    }
+  }
+}
