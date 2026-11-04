@@ -20,7 +20,7 @@ module Types
 
     field :node_id, String,
           null: true,
-          description: "The node that owns the section — set once confirmed (the mapped node or the ONE node created for the confirmed proposal group). Null on proposals and rejections."
+          description: "The mapped node's uuid once the row targets a node — set on proposals pointing at an existing node and preserved on rejection; null only for proposed-new-node and unmapped rows. On confirm it is either the mapped existing node or the ONE node created for the confirmed proposal group."
 
     field :section_id, String,
           null: false,

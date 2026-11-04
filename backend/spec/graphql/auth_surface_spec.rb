@@ -21,7 +21,7 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
       "register", "login",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan",
       "createTask", "attachMaterial", "setMaterialParseResult",
-      "materialsMapSections", "confirmMappingProposals", "rejectMappingProposals",
+      "mapMaterialSections", "confirmMappingProposals", "rejectMappingProposals",
       "createQuizSession", "recordEvidence", "abandonQuizSession",
       "createFlashcards", "rateFlashcard",
       "appendChatMessage", "saveReadingProgress", "claimSection", "unclaimSection",
