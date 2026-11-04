@@ -606,6 +606,68 @@ type DeletePlanPayload {
 }
 
 """
+A due review (FR-24): a mistake or flashcard the re-queue says to resurface,
+with its study-flow links (FR-27's task-list shape).
+"""
+type DueItem {
+  """
+  When the re-queue scheduled this item to resurface (the scan's correct-on-wake recompute).
+  """
+  dueAt: DateTime!
+
+  """
+  The source row's uuid (MistakeEntry or Flashcard id — plain UUID strings, AD-12).
+  """
+  itemId: String!
+
+  """
+  "mistake" or "flashcard".
+  """
+  itemType: String!
+
+  """
+  The source material (the mistake's question's source material, or the flashcard's deck material).
+  """
+  materialId: String
+
+  """
+  The knowledge node under study (null for flashcards created without one).
+  """
+  nodeId: String
+
+  """
+  The plan the node belongs to (through the node; null when the node is planless/unlinked).
+  """
+  planId: String
+
+  """
+  The mistaken question (mistakes only).
+  """
+  questionId: String
+
+  """
+  Where the mistake sits in its material (mistakes only, AD-2's ReadingLocator jsonb).
+  """
+  sourceLocation: ReadingLocator
+
+  """
+  The schedule's ladder stage (mistakes advance on consecutive correct answers;
+  flashcards stay 0 — the rating picks their interval).
+  """
+  stage: Int!
+
+  """
+  The task the node belongs to (through the node; null when the node is taskless/unlinked).
+  """
+  taskId: String
+
+  """
+  The question's prompt (mistakes) or the card's front (flashcards) — what the Today row renders.
+  """
+  title: String!
+}
+
+"""
 One graded quiz answer, node-attributed — the only unit that moves a Mastery Score (a forfeit grades as wrong).
 """
 type EvidenceRecord {
@@ -1214,6 +1276,20 @@ type Query {
     """
     materialId: String!
   ): ChatThread
+
+  """
+  The current user's due reviews (FR-24/FR-27, the re-queue's Today-hub read,
+  epic P2-7 ticket 03): the day's due mistakes and flashcards from the scan's
+  materialized schedule, with their study-flow links. `date` defaults to now;
+  due-ness is inclusive — everything scheduled by that day's END answers (an
+  overdue item is still due; the UTC day boundary is the convention, matching the streak).
+  """
+  dueItems(
+    """
+    The day to read (defaults to now; UTC day boundary).
+    """
+    date: DateTime
+  ): [DueItem!]!
 
   """
   The current user's evidence records — all of them (the listEvidence mirror),

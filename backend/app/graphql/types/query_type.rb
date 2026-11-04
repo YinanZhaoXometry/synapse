@@ -10,7 +10,8 @@ module Types
     # Auth-guarded per delta 8 via CurrentUserGuard (the same seam the
     # mutations use). The Plans reads landed with epic P2-3 ticket 01; the
     # Tasks/Materials reads with ticket 02; the quiz/evidence/flashcard
-    # reads with ticket 03; the chat/progress reads with ticket 04.
+    # reads with ticket 03; the chat/progress reads with ticket 04; the
+    # re-queue's dueItems read with epic P2-7 ticket 03.
     include CurrentUserGuard
 
     field :health, String, null: false,
@@ -146,6 +147,22 @@ module Types
         current_user!.flashcards.joins(:material).where(materials: { plan_id: scoped_plan(plan_id).id })
                                 .order(:created_at)
       end
+    end
+
+    field :due_items, [ Types::DueItemType ], null: false,
+      description: "The current user's due reviews (FR-24/FR-27, the re-queue's Today-hub read, epic P2-7 ticket 03): the day's due mistakes and flashcards from the scan's materialized schedule, with their study-flow links. `date` defaults to now; due-ness is inclusive — everything scheduled by that day's END answers (an overdue item is still due; the UTC day boundary is the convention, matching the streak)." do
+      argument :date, Types::DateTime, required: false, description: "The day to read (defaults to now; UTC day boundary)."
+    end
+
+    def due_items(date: nil)
+      day_end = (date || Time.current).end_of_day
+      # Sanctioned bare read (the scoping IS the logic): the owner's own
+      # schedule rows, due by the day's end, with dead sources skipped (a
+      # row deleted between scans prunes on the next wake — never here).
+      current_user!.requeue_schedules
+                   .where(next_due_at: ..day_end)
+                   .order(:next_due_at)
+                   .select { |schedule| schedule.schedulable }
     end
 
     field :chat_thread, Types::ChatThreadType, null: true,
