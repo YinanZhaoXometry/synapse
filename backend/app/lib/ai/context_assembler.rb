@@ -57,7 +57,7 @@ module Ai
       # enters: pinned content stays with its node unless it is plan-wide.
       def node_scope(plan, node, budget: default_budget)
         materials = Material.where(plan_id: plan.id, attachment_scope: "plan")
-                            .or(Material.where(attachment_scope: "node", node_id: node.id))
+                            .or(Material.where(plan_id: plan.id, attachment_scope: "node", node_id: node.id))
                             .order(:created_at, :id)
         assemble_scope(nodes_block([ node ]), materials, budget)
       end
