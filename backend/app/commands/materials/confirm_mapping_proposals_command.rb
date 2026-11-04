@@ -3,15 +3,17 @@
 module Materials
   # Confirm proposed mapping rows (FR-45, epic P2-10 T1; delta decisions 3+4):
   # the user's confirmation turns AI proposals into the plan's real node
-  # layer. Rows grouped by a shared proposed_node_title become ONE real
-  # plan-scoped KnowledgeNode (stage null — stage assignment stays a human
-  # concern; order = the plan's max + 1, consecutive across groups; the
-  # title dedupes against the plan's existing nodes so a title the plan
-  # already covers reuses that node). Rows already pointed at a node flip
-  # status only. Rows already decided (confirmed | rejected) return
-  # UNCHANGED — a stale bulk click never resurrects a rejected proposal nor
-  # rewrites a confirmed mapping. Unknown, malformed, and foreign ids are
-  # uniformly NOT_FOUND (kickoff delta 2) and change nothing.
+  # layer. Rows grouped by their material's plan and a shared
+  # proposed_node_title become ONE real node PER PLAN (a batch spanning
+  # materials of different plans never collapses same-title rows across
+  # plans; stage null — stage assignment stays a human concern; order = the
+  # plan's max + 1, consecutive across groups; the title dedupes against
+  # that plan's existing nodes so a title the plan already covers reuses
+  # that node). Rows already pointed at a node flip status only. Rows
+  # already decided (confirmed | rejected) return UNCHANGED — a stale bulk
+  # click never resurrects a rejected proposal nor rewrites a confirmed
+  # mapping. Unknown, malformed, and foreign ids are uniformly NOT_FOUND
+  # (kickoff delta 2) and change nothing.
   class ConfirmMappingProposalsCommand < ApplicationCommand
     option :current_user
     option :mapping_ids
@@ -60,18 +62,21 @@ module Materials
       ids.map { |id| rows[id] }
     end
 
-    # Proposed rows naming a coverage gap group by their (stripped) proposed
-    # title; rows pointed at an existing node carry no title and confirm
-    # individually.
+    # Proposed rows naming a coverage gap group by their material's plan AND
+    # the (stripped) proposed title — the plan dimension keeps a batch
+    # spanning materials of different plans from collapsing same-title rows
+    # onto the first row's plan. Rows pointed at an existing node carry no
+    # title and confirm individually.
     def title_groups(rows)
       rows.select { |row| row.proposed_node_title.present? }
-          .group_by { |row| row.proposed_node_title.strip }
+          .group_by { |row| [ row.material.plan_id, row.proposed_node_title.strip ] }
     end
 
-    # One node per title group: reuse the plan's existing same-title node
-    # when there is one, else create it at the plan's max order + 1 (the
+    # One node per (plan, title) group: reuse that plan's existing same-title
+    # node when there is one, else create it at the plan's max order + 1 (the
     # transaction serializes the groups, so consecutive groups get
-    # consecutive orders).
+    # consecutive orders). Every row of a group shares the group's plan (the
+    # group key), so `row.material.plan_id` is the whole group's target.
     def resolve_or_create_node(row)
       plan_id = row.material.plan_id
       title = row.proposed_node_title.strip
