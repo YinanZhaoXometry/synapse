@@ -47,11 +47,16 @@ class CreateActiveStorageTables < ActiveRecord::Migration[7.0]
   end
 
   private
+    # The installer's default reads config.generators' primary_key_type, which
+    # this app deliberately does not set globally — its spine tables pin uuid
+    # PKs per-migration instead (AD-13: primary keys are uuid columns).
+    # active_storage_attachments.record_id polymorphically references those
+    # rows (Material#id), and the bigint installer default would silently
+    # truncate every uuid into an integer head (ActiveModel's integer cast:
+    # "3cee05a0-…" → 3), severing each attachment from its record. uuid for
+    # both, matching the spine posture; the app's no-global-generators
+    # config is the reason the helper exists at all.
     def primary_and_foreign_key_types
-      config = Rails.configuration.generators
-      setting = config.options[config.orm][:primary_key_type]
-      primary_key_type = setting || :primary_key
-      foreign_key_type = setting || :bigint
-      [ primary_key_type, foreign_key_type ]
+      [ :uuid, :uuid ]
     end
 end
