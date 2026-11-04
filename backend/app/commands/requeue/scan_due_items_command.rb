@@ -51,8 +51,10 @@ module Requeue
           stage += 1
         end
         # Cap the stage at the ladder's end BEFORE indexing (the 7d rung is
-        # terminal — a fifth consecutive correct neither crashes the array
-        # index nor moves the date further out).
+        # terminal: a fifth consecutive correct neither crashes the array
+        # index nor widens the interval — the due date still tracks the
+        # anchor, i.e. it keeps sliding with each new study event, only the
+        # spacing stays at 7d).
         stage = [ stage, Requeue::MISTAKE_STAGES.length - 1 ].min
         anchor = [ mistake.created_at, timeline.last&.created_at ].compact.max
         due_at = anchor + Requeue::MISTAKE_STAGES[stage]

@@ -7,12 +7,13 @@
 # Requeue::ScanJob wraps Requeue::ScanDueItemsCommand (thin wrapper, AD-12);
 # due-ness is RECOMPUTED from source rows' timestamps on every wake — never
 # accumulated while asleep (correct-on-wake; kickoff decision 7).
-production:
+default: &default
   due_scan:
     class: "Requeue::ScanJob"
     schedule: every 10 minutes
 
+production:
+  <<: *default
+
 development:
-  due_scan:
-    class: "Requeue::ScanJob"
-    schedule: every 10 minutes
+  <<: *default

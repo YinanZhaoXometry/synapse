@@ -78,14 +78,26 @@ RSpec.describe "GraphQL dueItems query (epic P2-7 ticket 03)", type: :request do
     end
   end
 
-  it "scopes to the caller (another user's due items never appear)" do
-    create(:user, email: "due-outsider@example.com", password: password)
-    foreign_token = token_for("due-outsider@example.com")
-    Requeue::ScanDueItemsCommand.call # materializes rows for both, if any
+  it "scopes to the caller (the outsider owns a due item; it must not appear)" do
+    travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+      mine = create(:flashcard, user: user, difficulty: "hard", updated_at: Time.current)
+      create(:user, email: "due-outsider@example.com", password: password)
+      foreign_token = token_for("due-outsider@example.com")
+      outsider_card = create(:flashcard, user: User.find_by!(email: "due-outsider@example.com"),
+                                         difficulty: "hard", updated_at: Time.current)
+      Requeue::ScanDueItemsCommand.call # materializes rows for BOTH users
+      expect(RequeueSchedule.count).to eq(2)
 
-    result = graphql("query { dueItems { itemType } }", token: foreign_token)
+      # Both cards are due +2d — read the window that includes them.
+      result = graphql("query { dueItems(date: \"#{3.days.from_now.iso8601}\") { itemId } }",
+                       token: foreign_token)
 
-    expect(result.dig("data", "dueItems")).to eq([])
+      ids = result.dig("data", "dueItems").pluck("itemId")
+      aggregate_failures do
+        expect(ids).to eq([ outsider_card.id ]) # the outsider sees only their own
+        expect(ids).not_to include(mine.id)
+      end
+    end
   end
 
   it "skips a dead source (row deleted between scans) without failing the list" do

@@ -8,7 +8,7 @@
 
 **Bound by:** AD-19 (in-process; DB-backed; direct URL; no keep-alive; cold starts accepted), AD-12 (jobs are thin wrappers).
 
-- [x] Queue runs in-process with puma in compose; one smoke recurring job fires on wake — supervisor + Scheduler registered live (solid_queue_processes), recurring task pinned in solid_queue_recurring_tasks; the job is the REAL scan from boot (no smoke job)
+- [x] Queue runs in-process with puma in compose; the recurring job fires on wake (the REAL scan from boot — kickoff decision 6, no smoke job) — supervisor + Scheduler registered live (solid_queue_processes), recurring task pinned in solid_queue_recurring_tasks
 - [x] Queue tables migrated (same Postgres — see Comments); direct-URL posture documented in `backend/AGENTS.md` (Jobs section) + `docs/deploy.md` (checklist)
 - [x] No ping/keep-alive code paths — `spec/config/no_keep_alive_spec.rb` (lexical guard over app/config/lib; simplest that works)
 

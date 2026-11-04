@@ -1,12 +1,27 @@
+# Solid Queue supervisor config (epic P2-7 ticket 01; read by the in-process
+# supervisor — puma's plugin, gated by SOLID_QUEUE_IN_PUMA).
+#
+# The numbers are the pool-arithmetic contract (review round 1; see
+# docs/deploy.md "Jobs / Solid Queue"):
+# - worker `threads: 1` — one recurring job per 10 minutes needs nothing
+#   more, and web threads (RAILS_MAX_THREADS) + worker threads + the
+#   dispatcher share ONE ActiveRecord pool in-process; extra worker threads
+#   would be idle capacity that can still exhaust the pool when the scan
+#   overlaps request traffic.
+# - SOLID_QUEUE_POLLING_INTERVAL (default 10s) — job pickup latency is
+#   irrelevant for a 10-minute recurring scan; a 1-second idle poll would
+#   keep Neon compute awake through Render's idle windows (AD-19 protects
+#   exactly those hours; this polling stops when the process sleeps — it is
+#   not a keep-alive).
 default: &default
   dispatchers:
-    - polling_interval: 1
+    - polling_interval: <%= ENV.fetch("SOLID_QUEUE_POLLING_INTERVAL", 10) %>
       batch_size: 500
   workers:
     - queues: "*"
-      threads: 3
+      threads: 1
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
-      polling_interval: 1
+      polling_interval: <%= ENV.fetch("SOLID_QUEUE_POLLING_INTERVAL", 10) %>
 
 development:
   <<: *default

@@ -150,18 +150,21 @@ module Types
     end
 
     field :due_items, [ Types::DueItemType ], null: false,
-      description: "The current user's due reviews (FR-24/FR-27, the re-queue's Today-hub read, epic P2-7 ticket 03): the day's due mistakes and flashcards from the scan's materialized schedule, with their study-flow links. `date` defaults to now; due-ness is inclusive — everything scheduled by that day's END answers (an overdue item is still due; the UTC day boundary is the convention, matching the streak)." do
-      argument :date, Types::DateTime, required: false, description: "The day to read (defaults to now; UTC day boundary)."
+      description: "The current user's due reviews (FR-24, the re-queue's Today-hub read, epic P2-7 ticket 03): the day's due mistakes and flashcards from the scan's materialized schedule, with their study-flow links. `date` defaults to today's end (UTC day boundary, matching the streak); due-ness is inclusive — everything scheduled BY that day's end answers, so an overdue item is still due and is never silently dropped." do
+      argument :date, Types::DateTime, required: false, description: "The day to read (defaults to now's day; UTC day boundary)."
     end
 
     def due_items(date: nil)
       day_end = (date || Time.current).end_of_day
       # Sanctioned bare read (the scoping IS the logic): the owner's own
-      # schedule rows, due by the day's end, with dead sources skipped (a
-      # row deleted between scans prunes on the next wake — never here).
+      # schedule rows, due by the day's end. The polymorphic preload makes
+      # the dead-source skip free (a row deleted between scans prunes on the
+      # next wake — never here). Per-user lists are small; a cap/pagination
+      # is epic-09's call if the hub ever needs one (AD-12: not preempted).
       current_user!.requeue_schedules
                    .where(next_due_at: ..day_end)
                    .order(:next_due_at)
+                   .includes(:schedulable)
                    .select { |schedule| schedule.schedulable }
     end
 

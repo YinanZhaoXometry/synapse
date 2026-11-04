@@ -1278,15 +1278,16 @@ type Query {
   ): ChatThread
 
   """
-  The current user's due reviews (FR-24/FR-27, the re-queue's Today-hub read,
-  epic P2-7 ticket 03): the day's due mistakes and flashcards from the scan's
-  materialized schedule, with their study-flow links. `date` defaults to now;
-  due-ness is inclusive — everything scheduled by that day's END answers (an
-  overdue item is still due; the UTC day boundary is the convention, matching the streak).
+  The current user's due reviews (FR-24, the re-queue's Today-hub read, epic
+  P2-7 ticket 03): the day's due mistakes and flashcards from the scan's
+  materialized schedule, with their study-flow links. `date` defaults to today's
+  end (UTC day boundary, matching the streak); due-ness is inclusive —
+  everything scheduled BY that day's end answers, so an overdue item is still
+  due and is never silently dropped.
   """
   dueItems(
     """
-    The day to read (defaults to now; UTC day boundary).
+    The day to read (defaults to now's day; UTC day boundary).
     """
     date: DateTime
   ): [DueItem!]!

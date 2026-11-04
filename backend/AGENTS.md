@@ -17,6 +17,7 @@ Pinned in `backend/Gemfile` (floor pins `~>` — `Gemfile.lock` holds the exact 
 - puma **~> 7.2.1**, pg **~> 1.7.0**
 - strong_migrations **~> 2.8.0** (AD-13)
 - aws-sdk-s3 **~> 1.237.0** (AD-13: the presign seam over ActiveStorage's S3 service — epic P2-6 ticket 01; runtime dep, no other aws-sdk gems)
+- solid_queue **~> 1.7.2** (AD-19: the in-process job queue — epic P2-7 ticket 01; runtime dep, no Redis/Sidekiq)
 - rspec-rails **~> 8.0.4** + factory_bot_rails **~> 6.5.1** (AD-10: specs colocated, commands and GraphQL operations tested directly)
 - rubocop-rails-omakase (house style; `backend/.rubocop.yml` inherits it)
 - Postgres **17** everywhere — dev compose runs `postgres:17-alpine`; production is Neon Postgres 17 (AD-13 local/prod parity)
