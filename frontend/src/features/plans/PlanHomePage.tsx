@@ -3,14 +3,18 @@
  * nodes + materials on the left, attach CTA + quick actions + recent activity
  * on the right. Every number is SERVER truth since the cutover (AD-14): the
  * rollup and node scores/states ride the api's masteryScore/state fields and
- * the streak rides the api — the page never recomputes. Materials attach via
- * the upload flow (FR-2; Q1; epic P2-6): validated (PDF/Markdown ≤ 20MB),
- * attached idempotently, bytes PUT straight to storage through the presigned
- * URL, then parsed eagerly by the reader's parse(file) API (AD-7) — the row's
- * chip walks pending → parsing → parsed | failed (+ retry while bytes exist —
- * this session's registry OR the server copy via the presigned GET). Quick
- * actions never promise dead clicks: generation tiles explain their slice,
- * upload opens the real file picker.
+ * the streak rides the api — the page never recomputes. The nodes zone is a
+ * two-way toggle (epic P2-10 T4, FR-5 — the UX spine's "view tab inside Plan
+ * Home"): the stage-grouped list (default) or the interactive roadmap graph.
+ * Both ride the PLAN-SCOPE batch mapping read (one read for every node's
+ * click-through rows — T4's binding, the per-node read was an eager N+1).
+ * Materials attach via the upload flow (FR-2; Q1; epic P2-6): validated
+ * (PDF/Markdown ≤ 20MB), attached idempotently, bytes PUT straight to storage
+ * through the presigned URL, then parsed eagerly by the reader's parse(file)
+ * API (AD-7) — the row's chip walks pending → parsing → parsed | failed
+ * (+ retry while bytes exist — this session's registry OR the server copy via
+ * the presigned GET). Quick actions never promise dead clicks: generation
+ * tiles explain their slice, upload opens the real file picker.
  */
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -28,6 +32,7 @@ import {
   useMaterialUpload,
   useFlashcardsByPlanQuery,
   usePlanMaterialsQuery,
+  usePlanNodeMappingsQuery,
   usePlanNodesQuery,
   usePlanQuery,
   useReadingProgressQuery,
@@ -38,6 +43,7 @@ import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "./display-shaping";
 import NodeRow from "./node-row";
+import RoadmapGraph from "./RoadmapGraph";
 import { localeTag } from "./locale";
 import { validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
@@ -76,6 +82,14 @@ export default function PlanHomePage() {
   // Epic P2-10 T1 (FR-45; delta decision 3): the per-material coverage panel
   // expands under its parsed row — one open at a time keeps the list scannable.
   const [coverageFor, setCoverageFor] = useState<string | null>(null);
+  // Epic P2-10 T4 (FR-5): the roadmap graph is a VIEW TAB inside Plan Home
+  // (the UX spine's Phase-2 position) — the stage-grouped list stays the
+  // default; the toggle swaps the nodes zone only.
+  const [nodesView, setNodesView] = useState<"list" | "graph">("list");
+  // The plan-scope batch mapping read (T4's binding — one read for every
+  // node-attached row instead of the per-node N+1): feeds the tree rows AND
+  // the graph's detail actions.
+  const mappingsQuery = usePlanNodeMappingsQuery(id ?? "");
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -147,6 +161,7 @@ export default function PlanHomePage() {
 
   const metrics = planCardMetrics(plan, nodes);
   const activity = planRecentActivity(nodes, evidence);
+  const views = nodeRowViews(nodes, evidence);
   const hasMaterials = materials.length > 0;
   // Quiz generation needs parsed sections (FR-18 sourcing honesty) — pending/
   // failed/empty materials cannot serve a quiz, so they don't unlock the tile.
@@ -217,16 +232,53 @@ export default function PlanHomePage() {
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 mt-5 items-start">
         {/* left zone: nodes + materials */}
         <div className="min-w-0">
-          {stageGroups(nodeRowViews(nodes, evidence)).map((group) => (
-            <section key={group.stage ?? t("plans.stageUntitled")} className="mb-5">
-              <h2 className="eyebrow mb-2">{group.stage ?? t("plans.stageUntitled")}</h2>
-              <div className="bg-card border border-border-soft rounded-2xl shadow-raised divide-y divide-border-soft">
-                {group.rows.map((view) => (
-                  <NodeRow key={view.node.id} view={view} planId={plan.id} materials={materials} />
-                ))}
-              </div>
+          <div className="flex items-center gap-2 mb-3" role="group">
+            <button
+              type="button"
+              aria-pressed={nodesView === "list"}
+              onClick={() => setNodesView("list")}
+              className={cn("pill cursor-pointer", nodesView !== "list" && "pill-muted")}
+            >
+              {t("plans.viewList")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={nodesView === "graph"}
+              onClick={() => setNodesView("graph")}
+              className={cn("pill cursor-pointer", nodesView !== "graph" && "pill-muted")}
+            >
+              {t("plans.viewGraph")}
+            </button>
+          </div>
+          {nodesView === "graph" ? (
+            <section className="mb-5">
+              <RoadmapGraph
+                planId={plan.id}
+                views={views}
+                materials={materials}
+                mappings={mappingsQuery.data}
+                mappingsFailed={!!mappingsQuery.error}
+              />
             </section>
-          ))}
+          ) : (
+            stageGroups(views).map((group) => (
+              <section key={group.stage ?? t("plans.stageUntitled")} className="mb-5">
+                <h2 className="eyebrow mb-2">{group.stage ?? t("plans.stageUntitled")}</h2>
+                <div className="bg-card border border-border-soft rounded-2xl shadow-raised divide-y divide-border-soft">
+                  {group.rows.map((view) => (
+                    <NodeRow
+                      key={view.node.id}
+                      view={view}
+                      planId={plan.id}
+                      materials={materials}
+                      mappings={mappingsQuery.data}
+                      mappingsFailed={!!mappingsQuery.error}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
 
           <section>
             <div className="flex items-center justify-between mb-2">

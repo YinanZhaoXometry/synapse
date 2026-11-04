@@ -538,6 +538,15 @@ svg.lucide {
   stroke-width: 1.8;
 }
 
+/* Roadmap graph (epic P2-10 T4): the pan/zoom viewport's smooth transform
+   transition — applied ONLY when the app's motion setting is on (the graph
+   omits the class when reduce-motion; the global prefers-reduced-motion +
+   body.reduce-motion rules kill it regardless). Also OUTSIDE @layer for the
+   same Tailwind-purge reason. */
+.roadmap-viewport-motion {
+  transition: transform 160ms ease-out;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

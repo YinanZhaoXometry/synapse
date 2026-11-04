@@ -1,52 +1,54 @@
 /**
- * One Plan-Home node row (epic P2-10 T3, FR-6/7): the state rides the SHARED
- * node-state contract (node-state.tsx — SERVER fields rendered, never
- * recomputed, AD-14), and the row carries the node's click-through:
- * ≥1 confirmed mapping → the reader at the mapped section through the anchor
- * channel (single target = a direct link; several = a jump menu listing the
- * mapped sections BY TITLE); otherwise — or by choice, the secondary action —
- * the node Quick Test into the plan flow (/plan/:planId/quiz?nodeId=<id>).
- * HONEST SCOPING (ticket Comments): node-scoped quiz GENERATION lands with
- * T5's node_scope; this launch satisfies the click-through at this layer.
- * The row's mappings ride the per-node mapping read
- * (useNodeMaterialMappingsQuery): while it loads there is no honest action to
- * show; a failed read falls back to the always-valid Quick Test. The evidence
- * popover is unchanged (the marks are presentation over evidence, never a
- * score). Keyboard-complete (AD-9): every action is a native link/button.
+ * One Plan-Home node row (epic P2-10 T3, FR-6/7; T4 swaps the data source):
+ * the state rides the SHARED node-state contract (node-state.ts — SERVER
+ * fields rendered, never recomputed, AD-14), and the row carries the node's
+ * click-through: ≥1 confirmed mapping → the reader at the mapped section
+ * through the anchor channel (single target = a direct link; several = a jump
+ * menu listing the mapped sections BY TITLE); otherwise — or by choice, the
+ * secondary action — the node Quick Test into the plan flow
+ * (/plan/:planId/quiz?nodeId=<id>). The actions render through the shared
+ * NodeActions (node-actions.tsx) — the graph's detail sheet uses the same.
+ *
+ * T4 BINDING (ticket 03's Comments): the row's mappings ride the PLAN-SCOPE
+ * batch read (usePlanNodeMappingsQuery at PlanHomePage — the per-row
+ * materialNodeMappings(nodeId:) read was an eager N+1 at the 30+ node bar),
+ * passed down pre-read; the row filters its own node's rows (same wire shape
+ * — every status rides, nodeJumpTargets filters confirmed). While the batch
+ * read is in flight there is no honest action to show; a failed read falls
+ * back to the always-valid Quick Test (the docstring's promise — the row
+ * never renders with NO click-through). The evidence popover is unchanged
+ * (the marks are presentation over evidence, never a score). Keyboard-
+ * complete (AD-9): every action is a native link/button.
  */
-import { Link } from "react-router-dom";
-import { BookOpen, ListChecks, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNodeMaterialMappingsQuery } from "@/api";
-import type { MaterialView } from "@/api/views";
+import type { MaterialNodeMappingView, MaterialView } from "@/api/views";
 import { OutcomeMark } from "./atoms";
 import type { NodeRowView } from "./display-shaping";
 import { OUTCOME_LABEL_KEY } from "./outcome-labels";
+import NodeActions from "./node-actions";
 import { NodeStateBadge } from "./node-state-badge";
-import { nodeJumpTargets, nodePrimaryAction, nodeQuickTestHref } from "./node-state";
-import type { NodePrimaryAction } from "./node-state";
+import { nodeJumpTargets } from "./node-state";
 
-const ACTION_CLASS =
-  "inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none";
-
-export default function NodeRow({ view, planId, materials }: { view: NodeRowView; planId: string; materials: MaterialView[] }) {
+export default function NodeRow({
+  view,
+  planId,
+  materials,
+  mappings,
+  mappingsFailed = false,
+}: {
+  view: NodeRowView;
+  planId: string;
+  materials: MaterialView[];
+  /** The plan-scope batch rows (T4); undefined while the batch read is in flight. */
+  mappings?: MaterialNodeMappingView[];
+  mappingsFailed?: boolean;
+}) {
   const { t } = useLanguage();
-  const mappingsQuery = useNodeMaterialMappingsQuery(view.node.id);
-  const quickTestHref = nodeQuickTestHref(planId, view.node.id);
-  // While the read is in flight there is no honest action to show (the
-  // primary action DEPENDS on it — flip once, never lie); a FAILED read falls
-  // back to the always-valid Quick Test (the docstring's promise — the row
-  // never renders with NO click-through). Stale data on a refetch failure
-  // still wins: real mappings beat the fallback.
-  const targets = mappingsQuery.data ? nodeJumpTargets(mappingsQuery.data, materials) : null;
-  const action: NodePrimaryAction | null = targets
-    ? nodePrimaryAction(targets, planId, view.node.id)
-    : mappingsQuery.error
-      ? { kind: "quiz", href: quickTestHref }
-      : null;
-  const quickTestAria = t("plans.nodeQuickTestAria", { node: view.node.title });
-
+  // The node's rows off the batch, resolved into REAL jump targets (the
+  // anchor channel — nodeJumpTargets filters confirmed + parsed + present).
+  const targets = mappings ? nodeJumpTargets(nodeRowsFor(mappings, view.node.id), materials) : null;
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <NodeStateBadge state={view.state} />
@@ -54,58 +56,13 @@ export default function NodeRow({ view, planId, materials }: { view: NodeRowView
       <span className="font-display font-bold tabular-nums text-[13px] text-muted-foreground">
         {view.hasEvidence ? `${view.score}%` : "—"}
       </span>
-      {action?.kind === "study" && action.targets.length === 1 && (
-        <Link
-          to={action.targets[0].href}
-          aria-label={t("plans.nodeStudyAria", { node: view.node.title })}
-          data-testid="node-study-action"
-          className={ACTION_CLASS}
-        >
-          <BookOpen className="w-3 h-3" aria-hidden="true" /> {t("plans.nodeStudyAction")}
-        </Link>
-      )}
-      {action?.kind === "study" && action.targets.length > 1 && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("plans.nodeJumpMenuAria", { node: view.node.title })}
-              aria-haspopup="menu"
-              data-testid="node-jump-trigger"
-              className={ACTION_CLASS}
-            >
-              <BookOpen className="w-3 h-3" aria-hidden="true" /> {t("plans.nodeStudyAction")}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 text-xs" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <p className="eyebrow mb-1.5">{t("plans.nodeJumpMenuLabel")}</p>
-            <div className="flex flex-col gap-1" role="menu" aria-label={t("plans.nodeJumpMenuAria", { node: view.node.title })}>
-              {action.targets.map((target) => (
-                <Link
-                  key={target.mappingId}
-                  to={target.href}
-                  role="menuitem"
-                  data-testid="node-jump-item"
-                  className="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-[var(--glass-2)] text-foreground cursor-pointer"
-                >
-                  <BookOpen className="w-3 h-3 text-accent-ink flex-none" aria-hidden="true" />
-                  <span className="truncate">{target.title ?? target.sectionId}</span>
-                </Link>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-      )}
-      {action && (
-        <Link
-          to={action.kind === "quiz" ? action.href : quickTestHref}
-          aria-label={quickTestAria}
-          data-testid="node-quick-test"
-          className={ACTION_CLASS}
-        >
-          <ListChecks className="w-3 h-3" aria-hidden="true" /> {t("plans.nodeQuickTest")}
-        </Link>
-      )}
+      <NodeActions
+        targets={targets}
+        failed={mappingsFailed}
+        planId={planId}
+        nodeId={view.node.id}
+        nodeTitle={view.node.title}
+      />
       <Popover>
         <PopoverTrigger asChild>
           <button
@@ -138,4 +95,9 @@ export default function NodeRow({ view, planId, materials }: { view: NodeRowView
       </Popover>
     </div>
   );
+}
+
+/** The node's own rows off the plan-scope batch (same shape as the per-node read answered). */
+function nodeRowsFor(mappings: MaterialNodeMappingView[], nodeId: string): MaterialNodeMappingView[] {
+  return mappings.filter((row) => row.nodeId === nodeId);
 }

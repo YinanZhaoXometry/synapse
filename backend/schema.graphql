@@ -2458,6 +2458,22 @@ type Query {
   ): StudyPlan
 
   """
+  One plan's node-attached mapping rows in ONE read (FR-5/FR-7, epic P2-10 T4 —
+  the plan-scope batch over the per-node reads; the roadmap graph's node-detail
+  actions need every node's rows at once). Every status rides (the wire's one
+  mapping-list vocabulary, T3's precedent); the consumer filters confirmed for
+  its jump targets. Rows attached to NO node (the gap proposals / unmapped rows)
+  serve no node surface and are excluded. A foreign or unknown plan id is
+  uniformly NOT_FOUND (kickoff delta 2 — never reveals existence).
+  """
+  planNodeMappings(
+    """
+    Scope to a plan's nodes' mapping rows.
+    """
+    planId: String!
+  ): [MaterialNodeMapping!]!
+
+  """
   The current user's study plans — a plain list (AD-12: Relay connections only when a list truly paginates).
   """
   plans: [StudyPlan!]!

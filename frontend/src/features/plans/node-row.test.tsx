@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
-import { usePlanNodesQuery, usePlanQuery, useRecordEvidenceMutation } from "@/api";
-import { NodeMaterialMappingsDocument, PlanDocument, RecordEvidenceDocument } from "@/types/graphql";
+import { usePlanNodeMappingsQuery, usePlanNodesQuery, usePlanQuery, useRecordEvidenceMutation } from "@/api";
+import { PlanDocument, PlanNodeMappingsDocument, RecordEvidenceDocument } from "@/types/graphql";
 import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { nodeRowViews } from "./display-shaping";
 import NodeRow from "./node-row";
@@ -70,9 +70,14 @@ const wireMapping = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const mappingsMock = (rows: Record<string, unknown>[]): MockedResponse => ({
-  request: { query: NodeMaterialMappingsDocument, variables: { nodeId: "n-1" } },
-  result: { data: { __typename: "Query", materialNodeMappings: rows } },
+  request: { query: PlanNodeMappingsDocument, variables: { planId: "plan-1" } },
+  result: { data: { __typename: "Query", planNodeMappings: rows } },
 });
+
+const failedMappingsMock: MockedResponse = {
+  request: { query: PlanNodeMappingsDocument, variables: { planId: "plan-1" } },
+  error: new Error("mapping read failed"),
+};
 
 const MATERIALS: MaterialView[] = [
   {
@@ -97,12 +102,14 @@ const MATERIALS: MaterialView[] = [
 
 /**
  * The real row composition: rows ride the plan-nodes read like PlanHome's do,
- * and the record button fires the evidence mutation exactly as the quiz driver
- * does (the live-update test's only affordance).
+ * the mapping rows ride the PLAN-SCOPE batch read (T4's binding — the per-node
+ * read was an eager N+1), and the record button fires the evidence mutation
+ * exactly as the quiz driver does (the live-update test's only affordance).
  */
 function RowHarness() {
   const views = nodeRowViews(usePlanNodesQuery("plan-1").data ?? [], []);
   const rollup = usePlanQuery("plan-1").data?.plan.masteryScore;
+  const mappings = usePlanNodeMappingsQuery("plan-1");
   const [recordEvidence] = useRecordEvidenceMutation();
   return (
     <>
@@ -111,7 +118,14 @@ function RowHarness() {
       </button>
       <span data-testid="plan-rollup">{rollup}</span>
       {views.map((view) => (
-        <NodeRow key={view.node.id} view={view} planId="plan-1" materials={MATERIALS} />
+        <NodeRow
+          key={view.node.id}
+          view={view}
+          planId="plan-1"
+          materials={MATERIALS}
+          mappings={mappings.data}
+          mappingsFailed={!!mappings.error}
+        />
       ))}
     </>
   );
@@ -190,10 +204,7 @@ describe("NodeRow click-through (FR-7)", () => {
   it("the mappings read FAILS → the always-valid Quick Test still renders (no study action)", async () => {
     // The spec floor the module docstring promises: a failed mapping read must
     // not strip the row of EVERY action — the Quick Test is always valid.
-    mount([
-      planMock(),
-      { request: { query: NodeMaterialMappingsDocument, variables: { nodeId: "n-1" } }, error: new Error("mapping read failed") },
-    ]);
+    mount([planMock(), failedMappingsMock]);
 
     const quickTest = await screen.findByTestId("node-quick-test");
     expect(quickTest).toHaveAttribute("href", "/plan/plan-1/quiz?nodeId=n-1");
