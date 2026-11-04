@@ -4,7 +4,7 @@
 
 **Blocked by:** 3.
 
-**Status:** ready-for-close-out (implementation + gates done 2026-11-05 on `epic/p2-10-t04-graph`; the live browser smoke runs at epic close-out — see Comments)
+**Status:** done (2026-11-05 — merged to `epic/p2-10-nodes` after fix round; gates: rspec 860 / rubocop clean / vitest 531 / tsc+eslint clean / build ok; the live browser smoke runs at epic close-out — the one open item, tracked in the epic tracker)
 
 **Bound by:** FR-5 (structure-faithful, interactive), AD-9 (accessibility floor on a canvas-ish surface — keyboard path mandatory), NFR-6 (bundle discipline — lazy import if heavy).
 
@@ -24,3 +24,4 @@
 - Gates (2026-11-05, worktree `epic/p2-10-t04-graph`): backend rubocop clean (342 files) + rspec green (860 = 855 baseline + 5 new); frontend codegen/tsc/eslint clean (0 errors, the 12 pre-existing scaffold warnings) + vitest 527 (502 baseline + 25 new: 10 layout + 15 graph) + `vite build` ok. Schema movement: `planNodeMappings` query added to `backend/schema.graphql` (IDL re-dump, idempotency spec green) + `src/types/graphql.ts` regenerated.
 - HONEST SCOPING: the live browser smoke (30+ nodes, both themes, reduced-motion) runs at epic close-out per the orchestrator's pin; the jsdom suite ships the 36-node render + interaction coverage now. Node-scoped quiz GENERATION still lands with T5 (the Quick Test launch names the node's context; the graph's secondary action rides the same T3 semantics).
 - i18n (both languages): `plans.stageUngrouped`, `plans.viewList`, `plans.viewGraph`, `plans.graphAria`, `plans.graphNodeAria`, `plans.graphZoomIn/Out/Reset`, `plans.graphHint`, `plans.graphActionsPending`, `plans.graphEmpty`. Semantic tokens only on the canvas (state tints via the shared face contract; edges/focus ring/labels on `--border`/`--border-soft`/`--accent-ring`/`--muted-foreground`); both modes + palettes inherit the tokens (live-theme verification rides the close-out smoke).
+- **Two-axis review round 1** (merge `a83840e`): compliance FAIL (2P1+1P2) / contract PASS (2P2). Fixed on `epic/p2-10-t04-fix` (merged): [P1] zoom toolbar `stopPropagation` — pointer capture was eating real Chromium clicks (jsdom couldn't reproduce; test pins the observable pointer contract); [P1] `ensureBoxVisible` — keyboard focus now pans the focused box into the viewport (zoom-aware, exact-transform test); [P2] `select-none` on the canvas; [P2] `focusedId` reconciliation effect (Tab floor can't strand). Post-fix baselines: rspec 860 / vitest 531. The fold refusal (Analytics/Mistakes demo surfaces) was verified honest by the compliance axis — the T3 comment about MistakesPage carrying node state did not match the code.
