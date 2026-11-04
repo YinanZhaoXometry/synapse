@@ -14,7 +14,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { clearToken, resetApiClient } from "@/apollo";
+import { clearToken, logout, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
@@ -177,6 +177,24 @@ export default function SettingsPage() {
       {/* Group 3 — data + keyboard */}
       <section className="settings-group">
         <h2>{t("settings.general")}</h2>
+
+        <div className="setting-row">
+          <div className="flex-1 min-w-0">
+            <div className="setting-label">{t("settings.logout")}</div>
+            <div className="setting-help mt-0.5">{t("settings.logoutNote")}</div>
+          </div>
+          <button
+            type="button"
+            className="shrink-0 rounded-[10px] bg-card px-3 py-[7px] text-xs font-semibold shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition-colors hover:bg-[var(--glass-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] cursor-pointer"
+            onClick={() => {
+              // AD-15 client-side logout (ticket 02): token + cache + live
+              // streams die here; preferences stay (that is reset's job).
+              void logout().then(() => window.location.replace("/login"));
+            }}
+          >
+            {t("settings.logout")}
+          </button>
+        </div>
 
         <div className="setting-row">
           <div className="flex-1 min-w-0">

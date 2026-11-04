@@ -1,12 +1,14 @@
 import { ApolloProvider } from "@apollo/client/react";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet, useLocation } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProgressProvider } from "@/contexts/UserProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { apolloClient } from "@/apollo";
+import { apolloClient, isLoggedIn } from "@/apollo";
+import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
 import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entry-decision";
 import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
@@ -36,17 +38,28 @@ const TaskCreatePage = lazy(() => import("@/features/tasks/TaskCreatePage"));
 const TaskHomePage = lazy(() => import("@/features/tasks/TaskHomePage"));
 
 /**
- * Front-door guard (AD-8, reshaped at the cutover — epic P2-8 T1): the root
- * always lands on Plans Home, where the creation chat is the front door's
- * primary surface for a first-run (empty-server) learner. The legacy
- * first-run flag is no longer consulted client-side; ticket 02's login wall
- * and ticket 03's import invite re-shape the entry states on this branch.
- * The onboarding wizard stays reachable at /onboarding for review.
+ * Front-door guard (AD-8, reshaped by ticket 02's login wall): a token sends
+ * the root to Plans Home (the creation chat is the front door's primary
+ * surface); no token lands on /login — the wall owns the first visit now.
  */
 function EntryGate() {
   const destination = resolveEntryDestination(true);
-  if (destination === "plans") return <Navigate to={PLANS_HOME_ROUTE} replace />;
-  return <OnboardingPage />;
+  if (destination === "plans") return <Navigate to={isLoggedIn() ? PLANS_HOME_ROUTE : "/login"} replace />;
+  return <Navigate to="/login" replace />;
+}
+
+/**
+ * The route guard (AD-15, ticket 02): unauthenticated users bounce to /login
+ * with their destination carried in router state, so a successful login
+ * resumes the exact deep link. The wall pages themselves stay outside this
+ * wrapper — the pre-login surface makes no api reads (NFR-6).
+ */
+export function RequireAuth() {
+  const location = useLocation();
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  }
+  return <Outlet />;
 }
 
 const App = () => (
@@ -59,6 +72,10 @@ const App = () => (
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<EntryGate />} />
+                {/* the wall (AD-15): standalone static screens, outside the shell */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route element={<RequireAuth />}>
                 <Route element={<AppLayout />}>
                   <Route path="/plans" element={<PlansHomePage />} />
                   <Route path="/onboarding" element={<OnboardingPage />} />
@@ -112,6 +129,7 @@ const App = () => (
                   <Route path="/achievements" element={<AchievementsPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  </Route>
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -1,0 +1,24 @@
+# Auth operations (epic P2-8 T2, AD-15) — the login wall's only api touches.
+# The pre-login surface itself stays static (NFR-6): these fire only on submit.
+
+mutation Login($input: LoginInput!) {
+  login(input: $input) {
+    token
+    user {
+      id
+      email
+      createdAt
+    }
+  }
+}
+
+mutation Register($input: RegisterInput!) {
+  register(input: $input) {
+    token
+    user {
+      id
+      email
+      createdAt
+    }
+  }
+}

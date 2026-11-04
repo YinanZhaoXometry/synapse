@@ -22,6 +22,7 @@ export { AppError } from "@/lib/app-error";
 export { sessionBlobs, createSessionBlobRegistry, type SessionBlobRegistry } from "@/lib/session-blobs";
 export type { PlanDetail } from "./queries/plan-queries";
 
+export * from "./queries/auth-queries";
 export * from "./queries/plan-queries";
 export * from "./queries/material-queries";
 export * from "./queries/study-queries";

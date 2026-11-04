@@ -6,4 +6,5 @@
 export { apolloClient, createApolloClient, getApolloClient } from "./client";
 export { clearToken, getToken, setToken } from "./auth-token";
 export { registerStreamTerminator, resetApiClient } from "./reset";
+export { isLoggedIn, logout } from "./session";
 export type { StreamTerminator } from "./reset";

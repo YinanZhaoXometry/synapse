@@ -20,6 +20,7 @@ export interface HarnessState {
   sessions: Array<Record<string, unknown>>;
   evidence: Array<Record<string, unknown>>;
   mistakes: Array<Record<string, unknown>>;
+  plans: Array<Record<string, unknown>>;
 }
 
 export type OperationHandler = (variables: Record<string, unknown>, state: HarnessState) => Record<string, unknown> | undefined;
@@ -35,7 +36,7 @@ export type EchoFixture = Record<string, any>; // eslint-disable-line @typescrip
 
 /** The harness's captured server state — a test's assertion surface. */
 export function createHarnessState(): HarnessState {
-  return { sessions: [], evidence: [], mistakes: [] };
+  return { sessions: [], evidence: [], mistakes: [], plans: [] };
 }
 
 function answerOperation(

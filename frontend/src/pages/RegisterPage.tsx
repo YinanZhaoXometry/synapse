@@ -1,0 +1,60 @@
+/**
+ * /register (epic P2-8 T2; AD-15): create an account and land inside — same
+ * wall contract as login (static surface, enum-mapped errors, deep-link
+ * return). Client-side checks mirror the api's own rules (email shape,
+ * password ≥ 8) so the humane copy fires without a round trip; the server
+ * remains the authority (VALIDATION_FAILED maps to its own key).
+ */
+import { useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useRegisterMutation } from "@/api";
+import { getToken, setToken } from "@/apollo";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { AuthShell, authErrorKey, type AuthFieldErrors } from "./auth-shell";
+
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function RegisterPage() {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [register, { loading: registering }] = useRegisterMutation();
+  const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
+  const [error, setError] = useState<string | null>(null);
+
+  if (getToken()) return <Navigate to="/plans" replace />;
+
+  const from = (location.state as { from?: string } | null)?.from ?? "/plans";
+
+  const submit = (email: string, password: string) => {
+    setError(null);
+    const fields: AuthFieldErrors = {};
+    if (!EMAIL_SHAPE.test(email)) fields.email = "auth.clientEmailInvalid";
+    if (password.length < 8) fields.password = "auth.clientPasswordShort";
+    setFieldErrors(fields);
+    if (fields.email || fields.password) return;
+    register({
+      variables: { input: { email, password } },
+      onCompleted: (data) => {
+        setToken(data.register.token);
+        navigate(from, { replace: true });
+      },
+      onError: (e) => setError(authErrorKey(e)),
+    });
+  };
+
+  return (
+    <AuthShell
+      eyebrowKey="auth.eyebrow"
+      titleKey="auth.registerTitle"
+      submitLabelKey="auth.registerSubmit"
+      busy={registering}
+      fieldErrors={fieldErrors}
+      error={error}
+      onSubmit={submit}
+      switchTo={{ to: "/login", labelKey: "auth.toLogin", hintKey: "auth.loginHint" }}
+    >
+      <p className="text-[11px] leading-[1.5] text-muted-foreground mt-3">{t("auth.passwordHint")}</p>
+    </AuthShell>
+  );
+}
