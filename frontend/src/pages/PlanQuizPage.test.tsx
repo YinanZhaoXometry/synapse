@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -17,6 +17,29 @@ import {
 } from "@/test/apollo-harness";
 import type { MaterialSection } from "@/domain/entities";
 import PlanQuizPage from "./PlanQuizPage";
+
+// The recording seam (T5): every AI call delegates to the real simulated
+// adapter, and generateQuiz inputs are captured so the page-level launch
+// asserts read the EXACT seam input the driver sent (the targeting
+// pass-through's observation point).
+const generatedQuizInputs: Array<Record<string, unknown>> = [];
+vi.mock("@/ai/companion-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/ai/companion-service")>();
+  const real = actual.getCompanionService();
+  return {
+    ...actual,
+    getCompanionService: () => ({
+      chat: (...args: Parameters<typeof real.chat>) => real.chat(...args),
+      generatePlanStructure: (...args: Parameters<typeof real.generatePlanStructure>) => real.generatePlanStructure(...args),
+      generateQuiz: async (input: Parameters<typeof real.generateQuiz>[0]) => {
+        generatedQuizInputs.push(input);
+        return real.generateQuiz(input);
+      },
+      generateFlashcards: (...args: Parameters<typeof real.generateFlashcards>) => real.generateFlashcards(...args),
+      gradeOpenAnswer: (...args: Parameters<typeof real.gradeOpenAnswer>) => real.gradeOpenAnswer(...args),
+    }),
+  };
+});
 
 /**
  * PlanQuizPage observable states (T2; spec testing seam 3 — component render
@@ -298,6 +321,7 @@ async function flushWrites() {
 
 beforeEach(() => {
   sessionStorage.clear();
+  generatedQuizInputs.length = 0;
 });
 
 describe("PlanQuizPage — honest routes (FR-18; AD-8)", () => {
@@ -317,13 +341,16 @@ describe("PlanQuizPage — honest routes (FR-18; AD-8)", () => {
     expect(screen.queryByTestId("quiz-node-context")).not.toBeInTheDocument();
   });
 
-  it("?nodeId=<plan node> names the node's context above the launcher — honestly (epic P2-10 T3: generation still rides the plan flow until T5)", async () => {
+  it("?nodeId=<plan node> names the node's context above the launcher — honestly (epic P2-10 T5: the launch IS node-scoped, the note says so)", async () => {
     const harness = makePageHarness();
     renderQuizPage(harness, `/plan/${PLAN_ID}/quiz?nodeId=n-1`);
     const strip = await screen.findByTestId("quiz-node-context");
     expect(strip.textContent).toContain(zhVars("quiz.nodeContext", { node: "软件测试" }));
     expect(strip.textContent).toContain(zh("quiz.nodeContextNote"));
-    // The launcher itself is unchanged — the plan-flow launch (T5 completes scope).
+    // The old T3 promise (「先按整个计划出题」) is gone — the loop is closed.
+    expect(strip.textContent).not.toContain("整个计划");
+    expect(zh("quiz.nodeContextNote")).not.toContain("lands next");
+    // The launcher itself is unchanged — the targeting rides the launch input (below).
     expect(screen.getByTestId("quiz-launcher")).toBeInTheDocument();
   });
 
@@ -332,6 +359,33 @@ describe("PlanQuizPage — honest routes (FR-18; AD-8)", () => {
     renderQuizPage(harness, `/plan/${PLAN_ID}/quiz?nodeId=n-nope`);
     expect(await screen.findByTestId("quiz-launcher")).toBeInTheDocument();
     expect(screen.queryByTestId("quiz-node-context")).not.toBeInTheDocument();
+  });
+
+  it("?nodeId launch closes the loop: the generation seam carries targeting { nodeId } (epic P2-10 T5)", async () => {
+    const harness = makePageHarness();
+    renderQuizPage(harness, `/plan/${PLAN_ID}/quiz?nodeId=n-1`);
+    fireEvent.click(await screen.findByTestId("quiz-mode-choice"));
+    fireEvent.click(screen.getByTestId("quiz-launcher-start"));
+    await screen.findByTestId("quiz-runner", {}, { timeout: 3000 });
+
+    expect(generatedQuizInputs).toHaveLength(1);
+    expect(generatedQuizInputs[0].targeting).toEqual({ nodeId: "n-1" }); // the loop T3 promised, now real
+    // the plan scope is SUPPRESSED at the seam (the server's xor refuses
+    // planId + targeting.nodeId — the node IS the scope; the session still
+    // attributes to the plan server-side, AD-6).
+    expect(generatedQuizInputs[0].planId).toBeNull();
+  });
+
+  it("a plan launch without ?nodeId sends NO targeting (the default-safe path is untouched)", async () => {
+    const harness = makePageHarness();
+    renderQuizPage(harness, `/plan/${PLAN_ID}/quiz`);
+    fireEvent.click(await screen.findByTestId("quiz-mode-choice"));
+    fireEvent.click(screen.getByTestId("quiz-launcher-start"));
+    await screen.findByTestId("quiz-runner", {}, { timeout: 3000 });
+
+    expect(generatedQuizInputs).toHaveLength(1);
+    expect(generatedQuizInputs[0].targeting).toBeNull();
+    expect(generatedQuizInputs[0].planId).toBe(PLAN_ID);
   });
 
   it("unknown session id: honest not-found with a new-quiz way out", async () => {

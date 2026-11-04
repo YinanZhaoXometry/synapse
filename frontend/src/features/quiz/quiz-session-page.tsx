@@ -254,8 +254,10 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
   // No session yet → the launcher inline (the abandoned phase after an exit
   // navigates away via onAbandoned before this branch can commit).
   // The node click-through (epic P2-10 T3) lands here with ?nodeId=<id>: name
-  // the node's context above the launcher, honestly — node-scoped GENERATION
-  // still rides the plan flow until T5's node_scope, and the note says so.
+  // the node's context above the launcher and CLOSE the loop (epic P2-10 T5,
+  // T3's honest-scoping promise) — the launch carries targeting { nodeId } so
+  // the server scopes generation to that node (node_scope: the plan-wide
+  // materials plus its own pins; FR-18). A plan/task launch sends none.
   const nodeParam = searchParams.get("nodeId");
   const nodeContext = nodeParam ? (context.nodes.find((n) => n.id === nodeParam) ?? null) : null;
   return (
@@ -275,6 +277,7 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
           nodeIds={context.nodes.map((n) => n.id)}
           materials={context.materials}
           scopeLocked={context.scopeLocked}
+          targeting={nodeContext ? { nodeId: nodeContext.id } : null}
           onStarted={(sessionId, input) => {
             launchRef.current = { input, materialCount: input.materials.length };
             setSearchParams(new URLSearchParams({ session: sessionId }));

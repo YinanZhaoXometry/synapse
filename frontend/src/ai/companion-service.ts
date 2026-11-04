@@ -46,7 +46,10 @@ export interface CompanionService {
    * (epic P2-8 T5): the server adapter generates SERVER-SIDE from the
    * plan/task scope (the wire carries no sections — materials/nodeIds stay
    * the simulated adapter's local inputs); every real scope carries exactly
-   * one of the two.
+   * one of the two. targeting is T5's additive pass-through (epic P2-10 T5,
+   * FR-21): `{ nodeId }` scopes the generation to that plan node (the node
+   * Quick Test — xor planId/taskId on the wire); the simulated adapter
+   * ignores it.
    */
   generateQuiz(input: {
     materials: MaterialRef[];
@@ -54,6 +57,7 @@ export interface CompanionService {
     mode: QuizMode;
     planId?: string | null;
     taskId?: string | null;
+    targeting?: { nodeId: string } | null;
   }): Promise<GeneratedQuestion[]>;
 
   /** Materials-sourced flashcard generation (FR-19): one card per section. */

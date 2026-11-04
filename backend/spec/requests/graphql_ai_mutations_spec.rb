@@ -161,4 +161,59 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       expect(error_code(invalid)).to eq("VALIDATION_FAILED")
     end
   end
+
+  describe "generateQuiz targeting (epic P2-10 T5)" do
+    # The schema movement over the wire: GenerateQuizInput carries the
+    # optional targeting { nodeId } (QuizTargetingInput); the command's
+    # validation codes surface 1:1 through the closed enum.
+
+    def quiz_variables(uuid, extra)
+      { input: { clientUuid: uuid, mode: "open", language: "zh", planId: nil, **extra } }
+    end
+
+    it "scopes the generation to the targeting node (the Quick Test loop) and attributes the session to the plan" do
+      user, token = user_with_token("ai-targeting@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan, title: "Target node")
+      create(:knowledge_node, user: user, plan: plan, title: "Other node")
+      material = create(:material, user: user, plan: plan, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+      allow(adapter).to receive(:complete).and_return({ questions: [
+        { nodeId: node.id, kind: "open", prompt: "Q?", options: nil, correctOptionIndex: nil,
+          sourceMaterialId: material.id, sourceSectionId: "sec-1", keywords: [ "k" ], explanation: "E" }
+      ] }.to_json)
+
+      result = graphql(
+        <<~GRAPHQL, variables: quiz_variables(SecureRandom.uuid, { targeting: { nodeId: node.id } }), token: token
+          mutation GenerateQuizTargeted($input: GenerateQuizInput!) {
+            generateQuiz(input: $input) {
+              session { id planId mode }
+              questions { id nodeId kind prompt }
+            }
+          }
+        GRAPHQL
+      )
+      payload = result.dig("data", "generateQuiz")
+      aggregate_failures do
+        expect(payload["session"]["planId"]).to eq(plan.id)
+        expect(payload["questions"].sole["nodeId"]).to eq(node.id)
+      end
+      # Still exactly ONE cap-counted provider call (AD-16).
+      expect(user.ai_usage_counters.sole.call_count).to eq(1)
+    end
+
+    it "refuses targeting.nodeId alongside a plan scope with the closed VALIDATION_FAILED" do
+      user, token = user_with_token("ai-targeting-xor@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan)
+
+      result = graphql(
+        <<~GRAPHQL, variables: quiz_variables(SecureRandom.uuid, { planId: plan.id, targeting: { nodeId: node.id } }), token: token
+          mutation GenerateQuizXor($input: GenerateQuizInput!) {
+            generateQuiz(input: $input) { session { id } }
+          }
+        GRAPHQL
+      )
+      expect(error_code(result)).to eq("VALIDATION_FAILED")
+    end
+  end
 end

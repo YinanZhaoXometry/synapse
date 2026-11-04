@@ -50,6 +50,12 @@ export interface QuizStartInput {
   mode: QuizMode;
   planId?: string | null;
   taskId?: string | null;
+  /**
+   * T5 (epic P2-10, FR-21): the node Quick Test scope — `{ nodeId }` rides
+   * the AI seam so the server scopes generation to that plan node (xor the
+   * plan/task scope on the wire). Absent → today's plan/task quiz, untouched.
+   */
+  targeting?: { nodeId: string } | null;
 }
 
 /**
@@ -185,8 +191,10 @@ export function useQuizSession(options: { materials?: Material[] } = {}) {
           mode: input.mode,
           // T5 additive pass-through: the server adapter generates from the
           // plan/task scope (exactly one — AD-6); the double ignores both.
-          planId: input.planId,
-          taskId: input.taskId,
+          planId: input.targeting ? null : input.planId, // a targeting node IS the scope (xor)
+          taskId: input.targeting ? null : input.taskId,
+          // T5's node Quick Test scope (epic P2-10, FR-21) — the double ignores it.
+          targeting: input.targeting ?? null,
         });
         // cancelled mid-generation → stale: no session is created, ever
         if (startGenRef.current !== genId) return;
