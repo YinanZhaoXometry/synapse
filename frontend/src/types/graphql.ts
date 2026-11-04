@@ -585,7 +585,11 @@ export type QuizQuestionInput = {
  * over the plan scope; nodeId set → the node Quick Test scope (xor planId/taskId).
  */
 export type QuizTargetingInput = {
-  /** A PLAN node's uuid — the Quick Test scope. A task node's id is refused (a task quiz already has its scope). */
+  /**
+   * A PLAN node's uuid — the Quick Test scope. A task node's id or a blank value
+   * (""/whitespace) is refused (VALIDATION_FAILED); omit the field (or pass null)
+   * for the weak-spot quota shape.
+   */
   nodeId?: string | null | undefined;
 };
 

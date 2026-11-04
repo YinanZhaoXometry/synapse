@@ -1,11 +1,12 @@
 import { MockedProvider } from "@apollo/client/testing/react";
 import type { MockedResponse } from "@apollo/client/testing";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AbandonQuizSessionDocument,
   AllEvidenceDocument,
+  CreateQuizSessionDocument,
   MaterialsDocument,
   QuizSessionDocument,
   TaskDocument,
@@ -14,6 +15,7 @@ import { QUIZ_FRESH_LAUNCH_KEY } from "@/features/quiz";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
+import { echoQuestion } from "@/test/apollo-harness";
 import TaskQuizPage from "./TaskQuizPage";
 
 /**
@@ -29,6 +31,29 @@ import TaskQuizPage from "./TaskQuizPage";
  * server-shaped (fixtures off the generated fragment types, `__typename`
  * everywhere an id lives). Expected copy reads the copy deck directly.
  */
+
+// The recording seam (the PlanQuizPage suite's precedent): generateQuiz inputs
+// are captured so the launch asserts read the EXACT seam input the driver
+// sent — the targeting-refusal pin's observation point (a task launch must
+// carry NO targeting even with ?nodeId in the URL).
+const generatedQuizInputs: Array<Record<string, unknown>> = [];
+vi.mock("@/ai/companion-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/ai/companion-service")>();
+  const real = actual.getCompanionService();
+  return {
+    ...actual,
+    getCompanionService: () => ({
+      chat: (...args: Parameters<typeof real.chat>) => real.chat(...args),
+      generatePlanStructure: (...args: Parameters<typeof real.generatePlanStructure>) => real.generatePlanStructure(...args),
+      generateQuiz: async (input: Parameters<typeof real.generateQuiz>[0]) => {
+        generatedQuizInputs.push(input);
+        return real.generateQuiz(input);
+      },
+      generateFlashcards: (...args: Parameters<typeof real.generateFlashcards>) => real.generateFlashcards(...args),
+      gradeOpenAnswer: (...args: Parameters<typeof real.gradeOpenAnswer>) => real.gradeOpenAnswer(...args),
+    }),
+  };
+});
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const zh = (key: string) => zhDict[key];
@@ -138,6 +163,58 @@ function pageMocks(options: { session?: Record<string, unknown> | null } = {}) {
       maxUsageCount: 6, // remounts re-fire the session read
     });
   }
+  // The launch-completion mocks (LAST — after the session-specific mock above,
+  // so an existing test's SESSION_ID read still matches its own mock first):
+  // the echo persists the driver's generated questions, and the page's
+  // post-launch ?session=<echo id> read answers the same active task session.
+  mocks.push({
+    request: { query: CreateQuizSessionDocument, variables: () => true },
+    result: (vars) => {
+      const input = (vars as { input: { mode: string; questions: Array<Record<string, unknown>> } }).input;
+      const sessionId = "s-echo-launch";
+      return {
+        data: {
+          __typename: "Mutation",
+          createQuizSession: {
+            __typename: "CreateSessionPayload",
+            session: {
+              __typename: "QuizSession",
+              id: sessionId,
+              planId: null,
+              taskId: TASK_ID,
+              mode: input.mode,
+              status: "active",
+              createdAt: "2026-11-01T00:00:00Z",
+              completedAt: null,
+            },
+            questions: input.questions.map((q, i) => echoQuestion(q, sessionId, i)),
+          },
+        },
+      };
+    },
+  });
+  mocks.push({
+    request: { query: QuizSessionDocument, variables: () => true },
+    result: (vars) => ({
+      data: {
+        quizSession: {
+          __typename: "QuizSession",
+          id: (vars as { id: string }).id,
+          planId: null,
+          taskId: TASK_ID,
+          mode: "choice",
+          status: "active",
+          createdAt: "2026-11-01T00:00:00Z",
+          completedAt: null,
+          questions: [
+            serverQuestion("q-echo-1", "Choice one", 0, "sec-1"),
+            serverQuestion("q-echo-2", "Choice two", 1, "sec-2"),
+          ],
+        },
+      },
+    }),
+    maxUsageCount: 4,
+  });
   return mocks;
 }
 
@@ -167,6 +244,7 @@ function renderQuizPage(path: string, options: Parameters<typeof pageMocks>[0] =
 
 beforeEach(() => {
   sessionStorage.clear();
+  generatedQuizInputs.length = 0;
 });
 
 describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
@@ -216,6 +294,24 @@ describe("TaskQuizPage — honest routes (T4; FR-37 parity; AD-6/8)", () => {
     expect(await screen.findByText(zh("quiz.exitTitle"))).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("quiz-exit-leave"));
     expect(await screen.findByTestId("task-landing")).toBeInTheDocument();
+  });
+
+  // T5 fix: the node click-through is a PLAN-route scope (targeting needs a
+  // PLAN node — the server refuses task nodes under targeting). A stray
+  // ?nodeId on the task route is ignored entirely: no node context strip and
+  // NO targeting on the launch (the task's single material IS its scope).
+  it("a stray ?nodeId on the task route is ignored: no node strip, NO targeting sent (targeting needs a PLAN node)", async () => {
+    renderQuizPage(`/task/${TASK_ID}/quiz?nodeId=${NODE_ID}`);
+
+    expect(await screen.findByTestId("quiz-launcher")).toBeInTheDocument();
+    expect(screen.queryByTestId("quiz-node-context")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("quiz-mode-choice"));
+    fireEvent.click(screen.getByTestId("quiz-launcher-start"));
+    await waitFor(() => expect(generatedQuizInputs).toHaveLength(1), { timeout: 3000 });
+    expect(generatedQuizInputs[0].targeting).toBeNull();
+    expect(generatedQuizInputs[0].taskId).toBe(TASK_ID);
+    expect(generatedQuizInputs[0].planId).toBeNull();
   });
 
   it("a Task Home DIALOG launch is a fresh start, not a resume — no 「已恢复」 note, marker consumed; a genuine reload of the same session keeps the honest note (T6)", async () => {

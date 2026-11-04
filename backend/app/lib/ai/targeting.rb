@@ -80,11 +80,10 @@ module Ai
       end
 
       def clamp_score(score)
-        value = begin
-          Integer(score.to_s.strip, exception: false)
-        rescue ArgumentError
-          nil
-        end
+        # `exception: false` returns nil on unparsable input instead of raising
+        # (no ArgumentError to rescue) — nil falls back to 0, the weakest
+        # possible posture, per this module's documented contract above.
+        value = Integer(score.to_s.strip, exception: false)
         value = 0 if value.nil?
         value.clamp(0, 100)
       end

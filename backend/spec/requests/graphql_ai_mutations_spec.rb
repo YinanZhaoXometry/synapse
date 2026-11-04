@@ -215,5 +215,23 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       )
       expect(error_code(result)).to eq("VALIDATION_FAILED")
     end
+
+    it "refuses a blank targeting.nodeId over the wire (blank ≠ absent — no silent weak-spot shape)" do
+      user, token = user_with_token("ai-targeting-blank@example.com")
+      plan = create(:study_plan, user: user)
+      create(:material, user: user, plan: plan, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+      allow(adapter).to receive(:complete)
+
+      result = graphql(
+        <<~GRAPHQL, variables: quiz_variables(SecureRandom.uuid, { planId: plan.id, targeting: { nodeId: "" } }), token: token
+          mutation GenerateQuizBlankTarget($input: GenerateQuizInput!) {
+            generateQuiz(input: $input) { session { id } }
+          }
+        GRAPHQL
+      )
+      expect(error_code(result)).to eq("VALIDATION_FAILED")
+      expect(adapter).not_to have_received(:complete)
+      expect(user.ai_usage_counters).to be_empty
+    end
   end
 end
