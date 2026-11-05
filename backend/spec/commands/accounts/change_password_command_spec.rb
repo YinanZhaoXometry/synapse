@@ -3,6 +3,24 @@
 require "rails_helper"
 
 RSpec.describe Accounts::ChangePasswordCommand do
+  # Token minting reads JWT_SECRET from ENV (AD-12 config posture) — pin a
+  # known secret for each example and restore whatever was there before.
+  # This spec mints/decodes a JWT directly ("session survives"), so without
+  # the pin it explodes with MissingSecretError wherever ENV carries no
+  # JWT_SECRET (CI) — the request-spec harness's around-block doesn't reach
+  # command specs. Same pattern as the register/login command specs.
+  around do |example|
+    original = ENV["JWT_SECRET"]
+    ENV["JWT_SECRET"] = "test-signing-secret"
+    example.run
+  ensure
+    if original.nil?
+      ENV.delete("JWT_SECRET")
+    else
+      ENV["JWT_SECRET"] = original
+    end
+  end
+
   # Direct command testing (AD-10) — the GraphQL mutation is a thin boundary
   # over this seam (epic-14 T1, FR-30). Rules: verify the CURRENT password
   # against the stored bcrypt digest (a wrong current is an honest field
