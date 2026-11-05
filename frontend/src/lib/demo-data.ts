@@ -48,23 +48,11 @@ export const MATERIALS: Material[] = [
 export const TAG_IDS: Array<"all" | MaterialTag> = ["all", "course", "notes", "exam"];
 
 /* ── Planner ─────────────────────────────────────────── */
-export interface PlannerTask {
-  id: string;
-  key: string;
-  metaKey: string;
-  minutes: number;
-  priority: "high" | "medium" | "low";
-  ai: boolean;
-  done: boolean;
-}
-
-export const DEFAULT_TASKS: PlannerTask[] = [
-  { id: "t1", key: "planner.task1", metaKey: "planner.task1Meta", minutes: 25, priority: "high", ai: true, done: false },
-  { id: "t2", key: "planner.task2", metaKey: "planner.task2Meta", minutes: 40, priority: "medium", ai: false, done: true },
-  { id: "t3", key: "planner.task3", metaKey: "planner.task3Meta", minutes: 12, priority: "low", ai: true, done: false },
-  { id: "t4", key: "planner.task4", metaKey: "planner.task4Meta", minutes: 30, priority: "medium", ai: false, done: false },
-  { id: "t5", key: "planner.task5", metaKey: "planner.task5Meta", minutes: 20, priority: "high", ai: false, done: false },
-];
+// RETIRED (epic P2-09 T3, 2026-11-05): the demo PlannerTask fixture +
+// DEFAULT_TASKS left with /planner's re-point onto the todayHub read model —
+// the page renders only server rows now (due reviews, manual tasks,
+// suggestions). Other demo-data exports stay until their own tickets retire
+// them.
 
 /* ── Achievements ────────────────────────────────────── */
 export interface Badge {
