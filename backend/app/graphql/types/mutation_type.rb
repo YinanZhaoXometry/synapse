@@ -69,5 +69,12 @@ module Types
     # decision 3): the target's home is users.weekly_goal_target; the
     # Settings UI lands with T5.
     field :set_weekly_goal, mutation: Mutations::Hubs::SetWeeklyGoal
+
+    # The manual-task ops (FR-27, epic P2-09 T3): the writes T1 deferred —
+    # the 今日学习 list's own add / completion toggle / delete. The read side
+    # rides todayHub's manual list + summary counts.
+    field :add_manual_task, mutation: Mutations::Hubs::AddManualTask
+    field :set_manual_task_done, mutation: Mutations::Hubs::SetManualTaskDone
+    field :delete_manual_task, mutation: Mutations::Hubs::DeleteManualTask
   end
 end

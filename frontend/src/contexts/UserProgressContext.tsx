@@ -45,7 +45,8 @@ function freshState(): { progress: UserProgress; mastery: Mastery } {
 export function UserProgressProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<UserProgress>(() => freshState().progress);
   const [mastery, setMastery] = useState<Mastery>(() => freshState().mastery);
-  // Tasks live in PlannerPage local state; resetAll is observed via this counter.
+  // The demo planner's tasks left with /planner's todayHub re-point (epic
+  // P2-09 T3); resetAll is observed via this counter (Settings' probe).
   const [resetTick, setResetTick] = useState(0);
 
   const applyQuizOutcome = useCallback((opts: { correct: number; total: number; deltas: MasteryDelta[] }) => {

@@ -2,7 +2,10 @@
 # (backend Hubs module — the scoped queries); these are the web's typed reads
 # over it, added per surface ticket. mistakesHub (T2, FR-23) answers the FLAT
 # newest-first list — grouping, filtering, and title resolution off the ids
-# are the web's rendering concerns, decided here.
+# are the web's rendering concerns, decided here. todayHub + the manual-task
+# ops (T3, FR-27): the 今日学习 assembly read plus the writes T1 deferred —
+# due-item link targets, manual rows, the suggestion slot, and the summary
+# counts ride the wire verbatim; the client renders, never re-aggregates.
 
 query MistakesHub {
   mistakesHub {
@@ -26,5 +29,90 @@ query MistakesHub {
       kind
       options
     }
+  }
+}
+
+query TodayHub {
+  todayHub {
+    due {
+      itemType
+      itemId
+      dueAt
+      stage
+      title
+      nodeId
+      planId
+      taskId
+      materialId
+      questionId
+      sourceLocation {
+        kind
+        page
+        sectionId
+      }
+    }
+    suggestions {
+      planId
+      planTitle
+      nodeId
+      nodeTitle
+    }
+    manual {
+      id
+      title
+      dueDate
+      done
+      createdAt
+      updatedAt
+    }
+    summary {
+      dueCount
+      manualCount
+      doneCount
+    }
+  }
+}
+
+# The week strip's data source (FR-27): the read model has no per-day
+# evidence calendar — consistency (the last 14 UTC days, zeros included)
+# is the honest source, mapped onto the current Mon–Sun UTC week client-side.
+query TodayConsistency {
+  analyticsSeries {
+    consistency {
+      day
+      sessionCount
+    }
+  }
+}
+
+mutation AddManualTask($input: AddManualTaskInput!) {
+  addManualTask(input: $input) {
+    manualTask {
+      id
+      title
+      dueDate
+      done
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+mutation SetManualTaskDone($input: SetManualTaskDoneInput!) {
+  setManualTaskDone(input: $input) {
+    manualTask {
+      id
+      title
+      dueDate
+      done
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+mutation DeleteManualTask($input: DeleteManualTaskInput!) {
+  deleteManualTask(input: $input) {
+    deletedManualTaskId
   }
 }

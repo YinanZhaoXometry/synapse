@@ -5,7 +5,10 @@ import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from 
 // the FR-1 front door landed in epic-2): 学习 group leads with 学习计划
 // (the front door) first, hubs follow, 总览/进度 trail. The orchestrator's
 // pre-decided display order: 学习 (学习计划 → AI 导师 → 学习资料) →
-// 练习 (错题本 → 闪卡 → 测验) → 总览 (仪表盘) → 进度 (成就 → 数据分析).
+// 练习 (错题本 → 今日学习 → 闪卡 → 测验) → 总览 (仪表盘) → 进度 (成就 →
+// 数据分析). 今日学习 returned to the 练习 group when FR-27 landed (epic
+// P2-09 T3) — nav-items' own recorded intent — under the label rule
+// (zh 今日学习, en Today; 学习计划 stays reserved for Study Plans).
 describe("nav-items plan-first ordering (FR-36, epic-7 T3)", () => {
   it("leads the sidebar with the 学习 group whose first item is 学习计划", () => {
     expect(NAV_GROUPS[0].labelKey).toBe("nav.group.learn");
@@ -18,9 +21,12 @@ describe("nav-items plan-first ordering (FR-36, epic-7 T3)", () => {
     expect(learn?.items.map(i => i.labelKey)).toEqual(["nav.plans", "nav.tutor", "nav.materials"]);
   });
 
-  it("orders the 练习 hub group per FR-36's listing minus Today: 错题本 → 闪卡 → 测验", () => {
+  it("orders the 练习 hub group per FR-36's listing: 错题本 → 今日学习 → 闪卡 → 测验", () => {
     const practice = NAV_GROUPS.find(g => g.labelKey === "nav.group.practice");
-    expect(practice?.items.map(i => i.labelKey)).toEqual(["nav.mistakes", "nav.flashcards", "nav.quiz"]);
+    expect(practice?.items.map(i => i.labelKey)).toEqual(["nav.mistakes", "nav.planner", "nav.flashcards", "nav.quiz"]);
+    // Today's hub lives on the retained /planner route under nav.planner —
+    // never a 学习计划 alias (the label rule, FR-27).
+    expect(practice?.items[1].to).toBe("/planner");
   });
 
   it("places 总览 and 进度 after the plan-first groups, in order", () => {
@@ -45,6 +51,7 @@ describe("nav-items plan-first ordering (FR-36, epic-7 T3)", () => {
       "/ai-tutor",
       "/materials",
       "/mistakes",
+      "/planner",
       "/flashcards",
       "/quiz",
       "/dashboard",
