@@ -1,0 +1,24 @@
+# The plan-scope mistake-entries read (epic P2-12 T3, FR-46): the plan
+# companion's "analyze my mistakes" picker — every entry whose node belongs
+# to the plan, in log order, with the mistaken question readable for the
+# picker rows (its source pair drives the grounded jump target).
+query PlanMistakeEntries($planId: String!) {
+  planMistakeEntries(planId: $planId) {
+    id
+    questionId
+    nodeId
+    userAnswer
+    sourceLocation {
+      kind
+      page
+      sectionId
+    }
+    forfeited
+    createdAt
+    question {
+      prompt
+      sourceMaterialId
+      sourceSectionId
+    }
+  }
+}

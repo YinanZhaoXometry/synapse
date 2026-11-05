@@ -10,8 +10,9 @@ module Ai
   #
   # The payload shapes ARE the frozen contract epic-08's client consumes
   # (see ticket 04's ## Comments): companion = {material_id, question,
-  # locator, text, escalated, language}; proposal = {topic, goal, language}
-  # — string-keyed, TS keys verbatim.
+  # locator, text, escalated, language}; proposal = {topic, goal, language};
+  # plan_companion = {plan_id, question, language, mistake_entry_id?} (epic
+  # P2-12 T3, FR-46) — string-keyed, TS keys verbatim.
   class CreateStreamTicketCommand < ApplicationCommand
     include ReadingLocators
 
@@ -24,6 +25,8 @@ module Ai
     option :escalated, optional: true
     option :topic, optional: true
     option :goal, optional: true
+    option :plan_id, optional: true
+    option :mistake_entry_id, optional: true
 
     MAX_QUESTION_CHARS = 20_000
     MAX_TOPIC_CHARS = 500
@@ -41,7 +44,11 @@ module Ai
       return Failure(:VALIDATION_FAILED, { message: "op is invalid", field: :op }) unless Ai::STREAM_OPS.include?(op.to_s)
       return Failure(:VALIDATION_FAILED, { message: "language is invalid", field: :language }) unless Ai::LANGUAGES.include?(language.to_s)
 
-      payload = op == "companion" ? companion_payload : proposal_payload
+      payload = case op.to_s
+      when "companion" then companion_payload
+      when "proposal" then proposal_payload
+      else plan_companion_payload
+      end
       return payload if payload.failure?
 
       if current_user.stream_tickets.where(consumed_at: nil).where(expires_at: Time.current..).count >= MAX_LIVE_TICKETS
@@ -113,6 +120,42 @@ module Ai
         "goal" => goal.to_s.strip,
         "language" => language
       })
+    end
+
+    # Plan-level companion inputs (FR-46, epic P2-12 T3): an owned plan
+    # (uniform NOT_FOUND for foreign/malformed ids — the reads convention),
+    # a question bounded like companion's, and an optional mistake entry
+    # resolved through current_user.mistake_entries (the "analyze my
+    # mistakes" grounding input — also uniform NOT_FOUND). The plan scope
+    # carries no ReadingPosition, so nothing else crosses.
+    def plan_companion_payload
+      return Failure(:VALIDATION_FAILED, { message: "the plan companion stream needs a plan", field: :planId }) unless plan_id
+      return Failure(:NOT_FOUND, { message: "plan not found" }) unless plan_id.to_s.match?(Accounts::UUID_REGEX)
+
+      plan = current_user.study_plans.find_by(id: plan_id)
+      return Failure(:NOT_FOUND, { message: "plan not found" }) unless plan
+
+      entry = nil
+      if mistake_entry_id
+        return Failure(:NOT_FOUND, { message: "mistake entry not found" }) unless mistake_entry_id.to_s.match?(Accounts::UUID_REGEX)
+
+        entry = current_user.mistake_entries.find_by(id: mistake_entry_id)
+        return Failure(:NOT_FOUND, { message: "mistake entry not found" }) unless entry
+      end
+
+      question_text = question.to_s.strip
+      return Failure(:VALIDATION_FAILED, { message: "the plan companion stream needs a question", field: :question }) if question_text.empty?
+      if question_text.length > MAX_QUESTION_CHARS
+        return Failure(:VALIDATION_FAILED, { message: "the question exceeds the length bound", field: :question })
+      end
+
+      payload = {
+        "plan_id" => plan.id,
+        "question" => question_text,
+        "language" => language
+      }
+      payload["mistake_entry_id"] = entry.id if entry
+      Success(payload)
     end
   end
 end

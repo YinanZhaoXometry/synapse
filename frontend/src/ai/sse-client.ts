@@ -56,7 +56,7 @@ import type {
 
 // -- public request/response shapes ---------------------------------------------
 
-export type StreamOp = "companion" | "proposal";
+export type StreamOp = "companion" | "proposal" | "plan_companion";
 
 /** Companion chat: position-grounded, optionally escalated (the ladder). */
 export interface CompanionStreamRequest {
@@ -76,7 +76,21 @@ export interface ProposalStreamRequest {
   language: UiLanguage;
 }
 
-export type StreamRequest = CompanionStreamRequest | ProposalStreamRequest;
+/**
+ * Plan-scope companion chat (FR-46, epic P2-12 T3 — the third stream op):
+ * plan-grounded (no ReadingPosition), with the optional mistake entry as the
+ * "analyze my mistakes" grounding input. Same event vocabulary as companion;
+ * the citation event carries the mistake's own source locator.
+ */
+export interface PlanCompanionStreamRequest {
+  op: "plan_companion";
+  planId: string;
+  question: string;
+  mistakeEntryId?: string;
+  language: UiLanguage;
+}
+
+export type StreamRequest = CompanionStreamRequest | ProposalStreamRequest | PlanCompanionStreamRequest;
 
 /** Structural ReadingPosition (keeps this module import-light). */
 export interface ReadingPositionLike {
@@ -217,6 +231,10 @@ function buildVariables(request: StreamRequest): CreateStreamTicketMutationVaria
     input.question = request.question;
     input.position = { locator: request.position.locator, text: request.position.text };
     input.escalated = request.escalated === true;
+  } else if (request.op === "plan_companion") {
+    input.planId = request.planId;
+    input.question = request.question;
+    input.mistakeEntryId = request.mistakeEntryId;
   } else {
     input.topic = request.topic;
     input.goal = request.goal ?? "";

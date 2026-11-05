@@ -354,6 +354,125 @@ RSpec.describe Ai::ContextAssembler do
     end
   end
 
+  # Plan grounding (FR-46, epic P2-12 T3): the plan-scope chat surface —
+  # mistake-first when an entry rides (companion_grounding's position-text
+  # pattern), then the bounded plan_scope text, then the confirmed-mapping
+  # block. Budget discipline matches the other variants: deterministic,
+  # estimate ≤ budget, truncated flag honest.
+  describe ".plan_grounding" do
+    let(:user) { create(:user) }
+    let(:plan) { create(:study_plan, user: user) }
+
+    def long_section(id, chars)
+      { "id" => id, "title" => "Section #{id}", "text" => ("a" * chars) }
+    end
+
+    it "without a mistake: the bounded plan_scope text rides with the confirmed-mapping block" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "Scoping", order: 1)
+      material = create(:material, user: user, plan: plan, title: "Lecture notes", sections: [
+        { "id" => "sec-1", "title" => "Intro", "text" => "Every row is scoped by user_id." }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-1")
+      # Proposed (not confirmed) and node-less rows never ride the block.
+      create(:material_node_mapping, user: user, material: material, node: node, section_id: "sec-2", proposed_node_title: "Gap")
+      create(:material_node_mapping, :confirmed, user: user, material: material, section_id: "sec-x")
+
+      assembled = described_class.plan_grounding(plan)
+
+      expect(assembled.truncated).to be(false)
+      expect(assembled.text).to include("[nodes]")
+      expect(assembled.text).to include("[material id=#{material.id}")
+      expect(assembled.text).to include("[section id=sec-1")
+      expect(assembled.text).to include("[node Scoping] ← [material Lecture notes] section sec-1")
+      expect(assembled.text).not_to include("← [material Lecture notes] section sec-2")
+      expect(assembled.text).not_to include("sec-x")
+      expect(described_class.estimate_tokens(assembled.text)).to be <= described_class.default_budget
+    end
+
+    it "with a mistake entry: the entry's question + its source section ride FIRST, then the plan scope" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "N", order: 1)
+      material = create(:material, user: user, plan: plan, title: "M", sections: [
+        { "id" => "sec-1", "title" => "Scoping", "text" => "Every row is scoped by user_id." },
+        long_section("sec-9", 40)
+      ])
+      question = create(:question, user: user, node: node, source_material: material,
+                                   source_section_id: "sec-1", prompt: "How is every row scoped?")
+      entry = create(:mistake_entry, user: user, question: question, node: node,
+                                     user_answer: "by title",
+                                     source_location: { "kind" => "markdown", "sectionId" => "sec-1" })
+
+      assembled = described_class.plan_grounding(plan, mistake_entry: entry)
+
+      expect(assembled.truncated).to be(false)
+      expect(assembled.text).to include("[mistake entry]")
+      expect(assembled.text).to include("How is every row scoped?")
+      expect(assembled.text).to include("by title")
+      expect(assembled.text).to include("[section id=sec-1 title=\"Scoping\"]")
+      expect(assembled.text).to include("Every row is scoped by user_id.")
+      expect(assembled.text).to include("[nodes]")
+      expect(assembled.text.index("[mistake entry]")).to be < assembled.text.index("[nodes]")
+    end
+
+    it "resolves the mistake's pdf source location to its page-N section (the companion resolver)" do
+      node = create(:knowledge_node, user: user, plan: plan)
+      material = create(:material, user: user, plan: plan, kind: "pdf", title: "Slides", sections: [
+        { "id" => "page-2", "title" => "Page 2", "text" => "second page content" }
+      ])
+      question = create(:question, user: user, node: node, source_material: material,
+                                   source_section_id: "page-2", prompt: "What is on page 2?")
+      entry = create(:mistake_entry, user: user, question: question, node: node,
+                                     source_location: { "kind" => "pdf", "page" => 2 })
+
+      assembled = described_class.plan_grounding(plan, mistake_entry: entry)
+
+      expect(assembled.text).to include("[section id=page-2 title=\"Page 2\"]")
+      expect(assembled.text).to include("second page content")
+    end
+
+    it "keeps assembling when the mistake's source section matches nothing (stale id)" do
+      node = create(:knowledge_node, user: user, plan: plan)
+      material = create(:material, user: user, plan: plan, sections: [ long_section("sec-1", 30) ])
+      question = create(:question, user: user, node: node, source_material: material,
+                                   source_section_id: "sec-1", prompt: "Q?")
+      entry = create(:mistake_entry, user: user, question: question, node: node,
+                                     source_location: { "kind" => "markdown", "sectionId" => "missing" })
+
+      assembled = described_class.plan_grounding(plan, mistake_entry: entry)
+
+      expect(assembled.truncated).to be(false)
+      expect(assembled.text).to include("[mistake entry]")
+      expect(assembled.text).to include("[section id=sec-1") # the plan scope still rides
+      expect(assembled.text).not_to include("missing")
+    end
+
+    it "drops the mapping block (truncated honest) when the budget cannot fit it" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "N", order: 1)
+      material = create(:material, user: user, plan: plan, sections: [ long_section("s1", 900) ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "s1")
+
+      assembled = described_class.plan_grounding(plan, budget: 200)
+
+      expect(assembled.truncated).to be(true)
+      expect(described_class.estimate_tokens(assembled.text)).to be <= 200
+      expect(assembled.text).not_to include("[confirmed mappings]")
+    end
+
+    it "keeps the never-exceeds-budget invariant when the mistake block is hard-cut" do
+      node = create(:knowledge_node, user: user, plan: plan)
+      material = create(:material, user: user, plan: plan, sections: [ long_section("s1", 60) ])
+      question = create(:question, user: user, node: node, source_material: material,
+                                   source_section_id: "s1", prompt: ("q" * 4_000))
+      entry = create(:mistake_entry, user: user, question: question, node: node,
+                                     source_location: { "kind" => "markdown", "sectionId" => "s1" })
+
+      assembled = described_class.plan_grounding(plan, mistake_entry: entry, budget: 150)
+
+      expect(assembled.truncated).to be(true)
+      expect(assembled.text).to include(Ai::ContextAssembler::TRUNCATION_MARKER)
+      expect(described_class.estimate_tokens(assembled.text)).to be <= 150
+    end
+  end
+
   describe ".default_budget" do
     around do |example|
       original = ENV["AI_CONTEXT_BUDGET_TOKENS"]

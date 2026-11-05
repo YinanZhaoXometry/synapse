@@ -617,9 +617,19 @@ input CreateStreamTicketInput {
   materialId: String
 
   """
-  The streamed op: "companion" | "proposal".
+  plan_companion only: the optional mistake entry's uuid — the "analyze my mistakes" grounding input (ownership-checked).
+  """
+  mistakeEntryId: String
+
+  """
+  The streamed op: "companion" | "proposal" | "plan_companion".
   """
   op: String!
+
+  """
+  plan_companion only: the plan's uuid (ownership-checked — FR-46, epic P2-12 T3).
+  """
+  planId: String
 
   """
   companion only: the current ReadingPosition (the grounding input). The text is
@@ -628,7 +638,7 @@ input CreateStreamTicketInput {
   position: ReadingPositionInput
 
   """
-  companion only: the learner's question.
+  companion / plan_companion: the learner's question.
   """
   question: String
 
@@ -2031,6 +2041,11 @@ type MistakeEntry {
   nodeId: String!
 
   """
+  The mistaken question (FR-46, epic P2-12 T3: its prompt + source pair ride the plan companion's mistake picker rows).
+  """
+  question: Question!
+
+  """
   The answered question's uuid.
   """
   questionId: String!
@@ -2184,7 +2199,7 @@ type Mutation {
   ): CreateSessionPayload
 
   """
-  Mint a single-use stream ticket for a streamed AI op (companion chat / plan proposal) — AD-16.
+  Mint a single-use stream ticket for a streamed AI op (companion chat / plan proposal / plan-scope companion) — AD-16.
   """
   createStreamTicket(
     """
@@ -2643,6 +2658,20 @@ type Query {
     """
     id: String!
   ): StudyPlan
+
+  """
+  One plan's mistake entries (FR-46, epic P2-12 T3 — the plan companion's
+  "analyze my mistakes" picker): every entry whose node belongs to the plan, in
+  log order, with its mistaken question readable for the picker rows. A plain
+  list (AD-12). A foreign or unknown plan id is uniformly NOT_FOUND (kickoff
+  delta 2 — never reveals existence).
+  """
+  planMistakeEntries(
+    """
+    The plan's uuid.
+    """
+    planId: String!
+  ): [MistakeEntry!]!
 
   """
   One plan's node-attached mapping rows in ONE read (FR-5/FR-7, epic P2-10 T4 —

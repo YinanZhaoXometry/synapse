@@ -108,6 +108,83 @@ function errorClient(code: string | null): ApolloClient {
 
 // -- tests ---------------------------------------------------------------------
 
+describe("ServerCompanionService — planChat (the plan_companion stream, epic P2-12 T3)", () => {
+  it("mints the plan grounding inputs INSIDE the ticket and streams the reply tokens", async () => {
+    const { deps, sources, mints } = makeDeps();
+    const adapter = makeAdapter({ deps });
+    const tokens: string[] = [];
+
+    const replyPromise = adapter.planChat(
+      { planId: "plan-1", question: "这个计划的重点是什么？", language: "zh" },
+      (chunk) => tokens.push(chunk),
+    );
+    await settle();
+
+    expect(mints).toHaveLength(1);
+    expect(mints[0]).toEqual({
+      input: {
+        op: "plan_companion",
+        language: "zh",
+        planId: "plan-1",
+        question: "这个计划的重点是什么？",
+        mistakeEntryId: undefined,
+      },
+    });
+
+    sources[0].emit("rung", { intent: "explain", rung: "hint", canEscalate: false, language: "zh" });
+    sources[0].emit("token", { text: "先看" });
+    sources[0].emit("token", { text: "节点层" });
+    sources[0].emit("terminal", { code: "OK" });
+
+    const reply: CompanionReply = await replyPromise;
+    expect(reply).toEqual({
+      intent: "explain",
+      rung: "hint",
+      text: "先看节点层",
+      citations: [],
+      canEscalate: false,
+      language: "zh",
+    });
+    expect(tokens).toEqual(["先看", "节点层"]);
+  });
+
+  it("carries the mistake entry id on the mint and its citation onto the reply (the grounded turn)", async () => {
+    const { deps, sources, mints } = makeDeps();
+    const adapter = makeAdapter({ deps });
+
+    const replyPromise = adapter.planChat({
+      planId: "plan-1",
+      question: "解释错误",
+      language: "en",
+      mistakeEntryId: "mistake-9",
+    });
+    await settle();
+    expect(mints[0]).toMatchObject({
+      input: { op: "plan_companion", mistakeEntryId: "mistake-9", language: "en" },
+    });
+
+    sources[0].emit("rung", { intent: "explain", rung: "hint", canEscalate: false, language: "en" });
+    sources[0].emit("token", { text: "the assumption you skipped" });
+    sources[0].emit("citation", { locator: { kind: "pdf", page: 3 }, quote: null });
+    sources[0].emit("terminal", { code: "OK" });
+
+    const reply = await replyPromise;
+    expect(reply.citations).toEqual([{ locator: { kind: "pdf", page: 3 }, quote: undefined }]);
+    expect(reply.canEscalate).toBe(false);
+  });
+
+  it("a failed plan stream rejects with the terminal's AppError (the driver's failure path)", async () => {
+    const { deps, sources } = makeDeps();
+    const adapter = makeAdapter({ deps });
+
+    const replyPromise = adapter.planChat({ planId: "plan-1", question: "q", language: "zh" });
+    await settle();
+    sources[0].emit("terminal", { code: "NOT_FOUND" });
+
+    await expect(replyPromise).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
 describe("ServerCompanionService — chat (the companion stream via T4)", () => {
   it("mints the grounding inputs INSIDE the ticket and streams the reply tokens", async () => {
     const { deps, sources, mints } = makeDeps();

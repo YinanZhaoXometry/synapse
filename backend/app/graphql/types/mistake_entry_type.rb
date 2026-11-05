@@ -32,6 +32,10 @@ module Types
           null: false,
           description: "What the user answered (empty for a forfeit)."
 
+    field :question, Types::QuestionType,
+          null: false,
+          description: "The mistaken question (FR-46, epic P2-12 T3: its prompt + source pair ride the plan companion's mistake picker rows)."
+
     field :source_location, Types::ReadingLocatorType,
           null: false,
           description: "Where in the sourced material the question came from (FR-23)."

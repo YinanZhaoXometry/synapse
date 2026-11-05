@@ -160,6 +160,39 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       )
       expect(error_code(invalid)).to eq("VALIDATION_FAILED")
     end
+
+    it "mints plan_companion tickets with the planId/mistakeEntryId inputs (epic P2-12 T3)" do
+      user, token = user_with_token("ai-ticket-plan@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan)
+      question = create(:question, user: user, node: node)
+      entry = create(:mistake_entry, user: user, question: question, node: node)
+
+      variables = { input: { op: "plan_companion", language: "en", planId: plan.id,
+                             question: "重点是什么？", mistakeEntryId: entry.id } }
+      result = graphql(
+        <<~GRAPHQL, variables: variables, token: token
+          mutation CreateStreamTicket($input: CreateStreamTicketInput!) {
+            createStreamTicket(input: $input) { token expiresAt }
+          }
+        GRAPHQL
+      )
+      expect(result.dig("data", "createStreamTicket", "token")).to be_present
+      minted = user.stream_tickets.sole
+      expect(minted.payload).to eq({
+        "plan_id" => plan.id,
+        "question" => "重点是什么？",
+        "language" => "en",
+        "mistake_entry_id" => entry.id
+      })
+
+      foreign = graphql(
+        "mutation { createStreamTicket(input: { op: \"plan_companion\", language: \"zh\", " \
+          "planId: \"#{SecureRandom.uuid}\", question: \"q\" }) { token } }",
+        token: token
+      )
+      expect(error_code(foreign)).to eq("NOT_FOUND")
+    end
   end
 
   describe "generateQuiz targeting (epic P2-10 T5)" do

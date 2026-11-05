@@ -10,6 +10,7 @@ import type {
   GradedAnswer,
   GroundedChatRequest,
   MaterialRef,
+  PlanChatRequest,
   PlanProposalOptions,
   PlanStructureProposal,
   QuizMode,
@@ -23,6 +24,16 @@ import { prefersSimulatedCompanion } from "./seam-preference";
 export interface CompanionService {
   /** Chat grounded on a Reading Position; optional progressive emission. */
   chat(request: GroundedChatRequest, onToken?: (chunk: string) => void): Promise<CompanionReply>;
+
+  /**
+   * Plan-level chat (FR-46, epic P2-12 T3): grounded on the WHOLE plan — no
+   * ReadingPosition. The optional mistakeEntryId is the "analyze my
+   * mistakes" grounding input (the entry's source section rides first; the
+   * stream's citation carries the entry's own source locator). Same reply
+   * contract as chat; plan_companion is always hint-first (the payload has
+   * no escalation flag, so canEscalate is false).
+   */
+  planChat(request: PlanChatRequest, onToken?: (chunk: string) => void): Promise<CompanionReply>;
 
   /**
    * Topic/goal → staged node proposal, streamed like chat. Deterministic per

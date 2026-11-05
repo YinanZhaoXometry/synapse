@@ -49,6 +49,7 @@ import type {
   GradedAnswer,
   GroundedChatRequest,
   MaterialRef,
+  PlanChatRequest,
   PlanProposalOptions,
   PlanStructureProposal,
   QuizMode,
@@ -217,6 +218,64 @@ export class ServerCompanionService implements CompanionService {
     const posture: StreamRung = rung ?? {
       intent: "reference",
       rung: "answer",
+      canEscalate: false,
+      language: request.language,
+    };
+    return {
+      intent: posture.intent,
+      rung: posture.rung,
+      text,
+      citations,
+      canEscalate: posture.canEscalate,
+      language: posture.language,
+    };
+  }
+
+  /**
+   * Plan-level chat (FR-46, epic P2-12 T3): the third stream op rides the
+   * same SSE wrapper — one minted single-use ticket per generation, the
+   * grounding inputs INSIDE the ticket (planId + the optional
+   * mistakeEntryId), drop → fresh-ticket restart, restarts counted against
+   * the daily AI cap. The reply contract is chat's verbatim; the plan
+   * stream's rung is always hint-first with canEscalate false (the payload
+   * has no escalation flag), and the citation list carries the mistake's
+   * own source locator when a mistakeEntryId rode (empty otherwise).
+   */
+  async planChat(
+    request: PlanChatRequest,
+    onToken?: (chunk: string) => void,
+  ): Promise<CompanionReply> {
+    let rung: StreamRung | null = null;
+    let text = "";
+    const citations: Citation[] = [];
+
+    const session = startStream(
+      {
+        op: "plan_companion",
+        planId: request.planId,
+        question: request.question,
+        mistakeEntryId: request.mistakeEntryId,
+        language: request.language,
+      },
+      {
+        onRung: (seen) => {
+          rung = seen;
+        },
+        onToken: (chunk) => {
+          text += chunk;
+          onToken?.(chunk);
+        },
+        onCitation: (citation) => citations.push(citation),
+        onRestart: (notice) => request.onNotice?.(notice.messageKey),
+      },
+      this.deps,
+    );
+
+    const terminal = await this.settleStream(session);
+    if (streamFailure(terminal)) throw terminal.error;
+    const posture: StreamRung = rung ?? {
+      intent: "explain",
+      rung: "hint",
       canEscalate: false,
       language: request.language,
     };

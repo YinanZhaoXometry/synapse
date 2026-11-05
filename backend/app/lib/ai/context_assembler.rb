@@ -105,6 +105,112 @@ module Ai
         Assembled.new(text: text, truncated: body.truncated)
       end
 
+      # Plan grounding (FR-46, epic P2-12 T3): the plan-scope chat surface —
+      # no ReadingPosition. With a mistake entry, its question (and the
+      # learner's answer) ride FIRST, then the entry's source section — the
+      # companion_grounding position-text pattern with the same locator
+      # resolver (a mistake's source_location may be a pdf page or a
+      # markdown sectionId). Then the bounded plan_scope text, then a
+      # confirmed-mapping block (one line per confirmed node-attached row)
+      # so node relationships are citable. Same budget discipline
+      # throughout: whole blocks while they fit, hard-truncate when nothing
+      # fits, the estimate never exceeds the budget, `truncated` honest.
+      def plan_grounding(plan, mistake_entry: nil, budget: default_budget)
+        parts = +""
+        truncated = false
+        consumed = 0
+
+        if mistake_entry
+          block = "[mistake entry]\n#{mistake_entry.question.prompt}\n"
+          answer = mistake_entry.user_answer.to_s
+          block += "learner's answer: #{answer}\n" unless answer.empty?
+          block += "\n"
+          tokens = estimate_tokens(block)
+          if tokens <= budget - consumed
+            parts << block
+            consumed += tokens
+          else
+            header = "[mistake entry]\n"
+            header_tokens = estimate_tokens(header)
+            remaining = budget - consumed
+            if remaining > header_tokens + 1
+              cut, cut_short = hard_truncate(block, remaining - header_tokens - 1)
+              parts << header << cut << "\n\n"
+              truncated ||= cut_short
+            end
+            consumed = budget
+            truncated = true
+          end
+
+          material = mistake_entry.question.source_material
+          section = material && section_by_id(material, section_id_for(mistake_entry.source_location || {}))
+          if section
+            block = render_section(section)
+            tokens = estimate_tokens(block)
+            remaining = budget - consumed
+            if tokens <= remaining
+              parts << block
+              consumed += tokens
+            else
+              header = "[section id=#{section["id"]} title=\"#{section["title"]}\"]\n"
+              header_tokens = estimate_tokens(header)
+              remaining = budget - consumed
+              if remaining > header_tokens + 1
+                cut, cut_short = hard_truncate(section_text(section), remaining - header_tokens - 1)
+                parts << header << cut << "\n\n"
+                truncated ||= cut_short
+              end
+              consumed = budget
+              truncated = true
+            end
+          end
+        end
+
+        # The plan scope rides after the mistake focus. The truncation
+        # marker's tokens are reserved so a hard-cut scope never pushes the
+        # assembly past the budget (+1 for the joining newline — a token too).
+        remaining = budget - consumed
+        reserve = estimate_tokens(TRUNCATION_MARKER) + 1
+        if remaining > reserve
+          scope = plan_scope(plan, budget: remaining - reserve)
+          unless scope.text.empty?
+            parts << scope.text << "\n"
+            consumed += estimate_tokens(scope.text) + 1
+          end
+          truncated ||= scope.truncated
+        end
+
+        mapping = confirmed_mapping_block(plan)
+        mapping_tokens = estimate_tokens(mapping)
+        if mapping_tokens.positive? && consumed + mapping_tokens <= budget
+          parts << mapping
+        elsif mapping_tokens.positive?
+          truncated = true
+        end
+
+        Assembled.new(text: parts.strip, truncated: truncated)
+      end
+
+      # The confirmed section→node relationships (epic-10's mapping read,
+      # server-side): one line per node-attached confirmed row, so the model
+      # can cite which material section feeds which node. Empty → "" (no
+      # block — the prompt sees nothing it cannot ground).
+      def confirmed_mapping_block(plan)
+        rows = MaterialNodeMapping.where(user_id: plan.user_id, status: "confirmed")
+                                  .joins(:node)
+                                  .where(knowledge_nodes: { plan_id: plan.id })
+                                  .order(:created_at, :id)
+        lines = rows.filter_map do |row|
+          next unless row.node_id && row.material
+
+          "[node #{row.node.title}] ← [material #{row.material.title}] section #{row.section_id}"
+        end
+        return "" if lines.empty?
+
+        lines.prepend("[confirmed mappings]")
+        lines.join("\n") + "\n"
+      end
+
       # Companion grounding (AD-5): the section under the ReadingPosition
       # locator in full focus, then the material's section index so the
       # model can cite other sections it saw. The position's own quoted text

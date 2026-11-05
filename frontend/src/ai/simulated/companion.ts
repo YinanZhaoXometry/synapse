@@ -12,6 +12,7 @@ import type {
   GroundedChatRequest,
   GuardrailRung,
   MaterialRef,
+  PlanChatRequest,
   PlanStructureProposal,
   ProposedStage,
   QuizMode,
@@ -171,6 +172,32 @@ export class SimulatedCompanion implements CompanionService {
       citations: quote ? [{ locator: position.locator, quote }] : [],
       canEscalate: intent !== "beyond-material",
       language,
+    };
+  }
+
+  /**
+   * Plan-level chat double (FR-46, epic P2-12 T3): plan scope carries no
+   * ReadingPosition, so the honest simulated answer is the hint-first
+   * beyond-material posture — the double never fakes plan grounding (the
+   * runtime is the server adapter; this double exists for offline tests of
+   * the seam shape).
+   */
+  async planChat(
+    request: PlanChatRequest,
+    onToken?: (chunk: string) => void,
+  ): Promise<CompanionReply> {
+    const text = request.language === "zh"
+      ? "模拟 Companion：计划级问答由服务端适配器承载（FR-33），模拟双端不假装掌握你的计划。"
+      : "Simulated Companion: plan-level chat is served by the server adapter (FR-33); the simulated double does not fake your plan's grounding.";
+    await new Promise((r) => setTimeout(r, CHAT_DELAY));
+    await emit(text, onToken);
+    return {
+      intent: "reference",
+      rung: "hint",
+      text,
+      citations: [],
+      canEscalate: false,
+      language: request.language,
     };
   }
 

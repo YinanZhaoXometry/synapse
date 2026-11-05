@@ -86,6 +86,72 @@ RSpec.describe Ai::CreateStreamTicketCommand do
     expect(call(op: "proposal", material_id: nil, question: nil, position: nil, topic: "t", goal: "x" * 2_001).failure.code).to eq(:VALIDATION_FAILED)
   end
 
+  # epic P2-12 T3 (FR-46, delta decision 6): the THIRD stream op — plan-scope
+  # chat with an optional mistake-entry grounding input. Payload shape frozen:
+  # {plan_id, question, language, mistake_entry_id?} — string-keyed, TS keys.
+  describe "plan_companion" do
+    let(:plan) { create(:study_plan, user: user) }
+
+    def plan_call(**overrides)
+      described_class.call(**{
+        current_user: user,
+        op: "plan_companion",
+        language: "zh",
+        plan_id: plan.id,
+        question: "这个计划我该先学什么？"
+      }.merge(overrides))
+    end
+
+    it "mints with the frozen plan_companion payload shape (no mistake key when absent)" do
+      result = plan_call
+      expect(result).to be_success
+      ticket = result.value![:ticket]
+      expect(ticket.user_id).to eq(user.id)
+      expect(ticket.op).to eq("plan_companion")
+      expect(ticket.payload).to eq({
+        "plan_id" => plan.id,
+        "question" => "这个计划我该先学什么？",
+        "language" => "zh"
+      })
+    end
+
+    it "carries mistake_entry_id resolved through the user's OWN entries" do
+      node = create(:knowledge_node, user: user, plan: plan)
+      question = create(:question, user: user, node: node)
+      entry = create(:mistake_entry, user: user, question: question, node: node)
+
+      result = plan_call(mistake_entry_id: entry.id)
+      expect(result.value![:ticket].payload).to eq({
+        "plan_id" => plan.id,
+        "question" => "这个计划我该先学什么？",
+        "language" => "zh",
+        "mistake_entry_id" => entry.id
+      })
+    end
+
+    it "refuses a missing plan, foreign/unknown/malformed plans, and foreign/unknown/malformed mistake entries with uniform NOT_FOUND" do
+      other = create(:user)
+      foreign_plan = create(:study_plan, user: other)
+      foreign_entry = create(:mistake_entry, user: other)
+
+      expect(plan_call(plan_id: nil).failure.code).to eq(:VALIDATION_FAILED)
+      expect(plan_call(plan_id: foreign_plan.id).failure.code).to eq(:NOT_FOUND)
+      expect(plan_call(plan_id: "not-a-uuid").failure.code).to eq(:NOT_FOUND)
+      expect(plan_call(mistake_entry_id: foreign_entry.id).failure.code).to eq(:NOT_FOUND)
+      expect(plan_call(mistake_entry_id: "not-a-uuid").failure.code).to eq(:NOT_FOUND)
+      expect(user.stream_tickets.count).to eq(0) # nothing minted on any refusal
+    end
+
+    it "bounds the question like companion's and stays under the op-agnostic live-ticket bound" do
+      expect(plan_call(question: "  ").failure.code).to eq(:VALIDATION_FAILED)
+      expect(plan_call(question: "x" * 20_001).failure.code).to eq(:VALIDATION_FAILED)
+
+      create_list(:stream_ticket, described_class::MAX_LIVE_TICKETS, user: user, op: "companion")
+      expect(plan_call.failure.code).to eq(:RATE_LIMITED)
+      expect(user.stream_tickets.where(consumed_at: nil).count).to eq(described_class::MAX_LIVE_TICKETS)
+    end
+  end
+
   describe ".ttl config" do
     around do |example|
       original = ENV["AI_STREAM_TICKET_TTL_SECONDS"]
