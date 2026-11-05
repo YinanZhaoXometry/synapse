@@ -83,3 +83,4 @@ absence in page + demo-data, i18n parity + pinned restated strings) + the guard 
 Settings reset tests rewritten (probe half retired — nothing client-side holds study state to
 re-seed; prefs/token/legacy-document halves unchanged). DashboardPage residue assertions kept
 valid. Suite 629 → 647.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — badges render server fields only (AD-14), never-color-only (glyph+word+aria); celebration session-local + baselined (honest, no invented unlock table); guard forbids the three effective reference shapes with a self-proof test (red-proven on real violations); points/level dropped everywhere (nothing real on the wire); the 2 remaining name mentions are retirement comments, not references. A1 COMPLETE. Merged on `epic/p2-09-hubs`.

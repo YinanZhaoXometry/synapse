@@ -1,6 +1,6 @@
 # Epic 9 (Phase 2) — Hubs + progress surfaces: real data behind the retained pages
 
-Status: ready-for-agent (spec + tickets 2026-11-03; delta-grill at kickoff; gate: epics 07+08 done)
+Status: done (2026-11-05 — all six tickets done + two-axis reviewed; rspec 1064 / vitest 647; UserProgressContext deleted with the architecture grep guard; badge thresholds + Today suggestion heuristic recorded in T1)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
