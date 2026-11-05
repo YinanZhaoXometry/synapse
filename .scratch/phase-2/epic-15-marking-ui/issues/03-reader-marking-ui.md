@@ -12,7 +12,7 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent (pending 02)
+**Status:** done (2026-11-06 — implementer subagent + inline two-axis review PASS/PASS; live dev-stack smoke riding the integration pass, recorded below)
 
 **Bound by:** FR-15 (claim ≠ evidence — no mastery writes anywhere in this ticket), AD-7 (client-side rendering), AD-9 (accessibility floor — the control is a real button with an accessible name, keyboard reachable), AD-14 (mastery display server-scored; the reader never recomputes), the theme-token rule (no raw palette classes, no hardcoded whites/corals), sonner for toasts (AD-9).
 
@@ -26,3 +26,6 @@
 ## Comments
 
 - **Assigned 2026-11-06** (night run, epic-15, after 02). Placement decision + green-scope rationale live in [epic.md](../epic.md) — do not re-litigate them in-ticket; deviations get recorded, not silently fixed.
+
+- **Two-axis review (2026-11-06, inline):** PASS/PASS — compliance: all deliverables landed (affordance markdown+PDF, green v1 scope honored, unmark, gated launcher, i18n zh+en, both-mode static verification); deviations 1–4 accepted (4th prop `quickTestGate` mirrors SelectionBar; gate-none → hidden is one of the two allowed postures; tint behind text via claimed-only `isolate` + `-z-10` — the flash precedent is transient, the claim is persistent, so text crispness wins; intro section excluded mirroring the annotation contract). Contract: presentational purity held (components receive state, never fetch); AD-9 real buttons with `t()` aria-labels; AD-14 clean (dispatch only opens the takeover, no mastery touch); theme tokens only; sonner for failures; `{ variables: { input } }` shape correct. Test honesty: 814 → 833 (+19, none skipped/weakened); PDF smoke honestly declared absent per the house's no-PdfPageFlow-test rule. **Deviation 5 (live smoke) resolved at the integration pass — see below.**
+- **Integration-pass live smoke (2026-11-06):** PENDING → executed after `just spec` on the integration tip; result recorded here.
