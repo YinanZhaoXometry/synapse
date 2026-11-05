@@ -13,12 +13,14 @@ require "rails_helper"
 # epic P2-10 ticket 01 with the three mapping mutations (the AI map run +
 # the user's bulk confirm/reject verdicts, FR-45) and ticket 02 with the one
 # attachment-scope mutation (pin/widen, FR-44); epic P2-12 ticket 01 with the
-# one note-generation mutation (FR-40, delta decisions 1+4+5)
+# one note-generation mutation (FR-40, delta decisions 1+4+5); epic P2-09
+# ticket 01 with the one weekly-goal setter (FR-25's Phase-2 half, delta
+# decision 3)
 # (byte-level idempotence against the committed schema.graphql
 # stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
 # surface shape itself).
 RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
-  it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, and the epic P2-12 note mutation" do
+  it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, the epic P2-12 note mutation, and the epic P2-09 weekly-goal setter" do
     expect(Types::MutationType.fields.keys).to contain_exactly(
       "register", "login",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan",
@@ -30,7 +32,8 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
       "createMaterialUpload",
       "importDocument",
       "generateQuiz", "generateFlashcards", "gradeOpenAnswer", "createStreamTicket",
-      "generateNote"
+      "generateNote",
+      "setWeeklyGoal"
     )
   end
 

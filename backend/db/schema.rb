@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_130001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_140101) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -115,6 +115,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_130001) do
     t.index ["plan_id"], name: "index_knowledge_nodes_on_plan_id"
     t.index ["task_id"], name: "index_knowledge_nodes_on_task_id", unique: true
     t.index ["user_id"], name: "index_knowledge_nodes_on_user_id"
+  end
+
+  create_table "manual_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.text "title", null: false
+    t.date "due_date"
+    t.boolean "done", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_manual_tasks_on_user_id"
   end
 
   create_table "material_node_mappings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -460,7 +470,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_130001) do
     t.string "password_digest", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "weekly_goal_target", default: 3, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.check_constraint "weekly_goal_target >= 1 AND weekly_goal_target <= 21", name: "users_weekly_goal_target_check"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -480,6 +492,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_130001) do
   add_foreign_key "knowledge_nodes", "study_plans", column: "plan_id"
   add_foreign_key "knowledge_nodes", "study_tasks", column: "task_id"
   add_foreign_key "knowledge_nodes", "users"
+  add_foreign_key "manual_tasks", "users"
   add_foreign_key "material_node_mappings", "knowledge_nodes", column: "node_id"
   add_foreign_key "material_node_mappings", "materials"
   add_foreign_key "material_node_mappings", "users"
