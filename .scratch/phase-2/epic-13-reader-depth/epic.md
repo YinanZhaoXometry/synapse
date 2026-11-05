@@ -1,6 +1,6 @@
 # Epic 13 (Phase 2) — Reader depth: selection, Quick Test, Annotations, Study Focus, PPT
 
-Status: ready-for-agent (spec + tickets 2026-11-03; delta-grill at kickoff — OQ-1 placement, PDF annotation engine, FR-15 delta; gate: epic-08 done — **except T5 PPT: runnable any time after epic-00**)
+Status: done (2026-11-05 — all five tickets done + two-axis reviewed, merged to main; rspec 1233 / vitest 796; OQ-1 = reader-side panel; ranges = zero-dep char-offsets; FR-15 web-marking gap recorded for epic-14; PPT rides the markdown pipeline)
 Milestone: Phase 2 — post-deadline
 
 ## Parent

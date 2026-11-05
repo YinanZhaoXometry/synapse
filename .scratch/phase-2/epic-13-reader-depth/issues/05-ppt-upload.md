@@ -19,3 +19,4 @@
 - [x] Fixture `.pptx` parses to sections; attach → study round-trip works (fixture BUILT in-test with jszip — no binary fixture committed; round-trip pinned at the parse-material bridge)
 - [x] Parser lazily loaded like pdfjs (bundle discipline — own chunk proven in `vite build` output)
 - [x] Bilingual messaging incl. the text-extraction limitation note (`reader.pptxTextOnlyNote`, attach-time toast in plan/task/reader-reupload flows; `errors.uploadUnsupportedType` copy no longer defers PPT — residue-asserted both locales)
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — jszip lazy chunk proven in build output (97.6kB own chunk); in-test zip-bytes fixture (no binary committed); dispatch by zip magic bytes keeps the parse API byte-true (AD-7); server kind stays markdown with zero backend diff; limitation toast at all four picker sites; known limitation honest (slide-N chips no-op on rendered hash — recorded). Merged on `epic/p2-13-reader`.
