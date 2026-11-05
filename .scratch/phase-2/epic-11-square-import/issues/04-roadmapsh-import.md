@@ -4,7 +4,7 @@
 
 **Blocked by:** None in-epic (license verification is the gate; parallel-friendly, api-only).
 
-**Status:** ready-for-human (LICENSE BLOCKED — owner gate; NOT built in the 2026-11-05 run)
+**Status:** wontfix (owner decision 2026-11-06 — FR-43 dropped; NOT built)
 
 **Bound by:** FR-43 (identical behavior; attribution visible; license = build-time concern routed to architecture), AD-12/13 (job → command; user-scoped plan rows), AD-16 (no AI involved — curated structure replaces generation).
 
@@ -15,3 +15,4 @@
 ## Comments
 
 - **2026-11-05 license ruling (delta review 1) — BLOCKED:** roadmap.sh content license (fetched via the GitHub API from kamranahmedse/developer-roadmap, root `license`): "Everything including text and images in this project are protected by the copyright laws. You are allowed to use this material for personal use but are not allowed to use it for any other purpose including publishing the images, the project files or the content... You are allowed to share the links to the repository or the website roadmap.sh but not the content for any sort of usage that involves the content of this repository taken out of the repository and be shared from any other medium... you must get prior consent." FR-43's import (serving roadmap structure through Synapse) is the forbidden out-of-repository use. **Owner action to unblock: obtain prior written consent from Kamran Ahmed (kamranahmed.se@gmail.com) for serving derived plan structures from roadmap.sh content.** Until consent: this ticket stays untouched; FR-43 remains open (the honest gap).
+- **2026-11-06 owner decision — WONTFIX:** 不做 FR-43. The owner declines to seek consent from the roadmap.sh author, so the republishing ban stands and the import feature is dropped, not deferred (no pending letter; the license gate has no path to clear). The ticket's spec + the license ruling above stay as the record. Linking OUT to roadmap.sh remains allowed by the license (link-sharing is explicitly permitted) — a future UX affordance may link to roadmaps without importing their content. FR-43 moves from "open gap" to "dropped by owner decision" in the spine Deferred table, the roadmap row, and the epic-14 §6.2 walk table.

@@ -35,7 +35,7 @@ Nothing ships in code: zero-dependency implementations were explicitly sought an
 2. Before the next graded demo: §8 paid-upgrade window (which IS item 1's disposition) + §11 checklist.
 3. Before real users beyond the demo account: Neon backups/PITR (item 2) + mail provider pick → password-reset build (item 3).
 4. When a real user asks: Google OAuth console client (item 4).
-5. FR-43 consent letter to Kamran Ahmed (epic-11 ticket 04 — the roadmap.sh license ruling lives there, not here).
+5. ~~FR-43 consent letter~~ — **resolved 2026-11-06: wontfix** (owner drops FR-43; no letter to send). See epic-11 ticket 04.
 6. FR-15 web marking UI placement decision (epic-13's recorded gap — server ops exist, no web UI ever consumed them).
 
 - **Two-axis review (2026-11-05, inline):** PASS/PASS — compliance: all three ACs land (registry table with item/trigger/status/date; ships-tested clause stated honestly vacuous + four written re-gates; deploy.md §11 checklist) and the four triggers quote the Deferred table verbatim (error visibility "before graded demos", backups "before real users beyond the demo account", password reset mail-provider gate per AD-15, OAuth "a real user asks") — delta decision 3 followed exactly (registry + checklist + owner feed, zero fake code). Contract: docs-only change (this ticket + deploy.md) — no AGENTS.md surface touched, no storage keys, no i18n, no schema; the registry is the single maintained record and deploy.md §11 points here instead of duplicating the table (no folklore fork). No code gates required for a docs-only ticket; the epic-close `just spec` run covers the branch.

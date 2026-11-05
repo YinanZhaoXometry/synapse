@@ -1,6 +1,6 @@
 # Epic 11 (Phase 2) — External plans: Square + roadmap.sh import
 
-Status: done-except-T4 (2026-11-05 — T1/T2/T3 done + two-axis reviewed, merged to main; T4 roadmap.sh import OWNER-GATED: content license forbids republishing, needs prior consent — see ticket 04; FR-43 stays open honestly)
+Status: done (2026-11-05 T1–T3 + two-axis reviews, merged to main; T4 roadmap.sh import = **wontfix by owner decision 2026-11-06** — content license forbids republishing and the owner declines to seek consent; FR-43 dropped, see ticket 04. Linking out to roadmap.sh stays allowed.)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
