@@ -60,3 +60,4 @@ quiz.demo.* copy retired with the re-point (residue-absence asserted in page + i
 copy (23 keys) are gone; QuizPage's picker machinery and the quiz.demo.*/quiz.eyebrow/title/subtitle
 keys are gone; both pages carry no-lies grep audits. quizHub.*/flashcards.hub.* landed zh+en with
 parity tests extended to the new namespaces.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — retake internally calls GenerateQuizCommand (cap/replay/normalization in ONE place, server-minted uuid); refusals before spend; inner failures passthrough verbatim; non-idempotence pinned in description + specs; language deviation recorded (no column exists — required arg, honest); zero-graded rows honest; origin-less deck section honest. Merged on `epic/p2-09-hubs`.
