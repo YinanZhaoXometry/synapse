@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-**Bound by:** AD-12 (query goes through the command layer — a query command in the Markings context, not a resolver-embedded query), AD-13 (user scoping — foreign ids NOT_FOUND, never empty), AD-15 (current_user context), the closed error enum. The claim/unclaim commands and the `SectionMarking` type are FROZEN — read-only epic.
+**Bound by:** AD-12 **as the house reads, not writes** — the verified precedent for read queries is **resolver-direct scoped reads** (`materialNodeMappings` = `query_type.rb:136-166`: `field` + `current_user!` + scoped AR `where(...).order(...)`; a foreign id raises NOT_FOUND). NO new command for the read — match the precedent exactly. AD-13 (user scoping — foreign ids NOT_FOUND, never empty), AD-15 (current_user context), the closed error enum. The claim/unclaim commands and the `SectionMarking` type are FROZEN — read-only epic.
 
-- [ ] Command in `app/commands/markings/` (e.g. `ListSectionMarkingsQuery`) following the house command shape; resolver in `app/graphql/queries/markings/` mirroring `material_node_mappings`' resolver; registered on `QueryType` beside `materialNodeMappings`.
+- [ ] Query field on `QueryType` beside `material_node_mappings` (query_type.rb:136ff is the template): resolve the material through `current_user!`'s scope (foreign id → NOT_FOUND), return `current_user!.section_markings.where(material_id: material.id).order(...)` newest-first.
 - [ ] `backend/schema.graphql` regenerated + committed (the cross-stack contract — the frontend codegen consumes it verbatim).
 - [ ] Command spec: happy path (open + cleared rows, ordering), foreign material → NOT_FOUND, empty list for a material with no markings, scoping (another user's rows never leak).
 - [ ] Request spec riding the shared graphql harness (the `GraphqlSpecHelpers` JWT_SECRET around-block covers `type: :request` — the 2026-11-06 lesson).
