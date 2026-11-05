@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 import type { KnowledgeNodeView } from "@/api/views";
 import type { Material } from "@/domain/entities";
 import { MASTERY_CONFIG } from "@/domain/mastery";
-import { ContractNote, MasteryRing, NodeStateBadge, OutcomeMark, OUTCOME_LABEL_KEY, useSessionBlob } from "@/features/plans";
+import { ContractNote, isPptxUpload, MasteryRing, NodeStateBadge, OutcomeMark, OUTCOME_LABEL_KEY, useSessionBlob } from "@/features/plans";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation, validateReupload } from "@/features/reader";
@@ -110,6 +110,9 @@ export default function TaskHomePage() {
       toast.error(t(verdict.messageKey));
       return;
     }
+    // epic-13 T5: the deck's re-upload re-parses client-side — the limitation
+    // note rides along, same as at attach time.
+    if (isPptxUpload(file)) toast.info(t("reader.pptxTextOnlyNote"));
     sessionBlobs.put(material.id, file);
     if (material.parseState === "pending" || material.parseState === "failed") {
       parseMaterial.mutate(material.id);
@@ -157,7 +160,7 @@ export default function TaskHomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.md,.markdown,application/pdf,text/markdown"
+        accept=".pdf,.md,.markdown,.pptx,application/pdf,text/markdown,application/vnd.openxmlformats-officedocument.presentationml.presentation"
         className="hidden"
         onChange={(e) => {
           handleReupload(e.target.files?.[0]);

@@ -10,6 +10,7 @@
  */
 export {
   MAX_UPLOAD_BYTES,
+  isPptxUpload,
   titleFromFilename,
   validateUpload,
   type UploadFileSpec,

@@ -67,4 +67,29 @@ describe("parseMaterialBytes — attach-flow parse outcome", () => {
     const outcome = await parseMaterialBytes(material({ parseState: "failed" }), undefined);
     expect(outcome).toBeNull();
   });
+
+  it("pptx round-trip (epic-13 T5): a markdown-kind deck's bytes → slide sections through the attach harness", async () => {
+    // The attach flow stores the ORIGINAL bytes in the session registry and
+    // hands the blob to this bridge — a pptx must come out as markdown-kind
+    // slide sections without the caller (or the row's kind) ever knowing.
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    zip.file(
+      "ppt/slides/slide1.xml",
+      `<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
+        `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>` +
+        `<p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>Deck Title</a:t></a:r></a:p></p:txBody></p:sp>` +
+        `<p:sp><p:txBody><a:p><a:r><a:t>studiable content</a:t></a:r></a:p></p:txBody></p:sp>` +
+        `</p:spTree></p:cSld></p:sld>`,
+    );
+    const bytes = await zip.generateAsync({ type: "uint8array" });
+    const pptxBlob = new NodeBlob([bytes]) as unknown as Blob;
+    const outcome = await parseMaterialBytes(material({ kind: "markdown", title: "deck.pptx" }), pptxBlob);
+    expect(outcome?.state).toBe("parsed");
+    expect(outcome?.sections[0]).toEqual({
+      id: "slide-1",
+      title: "Deck Title",
+      text: expect.stringContaining("studiable content"),
+    });
+  });
 });

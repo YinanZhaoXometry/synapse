@@ -219,6 +219,8 @@ export const translations = {
       'reader.renderFailedTitle': '这份文件无法渲染。',
       'reader.renderFailedBody': '重新上传同一份文件通常可以解决。',
       'reader.reuploadKindMismatch': '文件类型与这份材料不符',
+      // PPT（epic-13 T5 · owner Q6）：按文本提取的诚实限制说明
+      'reader.pptxTextOnlyNote': 'PPT 按文本提取；图片内容不会出现在提取结果中',
       'reader.companionCloseAria': '关闭 Companion',
       'reader.selectionBarLabel': '选段操作',
       'reader.selectionAsk': '问 Companion',
@@ -726,7 +728,7 @@ export const translations = {
       'errors.materialNotFound': '找不到该学习资料',
       'errors.flashcardNotFound': '找不到该闪卡',
       'errors.evidenceBatchUnknown': '作答数据不完整 · 请重新提交',
-      'errors.uploadUnsupportedType': '目前仅支持 PDF 与 Markdown（PPT 将在 Phase 2 支持）',
+      'errors.uploadUnsupportedType': '目前仅支持 PDF、Markdown 与 PPT（.pptx）',
       'errors.uploadTooLarge': '文件超过 20MB 上限，请换更小的文件',
       'errors.uploadFailed': '上传失败，请重试',
 
@@ -1097,6 +1099,8 @@ export const translations = {
       'reader.renderFailedTitle': "This file couldn't be rendered.",
       'reader.renderFailedBody': 'Re-uploading the same file usually fixes this.',
       'reader.reuploadKindMismatch': "That file doesn't match this material",
+      // PPT (epic-13 T5, owner Q6): the honest text-extraction limitation note
+      'reader.pptxTextOnlyNote': "PPT is extracted as text; image content won't appear in the extraction",
       'reader.companionCloseAria': 'Close Companion',
       'reader.selectionBarLabel': 'Selection actions',
       'reader.selectionAsk': 'Ask Companion',
@@ -1604,7 +1608,7 @@ export const translations = {
       'errors.materialNotFound': 'Material not found',
       'errors.flashcardNotFound': 'Flashcard not found',
       'errors.evidenceBatchUnknown': 'Answer data incomplete · please resubmit',
-      'errors.uploadUnsupportedType': 'Only PDF and Markdown are supported today (PPT arrives in Phase 2)',
+      'errors.uploadUnsupportedType': 'Only PDF, Markdown and PPT (.pptx) are supported today',
       'errors.uploadTooLarge': 'That file is over the 20 MB limit — try a smaller one',
       'errors.uploadFailed': 'Upload failed — please try again',
 

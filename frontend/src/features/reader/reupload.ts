@@ -5,6 +5,8 @@
  * kind and fit the attach cap — the epic-2 upload contract, mirrored here as a
  * pure function because AD-2 keeps the reader from importing features/plans
  * internals (the constant and kind-detection follow upload-validation.ts).
+ * epic-13 T5: `.pptx` routes to the markdown kind (it parses INTO
+ * markdown-kind sections), so the original deck re-uploads into its row.
  */
 
 /** The attach cap (FR-2: PDF/Markdown ≤ 20 MB) — same boundary as epic-2. */
@@ -14,13 +16,26 @@ const EXTENSION_KIND: Record<string, "pdf" | "markdown"> = {
   ".pdf": "pdf",
   ".md": "markdown",
   ".markdown": "markdown",
+  ".pptx": "markdown",
 };
 
 const CONTENT_TYPE_KIND: Record<string, "pdf" | "markdown"> = {
   "application/pdf": "pdf",
   "text/markdown": "markdown",
   "text/x-markdown": "markdown",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "markdown",
 };
+
+const PPTX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+/**
+ * epic-13 T5: whether the re-upload candidate is a pptx — the markdown-kind
+ * input whose extraction carries the text-only limitation note (mirrors
+ * upload-validation's isPptxUpload; AD-2 keeps this a local copy).
+ */
+export function isPptxReupload(file: { name: string; type: string }): boolean {
+  return extensionOf(file.name) === ".pptx" || file.type.toLowerCase() === PPTX_CONTENT_TYPE;
+}
 
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf(".");

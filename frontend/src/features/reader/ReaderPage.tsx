@@ -75,7 +75,7 @@ import { useParseMaterialMutation } from "./use-parse-material";
 import { useReadingPositionTracker } from "./use-reading-position";
 import { useSessionBytes } from "./use-session-bytes";
 import { stepPage } from "./pager";
-import { validateReupload } from "./reupload";
+import { isPptxReupload, validateReupload } from "./reupload";
 import { QuickTestFlow } from "./quick-test-flow";
 import { quickTestGate } from "./quick-test-gate";
 import { SelectionBar, SELECTION_BAR_HEIGHT, SELECTION_BAR_WIDTH } from "./selection-bar";
@@ -493,6 +493,9 @@ export default function ReaderPage() {
       toast.error(t(verdict.messageKey));
       return;
     }
+    // epic-13 T5: the deck's re-upload re-parses client-side — the limitation
+    // note rides along, same as at attach time.
+    if (isPptxReupload(file)) toast.info(t("reader.pptxTextOnlyNote"));
     sessionBlobs.put(material.id, file);
     if (material.parseState === "pending" || material.parseState === "failed") {
       parseMaterial.mutate(material.id);
@@ -533,7 +536,11 @@ export default function ReaderPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept={material.kind === "pdf" ? ".pdf,application/pdf" : ".md,.markdown,text/markdown"}
+        accept={
+          material.kind === "pdf"
+            ? ".pdf,application/pdf"
+            : ".md,.markdown,.pptx,text/markdown,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        }
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
