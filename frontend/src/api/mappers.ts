@@ -29,11 +29,12 @@ import type {
   MaterialPartsFragment,
   NotePartsFragment,
   MaterialSummaryPartsFragment,
+  StudyFocusSetPartsFragment,
   QuestionPartsFragment,
   QuizSessionPartsFragment,
   ReadingPositionPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, StudyPlanView, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, StudyFocusSetView, StudyPlanView, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
@@ -338,5 +339,47 @@ export function mapAnnotation(row: AnnotationPartsFragment): Annotation {
     color: row.color,
     body: row.body,
     createdAt: row.createdAt,
+  };
+}
+
+// ── Study Focus (FR-17, epic-13 T4) ──────────────────────────────────────
+
+/** The wire item's sourceRange (JSON scalar) → the strict AD-2 domain
+ * range. Null rides through (a range-less pre-T3 import source — the item
+ * is honestly unlinkable); a NON-null shape that fails the server command
+ * law throws loud — the honest-mapper law (never a silently misplaced
+ * deep link). */
+function focusSourceRange(sourceRange: unknown): AnnotationRange | null {
+  if (sourceRange == null) return null;
+  if (typeof sourceRange !== "object") {
+    throw new Error(`invalid study focus sourceRange from the api: ${JSON.stringify(sourceRange)}`);
+  }
+  const raw = sourceRange as Partial<AnnotationRange>;
+  const out: AnnotationRange = {
+    start: raw.start as number,
+    end: raw.end as number,
+    quote: raw.quote as string,
+  };
+  if (raw.sectionId != null) out.sectionId = raw.sectionId;
+  if (raw.page != null) out.page = raw.page;
+  if (!isValidAnnotationRange(out)) {
+    throw new Error(`invalid study focus sourceRange from the api: ${JSON.stringify(sourceRange)}`);
+  }
+  return out;
+}
+
+export function mapStudyFocusSet(set: StudyFocusSetPartsFragment): StudyFocusSetView {
+  return {
+    id: set.id,
+    materialId: set.materialId,
+    generation: set.generation,
+    items: set.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      detail: item.detail,
+      sourceRange: focusSourceRange(item.sourceRange),
+    })),
+    createdAt: set.createdAt,
+    updatedAt: set.updatedAt,
   };
 }

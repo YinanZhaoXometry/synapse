@@ -88,6 +88,12 @@ module Types
     # call, deterministic replay on the client uuid.
     field :generate_note, mutation: Mutations::Ai::GenerateNote
 
+    # The Study Focus generation surface (FR-17, epic-13 T4; OQ-1): the
+    # note generation's synchronous posture — one cap-counted provider
+    # call, deterministic replay on the client uuid; regeneration replaces
+    # the one active set per user+material.
+    field :generate_study_focus, mutation: Mutations::Ai::GenerateStudyFocus
+
     # The weekly goal setter (FR-25's Phase-2 half, epic P2-09 T1; delta
     # decision 3): the target's home is users.weekly_goal_target; the
     # Settings UI lands with T5.

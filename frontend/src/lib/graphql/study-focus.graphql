@@ -1,0 +1,37 @@
+# Study Focus (FR-17, epic-13 T4): the reader's per-material Study Focus
+# read + the synchronous generateStudyFocus mutation. The items' sourceRange
+# rides the source annotation's range jsonb verbatim (the AD-2 shape —
+# sectionId xor page + offsets + quote), the deep-link shape the reader
+# jumps through (the anchors channel).
+
+fragment StudyFocusItemParts on StudyFocusItem {
+  id
+  title
+  detail
+  sourceRange
+}
+
+fragment StudyFocusSetParts on StudyFocusSet {
+  id
+  materialId
+  generation
+  items {
+    ...StudyFocusItemParts
+  }
+  createdAt
+  updatedAt
+}
+
+query StudyFocus($materialId: String!) {
+  studyFocus(materialId: $materialId) {
+    ...StudyFocusSetParts
+  }
+}
+
+mutation GenerateStudyFocus($input: GenerateStudyFocusInput!) {
+  generateStudyFocus(input: $input) {
+    studyFocusSet {
+      ...StudyFocusSetParts
+    }
+  }
+}

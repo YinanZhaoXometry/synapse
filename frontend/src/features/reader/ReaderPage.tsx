@@ -34,6 +34,7 @@ import {
   ArrowRight,
   FileText,
   Highlighter,
+  ListChecks,
   Maximize2,
   Minimize2,
   PanelRightClose,
@@ -46,14 +47,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useViewportTier } from "@/hooks/use-mobile";
 import {
+  apiErrorCode,
+  apiErrorKeys,
+  newClientUuid,
   useAddAnnotationMutation,
   useAnnotationsQuery,
+  useGenerateStudyFocusMutation,
   useMaterialNodeMappingsQuery,
   useMaterialQuery,
   usePlanQuery,
   useReadingProgressQuery,
   useRemoveAnnotationMutation,
+  useStudyFocusQuery,
 } from "@/api";
+import type { ErrorLike } from "@apollo/client";
 import { sessionBlobs } from "@/lib/session-blobs";
 import { CompanionPanel, type AskPrefill } from "@/features/companion/CompanionPanel";
 import { CompanionOverlay, CompanionSheet } from "./companion-surfaces";
@@ -83,10 +90,17 @@ import {
   type AnnotationRenderItem,
 } from "./annotation-engine";
 import { AnnotationsPanel } from "./annotations-panel";
+import { StudyFocusPanel } from "./study-focus-panel";
+
+// The study-focus generation toasts ride the closed-enum map's shared
+// `ai.generate.` namespace (the server adapter's sibling keys — capReached
+// included); anything unmapped falls to the panel's own honest failure key.
+const FOCUS_ERROR_KEYS: Record<string, string> = apiErrorKeys("ai.generate.");
+const FOCUS_FAILED_KEY = "reader.studyFocusGenerateFailed";
 
 export default function ReaderPage() {
   const { materialId } = useParams();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const materialQuery = useMaterialQuery(materialId ?? "");
@@ -114,6 +128,24 @@ export default function ReaderPage() {
   // Each engine application reports per-annotation statuses (ok / stale /
   // missing / deferred) — the list panel's honesty badges ride these.
   const [annotationStatuses, setAnnotationStatuses] = useState<Record<string, AnnotationApplyStatus>>({});
+
+  // The Study Focus surface (FR-17, epic-13 T4; OQ-1): the reader-side
+  // 「核心要点」panel, toggled from the toolbar (the delta-grill ruling).
+  // The two left cards are mutually exclusive (same spot, same layer) —
+  // opening one closes the other.
+  const studyFocusQuery = useStudyFocusQuery(materialId ?? "");
+  const [generateStudyFocusMutation, generateStudyFocusResult] = useGenerateStudyFocusMutation();
+  const [focusPanelOpen, setFocusPanelOpen] = useState(false);
+  const handleGenerateStudyFocus = useCallback(() => {
+    if (!material) return;
+    void generateStudyFocusMutation({
+      variables: { input: { clientUuid: newClientUuid(), language, materialId: material.id } },
+      onError: (error) => {
+        const code = apiErrorCode(error as ErrorLike);
+        toast.error(t(code ? (FOCUS_ERROR_KEYS[code] ?? FOCUS_FAILED_KEY) : FOCUS_FAILED_KEY));
+      },
+    });
+  }, [material, generateStudyFocusMutation, language, t]);
 
   const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const [immersive, setImmersive] = useState(false);
@@ -160,15 +192,20 @@ export default function ReaderPage() {
   const panelOpen = panelChoice ?? tier === "desktop";
 
   // A11y floor: Esc closes the topmost reader layer — the selection bar first
-  // (it owns its own Escape dismissal below), then the annotations list
-  // panel, then the floating Companion (overlay/sheet; they cover the
-  // reading), then immersive exit. The docked panel and rail are not layers
-  // (they never cover the reading) and are left alone.
+  // (it owns its own Escape dismissal below), then the study-focus /
+  // annotations list panels (mutually exclusive left cards), then the
+  // floating Companion (overlay/sheet; they cover the reading), then
+  // immersive exit. The docked panel and rail are not layers (they never
+  // cover the reading) and are left alone.
   const [selectionBar, setSelectionBar] = useState<{ captured: CapturedSelection; anchor: { x: number; y: number } } | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (selectionBar) return; // the bar's own listener dismisses it this press
+      if (focusPanelOpen) {
+        setFocusPanelOpen(false);
+        return;
+      }
       if (annotationsPanelOpen) {
         setAnnotationsPanelOpen(false);
         return;
@@ -179,7 +216,7 @@ export default function ReaderPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tier, panelOpen, immersive, selectionBar, annotationsPanelOpen]);
+  }, [tier, panelOpen, immersive, selectionBar, annotationsPanelOpen, focusPanelOpen]);
 
   // Stored progress (FR-10): the restore target when no anchor asks for one.
   // The flows mount only once this query has settled (gate below), so the
@@ -549,8 +586,20 @@ export default function ReaderPage() {
               </>
             )}
             <IconToggle
+              label={t("reader.studyFocusPanelOpenAria")}
+              onClick={() => {
+                setFocusPanelOpen((open) => !open);
+                setAnnotationsPanelOpen(false);
+              }}
+            >
+              <ListChecks className="w-4 h-4" />
+            </IconToggle>
+            <IconToggle
               label={t("reader.annotationsPanelOpenAria")}
-              onClick={() => setAnnotationsPanelOpen((open) => !open)}
+              onClick={() => {
+                setAnnotationsPanelOpen((open) => !open);
+                setFocusPanelOpen(false);
+              }}
             >
               <Highlighter className="w-4 h-4" />
             </IconToggle>
@@ -742,6 +791,27 @@ export default function ReaderPage() {
             onJump={handleJumpAnnotation}
             onRemove={handleRemoveAnnotation}
             onClose={() => setAnnotationsPanelOpen(false)}
+          />
+        )}
+
+        {/* The Study Focus panel (FR-17, T4; OQ-1): the toolbar-toggled
+            「核心要点」card — items deep-link through the anchor channel
+            (scroll + flash, the citation chips' channel), the regenerate
+            action replaces the active set (the vN chip reads the refetched
+            row), and the empty states stay honest (no annotations vs no
+            set). Rendered only over a parsed material, like the
+            annotations card beside which it lives. */}
+        {focusPanelOpen && parseState === "parsed" && (
+          <StudyFocusPanel
+            materialId={material.id}
+            hasAnnotations={
+              annotationsQuery.data === undefined ? undefined : (annotationsQuery.data ?? []).length > 0
+            }
+            set={studyFocusQuery.data}
+            generateLoading={generateStudyFocusResult.loading}
+            onGenerate={handleGenerateStudyFocus}
+            onJump={jumpToLocator}
+            onClose={() => setFocusPanelOpen(false)}
           />
         )}
 

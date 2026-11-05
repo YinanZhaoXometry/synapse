@@ -371,6 +371,21 @@ module Types
       current_user!.annotations.where(material_id: material.id).order(created_at: :desc, id: :desc)
     end
 
+    # The FR-17 Study Focus read (epic-13 T4): the caller's ONE active set
+    # for the material, or null when it was never distilled (the honest
+    # generate-CTA state). A bare sanctioned read — the scoping IS the
+    # logic (the material through the owner's association path, delta 2),
+    # no command wraps a plain SELECT.
+    field :study_focus, Types::StudyFocusSetType, null: true,
+      description: "The caller's active Study Focus set for one material (FR-17, epic-13 T4) — null when never generated. A foreign, unknown, or malformed material id is uniformly NOT_FOUND (delta 2 — never reveals existence)." do
+      argument :material_id, String, required: true, description: "The distilled material's uuid."
+    end
+
+    def study_focus(material_id:)
+      material = scoped_material(material_id)
+      current_user!.study_focus_sets.find_by(material_id: material.id)
+    end
+
     private
 
     # The scope ids are ownership-checked addresses (delta 2): unknown,
