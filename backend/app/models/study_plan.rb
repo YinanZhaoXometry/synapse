@@ -17,4 +17,10 @@ class StudyPlan < ApplicationRecord
   # FR-38 structural: private by default, public is the Square opt-in.
   # scopes: false — the value `private` would collide with Ruby's Module#private.
   enum :visibility, { private: "private", public: "public" }, default: :private, scopes: false
+
+  # FR-38 flip semantics (epic P2-11 T1): the Square read path's (T2)
+  # governing scope — a public plan is in, a private one is out, the moment
+  # the column flips. Declared by hand (the enum's scopes are off for the
+  # `private` collision above), so the name can't drift with the enum.
+  scope :publicly_visible, -> { where(visibility: "public") }
 end

@@ -18,6 +18,7 @@ import {
   PlanMistakeEntriesDocument,
   PlansDocument,
   ReadingProgressListDocument,
+  SetPlanVisibilityDocument,
   UpdatePlanDocument,
 } from "@/types/graphql";
 import { mapMaterialSummary, mapNode, readingLocator } from "../mappers";
@@ -40,6 +41,7 @@ export function usePlansQuery() {
     materialIds: [],
     createdAt: plan.createdAt,
     masteryScore: plan.masteryScore,
+    visibility: plan.visibility === "public" ? "public" : "private",
   }));
   return { data: result.data !== undefined ? plans : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
@@ -58,6 +60,9 @@ export function usePlanQuery(planId: string) {
         materialIds: [],
         createdAt: row.createdAt,
         masteryScore: row.masteryScore,
+        // FR-38 (epic P2-11 T1): the server's own column — rendered by the
+        // plan settings control, never recomputed (AD-14 posture).
+        visibility: row.visibility === "public" ? "public" : "private",
       },
       nodes: row.nodes.map(mapNode),
       materials: row.materials.map(mapMaterialSummary),
@@ -102,6 +107,16 @@ export function useDeletePlanMutation() {
       }
     },
   });
+}
+
+/**
+ * The FR-38 visibility flip (epic P2-11 T1): the plan settings control's
+ * write. The mutation returns the full plan row (normalized cache write) and
+ * the Plan read-back sweep re-reads the detail — the chip flips from server
+ * truth, never optimism (the MaterialScopeControls precedent).
+ */
+export function useSetPlanVisibilityMutation() {
+  return useMutation(SetPlanVisibilityDocument, { refetchQueries: [PlanDocument] });
 }
 
 /**

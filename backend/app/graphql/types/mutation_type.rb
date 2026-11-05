@@ -17,6 +17,11 @@ module Types
     field :update_plan, mutation: Mutations::Plans::UpdatePlan
     field :delete_plan, mutation: Mutations::Plans::DeletePlan
 
+    # The FR-38 visibility flip (epic P2-11 T1): the Square opt-in/opt-out —
+    # verb-first next to the updatePlan patch (the flip is a named,
+    # confirm-gated product action, not a field patch).
+    field :set_plan_visibility, mutation: Mutations::Plans::SetPlanVisibility
+
     field :create_task, mutation: Mutations::Tasks::CreateTask
     field :attach_material, mutation: Mutations::Materials::AttachMaterial
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult

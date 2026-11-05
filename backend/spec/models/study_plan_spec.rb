@@ -29,4 +29,25 @@ RSpec.describe StudyPlan, type: :model do
     expect(visibility).to be_present
     expect(visibility.expression).to include("private")
   end
+
+  # FR-38 flip semantics (epic P2-11 T1): publicly_visible is the scope the
+  # Square read path (T2) governs itself by — the flip must move membership
+  # both ways at the model level, independent of any UI.
+  describe ".publicly_visible" do
+    it "includes a public plan and excludes a private one" do
+      public_plan = described_class.create!(model_attributes.merge(topic: "shared", visibility: "public"))
+      described_class.create!(model_attributes.merge(topic: "hidden"))
+
+      expect(described_class.publicly_visible.map(&:id)).to eq([ public_plan.id ])
+    end
+
+    it "drops a plan from the scope the moment it flips back to private" do
+      plan = described_class.create!(model_attributes.merge(visibility: "public"))
+      expect(described_class.publicly_visible).to include(plan)
+
+      plan.update!(visibility: "private")
+
+      expect(described_class.publicly_visible).not_to include(plan)
+    end
+  end
 end

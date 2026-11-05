@@ -18,6 +18,11 @@ export interface KnowledgeNodeView extends KnowledgeNode {
 
 export interface StudyPlanView extends StudyPlan {
   masteryScore: MasteryScoreString;
+  /**
+   * FR-38 (epic P2-11 T1): the server's visibility column — "private"
+   * (default) or "public" (the Square opt-in). Server truth, never derived.
+   */
+  visibility: "private" | "public";
 }
 
 export interface StudyTaskView extends StudyTask {

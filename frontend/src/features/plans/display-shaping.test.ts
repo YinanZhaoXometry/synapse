@@ -23,6 +23,7 @@ const plan = (id: string, createdAt: string, masteryScore = "0"): StudyPlanView 
   materialIds: [],
   createdAt,
   masteryScore,
+  visibility: "private",
 });
 
 const node = (id: string, overrides: Partial<KnowledgeNodeView> = {}): KnowledgeNodeView => ({
