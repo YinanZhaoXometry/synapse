@@ -5,13 +5,17 @@ module Types
     # The scaffold's single sanctioned query (epic-00 T02) plus the domain
     # queries landing with their epics (AD-12 command core). The reads are
     # bare association reads, not use cases: the scoping IS the logic —
-    # every one resolves through the caller's own association path (kickoff
-    # delta 2), so the reader cannot name a row that is not theirs.
-    # Auth-guarded per delta 8 via CurrentUserGuard (the same seam the
-    # mutations use). The Plans reads landed with epic P2-3 ticket 01; the
-    # Tasks/Materials reads with ticket 02; the quiz/evidence/flashcard
-    # reads with ticket 03; the chat/progress reads with ticket 04; the
-    # re-queue's dueItems read with epic P2-7 ticket 03.
+    # every user-scoped one resolves through the caller's own association
+    # path (kickoff delta 2), so the reader cannot name a row that is not
+    # theirs. Auth-guarded per delta 8 via CurrentUserGuard (the same seam
+    # the mutations use) — the sole exception is the Square public read
+    # path (epic P2-11 T2, AD-13's sanctioned exception), which never
+    # consults caller identity and reads only through the explicit
+    # StudyPlan.publicly_visible scope (see its section below). The Plans
+    # reads landed with epic P2-3 ticket 01; the Tasks/Materials reads
+    # with ticket 02; the quiz/evidence/flashcard reads with ticket 03;
+    # the chat/progress reads with ticket 04; the re-queue's dueItems read
+    # with epic P2-7 ticket 03.
     include CurrentUserGuard
 
     field :health, String, null: false,
@@ -19,6 +23,45 @@ module Types
 
     def health
       "ok"
+    end
+
+    # ── The Square public read path (FR-39, epic P2-11 T2) — the AD-13
+    # sanctioned exception, kept deliberately next to `health`: together
+    # they are the schema's ONLY unauthenticated-readable queries. Every
+    # other field below demands auth via current_user!; these two never
+    # consult the caller's identity at all (the resolver under
+    # context[:current_user] stays lazy, so a no-token request pays zero
+    # auth cost — the house opt-out is simply not calling current_user!).
+    # Scoping is the stricter public-path posture (the P2-4 review): reads
+    # go through the explicit StudyPlan.publicly_visible scope and the
+    # plan's own node association — never a bare model reach — and answer
+    # the reduced SquarePlanType structure set (NFR-7: no materials,
+    # annotations, or scores EXIST on the type to select; the field-set
+    # assertion spec pins it: spec/graphql/square_public_types_spec.rb).
+
+    field :square_plans, [ Types::SquarePlanType ], null: false,
+      description: "The Square's public plan listing (FR-39, epic P2-11 T2): every PUBLIC study plan from every owner, newest-first, as a plain list (AD-12 — no pagination v1, delta decision 2). The AD-13 sanctioned exception: readable WITHOUT authentication, structure only (NFR-7)."
+
+    def square_plans
+      # One plans query + one preloaded node pass — the summaries never
+      # query per plan (SquarePlanType#node_summaries).
+      StudyPlan.publicly_visible.order(created_at: :desc, id: :desc).includes(:knowledge_nodes)
+    end
+
+    field :square_plan, Types::SquarePlanType, null: true,
+      description: "One public plan's structure-only preview by id (FR-39). A private, foreign, unknown, or malformed id is uniformly NOT_FOUND — the public path never reveals existence." do
+      argument :id, String, required: true, description: "The plan's uuid."
+    end
+
+    def square_plan(id:)
+      # The malformed-address guard first (a malformed id must not become a
+      # 500 — the house `plan` posture), then the explicit public scope:
+      # private rows are simply not addressed by this door, so unknown,
+      # foreign, private, and malformed ids all answer the SAME NOT_FOUND
+      # (no existence leak).
+      return not_found("plan not found") unless id.match?(Accounts::UUID_REGEX)
+
+      StudyPlan.publicly_visible.find_by(id: id) || not_found("plan not found")
     end
 
     field :plans, [ Types::StudyPlanType ], null: false,

@@ -3147,6 +3147,26 @@ type Query {
   readingProgressList: [ReadingProgress!]!
 
   """
+  One public plan's structure-only preview by id (FR-39). A private, foreign,
+  unknown, or malformed id is uniformly NOT_FOUND — the public path never
+  reveals existence.
+  """
+  squarePlan(
+    """
+    The plan's uuid.
+    """
+    id: String!
+  ): SquarePlan
+
+  """
+  The Square's public plan listing (FR-39, epic P2-11 T2): every PUBLIC study
+  plan from every owner, newest-first, as a plain list (AD-12 — no pagination
+  v1, delta decision 2). The AD-13 sanctioned exception: readable WITHOUT
+  authentication, structure only (NFR-7).
+  """
+  squarePlans: [SquarePlan!]!
+
+  """
   The current user's evidence-day streak: consecutive UTC calendar days with at
   least one EvidenceRecord, ending at the latest evidence day — alive only while
   that day is today or yesterday (UTC), otherwise 0. Computed by the api's
@@ -3988,6 +4008,64 @@ type SetWeeklyGoalPayload {
   The fresh weekly-goal read after the set.
   """
   weeklyGoal: WeeklyGoal!
+}
+
+"""
+One public plan node's structure summary (FR-39, the AD-13 exception): title,
+stage, and order ONLY — no scores, no content, no identity (NFR-7).
+"""
+type SquareNodeSummary {
+  """
+  Position within the plan's node tree.
+  """
+  order: Int!
+
+  """
+  The stage grouping from the plan structure (e.g. 基础/核心/进阶/应用).
+  """
+  stage: String
+
+  """
+  The node's title.
+  """
+  title: String!
+}
+
+"""
+A public study plan's structure-only Square view (FR-39, the AD-13 exception):
+the plan header plus stage-ordered node summaries — no materials, annotations,
+scores, or owner identity exist on it to select (NFR-7).
+"""
+type SquarePlan {
+  """
+  When the plan was created.
+  """
+  createdAt: DateTime!
+
+  """
+  The optional study goal.
+  """
+  goal: String
+
+  """
+  The plan's uuid. Ids are plain UUID strings — no GlobalID (AD-12).
+  """
+  id: String!
+
+  """
+  The plan's structure, stage-ordered — the node tree's title/stage/order summaries (the fork command's input shape for T3).
+  """
+  nodeSummaries: [SquareNodeSummary!]!
+
+  """
+  What the plan studies.
+  """
+  topic: String!
+
+  """
+  Always "public" here — the Square only ever answers publicly_visible plans.
+  """
+  visibility: String!
 }
 
 """

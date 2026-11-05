@@ -48,4 +48,23 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
   it "exposes a minimal User type — identity only, no credential material" do
     expect(Types::UserType.fields.keys).to contain_exactly("id", "email", "createdAt")
   end
+
+  # The query-side auth posture, recorded by the epic P2-11 T2 exception:
+  # the domain reads stay auth-guarded per kickoff delta 8 (proven on the
+  # wire per surface — e.g. spec/requests/graphql_plans_spec.rb answers
+  # UNAUTHORIZED for plans/plan without a token), and the schema's ONLY
+  # unauthenticated-readable queries are the health liveness probe plus the
+  # Square public reads — AD-13's single sanctioned exception (FR-39,
+  # unauthenticated-readable BY DESIGN, structure-only via the reduced
+  # SquarePlanType set, NFR-7; field-for-field pinned by
+  # spec/graphql/square_public_types_spec.rb). This assertion records that
+  # exception explicitly so the posture is legible here — it does not
+  # weaken the mutation roster above, which is unchanged.
+  it "exposes the Square public reads (epic P2-11 T2) — with health, the schema's only unauthenticated-readable queries (the AD-13 exception)" do
+    expect(Types::QueryType.fields.keys).to include("squarePlans", "squarePlan")
+
+    public_field_descriptions = Types::QueryType.fields
+      .slice("squarePlans", "squarePlan").values.map(&:description).join(" ")
+    expect(public_field_descriptions).to include("AD-13")
+  end
 end
