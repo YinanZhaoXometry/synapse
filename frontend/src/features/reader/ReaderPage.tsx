@@ -26,6 +26,14 @@
  * panel's send-time grounding source; a reactive displayLocator mirrors it
  * for the grounded badge and send gating. Citation-chip jumps are the AD-8
  * anchor channel's in-reader half — the flow handles scroll AND flash.
+ *
+ * Mastery Marking (FR-15, epic-15 T3): this page owns the claim state — the
+ * sectionMarkings read (open rows → green), the claim/unmark mutations (the
+ * read-back sweep is the state; success silent, failure toasts), and the
+ * confirm-quiz launcher dispatching through the quick-test seam scoped to
+ * the claimed section under the same gate the selection bar renders. The
+ * flows stay presentational: optional props, absent = feature off (an
+ * in-flight/failed marking read renders no claim state at all).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -52,13 +60,16 @@ import {
   newClientUuid,
   useAddAnnotationMutation,
   useAnnotationsQuery,
+  useClaimSectionMutation,
   useGenerateStudyFocusMutation,
   useMaterialNodeMappingsQuery,
   useMaterialQuery,
   usePlanQuery,
   useReadingProgressQuery,
   useRemoveAnnotationMutation,
+  useSectionMarkingsQuery,
   useStudyFocusQuery,
+  useUnclaimSectionMutation,
 } from "@/api";
 import type { ErrorLike } from "@apollo/client";
 import { sessionBlobs } from "@/lib/session-blobs";
@@ -78,6 +89,8 @@ import { stepPage } from "./pager";
 import { isPptxReupload, validateReupload } from "./reupload";
 import { QuickTestFlow } from "./quick-test-flow";
 import { quickTestGate } from "./quick-test-gate";
+import { dispatchQuickTest } from "./quick-test-seam";
+import { markingQuickTestScope, openClaimsBySection } from "./marking";
 import { SelectionBar, SELECTION_BAR_HEIGHT, SELECTION_BAR_WIDTH } from "./selection-bar";
 import { barAnchor, captureSelection, MAX_SELECTION_CHARS, type CapturedSelection } from "./selection-capture";
 import {
@@ -116,6 +129,54 @@ export default function ReaderPage() {
   // same read (Apollo dedupes) and owns the session takeover.
   const mappingsQuery = useMaterialNodeMappingsQuery(materialId ?? "");
   const quickTestGateState = quickTestGate(mappingsQuery.data, mappingsQuery.error);
+
+  // Mastery Marking (FR-15, epic-15 T3): the claim read feeds the green
+  // display; the two mutations sweep the same read (the fresh rows ARE the
+  // state — optimistic-free). The open claims derive purely from the landed
+  // rows (`clearedAt == null`, first open row per section wins); while the
+  // read is in flight or failed the marking props stay ABSENT — the reader
+  // renders no claim state at all (honest-empty), never a premature or fake
+  // green. The green comes only from the query rows: a reload re-derives it.
+  const markingsQuery = useSectionMarkingsQuery(materialId ?? "");
+  const [claimSectionMutation] = useClaimSectionMutation();
+  const [unclaimSectionMutation] = useUnclaimSectionMutation();
+  const openBySection = useMemo(() => openClaimsBySection(markingsQuery.data), [markingsQuery.data]);
+  const claimedSectionIds = useMemo(
+    () => (markingsQuery.data !== undefined ? new Set(openBySection.keys()) : undefined),
+    [markingsQuery.data, openBySection],
+  );
+
+  // Claim when unclaimed, unmark when claimed. Success stays silent — the
+  // green arriving via the read-back sweep IS the feedback; failure toasts
+  // honestly (sonner, AD-9).
+  const handleToggleClaim = useCallback(
+    (sectionId: string) => {
+      if (!material) return;
+      const unmarking = openBySection.has(sectionId);
+      const mutate = unmarking ? unclaimSectionMutation : claimSectionMutation;
+      void mutate({
+        variables: { input: { materialId: material.id, sectionId } },
+        onError: () => toast.error(t(unmarking ? "marking.unmarkFailed" : "marking.claimFailed")),
+      });
+    },
+    [material, openBySection, claimSectionMutation, unclaimSectionMutation, t],
+  );
+
+  // The confirm-quiz launcher: the selection bar's exact dispatch path,
+  // scoped to the claimed section (markingQuickTestScope). Same gate
+  // discipline — only a "ready" mapping read dispatches — and the same
+  // honest coming-soon toast when no flow is registered (false). Success is
+  // silent (the takeover itself is the feedback); the claim row is untouched
+  // by quizzes (a claim is never evidence, AD-14).
+  const handleConfirmQuiz = useCallback(
+    (sectionId: string) => {
+      if (!material || quickTestGateState !== "ready") return;
+      if (!openBySection.has(sectionId)) return; // claimed sections launch only
+      const dispatched = dispatchQuickTest(markingQuickTestScope(material.id, sectionId));
+      if (!dispatched) toast.info(t("reader.quickTestComingSoon"));
+    },
+    [material, openBySection, quickTestGateState, t],
+  );
 
   // The annotations surface (FR-16, epic-13 T3): the per-material read feeds
   // both render halves (the flows' engine passes) and the list panel; the
@@ -670,6 +731,10 @@ export default function ReaderPage() {
                   introSectionId={introSectionId}
                   staleTitle={t("reader.annotationStale")}
                   onAnnotationsApplied={handleAnnotationsApplied}
+                  claimedSectionIds={claimedSectionIds}
+                  onToggleClaim={claimedSectionIds === undefined ? undefined : handleToggleClaim}
+                  onConfirmQuiz={claimedSectionIds === undefined ? undefined : handleConfirmQuiz}
+                  quickTestGate={quickTestGateState}
                 />
               )
             ) : (
@@ -688,6 +753,10 @@ export default function ReaderPage() {
                 onTotalPages={handleTotalPages}
                 annotations={annotationItems}
                 onAnnotationsApplied={handleAnnotationsApplied}
+                claimedSectionIds={claimedSectionIds}
+                onToggleClaim={claimedSectionIds === undefined ? undefined : handleToggleClaim}
+                onConfirmQuiz={claimedSectionIds === undefined ? undefined : handleConfirmQuiz}
+                quickTestGate={quickTestGateState}
               />
             )
           ) : (

@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { READER_FLASH_MS } from "./anchors";
 import type { AnnotationApplyResult, AnnotationRenderItem } from "./annotation-engine";
+import type { QuickTestGateState } from "./quick-test-gate";
 import { parsePptx } from "./parse-pptx";
 
 const MarkdownView = lazy(() => import("./markdown-view"));
@@ -78,10 +79,19 @@ interface MarkdownFlowProps {
   staleTitle?: string;
   /** The engine's application results (the list panel's honesty badges). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
+  /**
+   * Mastery Marking (FR-15, epic-15 T3) — pass-through to MarkdownView:
+   * open-claim ids + handlers (absent = feature off) and the confirm-quiz
+   * gate. The mounter (ReaderPage) owns the state; this flow adds nothing.
+   */
+  claimedSectionIds?: Set<string>;
+  onToggleClaim?(sectionId: string): void;
+  onConfirmQuiz?(sectionId: string): void;
+  quickTestGate?: QuickTestGateState;
 }
 
 export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(function MarkdownFlow(
-  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll, annotations, introSectionId, staleTitle, onAnnotationsApplied },
+  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll, annotations, introSectionId, staleTitle, onAnnotationsApplied, claimedSectionIds, onToggleClaim, onConfirmQuiz, quickTestGate },
   ref,
 ) {
   const [text, setText] = useState<string | null>(null);
@@ -256,6 +266,10 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
                 introSectionId={introSectionId}
                 staleTitle={staleTitle}
                 onAnnotationsApplied={onAnnotationsApplied}
+                claimedSectionIds={claimedSectionIds}
+                onToggleClaim={onToggleClaim}
+                onConfirmQuiz={onConfirmQuiz}
+                quickTestGate={quickTestGate}
               />
             </Suspense>
           )}
