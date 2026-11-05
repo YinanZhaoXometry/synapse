@@ -58,3 +58,4 @@ the plans-home list rows too (`Plans` query now selects it) for T3's tab split.
 **Test-env note:** gates ran on an isolated compose project (`-p synapse-t11`) with a /tmp
 `!override` port-unpublishing file (the sibling p2-12 worktrees own the shared dev stack's
 3000/9000); no repo files touched for it.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — epic-01 column verified complete (check constraint + enum + default all present, zero migration); setPlanVisibility = idempotent closed-enum with uniform NOT_FOUND; publicly_visible scope + flip semantics spec'd both ways (T2's governing truth); create-step choice surfaced the previously-dead arg; disclosure confirm-gated zh+en. Merged on `epic/p2-11-square`.
