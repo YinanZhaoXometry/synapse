@@ -62,3 +62,4 @@ run (1 of 657), two consecutive full greens after — no frontend diff exists in
 **For T3:** consume `squarePlans`/`squarePlan` via new documents in `src/lib/graphql/*.graphql`
 (codegen will then emit the Square types); the fork command is an AUTHENTICATED mutation per
 delta decision 5; `SquarePlanType#nodeSummaries` (title/stage/order) is the fork input shape.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — reduced types literally lack content fields (schema-level field-set assertion in suite); auth opt-out = the house `health` precedent (absence of the guard call; CurrentUserResolver short-circuits anonymous); uniform absence literal-pinned incl. owner's own private plan; 1+1 query count asserted; auth_surface roster extended with the explicit AD-13 exception (with health these two are the only token-free queries). Merged on `epic/p2-11-square`.
