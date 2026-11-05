@@ -259,6 +259,12 @@ export const translations = {
       'reader.studyFocusGenerating': '正在提炼核心要点…',
       'reader.studyFocusJumpAria': '跳到这条要点的出处',
       'reader.studyFocusGenerateFailed': '核心要点生成失败，请重试。',
+      // 掌握标记（epic-15 T3 · FR-15）：声明不是证据——标记从不改分数，绿色即状态
+      'marking.claim': '标记已掌握',
+      'marking.unmark': '取消标记',
+      'marking.confirmQuiz': '确认测验',
+      'marking.claimFailed': '标记失败，请重试。',
+      'marking.unmarkFailed': '取消标记失败，请重试。',
 
       'companion.title': 'Companion',
       'companion.groundedBadge': '◎ 已定位 · {target}',
@@ -1177,6 +1183,12 @@ export const translations = {
       'reader.studyFocusGenerating': 'Distilling core items…',
       'reader.studyFocusJumpAria': "Jump to this item's source",
       'reader.studyFocusGenerateFailed': "Study focus generation failed — try again.",
+      // Mastery marking (epic-15 T3 · FR-15): a claim is never evidence — marking never moves a score; the green IS the state
+      'marking.claim': 'Mark as mastered',
+      'marking.unmark': 'Unmark',
+      'marking.confirmQuiz': 'Confirm quiz',
+      'marking.claimFailed': "The mark couldn't be saved — try again.",
+      'marking.unmarkFailed': "The mark couldn't be removed — try again.",
 
       'companion.title': 'Companion',
       'companion.groundedBadge': '◎ Located · {target}',

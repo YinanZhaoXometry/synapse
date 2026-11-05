@@ -10,6 +10,11 @@
  * (?page=N — or the stored-progress restore, same channel) scrolls to its
  * target and, with ?hl=1, flashes it once in the citation tint (AD-8).
  * Canvas rendering itself is not component-tested (jsdom has no canvas).
+ *
+ * Mastery Marking (FR-15, epic-15 T3): presentational only — the mounter's
+ * optional props drive a top-right corner control per page and the claimed
+ * page's mastered band; the page element (`data-page`) stays the layout
+ * truth and the marking never enters the text flow.
  */
 import {
   forwardRef,
@@ -20,7 +25,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { Bookmark, BookmarkCheck, ListChecks } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { cn } from "@/lib/utils";
 import { READER_FLASH_MS } from "./anchors";
 import {
   applyPdfPageAnnotations,
@@ -28,6 +35,7 @@ import {
   type AnnotationApplyResult,
   type AnnotationRenderItem,
 } from "./annotation-engine";
+import type { QuickTestGateState } from "./quick-test-gate";
 import { clampPage, inRenderWindow, renderWindow, stepPage } from "./pager";
 import { mostVisiblePage, type MeasuredPageRect } from "./position-tracking";
 import { openPdfDocument, type OpenedPdfDocument } from "./pdf-render";
@@ -66,10 +74,21 @@ interface PdfPageFlowProps {
   annotations?: AnnotationRenderItem[];
   /** The engine's application results (the list panel's honesty badges). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
+  /**
+   * Mastery Marking (FR-15, epic-15 T3) — presentational, like MarkdownView's
+   * surface: the mounter's open-claim ids (PDF sections are `page-N`),
+   * claim/unmark + confirm-quiz handlers (absent = feature off — the
+   * SelectionBar optional-group pattern), and the confirm-quiz gate (the
+   * selection bar's posture contract; defaults "ready").
+   */
+  claimedSectionIds?: Set<string>;
+  onToggleClaim?(sectionId: string): void;
+  onConfirmQuiz?(sectionId: string): void;
+  quickTestGate?: QuickTestGateState;
 }
 
 export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function PdfPageFlow(
-  { blob, initialPage, flashTarget, onPageChange, onTotalPages, annotations, onAnnotationsApplied },
+  { blob, initialPage, flashTarget, onPageChange, onTotalPages, annotations, onAnnotationsApplied, claimedSectionIds, onToggleClaim, onConfirmQuiz, quickTestGate = "ready" },
   ref,
 ) {
   const { t } = useLanguage();
@@ -296,6 +315,16 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
                   flash={flashPage === n}
                   annotations={annotationsByPage?.get(n)}
                   onAnnotationsApplied={onAnnotationsApplied}
+                  marking={
+                    onToggleClaim
+                      ? {
+                          claimed: claimedSectionIds?.has(`page-${n}`) === true,
+                          onToggleClaim,
+                          onConfirmQuiz,
+                          quickTestGate,
+                        }
+                      : undefined
+                  }
                   containerRef={(el) => {
                     if (el) pageRefs.current.set(n, el);
                     else pageRefs.current.delete(n);
@@ -324,10 +353,17 @@ interface PdfPageCanvasProps {
   annotations?: AnnotationRenderItem[];
   /** The engine's application results (aggregated up to the list panel). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
+  /** This page's marking wiring (undefined = feature off — no control, no band). */
+  marking?: {
+    claimed: boolean;
+    onToggleClaim(sectionId: string): void;
+    onConfirmQuiz?(sectionId: string): void;
+    quickTestGate: QuickTestGateState;
+  };
   containerRef(el: HTMLDivElement | null): void;
 }
 
-function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, annotations, onAnnotationsApplied, containerRef }: PdfPageCanvasProps) {
+function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, annotations, onAnnotationsApplied, marking, containerRef }: PdfPageCanvasProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // The invisible selectable text layer (epic-13 T1, FR-13): the selection
@@ -438,7 +474,10 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, an
       data-page={pageNumber}
       role="group"
       aria-label={t("reader.pageAria", { n: pageNumber })}
-      className="relative mx-auto bg-card shadow-raised rounded-[4px] overflow-hidden"
+      className={cn(
+        "relative mx-auto bg-card shadow-raised rounded-[4px] overflow-hidden",
+        marking && "group",
+      )}
       style={{ width, height }}
     >
       <canvas ref={canvasRef} className="block" aria-hidden="true" />
@@ -448,7 +487,83 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, an
       {flash && (
         <div className="pointer-events-none absolute inset-0 bg-[hsl(var(--citation-tint))] animate-reader-flash" />
       )}
+      {/* Mastery Marking (FR-15, epic-15 T3): a claimed page wears the
+          mastered band across its top edge, plus the corner control —
+          hover-revealed over the page, always visible while claimed, OUTSIDE
+          the text flow (the text layer and canvas never move). */}
+      {marking && marking.claimed && (
+        <span
+          aria-hidden="true"
+          data-testid="marking-page-band"
+          className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-mastered-tint"
+        />
+      )}
+      {marking && <PageMarkingControls sectionId={`page-${pageNumber}`} marking={marking} />}
     </div>
+  );
+}
+
+/**
+ * The page's corner marking control (FR-15, epic-15 T3): top-right, over the
+ * canvas — claim when unclaimed (hover/focus-revealed; the page div is the
+ * hover group), the green badge + unmark + the gated confirm-quiz launcher
+ * when claimed. Real buttons with bilingual accessible names (AD-9); the
+ * gate postures are the selection bar's exact contract (loading/error
+ * disable — error adds the tooltip — none hides, ready enables).
+ */
+function PageMarkingControls({
+  sectionId,
+  marking,
+}: {
+  sectionId: string;
+  marking: { claimed: boolean; onToggleClaim(sectionId: string): void; onConfirmQuiz?(sectionId: string): void; quickTestGate: QuickTestGateState };
+}) {
+  const { t } = useLanguage();
+  const { claimed, onToggleClaim, onConfirmQuiz, quickTestGate } = marking;
+  const stateLabel = t(claimed ? "marking.unmark" : "marking.claim");
+  const confirmHidden = quickTestGate === "none";
+  const confirmBlocked = quickTestGate === "loading" || quickTestGate === "error";
+  return (
+    <span
+      className={cn(
+        "absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg border border-border-soft bg-[var(--glass-4)] p-0.5 shadow-raised transition-opacity",
+        claimed
+          ? "opacity-100"
+          : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto",
+      )}
+    >
+      <button
+        type="button"
+        data-testid={claimed ? "marking-unmark" : "marking-claim"}
+        aria-label={stateLabel}
+        title={stateLabel}
+        onClick={() => onToggleClaim(sectionId)}
+        className={cn(
+          "w-7 h-7 rounded-md flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-[var(--glass-2)]",
+          claimed ? "text-mastered-ink" : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {claimed ? (
+          <BookmarkCheck className="w-4 h-4" aria-hidden="true" />
+        ) : (
+          <Bookmark className="w-4 h-4" aria-hidden="true" />
+        )}
+      </button>
+      {claimed && !confirmHidden && (
+        <button
+          type="button"
+          data-testid="marking-confirm-quiz"
+          aria-label={t("marking.confirmQuiz")}
+          title={quickTestGate === "error" ? t("reader.quickTestUnavailable") : t("marking.confirmQuiz")}
+          disabled={confirmBlocked}
+          aria-disabled={confirmBlocked}
+          onClick={() => onConfirmQuiz?.(sectionId)}
+          className="w-7 h-7 rounded-md flex items-center justify-center text-accent-ink cursor-pointer hover:bg-[var(--glass-2)] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ListChecks className="w-4 h-4" aria-hidden="true" />
+        </button>
+      )}
+    </span>
   );
 }
 
