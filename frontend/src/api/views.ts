@@ -35,6 +35,16 @@ export interface StudyPlanView extends StudyPlan {
 export interface StudyTaskView extends StudyTask {
   /** The task's single auto-owned node (AD-6) — read off the task, never re-derived. */
   node: KnowledgeNodeView;
+  /**
+   * The promotion pointer (FR-37 stretch, epic-14 T2): the plan this task
+   * became — null while the task is plan-free. The promoted state is
+   * INFERRED from this server field, never derived client-side.
+   */
+  promotedPlanId: string | null;
+  /** When the promotion happened — set exactly with promotedPlanId. */
+  promotedAt: string | null;
+  /** The promoted-into plan (the pointer card's title + deep-link target). */
+  promotedPlan: { id: string; topic: string } | null;
 }
 
 /** Material with the presigned GET the reader needs for the original bytes (epic P2-6). */

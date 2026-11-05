@@ -661,6 +661,18 @@ export const translations = {
       'tasks.nodeSection': '知识节点',
       'tasks.cap99Note': '证据不足 {n} 条 · 分数封顶 99%',
 
+      // Study Tasks — task → plan promotion (epic-14 T2, FR-37 stretch)
+      'tasks.promoteAction': '升级为学习计划',
+      'tasks.promoteTitle': '升级为学习计划？',
+      'tasks.promoteBody': '升级后任务内容成为独立学习计划，学习记录完整保留。',
+      'tasks.promoteConfirm': '确认升级',
+      'tasks.promoteCancel': '暂不',
+      'tasks.promoting': '正在升级…',
+      'tasks.promoteFailed': '升级失败，请重试。',
+      'tasks.promotedCardTitle': '已升级为学习计划',
+      'tasks.promotedCardNote': '此任务已变成只读入口；继续学习请前往计划。',
+      'tasks.viewPlan': '查看学习计划',
+
       // Study Tasks (epic-6 T4 — task-flow quiz/flashcards routes, FR-37 parity)
       'tasks.backToTask': '返回任务',
 
@@ -1566,6 +1578,18 @@ export const translations = {
       'tasks.rollupNote': "Mastery = recent evidence on this task's single node",
       'tasks.nodeSection': 'Knowledge node',
       'tasks.cap99Note': 'Under the {n}-evidence gate · capped at 99%',
+
+      // Study Tasks — task → plan promotion (epic-14 T2, FR-37 stretch)
+      'tasks.promoteAction': 'Promote to study plan',
+      'tasks.promoteTitle': 'Promote to a study plan?',
+      'tasks.promoteBody': "The task's content becomes a standalone study plan — your study record carries over in full.",
+      'tasks.promoteConfirm': 'Promote',
+      'tasks.promoteCancel': 'Not now',
+      'tasks.promoting': 'Promoting…',
+      'tasks.promoteFailed': 'Promotion failed — please retry.',
+      'tasks.promotedCardTitle': 'Promoted to a study plan',
+      'tasks.promotedCardNote': 'This task is now a read-only pointer; continue studying in the plan.',
+      'tasks.viewPlan': 'Open the study plan',
 
       // Study Tasks (epic-6 T4 — task-flow quiz/flashcards routes, FR-37 parity)
       'tasks.backToTask': 'Back to task',

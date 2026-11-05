@@ -129,6 +129,43 @@ RSpec.describe Plans::DeletePlanCommand do
       end
     end
 
+    it "sweeps a PROMOTED task pointer and its task-scope sessions with the plan (epic-14 T2)" do
+      # The promotion's end state (Tasks::PromoteTaskToPlanCommand's shape,
+      # built directly): the task's node and material now belong to THIS plan
+      # (task links cleared), the task row is the read-only pointer. Deleting
+      # the plan deletes the pointer with it — the pointer's content lives in
+      # the plan, so nothing survives to point at — plus the task-scope
+      # sessions the pointer still owns (quiz_sessions.task_id has no
+      # on_delete); every evidence/mistake/question row riding those sessions
+      # is covered by the node/material sweeps (the moved node's id is in the
+      # plan's node set).
+      moved_node = create(:knowledge_node, user: user, plan: plan)
+      moved_material = create(:material, user: user, plan: plan)
+      pointer = create(:study_task, user: user, material: moved_material, node: moved_node)
+      # The factory back-fills the task links (the triangle's insert dance);
+      # the promotion cleared them — mirror its end state exactly.
+      moved_node.update!(task_id: nil)
+      moved_material.update!(task_id: nil)
+      pointer.update!(promoted_plan_id: plan.id, promoted_at: Time.current)
+
+      old_session = create(:quiz_session, user: user, task: pointer, plan: nil)
+      old_question = create(:question, user: user, session: old_session, node: moved_node, source_material: moved_material)
+      old_evidence = create(:evidence_record, user: user, node: moved_node, session: old_session, question: old_question)
+      old_mistake = create(:mistake_entry, user: user, question: old_question, node: moved_node, session: old_session)
+
+      result = call
+
+      expect(result.success?).to be(true)
+      # The pointer dies with the plan (nothing left to point at)…
+      expect(StudyTask.exists?(pointer.id)).to be(false)
+      expect(QuizSession.exists?(old_session.id)).to be(false)
+      expect(Question.exists?(old_question.id)).to be(false)
+      expect(EvidenceRecord.exists?(old_evidence.id)).to be(false)
+      expect(MistakeEntry.exists?(old_mistake.id)).to be(false)
+      # …while the user's plan-free task triangle is untouched.
+      expect(StudyTask.exists?(task.id)).to be(true)
+    end
+
     it "fails NOT_FOUND for an unknown id" do
       result = call(id: SecureRandom.uuid)
 

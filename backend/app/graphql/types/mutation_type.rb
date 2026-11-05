@@ -35,6 +35,13 @@ module Types
     field :fork_square_plan, mutation: Mutations::Plans::ForkSquarePlan
 
     field :create_task, mutation: Mutations::Tasks::CreateTask
+
+    # The FR-37 stretch half (epic-14 T2; delta decision 4): promote a study
+    # task into a study plan — one transaction, evidence untouched (the
+    # node's id is stable), the task flips to the read-only pointer.
+    # Verb-first next to createTask (it creates a plan, from a task).
+    field :promote_task_to_plan, mutation: Mutations::Tasks::PromoteTaskToPlan
+
     field :attach_material, mutation: Mutations::Materials::AttachMaterial
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult
 

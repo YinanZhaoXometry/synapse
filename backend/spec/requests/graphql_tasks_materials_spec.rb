@@ -661,6 +661,145 @@ RSpec.describe "GraphQL study task + material operations (epic P2-3 ticket 02)",
     end
   end
 
+  # Task → Plan promotion on the wire (FR-37 stretch half, epic-14 T2; delta
+  # decision 4): promoteTaskToPlan moves the task's single auto-node into a
+  # new private plan (SAME id — evidence untouched), re-points the material
+  # plan-wide, and flips the task row to the read-only pointer
+  # (promotedPlanId/promotedAt INFERRED state, readable off StudyTaskType).
+  describe "promoteTaskToPlan mutation (epic-14 T2)" do
+    it "answers UNAUTHORIZED without a token" do
+      result = graphql("mutation { promoteTaskToPlan(input: { taskId: \"#{SecureRandom.uuid}\", " \
+                       "clientUuid: \"#{SecureRandom.uuid}\" }) { plan { id } } }")
+      expect(error_code(result)).to eq("UNAUTHORIZED")
+    end
+
+    it "promotes: new private plan, the node moves (same id), material re-points, task becomes the pointer" do
+      user, token = user_with_token("task-promoter@example.com")
+      task = create(:study_task, user: user)
+      create(:evidence_record, user: user, node: task.node)
+      client_uuid = SecureRandom.uuid
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { taskId: task.id, clientUuid: client_uuid } }, token: token
+          mutation Promote($input: PromoteTaskToPlanInput!) {
+            promoteTaskToPlan(input: $input) {
+              plan { id topic visibility masteryScore }
+              task {
+                id
+                promotedPlanId
+                promotedAt
+                promotedPlan { id topic }
+                node { id planId taskId }
+              }
+            }
+          }
+        GRAPHQL
+      )
+
+      payload = result.dig("data", "promoteTaskToPlan")
+      expect(payload["plan"]["id"]).to eq(client_uuid)
+      expect(payload["plan"]["topic"]).to eq(task.material.title) # the default topic
+      expect(payload["plan"]["visibility"]).to eq("private")
+      expect(payload["plan"]["masteryScore"]).to be_present # the plan rollup is live on the wire
+
+      expect(payload["task"]["id"]).to eq(task.id)
+      expect(payload["task"]["promotedPlanId"]).to eq(client_uuid)
+      expect(payload["task"]["promotedAt"]).to be_present
+      expect(payload["task"]["promotedPlan"]["id"]).to eq(client_uuid)
+
+      # The node kept its id and moved (AD-6 xor flip — task side cleared).
+      expect(payload["task"]["node"]["id"]).to eq(task.node_id)
+      expect(payload["task"]["node"]["planId"]).to eq(client_uuid)
+      expect(payload["task"]["node"]["taskId"]).to be_nil
+
+      # DB truth: material re-pointed, evidence untouched.
+      expect(task.reload.promoted_plan_id).to eq(client_uuid)
+      expect(task.material.reload.task_id).to be_nil
+      expect(task.material.plan_id).to eq(client_uuid)
+      expect(user.evidence_records.where(node_id: task.node_id).count).to eq(1)
+    end
+
+    it "is idempotent: a same-uuid replay and an already-promoted task both return the existing pointer" do
+      user, token = user_with_token("promote-replayer@example.com")
+      task = create(:study_task, user: user)
+      client_uuid = SecureRandom.uuid
+
+      first = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{task.id}\", clientUuid: \"#{client_uuid}\" }) " \
+        "{ plan { id } task { promotedPlanId } } }",
+        token: token
+      )
+      replay = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{task.id}\", clientUuid: \"#{client_uuid}\" }) " \
+        "{ plan { id } task { promotedPlanId } } }",
+        token: token
+      )
+      other_uuid = SecureRandom.uuid
+      pointer = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{task.id}\", clientUuid: \"#{other_uuid}\" }) " \
+        "{ plan { id } task { promotedPlanId } } }",
+        token: token
+      )
+
+      expect(first.dig("data", "promoteTaskToPlan", "plan", "id")).to eq(client_uuid)
+      expect(replay.dig("data", "promoteTaskToPlan", "plan", "id")).to eq(client_uuid)
+      # Task-level idempotency: whatever uuid rides, the existing pointer wins.
+      expect(pointer.dig("data", "promoteTaskToPlan", "plan", "id")).to eq(client_uuid)
+      expect(pointer.dig("data", "promoteTaskToPlan", "task", "promotedPlanId")).to eq(client_uuid)
+      expect(user.study_plans.count).to eq(1)
+    end
+
+    it "answers the typed refusals: NOT_FOUND (unknown/foreign/malformed task), VALIDATION_FAILED (foreign uuid)" do
+      user, token = user_with_token("promote-refuser@example.com")
+      foreign_task = create(:study_task, user: create(:user))
+      foreign_plan = create(:study_plan, user: create(:user))
+      own_task = create(:study_task, user: user)
+
+      unknown = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{SecureRandom.uuid}\", " \
+        "clientUuid: \"#{SecureRandom.uuid}\" }) { plan { id } } }", token: token
+      )
+      foreign = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{foreign_task.id}\", " \
+        "clientUuid: \"#{SecureRandom.uuid}\" }) { plan { id } } }", token: token
+      )
+      malformed = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"garbage\", " \
+        "clientUuid: \"#{SecureRandom.uuid}\" }) { plan { id } } }", token: token
+      )
+      foreign_uuid = graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{own_task.id}\", " \
+        "clientUuid: \"#{foreign_plan.id}\" }) { plan { id } } }", token: token
+      )
+
+      aggregate_failures do
+        expect(error_code(unknown)).to eq("NOT_FOUND")
+        expect(error_code(foreign)).to eq("NOT_FOUND")
+        expect(error_code(malformed)).to eq("NOT_FOUND")
+        expect(error_code(foreign_uuid)).to eq("VALIDATION_FAILED")
+      end
+      # Nothing moved on the refusals.
+      expect(own_task.reload.promoted_plan_id).to be_nil
+      expect(user.study_plans.count).to eq(0)
+    end
+
+    it "keeps the pointer readable off the tasks list query (the plans-list read-back's other half)" do
+      user, token = user_with_token("promote-lister@example.com")
+      task = create(:study_task, user: user)
+      client_uuid = SecureRandom.uuid
+
+      graphql(
+        "mutation { promoteTaskToPlan(input: { taskId: \"#{task.id}\", clientUuid: \"#{client_uuid}\" }) { plan { id } } }",
+        token: token
+      )
+
+      result = graphql("query { tasks { id promotedPlanId promotedPlan { id topic } } }", token: token)
+      row = result.dig("data", "tasks").find { |entry| entry["id"] == task.id }
+      expect(row["promotedPlanId"]).to eq(client_uuid)
+      expect(row["promotedPlan"]["id"]).to eq(client_uuid)
+    end
+  end
+
   private
 
   def attach_input(client_uuid, planId: nil, attachmentScope: nil, nodeId: nil, title: "Lecture notes: distributed systems")

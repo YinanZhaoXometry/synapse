@@ -131,13 +131,16 @@ export function mapMaterial(material: MaterialPartsFragment): MaterialView {
   };
 }
 
-export function mapTask(task: { id: string; materialId: string; nodeId: string; createdAt: string; node: KnowledgeNodePartsFragment }): StudyTaskView {
+export function mapTask(task: { id: string; materialId: string; nodeId: string; createdAt: string; node: KnowledgeNodePartsFragment; promotedPlanId?: string | null; promotedAt?: string | null; promotedPlan?: { id: string; topic: string } | null }): StudyTaskView {
   return {
     id: task.id,
     materialId: task.materialId,
     nodeId: task.nodeId,
     createdAt: task.createdAt,
     node: mapNode(task.node),
+    promotedPlanId: task.promotedPlanId ?? null,
+    promotedAt: task.promotedAt ?? null,
+    promotedPlan: task.promotedPlan ?? null,
   };
 }
 

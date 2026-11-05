@@ -1,5 +1,8 @@
 # Study Task operations (epic P2-8 T1). A task owns exactly one auto-created
-# node (AD-6) — read off the task, never re-derived client-side.
+# node (AD-6) — read off the task, never re-derived client-side. The
+# promotion pointer fields (epic-14 T2, FR-37 stretch): promotedPlanId
+# non-null ⇔ the task is the read-only pointer to that plan; promotedPlan
+# rides along so the pointer card can name the plan without a second read.
 
 query Tasks {
   tasks {
@@ -7,6 +10,12 @@ query Tasks {
     materialId
     nodeId
     createdAt
+    promotedPlanId
+    promotedAt
+    promotedPlan {
+      id
+      topic
+    }
     node {
       ...KnowledgeNodeParts
     }
@@ -19,6 +28,12 @@ query Task($id: String!) {
     materialId
     nodeId
     createdAt
+    promotedPlanId
+    promotedAt
+    promotedPlan {
+      id
+      topic
+    }
     node {
       ...KnowledgeNodeParts
     }
@@ -35,6 +50,24 @@ mutation CreateTask($input: CreateTaskInput!) {
     }
     node {
       ...KnowledgeNodeParts
+    }
+  }
+}
+
+mutation PromoteTaskToPlan($input: PromoteTaskToPlanInput!) {
+  promoteTaskToPlan(input: $input) {
+    plan {
+      id
+      topic
+    }
+    task {
+      id
+      promotedPlanId
+      promotedAt
+      promotedPlan {
+        id
+        topic
+      }
     }
   }
 }
