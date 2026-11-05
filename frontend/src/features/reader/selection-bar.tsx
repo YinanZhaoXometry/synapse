@@ -12,6 +12,15 @@
  * dispatches through quick-test-seam.ts; without, the toast says the step is
  * coming instead of a dead affordance.
  *
+ * T2 (epic-13, FR-14) adds the Quick Test GATE (AD-6's honesty law — a
+ * section Quick Test generates evidence only through a confirmed node
+ * mapping): the mounter resolves the material's mapping read and hands the
+ * gate state in. In-flight renders the action disabled-honestly (no
+ * premature clicks); a failed read keeps it disabled under a tooltip; NO
+ * confirmed mapping hides the action entirely, leaving the traceable hint
+ * line 「关联节点后可快测」 in its place (FR-27's trace-to-gap spirit). Only
+ * the landed-and-confirmed state enables the dispatch.
+ *
  * The container suppresses mousedown's default: pressing a button would
  * otherwise collapse the selection before the click lands — the bar never
  * destroys the thing it acts on, and the selection stays free to be re-made
@@ -22,6 +31,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { MessageCircleQuestion, ListChecks } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { QuickTestGateState } from "./quick-test-gate";
 import { dispatchQuickTest } from "./quick-test-seam";
 import type { CapturedSelection } from "./selection-capture";
 
@@ -42,9 +52,18 @@ export interface SelectionBarProps {
   onAsk(selection: CapturedSelection): void;
   /** The bar's own Escape (and any mounter-side dismissal). */
   onDismiss(): void;
+  /**
+   * The Quick Test gate (T2, epic-13): the mounter's resolved
+   * QuickTestGateState from the material's confirmed-mapping read. "ready"
+   * enables the dispatch; "loading" (read in flight) and "error" (read
+   * failed) keep the action disabled-honestly; "none" hides it behind the
+   * traceable hint line. Defaults "ready" — the pre-T2 bar always offered
+   * the action and the seam's dispatch honesty owned the rest.
+   */
+  quickTestGate?: QuickTestGateState;
 }
 
-export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss }: SelectionBarProps) {
+export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss, quickTestGate = "ready" }: SelectionBarProps) {
   const { t } = useLanguage();
 
   // The bar's keyboard way out (the mounter keeps scroll/collapse dismissal).
@@ -64,6 +83,8 @@ export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss }
     onDismiss();
   };
 
+  const gateBlocked = quickTestGate === "loading" || quickTestGate === "error";
+
   return (
     <div
       role="toolbar"
@@ -82,14 +103,30 @@ export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss }
         <MessageCircleQuestion className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
         {t("reader.selectionAsk")}
       </button>
-      <button
-        type="button"
-        onClick={quickTest}
-        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-[var(--glass-2)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ListChecks className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
-        {t("reader.selectionQuickTest")}
-      </button>
+      {quickTestGate === "none" ? (
+        // No confirmed mapping (the landed read) — the action hides and the
+        // traceable hint takes its place (FR-27's spirit: the gap names
+        // itself, bilingual, never a silent disappearance).
+        <span
+          data-testid="quick-test-gate-hint"
+          className="inline-flex items-center px-2.5 py-1.5 text-xs text-muted-foreground"
+        >
+          {t("reader.quickTestGateHint")}
+        </span>
+      ) : (
+        <button
+          type="button"
+          data-testid="quick-test-action"
+          onClick={quickTest}
+          disabled={gateBlocked}
+          aria-disabled={gateBlocked}
+          title={quickTestGate === "error" ? t("reader.quickTestUnavailable") : undefined}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-[var(--glass-2)] disabled:opacity-50 disabled:pointer-events-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ListChecks className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
+          {t("reader.selectionQuickTest")}
+        </button>
+      )}
     </div>
   );
 }

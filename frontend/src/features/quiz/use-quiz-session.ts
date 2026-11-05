@@ -56,6 +56,17 @@ export interface QuizStartInput {
    * plan/task scope on the wire). Absent → today's plan/task quiz, untouched.
    */
   targeting?: { nodeId: string } | null;
+  /**
+   * T2 (epic-13, FR-14): the material Quick Test scope — the FOURTH xor
+   * member. When it rides, planId/taskId/targeting stay OFF the generation
+   * wire (the server refuses combinations) while `planId` remains the
+   * session OWNER handed to createQuizSession (the material's plan — the
+   * gate's confirmed mappings attach to plan nodes). sectionIds narrows to
+   * 1–5 sections; targetCount caps at 3–5 (the server default is 5).
+   */
+  materialId?: string | null;
+  sectionIds?: string[] | null;
+  targetCount?: number | null;
 }
 
 /**
@@ -191,10 +202,18 @@ export function useQuizSession(options: { materials?: Material[] } = {}) {
           mode: input.mode,
           // T5 additive pass-through: the server adapter generates from the
           // plan/task scope (exactly one — AD-6); the double ignores both.
-          planId: input.targeting ? null : input.planId, // a targeting node IS the scope (xor)
-          taskId: input.targeting ? null : input.taskId,
+          // T2 (epic-13, FR-14): a material scope strips all three — the
+          // FOUR-way xor puts materialId alone on the generation wire
+          // (planId keeps its SESSION-OWNER role in createSession below).
+          planId: input.targeting || input.materialId ? null : input.planId,
+          taskId: input.targeting || input.materialId ? null : input.taskId,
           // T5's node Quick Test scope (epic P2-10, FR-21) — the double ignores it.
-          targeting: input.targeting ?? null,
+          targeting: input.targeting && !input.materialId ? input.targeting : null,
+          // T2's material Quick Test scope (epic-13, FR-14) — the double
+          // honors the narrowing locally; the server adapter rides the fields.
+          materialId: input.materialId ?? null,
+          sectionIds: input.sectionIds ?? null,
+          targetCount: input.targetCount ?? null,
         });
         // cancelled mid-generation → stale: no session is created, ever
         if (startGenRef.current !== genId) return;

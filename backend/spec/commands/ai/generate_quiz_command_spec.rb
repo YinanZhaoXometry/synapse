@@ -431,4 +431,224 @@ RSpec.describe Ai::GenerateQuizCommand do
       end
     end
   end
+
+  # -- material scope (FR-14, epic-13 T2 — the reader's Quick Test) ----------------
+
+  describe "material scope" do
+    let(:mapped_node_a) { create(:knowledge_node, user: user, plan: plan, title: "Mapped node A") }
+    let(:mapped_node_b) { create(:knowledge_node, user: user, plan: plan, title: "Mapped node B") }
+    # The Quick Test material: three sections, two confirmed-mapped, one not —
+    # the gate/attribution specs' shared fixture.
+    let(:qt_material) do
+      create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "Scoping", "text" => "Every row is scoped by user_id." },
+        { "id" => "sec-2", "title" => "Commands", "text" => "Commands never raise; failures are typed." },
+        { "id" => "sec-3", "title" => "Unmapped", "text" => "This section has no confirmed node mapping." }
+      ])
+    end
+
+    def call_material(material_id: qt_material.id, section_ids: nil, target_count: nil, uuid: client_uuid, mode: "open", language: "zh")
+      described_class.call(
+        current_user: user, client_uuid: uuid, mode: mode, language: language,
+        plan_id: nil, task_id: nil, targeting: nil,
+        material_id: material_id, section_ids: section_ids, target_count: target_count
+      )
+    end
+
+    def confirm_mapping(section_id, node)
+      create(:material_node_mapping, :confirmed, user: user, material: qt_material, node: node, section_id: section_id)
+    end
+
+    it "generates for a mapped material, owns the session by the material's plan, and counts one cap call" do
+      confirm_mapping("sec-1", mapped_node_a)
+      confirm_mapping("sec-2", mapped_node_b)
+      allow(adapter).to receive(:complete).and_return(
+        fenced({ questions: [ question_payload(node_id: mapped_node_a.id, material_id: qt_material.id) ] })
+      )
+
+      result = call_material
+      expect(result).to be_success
+      session = result.value![:session]
+      expect(session.plan_id).to eq(qt_material.plan_id)
+      expect(session.task_id).to be_nil
+      expect(result.value![:questions].sole.node_id).to eq(mapped_node_a.id)
+      expect(user.ai_usage_counters.sole.call_count).to eq(1)
+    end
+
+    it "GATES on a confirmed node mapping: proposed or rejected rows alone refuse before anything is spent (AD-6)" do
+      create(:material_node_mapping, user: user, material: qt_material, node: mapped_node_a, section_id: "sec-1") # proposed
+      create(:material_node_mapping, :rejected, user: user, material: qt_material, node: mapped_node_b, section_id: "sec-2")
+      allow(adapter).to receive(:complete)
+
+      result = call_material
+      aggregate_failures do
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:materialId)
+        expect(result.failure.context[:message]).to include("confirmed")
+        expect(result.failure.context[:message]).to include("node")
+      end
+      expect(adapter).not_to have_received(:complete)
+      expect(user.ai_usage_counters).to be_empty
+    end
+
+    it "resolves the material through current_user: foreign and malformed ids read NOT_FOUND" do
+      other_user = create(:user)
+      foreign_material = create(:material, user: other_user, plan: create(:study_plan, user: other_user))
+      allow(adapter).to receive(:complete)
+      aggregate_failures do
+        expect(call_material(material_id: foreign_material.id).failure.code).to eq(:NOT_FOUND)
+        expect(call_material(material_id: "not-a-uuid").failure.code).to eq(:NOT_FOUND)
+      end
+      expect(adapter).not_to have_received(:complete)
+    end
+
+    it "rejects sectionIds that do not exist on the material, an empty list, and more than five sections" do
+      confirm_mapping("sec-1", mapped_node_a)
+      allow(adapter).to receive(:complete)
+      aggregate_failures do
+        expect(call_material(section_ids: [ "ghost" ]).failure.code).to eq(:VALIDATION_FAILED)
+        expect(call_material(section_ids: []).failure.code).to eq(:VALIDATION_FAILED)
+        expect(call_material(section_ids: %w[sec-1 sec-2 sec-3 sec-1b sec-2b sec-3b]).failure.code).to eq(:VALIDATION_FAILED)
+      end
+      expect(adapter).not_to have_received(:complete)
+    end
+
+    it "validates targetCount to the 3..5 band and defaults to 5 when absent" do
+      confirm_mapping("sec-1", mapped_node_a)
+      allow(adapter).to receive(:complete)
+      aggregate_failures do
+        expect(call_material(target_count: 2).failure.code).to eq(:VALIDATION_FAILED)
+        expect(call_material(target_count: 6).failure.code).to eq(:VALIDATION_FAILED)
+        expect(call_material(target_count: 0).failure.code).to eq(:VALIDATION_FAILED)
+      end
+      expect(adapter).not_to have_received(:complete)
+      expect(user.ai_usage_counters).to be_empty
+
+      captures = []
+      allow(adapter).to receive(:complete) do |messages|
+        captures << messages
+        fenced({ questions: [ question_payload ] })
+      end
+      call_material
+      expect(captures.sole.last[:content]).to include("Generate exactly 5 quiz questions")
+    end
+
+    it "honors targetCount 3..5 as the prompt's exact question count" do
+      confirm_mapping("sec-1", mapped_node_a)
+      captures = []
+      allow(adapter).to receive(:complete) do |messages|
+        captures << messages
+        fenced({ questions: [ question_payload ] })
+      end
+
+      call_material(target_count: 4)
+      expect(captures.sole.last[:content]).to include("Generate exactly 4 quiz questions")
+    end
+
+    it "grounds the prompt on the material's sections and the confirmed attribution map (unmapped content rides for coherence only)" do
+      confirm_mapping("sec-1", mapped_node_a)
+      captures = []
+      allow(adapter).to receive(:complete) do |messages|
+        captures << messages
+        fenced({ questions: [ question_payload ] })
+      end
+
+      call_material(section_ids: [ "sec-1", "sec-3" ], target_count: 3)
+      prompt = captures.sole.last[:content]
+      aggregate_failures do
+        expect(prompt).to include("Every row is scoped by user_id.")     # narrowed section rides
+        expect(prompt).to include("no confirmed node mapping")           # unmapped content stays for coherence
+        expect(prompt).to include("Section→node attribution map")
+        expect(prompt).to include(%("- sec-1" → node #{mapped_node_a.id}))
+        expect(prompt).not_to include(%("- sec-3" → node))               # unmapped section never joins the map
+        expect(prompt).not_to include("[node id=#{mapped_node_b.id}")    # only mapped nodes appear
+        expect(prompt).to include("Generate exactly 3 quiz questions")
+      end
+    end
+
+    it "attributes by the cited section's mapped node (server-owned map): a mapped-citing question lands on its node" do
+      confirm_mapping("sec-1", mapped_node_a)
+      # The model's own nodeId field disagrees — the map is the attribution
+      # truth (the section's mapped node wins; the raw nodeId never decides).
+      allow(adapter).to receive(:complete).and_return(
+        fenced({ questions: [ question_payload(node_id: mapped_node_b.id, material_id: qt_material.id, section_id: "sec-1") ] })
+      )
+
+      result = call_material
+      expect(result).to be_success
+      expect(result.value![:questions].sole.node_id).to eq(mapped_node_a.id)
+    end
+
+    it "drops questions citing an unmapped or unknown section — the count lands honestly below the target" do
+      confirm_mapping("sec-1", mapped_node_a)
+      allow(adapter).to receive(:complete).and_return({ questions: [
+        question_payload(node_id: mapped_node_a.id, material_id: qt_material.id, section_id: "sec-1"),  # mapped → kept
+        question_payload(node_id: mapped_node_b.id, material_id: qt_material.id, section_id: "sec-3"),  # unmapped → dropped
+        question_payload(node_id: mapped_node_a.id, material_id: qt_material.id, section_id: "ghost")   # unknown → dropped
+      ] }.to_json)
+
+      result = call_material(target_count: 5)
+      expect(result).to be_success
+      expect(result.value![:questions].length).to eq(1)
+      expect(result.value![:questions].sole.source_section_id).to eq("sec-1")
+    end
+
+    it "refuses questions citing another material even when that material's section ids collide" do
+      confirm_mapping("sec-1", mapped_node_a)
+      other_material = create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "Foreign twin", "text" => "A DIFFERENT material's same-slug section." }
+      ])
+      allow(adapter).to receive(:complete).and_return(
+        fenced({ questions: [ question_payload(section_id: "sec-1", material_id: other_material.id) ] })
+      )
+
+      result = call_material
+      expect(result.failure.code).to eq(:INTERNAL) # zero survivors — the provider-contract refusal
+    end
+
+    it "keeps the four-way xor: materialId alongside plan, task, or targeting node refuses; sectionIds/targetCount alone refuse" do
+      confirm_mapping("sec-1", mapped_node_a)
+      allow(adapter).to receive(:complete)
+      aggregate_failures do
+        expect(
+          described_class.call(current_user: user, client_uuid: SecureRandom.uuid, mode: "open", language: "zh",
+                               plan_id: plan.id, task_id: nil, targeting: nil, material_id: qt_material.id).failure.code
+        ).to eq(:VALIDATION_FAILED)
+        expect(
+          described_class.call(current_user: user, client_uuid: SecureRandom.uuid, mode: "open", language: "zh",
+                               plan_id: nil, task_id: create(:study_task, user: user).id, targeting: nil,
+                               material_id: qt_material.id).failure.code
+        ).to eq(:VALIDATION_FAILED)
+        expect(
+          described_class.call(current_user: user, client_uuid: SecureRandom.uuid, mode: "open", language: "zh",
+                               plan_id: nil, task_id: nil, targeting: { node_id: mapped_node_a.id },
+                               material_id: qt_material.id).failure.code
+        ).to eq(:VALIDATION_FAILED)
+        expect(
+          described_class.call(current_user: user, client_uuid: SecureRandom.uuid, mode: "open", language: "zh",
+                               plan_id: nil, task_id: nil, targeting: nil, material_id: nil,
+                               section_ids: [ "sec-1" ]).failure.code
+        ).to eq(:VALIDATION_FAILED)
+        expect(
+          described_class.call(current_user: user, client_uuid: SecureRandom.uuid, mode: "open", language: "zh",
+                               plan_id: nil, task_id: nil, targeting: nil, material_id: nil,
+                               target_count: 4).failure.code
+        ).to eq(:VALIDATION_FAILED)
+      end
+      expect(adapter).not_to have_received(:complete)
+      expect(user.ai_usage_counters).to be_empty
+    end
+
+    it "replays an owned session WITHOUT a provider call on the material scope too" do
+      confirm_mapping("sec-1", mapped_node_a)
+      allow(adapter).to receive(:complete).and_raise(Ai::ProviderError, "must not be called")
+      existing = create(:quiz_session, user: user, id: client_uuid, mode: "choice")
+
+      result = call_material(mode: "open")
+      expect(result).to be_success
+      expect(result.value![:session].id).to eq(existing.id)
+      expect(result.value![:session].mode).to eq("choice")
+      expect(user.ai_usage_counters).to be_empty
+    end
+  end
 end

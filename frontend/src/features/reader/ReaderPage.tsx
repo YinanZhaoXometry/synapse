@@ -44,7 +44,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useViewportTier } from "@/hooks/use-mobile";
-import { useMaterialQuery, usePlanQuery, useReadingProgressQuery } from "@/api";
+import { useMaterialNodeMappingsQuery, useMaterialQuery, usePlanQuery, useReadingProgressQuery } from "@/api";
 import { sessionBlobs } from "@/lib/session-blobs";
 import { CompanionPanel, type AskPrefill } from "@/features/companion/CompanionPanel";
 import { CompanionOverlay, CompanionSheet } from "./companion-surfaces";
@@ -60,6 +60,8 @@ import { useReadingPositionTracker } from "./use-reading-position";
 import { useSessionBytes } from "./use-session-bytes";
 import { stepPage } from "./pager";
 import { validateReupload } from "./reupload";
+import { QuickTestFlow } from "./quick-test-flow";
+import { quickTestGate } from "./quick-test-gate";
 import { SelectionBar, SELECTION_BAR_HEIGHT, SELECTION_BAR_WIDTH } from "./selection-bar";
 import { barAnchor, captureSelection, MAX_SELECTION_CHARS, type CapturedSelection } from "./selection-capture";
 
@@ -73,6 +75,14 @@ export default function ReaderPage() {
   const hasBytes = useSessionBytes(materialId ?? "");
   const material = materialQuery.data;
   const parseMaterial = useParseMaterialMutation(material);
+
+  // The Quick Test gate (FR-14, epic-13 T2; AD-6): the material's confirmed-
+  // mapping read decides the selection bar's 快测 posture (in-flight →
+  // disabled-honestly, failed → disabled + tooltip, none confirmed → hidden
+  // behind the traceable hint, ready → dispatch). QuickTestFlow mounts the
+  // same read (Apollo dedupes) and owns the session takeover.
+  const mappingsQuery = useMaterialNodeMappingsQuery(materialId ?? "");
+  const quickTestGateState = quickTestGate(mappingsQuery.data, mappingsQuery.error);
 
   const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const [immersive, setImmersive] = useState(false);
@@ -570,7 +580,9 @@ export default function ReaderPage() {
         )}
 
         {/* The selection shortcuts bar (FR-13): floats beside the live
-            selection, viewport-clamped; gone on scroll/collapse/Escape. */}
+            selection, viewport-clamped; gone on scroll/collapse/Escape. The
+            快测 action carries the Quick Test gate (T2, AD-6): only a landed
+            mapping read with ≥1 confirmed row enables the dispatch. */}
         {selectionBar && (
           <SelectionBar
             selection={selectionBar.captured}
@@ -578,8 +590,15 @@ export default function ReaderPage() {
             anchor={selectionBar.anchor}
             onAsk={handleBarAsk}
             onDismiss={handleBarDismiss}
+            quickTestGate={quickTestGateState}
           />
         )}
+
+        {/* The Quick Test session takeover (FR-14, T2): null while the reader
+            owns the zone; on a seam dispatch or a ?quicktest=<sessionId> deep
+            link it takes the material zone over at full height (AD-8 — the
+            session id stays addressable). */}
+        <QuickTestFlow material={material} planNodes={planQuery.data?.nodes ?? []} />
       </div>
 
       {immersive && (

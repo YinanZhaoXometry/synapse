@@ -224,6 +224,11 @@ export const translations = {
       'reader.selectionAsk': '问 Companion',
       'reader.selectionQuickTest': '快测',
       'reader.quickTestComingSoon': '快测将在下一步开放。',
+      // 快测（epic-13 T2 · FR-14）：会话接管与映射门控（AD-6：证据归节点）
+      'reader.quickTestGateHint': '关联节点后可快测',
+      'reader.quickTestUnavailable': '暂时无法确认节点关联，请稍后再试',
+      'reader.quickTestGenerating': '正在出快测题…',
+      'reader.quickTestExit': '返回阅读',
 
       'companion.title': 'Companion',
       'companion.groundedBadge': '◎ 已定位 · {target}',
@@ -1069,6 +1074,11 @@ export const translations = {
       'reader.selectionAsk': 'Ask Companion',
       'reader.selectionQuickTest': 'Quick Test',
       'reader.quickTestComingSoon': 'Quick Test opens in the next step.',
+      // Quick Test (epic-13 T2 · FR-14): the session takeover + the mapping gate (AD-6: evidence is node-attributed)
+      'reader.quickTestGateHint': 'Link a node to run Quick Tests',
+      'reader.quickTestUnavailable': "Can't check node mappings right now — try again shortly",
+      'reader.quickTestGenerating': 'Generating your Quick Test…',
+      'reader.quickTestExit': 'Back to reading',
 
       'companion.title': 'Companion',
       'companion.groundedBadge': '◎ Located · {target}',

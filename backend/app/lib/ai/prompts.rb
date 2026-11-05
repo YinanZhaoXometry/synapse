@@ -33,20 +33,24 @@ module Ai
     NOTE_MARKER_KINDS = %w[diagram chart image].freeze
 
     class << self
-      # Quiz generation (ticket 03; targeting epic P2-10 T5): node-attributed
-      # (AD-6) + materials-sourced (NFR-1) questions in the scope the command
-      # assembled. `quota_plan` is T5's weak-spot selection bias (FR-21): the
-      # server-computed per-node question quotas — a selection/weighting layer
-      # ONLY, never a new source; sections still cite the assembled context.
-      # nil keeps the prompt byte-for-byte identical to the pre-T5 shape.
-      def quiz(mode:, language:, context:, question_target: QUESTION_TARGET, quota_plan: nil)
+      # Quiz generation (ticket 03; targeting epic P2-10 T5; material scope
+      # epic-13 T2): node-attributed (AD-6) + materials-sourced (NFR-1)
+      # questions in the scope the command assembled. `quota_plan` is T5's
+      # weak-spot selection bias (FR-21): the server-computed per-node
+      # question quotas — a selection/weighting layer ONLY, never a new
+      # source; sections still cite the assembled context. nil keeps the
+      # prompt byte-for-byte identical to the pre-T5 shape. `attribution_note`
+      # is T2's material-scope map: the confirmed section→node pairs, the
+      # ONLY allowed question sources — nil keeps the note slot empty (the
+      # pre-T2 shape).
+      def quiz(mode:, language:, context:, question_target: QUESTION_TARGET, quota_plan: nil, attribution_note: nil)
         [ system,
           user(<<~PROMPT)
             Study material context (the ONLY allowed source):
             ---
             #{context.text}
             ---
-            #{context_note(context)}#{quota_note(quota_plan)}
+            #{context_note(context)}#{quota_note(quota_plan)}#{attribution_map_note(attribution_note)}
 
             Generate exactly #{question_target} quiz questions from ONLY the material above.
             Mode "#{mode}": #{mode_rule(mode)}
@@ -290,6 +294,22 @@ module Ai
           Weak-spot quota plan (server-computed from the learner's Mastery Scores and mistake log — distribute EXACTLY):
           #{quota_plan}
           These quotas bias question selection ONLY — every question still cites its [material id=…] + [section id=…] provenance from ONLY the context above (FR-18); never invent content a quota cannot ground.
+        NOTE
+      end
+
+      # T2's material-scope attribution block (epic-13 T2, FR-14): the
+      # confirmed section→node pairs the command resolved — the ONLY allowed
+      # question sources, with the map owning attribution server-side. The
+      # command passes the pre-rendered pair lines; nil → nothing (the
+      # pre-T2 prompt shape, byte-for-byte).
+      def attribution_map_note(pairs_lines)
+        return "" if pairs_lines.blank?
+
+        <<~NOTE
+
+          Section→node attribution map (server-computed from the learner's CONFIRMED section mappings — these pairs are the ONLY allowed question sources):
+          #{pairs_lines.join("\n")}
+          Source every question from a mapped section above and set "nodeId" to that section's mapped node id EXACTLY (the map owns attribution); a section absent from the map must not produce any question.
         NOTE
       end
 

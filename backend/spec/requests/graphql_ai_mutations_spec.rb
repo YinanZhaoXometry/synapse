@@ -81,6 +81,65 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
     end
   end
 
+  describe "generateQuiz — material scope (epic-13 T2, the reader's Quick Test)" do
+    it "generates over the wire with sectionIds + targetCount and attributes to the section's mapped node" do
+      user, token = user_with_token("ai-quicktest@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan)
+      material = create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "S", "text" => "body" },
+        { "id" => "sec-2", "title" => "T", "text" => "unmapped body" }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-1")
+      allow(adapter).to receive(:complete).and_return({ questions: [
+        { nodeId: node.id, kind: "open", prompt: "Q?", sourceMaterialId: material.id, sourceSectionId: "sec-1",
+          keywords: [ "k" ], explanation: "E" }
+      ] }.to_json)
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { clientUuid: SecureRandom.uuid, mode: "open", language: "zh", materialId: material.id, sectionIds: [ "sec-1" ], targetCount: 4 } }, token: token
+          mutation GenerateQuiz($input: GenerateQuizInput!) {
+            generateQuiz(input: $input) {
+              session { id planId mode }
+              questions { id nodeId sourceSectionId }
+            }
+          }
+        GRAPHQL
+      )
+      payload = result.dig("data", "generateQuiz")
+      aggregate_failures do
+        expect(payload["session"]["planId"]).to eq(plan.id)
+        expect(payload["questions"].sole["nodeId"]).to eq(node.id)
+        expect(payload["questions"].sole["sourceSectionId"]).to eq("sec-1")
+      end
+    end
+
+    it "surfaces the gate and the xor through the closed enum" do
+      user, token = user_with_token("ai-quicktest-gate@example.com")
+      plan = create(:study_plan, user: user)
+      material = create(:material, user: user, plan: plan, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+      # No confirmed mapping → the gate refuses; materialId+planId → the xor refuses.
+      gated = graphql(
+        <<~GRAPHQL, variables: { input: { clientUuid: SecureRandom.uuid, mode: "open", language: "zh", materialId: material.id } }, token: token
+          mutation GenerateQuiz($input: GenerateQuizInput!) {
+            generateQuiz(input: $input) { session { id } }
+          }
+        GRAPHQL
+      )
+      expect(error_code(gated)).to eq("VALIDATION_FAILED")
+
+      xored = graphql(
+        <<~GRAPHQL, variables: { input: { clientUuid: SecureRandom.uuid, mode: "open", language: "zh", materialId: material.id, planId: plan.id } }, token: token
+          mutation GenerateQuiz($input: GenerateQuizInput!) {
+            generateQuiz(input: $input) { session { id } }
+          }
+        GRAPHQL
+      )
+      expect(error_code(xored)).to eq("VALIDATION_FAILED")
+      expect(user.ai_usage_counters).to be_empty
+    end
+  end
+
   describe "generateFlashcards" do
     it "returns the created deck over the wire" do
       user, token = user_with_token("ai-flashcards@example.com")

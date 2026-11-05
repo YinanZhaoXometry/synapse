@@ -73,6 +73,19 @@ module Ai
         assemble_scope("", Material.where(id: material.id), budget)
       end
 
+      # One material's Quick Test surface (FR-14, epic-13 T2): the caller's
+      # mapped nodes ride as the [nodes] block (the prompt's nodeId vocabulary
+      # — the command passes the CONFIRMED mappings' nodes, deduped), then the
+      # material's sections — all of them, or narrowed to section_ids (the
+      # Quick Test's selection/section targeting; the caller validates every
+      # id exists on the material). Unmapped sections' content may still ride
+      # for coherence — the prompt's attribution note owns which sections may
+      # produce questions — but narrowing never invents ids.
+      def quick_test_scope(nodes, material, section_ids: nil, budget: default_budget)
+        assemble_scope(nodes_block(Array(nodes).uniq), Material.where(id: material.id), budget,
+                       only: Array(section_ids).presence)
+      end
+
       # The mapping surface (FR-45, epic P2-10 T1): a plan's full node list +
       # ONE attached material's sections. The section index is the
       # addressability backbone — every section id must stay answerable — so
@@ -318,7 +331,7 @@ module Ai
 
       private
 
-      def assemble_scope(nodes_text, materials, budget)
+      def assemble_scope(nodes_text, materials, budget, only: nil)
         parts = +""
         truncated = false
         consumed = estimate_tokens(nodes_text)
@@ -335,7 +348,9 @@ module Ai
           consumed += head_tokens
           parts << head
 
-          Array(material.sections).each do |section|
+          sections = Array(material.sections)
+          sections = sections.select { |section| only.include?(section["id"]) } if only
+          sections.each do |section|
             block = render_section(section)
             tokens = estimate_tokens(block)
             remaining = budget - consumed
