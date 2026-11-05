@@ -51,3 +51,4 @@ neutral-error feedback, and the row rendered only once the read lands (no fake d
 each page's tests); the context file and its remaining consumers (AchievementsPage + AppLayout +
 Settings' probe) die in T6 per the epic plan — untouched here. demo-data's Analytics fixtures
 retired with the T2/T3/T4 comment convention; remaining exports stay for their own tickets.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — backend untouched (verified empty diff); series render server fields verbatim weakest-first; ring capped/partial-honest; header stats = render-side counts (no recompute); demo name + fake card retired as residue; badge emoji map is display metadata only (unlock = server). Merged on `epic/p2-09-hubs`.
