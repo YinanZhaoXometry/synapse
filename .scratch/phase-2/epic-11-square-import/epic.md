@@ -1,6 +1,6 @@
 # Epic 11 (Phase 2) — External plans: Square + roadmap.sh import
 
-Status: ready-for-agent (spec + tickets 2026-11-03; delta-grill at kickoff — license, surface placement; gate: epic-08 done)
+Status: done-except-T4 (2026-11-05 — T1/T2/T3 done + two-axis reviewed, merged to main; T4 roadmap.sh import OWNER-GATED: content license forbids republishing, needs prior consent — see ticket 04; FR-43 stays open honestly)
 Milestone: Phase 2 — post-deadline
 
 ## Parent

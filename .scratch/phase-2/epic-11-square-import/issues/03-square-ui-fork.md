@@ -85,3 +85,4 @@ for it; stack torn down after.
   associations asserted both directions; source `updated_at` pinned); attribution row + snapshot
   semantics pinned incl. FK SET NULL survival; idempotency triad verbatim (replay-first);
   uniform NOT_FOUND preserved; Square = PlansHome tab + addressable preview (no sidebar growth).
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — fork via publicly_visible only (preview-to-fork race covered: replay before source resolution so a flip doesn't strand a replay); structure-only copy asserted empty both directions + source updated_at pinned; attribution line on the wire while forked_from_plan_id stays OFF (minimal surface — the source may have gone private); empty-source refusal pinned; forkedFromTopic fixture sweep was Apollo-4 strictness, honestly surfaced by a stuck live-update test. The delta-3 triad hand-copy flagged for epic-12's annotations round (AGENTS.md extract-concern rule). Merged on `epic/p2-11-square`.
