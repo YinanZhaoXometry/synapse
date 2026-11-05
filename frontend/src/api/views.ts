@@ -6,7 +6,7 @@
  * shape while every number is server truth.
  */
 import type { KnowledgeNode, QuizSession, StudyPlan, StudyTask } from "@/domain/entities";
-import type { Material, Question } from "@/domain/entities";
+import type { Material, Question, SectionMarking } from "@/domain/entities";
 import type { AnnotationRange } from "@/domain/annotation-range";
 
 /** Node Mastery Score as the api carries it: integer percent string "0".."100". */
@@ -132,3 +132,14 @@ export interface StudyFocusSetView {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * One Mastery Marking claim row (FR-15, epic-15 T2): the wire's SectionMarking
+ * matches the dormant domain interface exactly (`claimedAt`/`clearedAt` ride
+ * as plain strings per the codegen scalar config) — no field is missing, so
+ * the view IS the domain type and the alias keeps the hooks layer's view
+ * vocabulary. `clearedAt` null = the claim is open (the client derives open
+ * claims from the rows — rows are history, unmarking never deletes); no
+ * mastery field can exist here (a claim is NEVER evidence, AD-14).
+ */
+export type SectionMarkingView = SectionMarking;
