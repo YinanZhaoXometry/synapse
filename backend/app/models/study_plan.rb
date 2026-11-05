@@ -6,6 +6,13 @@
 class StudyPlan < ApplicationRecord
   belongs_to :user
 
+  # The fork attribution (OQ-12, epic P2-11 T3): the Square source the
+  # structure was copied from — null on every hand-made/generated plan. The
+  # DB FK nullifies on the source's deletion; forked_from_topic keeps the
+  # fork-time snapshot, so the attribution line survives the source.
+  belongs_to :forked_from, class_name: "StudyPlan", foreign_key: :forked_from_plan_id,
+                           optional: true, inverse_of: false
+
   # The child tables' foreign key is `plan_id` (t.references :plan), not the
   # `study_plan_id` a bare has_many would infer — declared explicitly after
   # the demo-seed spec drove the association for the first time (epic P2-2

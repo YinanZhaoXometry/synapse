@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_140101) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_150001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -450,6 +450,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_140101) do
     t.string "visibility", default: "private", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "forked_from_plan_id"
+    t.string "forked_from_topic"
+    t.index ["forked_from_plan_id"], name: "index_study_plans_on_forked_from_plan_id"
     t.index ["user_id"], name: "index_study_plans_on_user_id"
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'public'::character varying::text])", name: "study_plans_visibility_check"
   end
@@ -529,6 +532,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_140101) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "stream_tickets", "users"
+  add_foreign_key "study_plans", "study_plans", column: "forked_from_plan_id", on_delete: :nullify
   add_foreign_key "study_plans", "users"
   add_foreign_key "study_tasks", "knowledge_nodes", column: "node_id"
   add_foreign_key "study_tasks", "materials"

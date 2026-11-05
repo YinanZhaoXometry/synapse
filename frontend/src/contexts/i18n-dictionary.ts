@@ -819,7 +819,28 @@ export const translations = {
       'visibility.errorRateLimited': '请求太频繁，请稍等片刻再试',
       'visibility.errorInternal': '服务暂时不可用，请重试',
       'visibility.failed': '设置失败，请重试',
-      'visibility.createLabel': '创建时的可见性（默认私密）'
+      'visibility.createLabel': '创建时的可见性（默认私密）',
+
+      'square.tabMine': '我的计划',
+      'square.tabSquare': '广场',
+      'square.tabAria': '切换我的计划与广场',
+      'square.eyebrow': '广场',
+      'square.empty': '还没有公开计划——把你的计划公开，它就会出现在这里。',
+      'square.adopt': '改编',
+      'square.adoptCta': '改编并开始',
+      'square.adoptedToast': '已改编到你的计划',
+      'square.adoptFailed': '改编失败，请重试',
+      'square.adaptedFrom': '改编自公开计划：{topic}',
+      'square.forkAria': '改编自公开计划 {topic}',
+      'square.previewEyebrow': '广场预览',
+      'square.previewBack': '返回广场',
+      'square.previewNotFound': '这个公开计划不存在，或已转为私密。',
+      'square.errorUnauthorized': '登录状态已过期，请重新登录',
+      'square.errorForbidden': '没有权限执行这个操作',
+      'square.errorNotFound': '这个公开计划不存在，或已转为私密',
+      'square.errorValidation': '无法改编这个计划，请调整后重试',
+      'square.errorRateLimited': '请求太频繁，请稍等片刻再试',
+      'square.errorInternal': '服务暂时不可用，请重试'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -1638,7 +1659,28 @@ export const translations = {
       'visibility.errorRateLimited': 'Too many requests — please wait a moment',
       'visibility.errorInternal': 'The service is unavailable — please retry',
       'visibility.failed': 'Could not set visibility — please retry',
-      'visibility.createLabel': 'Visibility at creation (private by default)'
+      'visibility.createLabel': 'Visibility at creation (private by default)',
+
+      'square.tabMine': 'My plans',
+      'square.tabSquare': 'Square',
+      'square.tabAria': 'Switch between my plans and the Square',
+      'square.eyebrow': 'Square',
+      'square.empty': 'No public plans yet — publish one of yours and it will show up here.',
+      'square.adopt': 'Adopt',
+      'square.adoptCta': 'Adopt and start',
+      'square.adoptedToast': 'Adopted into your plans',
+      'square.adoptFailed': 'Could not adopt the plan — please retry',
+      'square.adaptedFrom': 'Adapted from the public plan: {topic}',
+      'square.forkAria': 'Adapted from the public plan {topic}',
+      'square.previewEyebrow': 'Square preview',
+      'square.previewBack': 'Back to Square',
+      'square.previewNotFound': "This public plan doesn't exist, or has gone private.",
+      'square.errorUnauthorized': 'Your session expired — please sign in again',
+      'square.errorForbidden': 'You do not have permission for this action',
+      'square.errorNotFound': "This public plan doesn't exist, or has gone private",
+      'square.errorValidation': 'This plan cannot be adopted — adjust and retry',
+      'square.errorRateLimited': 'Too many requests — please wait a moment',
+      'square.errorInternal': 'The service is unavailable — please retry'
     }
 
 } as const;

@@ -23,6 +23,12 @@ export interface StudyPlanView extends StudyPlan {
    * (default) or "public" (the Square opt-in). Server truth, never derived.
    */
   visibility: "private" | "public";
+  /**
+   * OQ-12 (epic P2-11 T3): the fork-time topic snapshot of the Square source
+   * — set only on adopted plans; null otherwise. Server truth (the
+   * forkedFromTopic field), rendered as the attribution line, never re-derived.
+   */
+  forkedFromTopic: string | null;
 }
 
 export interface StudyTaskView extends StudyTask {

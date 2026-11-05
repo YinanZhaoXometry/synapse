@@ -24,6 +24,7 @@ const plan = (id: string, createdAt: string, masteryScore = "0"): StudyPlanView 
   createdAt,
   masteryScore,
   visibility: "private",
+  forkedFromTopic: null,
 });
 
 const node = (id: string, overrides: Partial<KnowledgeNodeView> = {}): KnowledgeNodeView => ({

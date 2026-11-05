@@ -22,6 +22,12 @@ module Types
     # confirm-gated product action, not a field patch).
     field :set_plan_visibility, mutation: Mutations::Plans::SetPlanVisibility
 
+    # The Square adopt (FR-39 web half / OQ-12, epic P2-11 T3; delta decision
+    # 5): the AUTHENTICATED fork — a structure-only copy of a public plan into
+    # the caller's library, with attribution. Verb-first next to createPlan
+    # (it creates a plan, from a public source).
+    field :fork_square_plan, mutation: Mutations::Plans::ForkSquarePlan
+
     field :create_task, mutation: Mutations::Tasks::CreateTask
     field :attach_material, mutation: Mutations::Materials::AttachMaterial
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult

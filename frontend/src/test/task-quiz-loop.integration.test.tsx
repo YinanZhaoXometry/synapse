@@ -165,7 +165,7 @@ function makeWorld(): World {
     // the AD-6 isolation control: a sibling plan sharing NOTHING with the task
     CreatePlan: (variables) => {
       const input = variables.input as EchoFixture;
-      const plan = { __typename: "StudyPlan", id: "plan-echo-1", topic: input.topic, goal: input.goal ?? null, createdAt: CREATED, masteryScore: "0" };
+      const plan = { __typename: "StudyPlan", id: "plan-echo-1", topic: input.topic, goal: input.goal ?? null, createdAt: CREATED, masteryScore: "0", forkedFromTopic: null };
       const nodes = (input.nodes as EchoFixture[]).map((n, i) =>
         nodeRow({ __typename: "KnowledgeNode", id: `node-plan-${i + 1}`, planId: plan.id, taskId: null, stage: n.stage ?? null, title: n.title, order: i, createdAt: CREATED }),
       );

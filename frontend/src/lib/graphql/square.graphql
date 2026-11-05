@@ -1,0 +1,53 @@
+# Square operations (epic P2-11 T3, FR-39 web half) — the 广场 tab's public
+# reads (unauthenticated-readable server-side, the reduced SquarePlanType
+# structure set — there are no content fields on these types to select) plus
+# the authenticated adopt fork (delta decision 5). Fork returns the full plan
+# row (normalized cache write) + its nodes; the hook adds the plans-list
+# read-back sweep so the 我要学 list shows the adopted plan immediately.
+
+query SquarePlans {
+  squarePlans {
+    id
+    topic
+    goal
+    visibility
+    createdAt
+    nodeSummaries {
+      title
+      stage
+      order
+    }
+  }
+}
+
+query SquarePlan($id: String!) {
+  squarePlan(id: $id) {
+    id
+    topic
+    goal
+    visibility
+    createdAt
+    nodeSummaries {
+      title
+      stage
+      order
+    }
+  }
+}
+
+mutation ForkSquarePlan($input: ForkSquarePlanInput!) {
+  forkSquarePlan(input: $input) {
+    plan {
+      id
+      topic
+      goal
+      createdAt
+      masteryScore
+      visibility
+      forkedFromTopic
+    }
+    nodes {
+      ...KnowledgeNodeParts
+    }
+  }
+}
