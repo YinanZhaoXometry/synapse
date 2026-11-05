@@ -2,21 +2,28 @@
  * The plan home's 学习笔记 section (FR-40, epic P2-12 T1; delta decision 3 —
  * plan-scoped, no new route): the plan's notes (plan + node + material
  * scopes ride the ONE server union) plus the generate control — a scope
- * picker (整个计划 / 选择节点 / 选择资料), the optional user-requested
- * annotation input ("在指定位置加插图" — the enrichAt free text, ONE
- * [[enrich|user|…]] marker placed by the server), and the generate action.
- * Note detail = an expandable view: the markdown body renders through the
- * reader's markdown view (lazy-loaded, the app's ONE renderer module — the
- * reader-only chunk discipline survives), with enrichment markers rendered
- * as styled placeholder cards between the blocks (diagram/chart/image/user
- * get distinct icons; unknown kinds fall back honestly). Export downloads
- * <title>.md via a Blob URL with the markers preserved verbatim. Failures
- * map the closed api enum through apiErrorKeys("notes.") → sonner toasts.
+ * picker (整个计划 / 选择节点 / 选择资料), the 薄弱点加强 weak-spot toggle
+ * (FR-22, epic P2-12 T2 — only enabled on the plan scope; the bias needs a
+ * node set, so it passes `targeting: { mode: "weakSpot" }` there and null
+ * otherwise), the optional user-requested annotation input ("在指定位置加插图"
+ * — the enrichAt free text, ONE [[enrich|user|…]] marker placed by the
+ * server), and the generate action.
+ * Note detail = an expandable view: the targeting provenance strip (T2 —
+ * "针对薄弱点", rendered ONLY from the server's targeting jsonb rows: node
+ * titles + coverage-share chips) above the markdown body, which renders
+ * through the reader's markdown view (lazy-loaded, the app's ONE renderer
+ * module — the reader-only chunk discipline survives), with enrichment
+ * markers rendered as styled placeholder cards between the blocks
+ * (diagram/chart/image/user get distinct icons; unknown kinds fall back
+ * honestly). Export downloads <title>.md via a Blob URL with the markers
+ * preserved verbatim. Failures map the closed api enum through
+ * apiErrorKeys("notes.") → sonner toasts.
  */
 import { useState, Suspense, lazy } from "react";
 import {
   BarChart3,
   ChevronDown,
+  Crosshair,
   Download,
   FileText,
   Image as ImageIcon,
@@ -40,7 +47,14 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { localeTag } from "./locale";
-import { downloadNoteMarkdown, markerKindKey, splitNoteBody, type NoteMarkerToken } from "./note-body-shaping";
+import {
+  downloadNoteMarkdown,
+  markerKindKey,
+  noteTargetingRows,
+  splitNoteBody,
+  type NoteMarkerToken,
+  type NoteTargetingRowView,
+} from "./note-body-shaping";
 
 const NOTE_ERROR_KEYS: Record<string, string> = apiErrorKeys("notes.");
 const NOTE_FAILED_KEY = "notes.failed";
@@ -64,6 +78,7 @@ export default function NotesSection({ planId, nodes, materials }: { planId: str
   const [nodeId, setNodeId] = useState<string>("");
   const [materialId, setMaterialId] = useState<string>("");
   const [enrichAt, setEnrichAt] = useState<string>("");
+  const [weakSpot, setWeakSpot] = useState(false);
 
   const failureToast = (error: ErrorLike | undefined) => {
     const code = apiErrorCode(error);
@@ -83,6 +98,9 @@ export default function NotesSection({ planId, nodes, materials }: { planId: str
             nodeId: scope === "node" ? nodeId : null,
             materialId: scope === "material" ? materialId : null,
             enrichAt: trimmedEnrich.length > 0 ? trimmedEnrich : null,
+            // FR-22 (T2): the bias needs a node set — weakSpot rides only on
+            // the plan scope; every other shape sends null (the plain note).
+            targeting: scope === "plan" && weakSpot ? { mode: "weakSpot" } : null,
           },
         },
       });
@@ -158,6 +176,34 @@ export default function NotesSection({ planId, nodes, materials }: { planId: str
             />
           </div>
         )}
+
+        {/* the weak-spot toggle (FR-22, T2): the bias needs a node set — enabled on the plan scope only */}
+        <div className="mt-2">
+          <label
+            htmlFor="notes-targeting-toggle"
+            title={scope === "plan" ? undefined : t("notes.targetingHint")}
+            className={cn(
+              "inline-flex items-center gap-2 text-xs text-foreground",
+              scope !== "plan" ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+            )}
+          >
+            <input
+              type="checkbox"
+              id="notes-targeting-toggle"
+              checked={weakSpot && scope === "plan"}
+              disabled={scope !== "plan"}
+              onChange={(event) => setWeakSpot(event.target.checked)}
+              data-testid="notes-targeting-toggle"
+              className="h-3.5 w-3.5 accent-[var(--accent-ring)] cursor-pointer disabled:cursor-not-allowed"
+            />
+            {t("notes.targetingToggle")}
+          </label>
+          {scope !== "plan" && (
+            <p className="mt-0.5 text-[10px] text-muted-foreground" data-testid="notes-targeting-hint">
+              {t("notes.targetingHint")}
+            </p>
+          )}
+        </div>
 
         <input
           type="text"
@@ -294,13 +340,15 @@ function NoteRow({ note, nodes, materials }: { note: NoteView; nodes: KnowledgeN
   );
 }
 
-/** The expandable body: markdown segments through the reader's renderer, markers as placeholder cards. */
+/** The expandable body: the targeting provenance strip, then markdown segments through the reader's renderer, markers as placeholder cards. */
 function NoteBody({ note }: { note: NoteView }) {
   const { t } = useLanguage();
   const tokens = splitNoteBody(note.body);
+  const targetingRows = noteTargetingRows(note.targeting);
 
   return (
     <div className="px-4 pb-4 pt-1" data-testid="note-body">
+      {targetingRows.length > 0 && <TargetingStrip rows={targetingRows} />}
       {tokens.map((token, index) =>
         token.kind === "text" ? (
           <Suspense key={index} fallback={null}>
@@ -313,6 +361,41 @@ function NoteBody({ note }: { note: NoteView }) {
       {tokens.every((token) => token.kind === "marker") && (
         <p className="text-[11px] text-muted-foreground">{t("notes.exportHint")}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * The weak-spot provenance strip (FR-22, T2): what this note aimed at — the
+ * node titles + coverage-share chips, read ONLY from the server's targeting
+ * jsonb (noteTargetingRows reads honest [] for anything else, so untargeted
+ * notes never render a strip).
+ */
+function TargetingStrip({ rows }: { rows: NoteTargetingRowView[] }) {
+  const { t } = useLanguage();
+
+  return (
+    <div
+      data-testid="note-targeting-strip"
+      className="mb-3 rounded-xl border border-border-soft bg-[var(--accent-tint)] px-3 py-2"
+    >
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-accent-ink">
+        <Crosshair className="w-3.5 h-3.5 flex-none" aria-hidden="true" />
+        {t("notes.targetingLabel")}
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {rows.map((row) => (
+          <span
+            key={row.nodeId}
+            data-testid="note-targeting-chip"
+            title={t("notes.targetingShare", { share: row.share })}
+            className="pill pill-muted text-[10px]"
+          >
+            {row.title}
+            <span className="ml-1 tabular-nums text-accent-ink">×{row.share}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

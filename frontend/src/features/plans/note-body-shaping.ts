@@ -84,3 +84,45 @@ export function downloadNoteMarkdown(note: NoteView): void {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * One weak-spot targeting provenance row (FR-22, epic P2-12 T2): what the
+ * server's allocation table says the note aimed at — the node, its Mastery
+ * percent at generation time, its mistake count, and the coverage share the
+ * targeting layer allotted it.
+ */
+export interface NoteTargetingRowView {
+  nodeId: string;
+  title: string;
+  score: string;
+  mistakes: number;
+  share: number;
+}
+
+/**
+ * Read the note's targeting jsonb (the server's allocation table) as
+ * provenance rows. Server data ONLY: anything that is not an array of
+ * rows carrying a nodeId address, a title label, and a numeric share
+ * reads as honest [] — an untargeted note (targeting: []) and malformed
+ * shapes render no strip, never a guessed one.
+ */
+export function noteTargetingRows(targeting: unknown): NoteTargetingRowView[] {
+  if (!Array.isArray(targeting)) return [];
+  return targeting.filter(isTargetingRow).map((row) => ({
+    nodeId: row.nodeId,
+    title: row.title,
+    score: typeof row.score === "string" || typeof row.score === "number" ? String(row.score) : "",
+    mistakes: typeof row.mistakes === "number" && Number.isFinite(row.mistakes) ? row.mistakes : 0,
+    share: row.share,
+  }));
+}
+
+function isTargetingRow(row: unknown): row is { nodeId: string; title: string; score: unknown; mistakes: unknown; share: number } {
+  if (typeof row !== "object" || row === null) return false;
+  const candidate = row as Record<string, unknown>;
+  return (
+    typeof candidate.nodeId === "string" && candidate.nodeId.length > 0 &&
+    typeof candidate.title === "string" && candidate.title.length > 0 &&
+    typeof candidate.share === "number" && Number.isFinite(candidate.share)
+  );
+}

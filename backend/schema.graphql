@@ -1052,6 +1052,13 @@ input GenerateNoteInput {
   The note's scope: "plan" | "node" | "material" — exactly one scope id must ride with it.
   """
   scope: String!
+
+  """
+  Weak-spot targeting (FR-22): present with mode "weakSpot" → the plan-scope
+  generation biases toward the learner's weak nodes (the server-computed
+  coverage plan); absent → the plain note (T1 shape).
+  """
+  targeting: NoteTargetingInput
 }
 
 """
@@ -2469,6 +2476,19 @@ type NoteMarker {
   What the visual should show (the model's grounded suggestion, or the user's free text).
   """
   suggestion: String!
+}
+
+"""
+Weak-spot targeting (FR-22): present with mode "weakSpot" → the plan-scope note
+biases toward the learner's weak nodes (the server-computed coverage plan);
+node/material scopes refuse it (VALIDATION_FAILED).
+"""
+input NoteTargetingInput {
+  """
+  The targeting mode — only "weakSpot" exists (FR-22). Present with any other
+  value, blank, or omitted is refused (VALIDATION_FAILED).
+  """
+  mode: String
 }
 
 """

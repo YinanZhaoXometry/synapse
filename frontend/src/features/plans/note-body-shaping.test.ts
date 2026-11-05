@@ -5,6 +5,7 @@ import {
   markerKindKey,
   noteExportFilename,
   noteExportMarkdown,
+  noteTargetingRows,
   splitNoteBody,
 } from "./note-body-shaping";
 
@@ -108,5 +109,31 @@ describe("the export (FR-40 — markers preserved verbatim)", () => {
       URL.createObjectURL = originalCreate;
       URL.revokeObjectURL = originalRevoke;
     }
+  });
+});
+
+describe("noteTargetingRows (FR-22, epic P2-12 T2)", () => {
+  it("maps the server's allocation table rows verbatim (nodeId, title, score, mistakes, share)", () => {
+    expect(
+      noteTargetingRows([
+        { nodeId: "n-1", title: "Weak node", score: "0", mistakes: 1, share: 2 },
+        { nodeId: "n-2", title: "Strong node", score: "100", mistakes: 0, share: 0 },
+      ]),
+    ).toEqual([
+      { nodeId: "n-1", title: "Weak node", score: "0", mistakes: 1, share: 2 },
+      { nodeId: "n-2", title: "Strong node", score: "100", mistakes: 0, share: 0 },
+    ]);
+  });
+
+  it("reads honest [] for anything that is not the allocation table (server data only)", () => {
+    expect(noteTargetingRows(undefined)).toEqual([]);
+    expect(noteTargetingRows(null)).toEqual([]);
+    expect(noteTargetingRows([])).toEqual([]);
+    expect(noteTargetingRows("weakSpot")).toEqual([]);
+    expect(noteTargetingRows(42)).toEqual([]);
+    // rows missing the address (nodeId), the label (title), or a numeric share are dropped — not guessed
+    expect(noteTargetingRows([{ title: "x", share: 1 }, { nodeId: "n", share: 1 }, { nodeId: "n", title: "x" }])).toEqual([]);
+    expect(noteTargetingRows([{ nodeId: "n", title: "x", share: "2" }])).toEqual([]);
+    expect(noteTargetingRows([null, 3, "s"])).toEqual([]);
   });
 });
