@@ -346,7 +346,10 @@ flowchart LR
 | packwerk-style boundary enforcement in api | api grows past ~10 domains (dirs + review suffice below that) |
 | Node-*targeted* quiz generation (FR-21 mechanism; not attribution) | Phase 2 per AD-6 |
 | Roadmap renderer, graph vs custom SVG (OQ-2) | FR-5 build (Phase 2) |
-| FR-43 roadmap.sh import (fetch/parse, attribution, **license handling** — the PRD routes license to architecture) | Phase-2 build; an api build-time job (AD-12/13) |
+| FR-43 roadmap.sh import — the Phase-2 build arrived (epic-11 T4 spec'd) but is **BLOCKED on content license**: roadmap.sh forbids republishing its content outside the repository (ruling quoted in epic-11 ticket 04) | the owner obtains prior written consent from Kamran Ahmed — then T4 builds from its standing spec |
+| FR-15 web Mastery-Marking UI (epic-13's 2026-11-05 finding: the marking server ops shipped and are consumed by nothing — the web marking UI never existed in any phase) | the owner picks its placement — then a small web ticket consumes the live ops |
+| Materials hub server backing (retained `/materials` still renders demo-data rows — the one retained page whose server-backing ticket never existed; the per-plan attach flows are fully server-live) | materials management outgrows the per-plan attach flow, or the owner wants the hub live (re-point at the existing materials queries) |
+| Hub state-field tails (epic-09/10 deltas, recorded honestly): `MistakeEntry` has no resolved/reviewed flag (no mistake lifecycle), Today's suggestion slot is heuristic v1 (server-field-derived; epic-10-T5's documented consumer shape awaits a real generation-backed slot) | mistake lifecycle is wanted, or the heuristic's suggestions disappoint (owner-judged) |
 | Note enrichment sourcing (OQ-11; FR-22 weak-spot Notes variant) | FR-40 build (Phase 2) |
 | Re-queue algorithm + intervals (OQ-6) | implementation spec (`/to-spec`) — placement fixed by AD-19 (the scan) |
 | Mastery decay/freshness values (OQ-9 residual — core resolved by ADR-0001) | Phase-2 freshness spec (NFR-8 decay rule) — placement fixed by AD-6/14 |

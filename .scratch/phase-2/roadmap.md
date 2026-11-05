@@ -69,6 +69,6 @@ Cross-epic edges are recorded here and on each epic.md's **Gate** line (the tick
 ## Phase-2 kickoff checklist (started 2026-11-03)
 
 1. Implement epic-00 (the only pre-spec'd epic — its tickets are already `ready-for-agent`). — **done 2026-11-03**, merged to `main` at owner direction.
-2. Run the **PRD §6.2 ↔ 落地 diff check** (carry-over from the final-system prototype audit, 2026-11-03): walk §6.2's deferred list against what actually shipped in Phase 1; reconcile any drift into the epics below before opening them. Known from that audit: the only true product gaps were FR-44/45 — both now epic-10 tickets.
+2. Run the **PRD §6.2 ↔ 落地 diff check** (carry-over from the final-system prototype audit, 2026-11-03): walk §6.2's deferred list against what actually shipped in Phase 1; reconcile any drift into the epics below before opening them. Known from that audit: the only true product gaps were FR-44/45 — both now epic-10 tickets. — **re-run 2026-11-05 at epic-14 close** (the final roadmap item): 10 of 14 §6.2 lines shipped clean across Phase 2; 4 survivors reconciled to the spine Deferred table with fresh triggers (FR-43 license consent · FR-15 web marking UI · MaterialsPage demo data · hub state-field tails). Walk table: [epic-14 epic.md](epic-14-small-tail/epic.md).
 3. Open epic-01; schedule lanes per the table above.
 4. Delta-review each feature epic (09–14) at its own kickoff, not before — assumptions age.
