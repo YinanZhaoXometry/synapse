@@ -28,8 +28,24 @@ module Types
           null: false,
           description: "When the task was created."
 
+    # The promotion pointer (FR-37 stretch half, epic-14 T2): non-null id ⇔
+    # promoted — the state is INFERRED from the pointer (delta decision 4),
+    # never a boolean. A promoted task is read-only: its content (the node +
+    # material) moved into the plan; the page renders the pointer.
+    field :promoted_plan_id, String,
+          null: true,
+          description: "The study plan this task was promoted into (FR-37 stretch) — null while the task is plan-free. The promoted state is inferred from this pointer."
+
+    field :promoted_at, Types::DateTime,
+          null: true,
+          description: "When the promotion happened — set exactly with promotedPlanId."
+
+    field :promoted_plan, Types::StudyPlanType,
+          null: true,
+          description: "The promoted-into plan, readable directly (the pointer card's deep-link target) — null while the task is plan-free."
+
     field :node, Types::KnowledgeNodeType,
           null: false,
-          description: "The task's single auto-owned node (AD-6 — the getTaskNode mirror; always exists, created with the task)."
+          description: "The task's single auto-owned node (AD-6 — the getTaskNode mirror; always exists, created with the task). After promotion the node still rides the task (its stable id — evidence continuity) but lives in the promoted plan (planId set, taskId cleared)."
   end
 end

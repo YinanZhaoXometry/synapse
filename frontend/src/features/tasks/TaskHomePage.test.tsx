@@ -7,6 +7,7 @@ import {
   CreateMaterialUploadDocument,
   FlashcardsByMaterialDocument,
   MaterialsDocument,
+  PromoteTaskToPlanDocument,
   TaskDocument,
 } from "@/types/graphql";
 import { sessionBlobs } from "@/api";
@@ -67,6 +68,10 @@ vi.mock("@/features/quiz", async (importOriginal) => {
 // re-parse decision, not the reader's internals.
 const parseSeam = vi.hoisted(() => ({ bound: [] as unknown[], calls: [] as string[] }));
 
+// The promote mutation's captured inputs (epic-14 T2): the page mints the
+// client uuid — the seam asserts the wire contract (task id + uuid shape).
+const promoteSeam = vi.hoisted(() => ({ inputs: [] as Array<{ taskId: string; clientUuid: string }> }));
+
 vi.mock("@/features/reader", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/features/reader")>();
   return {
@@ -120,8 +125,9 @@ const zhN = (key: string, n: number | string) => zh(key).replace("{n}", String(n
 const TASK_ID = "t-1";
 const MATERIAL_ID = "m-1";
 const NODE_ID = "n-1";
+const PLAN_ID = "p-1"; // the promotion target (epic-14 T2 fixtures)
 
-const serverNode = (masteryScore: string, state: string) => ({
+const serverNode = (masteryScore: string, state: string, overrides: Record<string, unknown> = {}) => ({
   __typename: "KnowledgeNode",
   id: NODE_ID,
   planId: null,
@@ -132,6 +138,7 @@ const serverNode = (masteryScore: string, state: string) => ({
   masteryScore,
   state,
   createdAt: "2026-11-01T00:00:00Z",
+  ...overrides,
 });
 
 const serverMaterial = (overrides: Record<string, unknown> = {}) => ({
@@ -180,9 +187,24 @@ interface HomeOptions {
   cards?: Record<string, unknown>[];
 }
 
+/** The default (unpromoted) server task row — the promotion pointer fields
+ * null (epic-14 T2: the wire carries them on every task read). */
+const serverTask = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "StudyTask",
+  id: TASK_ID,
+  materialId: MATERIAL_ID,
+  nodeId: NODE_ID,
+  createdAt: "2026-11-01T00:00:00Z",
+  promotedPlanId: null,
+  promotedAt: null,
+  promotedPlan: null,
+  node: serverNode("0", "uncovered"),
+  ...overrides,
+});
+
 function homeMocks(options: HomeOptions = {}) {
   const {
-    task = { __typename: "StudyTask", id: TASK_ID, materialId: MATERIAL_ID, nodeId: NODE_ID, createdAt: "2026-11-01T00:00:00Z", node: serverNode("0", "uncovered") },
+    task = serverTask(),
     materials = [serverMaterial()],
     evidence = [],
     cards = [],
@@ -211,11 +233,42 @@ function homeMocks(options: HomeOptions = {}) {
       },
       maxUsageCount: 5,
     },
+    {
+      // The promote mutation (epic-14 T2): the client uuid is minted in the
+      // page — the mock captures the input and answers with the new plan.
+      request: {
+        query: PromoteTaskToPlanDocument,
+        variables: (vars: { input: { taskId: string; clientUuid: string } }) => {
+          promoteSeam.inputs.push(vars.input);
+          return true;
+        },
+      },
+      result: {
+        data: {
+          __typename: "Mutation",
+          promoteTaskToPlan: {
+            __typename: "PromoteTaskToPlanPayload",
+            plan: { __typename: "StudyPlan", id: PLAN_ID, topic: "lecture-04" },
+            task: {
+              __typename: "StudyTask",
+              id: TASK_ID,
+              promotedPlanId: PLAN_ID,
+              promotedAt: "2026-11-05T00:00:00Z",
+              promotedPlan: { __typename: "StudyPlan", id: PLAN_ID, topic: "lecture-04" },
+            },
+          },
+        },
+      },
+      maxUsageCount: 5,
+    },
   ];
 }
 
 function PlansLanding() {
   return <p data-testid="plans-landing" />;
+}
+function PlanLanding() {
+  return <p data-testid="plan-landing" />;
 }
 function ReaderLanding() {
   return <p data-testid="reader-landing" />;
@@ -237,10 +290,12 @@ function renderTaskHome(taskIdOrOptions: string | HomeOptions = TASK_ID, maybeOp
           <Toaster />
           <Routes>
             <Route path="/task/:id" element={<TaskHomePage />} />
-            {/* stubs for the T4 launches — navigation is the assertion */}
+            {/* stubs for the T4 launches + the T2 promotion hand-off —
+                navigation is the assertion */}
             <Route path="/task/:id/quiz" element={<QuizLanding />} />
             <Route path="/task/:id/flashcards" element={<FlashcardsLanding />} />
             <Route path="/plans" element={<PlansLanding />} />
+            <Route path="/plan/:id" element={<PlanLanding />} />
             <Route path="/read/:materialId" element={<ReaderLanding />} />
           </Routes>
         </MemoryRouter>
@@ -262,6 +317,7 @@ beforeEach(() => {
   blobStore.reset(); // a fresh page load's registry — bytes are gone until put
   parseSeam.bound.length = 0;
   parseSeam.calls.length = 0;
+  promoteSeam.inputs.length = 0;
 });
 
 afterEach(() => {
@@ -455,5 +511,58 @@ describe("TaskHomePage (FR-37; ADR-0001; AD-6/8)", () => {
     expect(sessionBlobs.has(MATERIAL_ID)).toBe(false);
     expect(parseSeam.calls).toHaveLength(0);
     expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("promoted task: the pointer card names the plan, deep-links to it, and NO writable action survives (epic-14 T2)", async () => {
+    // The promotion's server truth: the node/material moved into the plan
+    // (task links cleared), the task carries the pointer fields.
+    renderTaskHome({
+      task: serverTask({
+        promotedPlanId: PLAN_ID,
+        promotedAt: "2026-11-05T00:00:00Z",
+        promotedPlan: { __typename: "StudyPlan", id: PLAN_ID, topic: "lecture-04 成长计划" },
+        node: serverNode("0", "uncovered", { planId: PLAN_ID, taskId: null }),
+      }),
+      materials: [serverMaterial({ planId: PLAN_ID, taskId: null })],
+    });
+
+    // The pointer card, honestly: title + the plan's topic + the deep link.
+    const card = await screen.findByTestId("task-promoted-card");
+    expect(screen.getByText(zh("tasks.promotedCardTitle"))).toBeInTheDocument();
+    // The card names the plan topic and the read-only note (the note rides a
+    // combined line — asserted off the card's text, not a lone text node).
+    expect(card.textContent).toContain(zh("tasks.promotedCardNote"));
+    expect(card.textContent).toContain("lecture-04 成长计划");
+    const link = screen.getByTestId("task-promoted-plan-link");
+    expect(link).toHaveAttribute("href", `/plan/${PLAN_ID}`);
+
+    // The zombie writable state is gone: no re-quiz, no re-generation, no
+    // re-upload, no re-promote — the pointer is read-only end to end.
+    expect(screen.queryByTestId("task-quiz-tile")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("task-flashcards-tile")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("task-promote-button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: zh("plans.materialReuploadAction") })).not.toBeInTheDocument();
+  });
+
+  it("promote flow: confirm names the deal, the mutation fires, and the route lands on the new plan (epic-14 T2)", async () => {
+    sessionBlobs.put(MATERIAL_ID, markdownFile("lecture-04.md")); // bytes present — the tiles would normally be live
+    renderTaskHome();
+
+    // The entry is the confirm-gated action, not a silent move.
+    fireEvent.click(await screen.findByTestId("task-promote-button"));
+    expect(await screen.findByText(zh("tasks.promoteTitle"))).toBeInTheDocument();
+    expect(screen.getByText(zh("tasks.promoteBody"))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("task-promote-confirm"));
+
+    // The wire contract: the task's id + a client-minted uuid (AD-12).
+    expect(promoteSeam.inputs).toHaveLength(1);
+    expect(promoteSeam.inputs[0].taskId).toBe(TASK_ID);
+    expect(promoteSeam.inputs[0].clientUuid).toMatch(/^[0-9a-f-]{36}$/);
+
+    // The promotion is a hand-off, not a dead end: the route moves to the
+    // created plan — Task Home (and its promote entry) is gone with it.
+    expect(await screen.findByTestId("plan-landing")).toBeInTheDocument();
+    expect(screen.queryByTestId("task-promote-button")).not.toBeInTheDocument();
   });
 });

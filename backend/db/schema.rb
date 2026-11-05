@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_170001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_180001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -481,8 +481,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_170001) do
     t.uuid "node_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "promoted_plan_id"
+    t.datetime "promoted_at"
     t.index ["material_id"], name: "index_study_tasks_on_material_id"
     t.index ["node_id"], name: "index_study_tasks_on_node_id"
+    t.index ["promoted_plan_id"], name: "index_study_tasks_on_promoted_plan_id"
     t.index ["user_id"], name: "index_study_tasks_on_user_id"
   end
 
@@ -556,5 +559,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_170001) do
   add_foreign_key "study_plans", "users"
   add_foreign_key "study_tasks", "knowledge_nodes", column: "node_id"
   add_foreign_key "study_tasks", "materials"
+  add_foreign_key "study_tasks", "study_plans", column: "promoted_plan_id", on_delete: :nullify
   add_foreign_key "study_tasks", "users"
 end

@@ -51,6 +51,20 @@ module Plans
                          field: :id })
       end
 
+      # Promoted task pointers (FR-37 stretch, epic-14 T2): a promotion moved
+      # the task's node/material into this plan (materials.task_id cleared —
+      # the guard above passed), but the pointer's study_tasks.material_id
+      # back-reference survives. The pointer's content lives in the plan now,
+      # so deleting the plan deletes the pointer (a read-only pointer with no
+      # target is deleted — the honest end; the promoted_plan_id FK's SET NULL
+      # floor never engages because the row itself goes). The pointer's
+      # task-scope sessions go with it (quiz_sessions.task_id has no
+      # on_delete); their evidence/mistake/question rows are already covered
+      # by the node/material sweeps below — the moved node's id is in
+      # node_ids and its questions' source material in material_ids.
+      promoted_task_ids = current_user.study_tasks.where(material_id: material_ids).ids
+      promoted_session_ids = current_user.quiz_sessions.where(task_id: promoted_task_ids).ids
+
       ActiveRecord::Base.transaction do
         # Referencing rows first, deepest (evidence) to shallowest, then the
         # Phase-1 cascade itself (nodes, materials, their 1:1 rows), then the
@@ -58,7 +72,7 @@ module Plans
         current_user.evidence_records
           .where(node_id: node_ids)
           .or(current_user.evidence_records.where(question_id: question_ids))
-          .or(current_user.evidence_records.where(session_id: session_ids))
+          .or(current_user.evidence_records.where(session_id: session_ids + promoted_session_ids))
           .delete_all
         current_user.mistake_entries
           .where(node_id: node_ids)
@@ -73,7 +87,8 @@ module Plans
         current_user.section_markings.where(material_id: material_ids).delete_all
         current_user.reading_progresses.where(material_id: material_ids).delete_all
         current_user.chat_threads.where(material_id: material_ids).delete_all
-        current_user.quiz_sessions.where(id: session_ids).delete_all
+        current_user.quiz_sessions.where(id: session_ids + promoted_session_ids).delete_all
+        current_user.study_tasks.where(id: promoted_task_ids).delete_all
         current_user.knowledge_nodes.where(id: node_ids).delete_all
         current_user.materials.where(id: material_ids).delete_all
         plan.delete

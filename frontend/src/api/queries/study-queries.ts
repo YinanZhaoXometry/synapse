@@ -11,6 +11,8 @@ import {
   ChatThreadDocument,
   CreateTaskDocument,
   MaterialsDocument,
+  PlansDocument,
+  PromoteTaskToPlanDocument,
   ReadingProgressDocument,
   ReadingProgressListDocument,
   SaveReadingProgressDocument,
@@ -46,6 +48,25 @@ export function useCreateTaskMutation() {
     // payload writes task + node; the list + the material's back-link need the sweep.
     refetchQueries: [TasksDocument, MaterialsDocument],
   });
+}
+
+/**
+ * Promote a task into a plan (FR-37 stretch, epic-14 T2): the created plan
+ * returns in the payload — the caller navigates to it. The plans-list
+ * read-back sweep makes the new plan appear in 我要学 (Plans Home); the
+ * task list re-reads so other surfaces see the pointer state.
+ */
+export function usePromoteTaskToPlanMutation() {
+  const { t } = useLanguage();
+  const [mutate, result] = useMutation(PromoteTaskToPlanDocument, {
+    refetchQueries: [PlansDocument, TasksDocument],
+    onError: () => {
+      // Same neutral persistence-failure posture: say it failed, ask for a
+      // retry — never alarm, never silent.
+      toast.error(t("tasks.promoteFailed"));
+    },
+  });
+  return { mutate, loading: result.loading };
 }
 
 export function useReadingProgressQuery(materialId: string) {

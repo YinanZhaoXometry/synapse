@@ -152,7 +152,9 @@ function makeWorld(): World {
       const task = server.tasks.find((t) => t.id === variables.id);
       if (!task) return null;
       const node = server.nodes.find((n) => n.taskId === task.id)!;
-      return { id: task.id, materialId: task.materialId, nodeId: task.nodeId, createdAt: task.createdAt, node: nodeRow(node) };
+      // The promotion pointer rides every task read (epic-14 T2) — null for
+      // these echo tasks; the cache write needs the field present.
+      return { id: task.id, materialId: task.materialId, nodeId: task.nodeId, createdAt: task.createdAt, promotedPlanId: null, promotedAt: null, promotedPlan: null, node: nodeRow(node) };
     },
     Tasks: () =>
       server.tasks.map((task) => ({
@@ -160,6 +162,9 @@ function makeWorld(): World {
         materialId: task.materialId,
         nodeId: task.nodeId,
         createdAt: task.createdAt,
+        promotedPlanId: null,
+        promotedAt: null,
+        promotedPlan: null,
         node: nodeRow(server.nodes.find((n) => n.taskId === task.id)!),
       })),
     // the AD-6 isolation control: a sibling plan sharing NOTHING with the task
