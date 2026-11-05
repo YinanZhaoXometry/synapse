@@ -1,6 +1,6 @@
 # Epic 15 (Phase-2 delta) — FR-15 Mastery Marking UI: the web consumes the marking ops
 
-Status: in progress (2026-11-06 night run — unlocked by the §6.2 diff-check survivor disposition; placement decision taken under the standing decide-all delegation, recorded below)
+Status: done (2026-11-06 night run — 3 tickets done + inline two-axis reviews PASS/PASS ×3; just spec green on the integration tip (rspec 1290 / vitest 833); live smoke claim→persist→unmark PASS in a real browser against the real stack; unlocks the §6.2 diff-check's FR-15 survivor)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
