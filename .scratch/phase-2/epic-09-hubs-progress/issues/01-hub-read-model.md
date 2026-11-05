@@ -4,7 +4,7 @@
 
 **Blocked by:** None (epic gate: 07+08 done).
 
-**Status:** ready-for-agent (delta-grill: badge thresholds, suggestion heuristic v1)
+**Status:** done (2026-11-05 — merged to `epic/p2-09-hubs`; gates: rspec 1024 / rubocop clean / frontend untouched green)
 
 **Bound by:** AD-14 (rollups server-side; client renders), AD-13 (scoping — every field), AD-6 (series consume the one mastery source), SM-C3 (sessions, never minutes).
 
@@ -76,3 +76,4 @@ only. Every session lists (abandoned/active at zero graded answers — honest hi
 newest-first `(created_at desc, id desc)`. `mistakesHub` is the flat newest-first list — T2 owns
 grouping/filtering over it. `flashcardDecksHub.createdAt` = the deck MATERIAL's timestamp
 (the deck's own creation moment); rows ordered by it.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — resolvers all pass `current_user!` into the pure `Hubs` module (user + injected now, Timecop-tested boundaries, ISO Mon-UTC + streak's day-key convention cited); two-user scoping proof in the request spec; due logic VERBATIM reuse (same relation + DueItemType); weekly_goal via command with server-side 1..21. Deviations recorded in Comments (full delta-2 suggestion condition; doneCount un-windowed honest).
