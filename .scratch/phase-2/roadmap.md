@@ -23,7 +23,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 | 09 | [hubs-progress](epic-09-hubs-progress/epic.md) | Mistakes/Today/Flashcards/Quiz hubs, Analytics, Achievements, Dashboard re-point, weekly goal (FR-23/26/27/28/41/42, FR-25 P2 halves) | 07, 08 | ❌ |
 | 10 | [nodes](epic-10-nodes/epic.md) *(done 2026-11-05 — branch epic/p2-10-nodes, 5 tickets + two-axis reviews + fixes, merged to main)* | material–node mapping, node-pinned attach, node states, roadmap graph, adaptive targeting (FR-5/6/7/21/44/45) | 08 | ✅ |
 | 11 | [square-import](epic-11-square-import/epic.md) | visibility, Square read + fork, roadmap.sh import (FR-38/39/43) | 08 | ❌ |
-| 12 | [notes-plan-companion](epic-12-notes-plan-companion/epic.md) | Notes + enrichment, weak-spot Notes, plan-level Companion (FR-40/22/46) | 08, 10 | ❌ |
+| 12 | [notes-plan-companion](epic-12-notes-plan-companion/epic.md) *(done 2026-11-05 — branch epic/p2-12-notes, 3 tickets + two-axis reviews, merged to main)* | Notes + enrichment, weak-spot Notes, plan-level Companion (FR-40/22/46) | 08, 10 | ✅ |
 | 13 | [reader-depth](epic-13-reader-depth/epic.md) | selection shortcuts, Quick Test, Annotations, Study Focus, PPT upload (FR-13/14/16/17, PPT) | 08 | ❌ |
 | 14 | [small-tail](epic-14-small-tail/epic.md) | Settings account surfaces, Task→Plan promotion, ops hardening (deferred-table tail) | 08 | ❌ |
 

@@ -1,6 +1,6 @@
 # Epic 12 (Phase 2) — Notes with enrichment + plan-level Companion
 
-Status: ready-for-agent (spec + tickets 2026-11-03; delta-grill at kickoff — OQ-11 sourcing; gate: epics 08+10 done)
+Status: done (2026-11-05 — all three tickets done + two-axis reviewed; rspec 957 / vitest 572; OQ-11 = markers-only v1; /ai-tutor retired with T3)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
