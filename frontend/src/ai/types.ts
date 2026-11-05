@@ -53,6 +53,16 @@ export interface GroundedChatRequest {
    */
   materialId?: string;
   /**
+   * Additive (epic-13 T1, FR-13): the selection grounding text — the
+   * reader's selection bar asked WITH the selected text. It rides the ticket
+   * (CreateStreamTicketInput.selection, question-bounded) and the server's
+   * context assembly prepends a [selection] grounding block. The composer
+   * also pre-fills with the quote (honest display), so the wire field and
+   * the visible question say the same thing. Optional: omitted by turns the
+   * bar did not ask (the frozen payload shape stays unchanged).
+   */
+  selection?: string;
+  /**
    * Additive (epic P2-8 review fix, AD-16): the restart notice channel. A
    * dropped stream restarts on a fresh ticket and EVERY restart counts
    * against the daily AI cap, so the server adapter delivers the cap-counted

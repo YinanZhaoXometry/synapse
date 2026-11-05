@@ -34,7 +34,7 @@
  * mounts it) — the reader's dock and responsive ladder in ReaderPage's
  * companion-surfaces, the plan home drawer and /ai-tutor column in theirs.
  */
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookmarkMinus, Check, RotateCw, Send, Sparkles } from "lucide-react";
 import type { CompanionReply } from "@/ai/types";
@@ -48,6 +48,18 @@ import { locatorDisplayTarget, type BubbleEntry, type CompanionEntry } from "./m
 import { useCompanionChat } from "./use-companion-chat";
 import { usePlanCompanionChat, type PlanCompanionEntry } from "./use-plan-companion-chat";
 
+/**
+ * The selection bar's Ask handoff (epic-13 T1, FR-13): the reader hands the
+ * panel a pre-fill (a question quoting the selection — the user SEES what
+ * rides) plus the pending selection text in a ref; the NEXT send consumes the
+ * ref exactly once (use-companion-chat's selection rule). `nonce` makes the
+ * identity: re-asking the same quote re-fills the composer.
+ */
+export interface AskPrefill {
+  quote: string;
+  nonce: number;
+}
+
 export interface ReadingCompanionPanelProps {
   /** "reading" (default) — the in-reader surface. */
   mode?: "reading";
@@ -59,6 +71,10 @@ export interface ReadingCompanionPanelProps {
   displayLocator: ReadingLocator | null;
   /** AD-8 in-reader jump: scroll the reader to this locator and flash it. */
   onJumpToLocator(locator: ReadingLocator): void;
+  /** The selection bar's pending grounding text — consumed by the next send. */
+  selectionRef?: MutableRefObject<string | null>;
+  /** The selection bar's composer pre-fill (the quote, honestly displayed). */
+  askPrefill?: AskPrefill | null;
 }
 
 export interface PlanCompanionPanelProps {
@@ -333,9 +349,21 @@ function ReadingCompanionSurface({
   positionRef,
   displayLocator,
   onJumpToLocator,
+  selectionRef,
+  askPrefill,
 }: ReadingCompanionPanelProps) {
   const { t } = useLanguage();
-  const chat = useCompanionChat(materialId, positionRef);
+  const chat = useCompanionChat(materialId, positionRef, selectionRef);
+
+  // The selection bar's ask (epic-13 T1): drop the quote into the composer so
+  // the user sees exactly what the Companion will be asked about. Identity is
+  // the nonce — a re-ask of the same quote re-fills; the user's later typing
+  // is never clobbered (the effect runs per prefill, not per render).
+  useEffect(() => {
+    if (!askPrefill) return;
+    chat.setInput(t("companion.askWithSelection", { quote: askPrefill.quote }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askPrefill?.nonce]);
 
   const parseState = material?.parseState ?? "pending";
   const parseFailed = parseState === "failed";

@@ -214,20 +214,45 @@ module Ai
       # Companion grounding (AD-5): the section under the ReadingPosition
       # locator in full focus, then the material's section index so the
       # model can cite other sections it saw. The position's own quoted text
-      # rides first, budget permitting.
-      def companion_grounding(material, position, budget: default_budget)
+      # rides first, budget permitting. With a selection (epic-13 T1's
+      # FR-13 — the reader's selection bar asked), a [selection] block rides
+      # FIRST — the tightest grounding wins the earliest tokens — with the
+      # same budget discipline: whole while it fits, hard-cut with the
+      # marker when nothing fits, `truncated` honest.
+      def companion_grounding(material, position, selection: "", budget: default_budget)
         locator = position["locator"] || {}
         focus_id = section_id_for(locator)
         position_text = position["text"].to_s
+        selection_text = selection.to_s.strip
 
         parts = +""
         truncated = false
         consumed = 0
 
+        unless selection_text.empty?
+          block = "[selection]\n#{selection_text}\n\n"
+          tokens = estimate_tokens(block)
+          if tokens <= budget - consumed
+            parts << block
+            consumed += tokens
+          else
+            header = "[selection]\n"
+            header_tokens = estimate_tokens(header)
+            remaining = budget - consumed
+            if remaining > header_tokens + 1
+              cut, cut_short = hard_truncate(selection_text, remaining - header_tokens - 1)
+              parts << header << cut << "\n\n"
+              truncated ||= cut_short
+            end
+            consumed = budget
+            truncated = true
+          end
+        end
+
         unless position_text.empty?
           block = "[reading position]\n#{position_text}\n\n"
           tokens = estimate_tokens(block)
-          if tokens <= budget
+          if tokens <= budget - consumed
             parts << block
             consumed += tokens
           else

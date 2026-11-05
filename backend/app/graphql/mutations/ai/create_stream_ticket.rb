@@ -26,6 +26,9 @@ module Mutations
       argument :position, Types::ReadingPositionInput,
                required: false,
                description: "companion only: the current ReadingPosition (the grounding input). The text is truncated to the 100k section bound when carried into the ticket."
+      argument :selection, String,
+               required: false,
+               description: "companion only: the text selection the question grounds on (FR-13, epic-13 T1 — the reader's selection bar). Bounded like the question; blank input never rides the ticket."
       argument :escalated, Boolean,
                required: false,
                description: "companion only: the escalation flag (the ladder amendment — true means the answer rung)."
@@ -49,7 +52,7 @@ module Mutations
             null: false,
             description: "When the ticket dies (~60s TTL; expired → 401)."
 
-      def resolve(op:, language:, material_id: nil, question: nil, position: nil, escalated: nil, topic: nil, goal: nil, plan_id: nil, mistake_entry_id: nil)
+      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, topic: nil, goal: nil, plan_id: nil, mistake_entry_id: nil)
         result = command_result(::Ai::CreateStreamTicketCommand.call(
           current_user: current_user!,
           op: op,
@@ -57,6 +60,7 @@ module Mutations
           material_id: material_id,
           question: question,
           position: position&.to_h,
+          selection: selection,
           escalated: escalated,
           topic: topic,
           goal: goal,

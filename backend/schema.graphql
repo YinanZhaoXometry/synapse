@@ -741,6 +741,13 @@ input CreateStreamTicketInput {
   question: String
 
   """
+  companion only: the text selection the question grounds on (FR-13, epic-13 T1
+  — the reader's selection bar). Bounded like the question; blank input never
+  rides the ticket.
+  """
+  selection: String
+
+  """
   proposal only: the plan topic.
   """
   topic: String

@@ -46,7 +46,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useViewportTier } from "@/hooks/use-mobile";
 import { useMaterialQuery, usePlanQuery, useReadingProgressQuery } from "@/api";
 import { sessionBlobs } from "@/lib/session-blobs";
-import { CompanionPanel } from "@/features/companion/CompanionPanel";
+import { CompanionPanel, type AskPrefill } from "@/features/companion/CompanionPanel";
 import { CompanionOverlay, CompanionSheet } from "./companion-surfaces";
 import { cn } from "@/lib/utils";
 import type { ReadingLocator } from "@/domain/entities";
@@ -60,6 +60,8 @@ import { useReadingPositionTracker } from "./use-reading-position";
 import { useSessionBytes } from "./use-session-bytes";
 import { stepPage } from "./pager";
 import { validateReupload } from "./reupload";
+import { SelectionBar, SELECTION_BAR_HEIGHT, SELECTION_BAR_WIDTH } from "./selection-bar";
+import { barAnchor, captureSelection, MAX_SELECTION_CHARS, type CapturedSelection } from "./selection-capture";
 
 export default function ReaderPage() {
   const { materialId } = useParams();
@@ -116,20 +118,23 @@ export default function ReaderPage() {
   const tier = useViewportTier();
   const panelOpen = panelChoice ?? tier === "desktop";
 
-  // A11y floor: Esc closes the topmost reader layer — the floating Companion
-  // (overlay/sheet; they cover the reading) first, then immersive exit. The
-  // docked panel and rail are not layers (they never cover the reading) and
-  // are left alone.
+  // A11y floor: Esc closes the topmost reader layer — the selection bar first
+  // (it owns its own Escape dismissal below), then the floating Companion
+  // (overlay/sheet; they cover the reading), then immersive exit. The docked
+  // panel and rail are not layers (they never cover the reading) and are left
+  // alone.
+  const [selectionBar, setSelectionBar] = useState<{ captured: CapturedSelection; anchor: { x: number; y: number } } | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (selectionBar) return; // the bar's own listener dismisses it this press
       const floating = tier === "tablet" || tier === "mobile";
       if (floating && panelOpen) setPanelChoice(false);
       else if (immersive) setImmersive(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tier, panelOpen, immersive]);
+  }, [tier, panelOpen, immersive, selectionBar]);
 
   // Stored progress (FR-10): the restore target when no anchor asks for one.
   // The flows mount only once this query has settled (gate below), so the
@@ -201,6 +206,74 @@ export default function ReaderPage() {
     [reportPosition],
   );
   const handleTotalPages = useCallback((total: number) => setTotalPages(total), []);
+
+  // Selection shortcuts (FR-13, epic-13 T1): a text selection inside the
+  // reader content (markdown prose or the PDF text layer) floats the
+  // 「问 Companion / 快测」 bar beside itself — selection-capture.ts maps the
+  // DOM Selection to the AD-2 shape (clamped to the anchor-side section/page;
+  // whitespace/collapsed selections never trigger), barAnchor clamps the
+  // position into the viewport. Dismissal: any scroll (capture — the flows'
+  // inner containers included), a viewport resize, collapse, or Escape (the
+  // bar's own listener + the guard in the layer handler above). Ask hands the
+  // quote to the Companion (composer pre-fill + the pending-selection ref the
+  // next send consumes); Quick Test dispatches through the feature-flag seam
+  // (quick-test-seam.ts — T2 fills the registration; until then the bar
+  // toasts the honest coming-soon copy itself).
+  const materialZoneRef = useRef<HTMLDivElement>(null);
+  const pendingSelectionRef = useRef<string | null>(null);
+  const [askPrefill, setAskPrefill] = useState<AskPrefill | null>(null);
+  useEffect(() => {
+    const evaluate = () => {
+      const zone = materialZoneRef.current;
+      const selection = window.getSelection();
+      if (!zone || !selection || selection.rangeCount === 0) return;
+      const current = materialRef.current;
+      const first = current?.kind === "markdown" ? current.sections[0] : undefined;
+      const introId =
+        first && headingsResolvedRef.current && !resolvedHeadingIdsRef.current.includes(first.id)
+          ? first.id
+          : null;
+      const captured = captureSelection(selection, { root: zone, introSectionId: introId });
+      if (!captured) {
+        setSelectionBar(null);
+        return;
+      }
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      setSelectionBar({
+        captured,
+        anchor: barAnchor(rect, window.innerWidth, window.innerHeight, SELECTION_BAR_WIDTH, SELECTION_BAR_HEIGHT),
+      });
+    };
+    const clear = () => setSelectionBar(null);
+    let raf = 0;
+    const onSelectionChange = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        evaluate();
+      });
+    };
+    document.addEventListener("selectionchange", onSelectionChange);
+    window.addEventListener("scroll", clear, true);
+    window.addEventListener("resize", clear);
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+      window.removeEventListener("scroll", clear, true);
+      window.removeEventListener("resize", clear);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const handleBarDismiss = useCallback(() => setSelectionBar(null), []);
+
+  const handleBarAsk = useCallback((captured: CapturedSelection) => {
+    // The quote rides the ticket bounded (the composer shows the FULL quote —
+    // honest display; the wire bound mirrors the server's question discipline).
+    pendingSelectionRef.current = captured.text.slice(0, MAX_SELECTION_CHARS);
+    setAskPrefill({ quote: captured.text, nonce: Date.now() });
+    setSelectionBar(null);
+    setPanelChoice(true); // the Companion opens wherever the ladder puts it
+  }, []);
 
   // Citation-chip jumps (AD-8, in-reader half): scroll the flow to the cited
   // page/section AND flash it in the citation tint — the same channel external
@@ -365,8 +438,9 @@ export default function ReaderPage() {
 
       {/* `relative` scopes the floating ladder surfaces (overlay/sheet) to the
           row UNDER the top bar — the toggle that opens them stays clickable
-          above them, and the app's own chrome stays untouched. */}
-      <div className="relative flex flex-1 min-h-0">
+          above them, and the app's own chrome stays untouched. This zone is
+          also the selection capture's root (FR-13): the bar floats over it. */}
+      <div ref={materialZoneRef} className="relative flex flex-1 min-h-0">
         {/* material zone */}
         <div className="flex-1 min-w-0 flex flex-col">
           {parseState === "parsing" ? (
@@ -445,6 +519,8 @@ export default function ReaderPage() {
                 positionRef={currentPositionRef}
                 displayLocator={displayLocator}
                 onJumpToLocator={jumpToLocator}
+                selectionRef={pendingSelectionRef}
+                askPrefill={askPrefill}
               />
             </aside>
             {panelOpen ? null : (
@@ -467,6 +543,8 @@ export default function ReaderPage() {
               positionRef={currentPositionRef}
               displayLocator={displayLocator}
               onJumpToLocator={jumpToLocator}
+              selectionRef={pendingSelectionRef}
+              askPrefill={askPrefill}
             />
           </CompanionOverlay>
         )}
@@ -485,8 +563,22 @@ export default function ReaderPage() {
               positionRef={currentPositionRef}
               displayLocator={displayLocator}
               onJumpToLocator={jumpToLocator}
+              selectionRef={pendingSelectionRef}
+              askPrefill={askPrefill}
             />
           </CompanionSheet>
+        )}
+
+        {/* The selection shortcuts bar (FR-13): floats beside the live
+            selection, viewport-clamped; gone on scroll/collapse/Escape. */}
+        {selectionBar && (
+          <SelectionBar
+            selection={selectionBar.captured}
+            materialId={material.id}
+            anchor={selectionBar.anchor}
+            onAsk={handleBarAsk}
+            onDismiss={handleBarDismiss}
+          />
         )}
       </div>
 

@@ -49,6 +49,15 @@ export interface OpenedPdfDocument {
   pageSize(pageNumber: number): PdfPageSize | undefined;
   /** Render one page at cssWidth CSS pixels (× dpr backing store) into the canvas. */
   renderPage(pageNumber: number, canvas: HTMLCanvasElement, cssWidth: number, dpr: number): Promise<PdfRenderTask>;
+  /**
+   * Render one page's INVISIBLE SELECTABLE text layer into `container` at
+   * cssWidth CSS pixels (epic-13 T1, FR-13) — the selection surface the
+   * reader's selection bar captures (pdfjs 6 TextLayer; the CSS contract it
+   * reads lives in index.css's .pdf-text-layer rules, a faithful port of the
+   * viewer stylesheet's .textLayer). Cancellable like the canvas render —
+   * the lazy window cancels mid-render on release.
+   */
+  renderTextLayer(pageNumber: number, container: HTMLElement, cssWidth: number): Promise<PdfRenderTask>;
   destroy(): void;
 }
 
@@ -88,6 +97,24 @@ export async function openPdfDocument(bytes: Uint8Array): Promise<OpenedPdfDocum
       return {
         promise: task.promise.then(() => undefined),
         cancel: () => task.cancel(),
+      };
+    },
+    async renderTextLayer(pageNumber, container, cssWidth) {
+      const page: PdfPageProxy = await doc.getPage(pageNumber);
+      const base = page.getViewport({ scale: 1 });
+      const scale = cssWidth / base.width;
+      const viewport = page.getViewport({ scale });
+      // pdfjs 6's TextLayer sizes its container and spans THROUGH these vars
+      // (setLayerDimensions + the span font-size calc); --scale-round-*
+      // mirror the viewer stylesheet's globals. The CSS that consumes them
+      // is index.css's .pdf-text-layer port.
+      container.style.setProperty("--total-scale-factor", String(scale));
+      container.style.setProperty("--scale-round-x", "1px");
+      container.style.setProperty("--scale-round-y", "1px");
+      const layer = new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container, viewport });
+      return {
+        promise: layer.render().then(() => undefined),
+        cancel: () => layer.cancel(),
       };
     },
     destroy() {

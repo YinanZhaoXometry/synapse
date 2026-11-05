@@ -17,8 +17,15 @@
  * there is no honest position to ground on — the panel disables send with an
  * explanatory hint rather than guessing sections[0] (a restored deep link
  * would ground the wrong page).
+ *
+ * Selection grounding (epic-13 T1, FR-13): the reader's selection bar asks
+ * WITH the selected text. The reader stashes the quote in `selectionRef`
+ * (alongside the composer pre-fill — the user SEES what rides); the NEXT send
+ * consumes it exactly once (the ref clears at send time), so a later turn
+ * grounds on its own position, never a stale selection. Escalation and retry
+ * replay the turn's own selection with its question.
  */
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
 import { toast } from "sonner";
 import { getCompanionService } from "@/ai/companion-service";
 import type { CompanionReply } from "@/ai/types";
@@ -35,11 +42,15 @@ export interface TurnRequest {
   question: string;
   position: ReadingPosition;
   escalated?: boolean;
+  /** The selection grounding text (epic-13 T1) — present only for turns the
+   * selection bar asked. */
+  selection?: string;
 }
 
 export function useCompanionChat(
   materialId: string,
   positionRef: RefObject<ReadingPosition | null>,
+  selectionRef?: MutableRefObject<string | null>,
 ) {
   const { t, language } = useLanguage();
   const { mutate: appendMessage } = useAppendChatMessageMutation();
@@ -124,6 +135,9 @@ export function useCompanionChat(
             // T5 additive pass-through: the companion stream is material-scoped
             // — the server ticket carries this id; the double ignores it.
             materialId: turnMaterialId,
+            // The selection bar's grounding text (epic-13 T1): rides the
+            // ticket inside; absent for bar-less turns (payload frozen).
+            selection: request.selection,
             // The cap-counted restart notice (AD-16, never silent): a drop →
             // fresh-ticket restart counted against the daily AI cap, surfaced
             // as the single toast pattern; the stream itself continues.
@@ -191,16 +205,19 @@ export function useCompanionChat(
     [appendMessage, busy, language, materialId, t],
   );
 
-  /** A new grounded turn — the position is the tracker's CURRENT one. */
+  /** A new grounded turn — the position is the tracker's CURRENT one; a
+   * stashed selection (the selection bar's ask) rides exactly once. */
   const send = useCallback(
     (rawQuestion: string) => {
       const question = rawQuestion.trim();
       if (!question || busy) return;
       const position = positionRef.current;
       if (!position) return; // gated in the UI; guarded here as the honest backstop
-      runTurn({ question, position }, question);
+      const selection = selectionRef?.current ?? undefined;
+      if (selectionRef) selectionRef.current = null; // consumed — one send, one grounding
+      runTurn({ question, position, selection }, question);
     },
-    [busy, positionRef, runTurn],
+    [busy, positionRef, runTurn, selectionRef],
   );
 
   /** One-click retry of a failed turn — same question, same send-time position. */
@@ -224,7 +241,14 @@ export function useCompanionChat(
       const entry = entries.find((candidate) => candidate.id === entryId);
       if (!entry?.reply || !entry.request || busy) return;
       runTurn(
-        { question: entry.request.question, position: entry.request.position, escalated: true },
+        {
+          question: entry.request.question,
+          position: entry.request.position,
+          escalated: true,
+          // the turn's own selection rides again — the ladder is the SAME
+          // question escalated, never a re-grounding
+          selection: entry.request.selection,
+        },
         t("companion.escalate"),
       );
     },

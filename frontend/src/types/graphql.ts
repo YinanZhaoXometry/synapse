@@ -192,6 +192,12 @@ export type CreateStreamTicketInput = {
   position?: ReadingPositionInput | null | undefined;
   /** companion / plan_companion: the learner's question. */
   question?: string | null | undefined;
+  /**
+   * companion only: the text selection the question grounds on (FR-13, epic-13 T1
+   * — the reader's selection bar). Bounded like the question; blank input never
+   * rides the ticket.
+   */
+  selection?: string | null | undefined;
   /** proposal only: the plan topic. */
   topic?: string | null | undefined;
 };

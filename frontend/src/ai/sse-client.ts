@@ -58,13 +58,17 @@ import type {
 
 export type StreamOp = "companion" | "proposal" | "plan_companion";
 
-/** Companion chat: position-grounded, optionally escalated (the ladder). */
+/** Companion chat: position-grounded, optionally escalated (the ladder).
+ * `selection` is epic-13 T1's additive grounding input (FR-13) — the reader's
+ * selection bar asked WITH the selected text; it rides INSIDE the ticket like
+ * every grounding input. */
 export interface CompanionStreamRequest {
   op: "companion";
   materialId: string;
   question: string;
   position: ReadingPositionLike;
   escalated?: boolean;
+  selection?: string;
   language: UiLanguage;
 }
 
@@ -231,6 +235,9 @@ function buildVariables(request: StreamRequest): CreateStreamTicketMutationVaria
     input.question = request.question;
     input.position = { locator: request.position.locator, text: request.position.text };
     input.escalated = request.escalated === true;
+    // The selection grounding input (epic-13 T1): absent for bar-less turns —
+    // the frozen payload shape stays unchanged (the server omits the key).
+    if (request.selection) input.selection = request.selection;
   } else if (request.op === "plan_companion") {
     input.planId = request.planId;
     input.question = request.question;

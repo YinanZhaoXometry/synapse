@@ -295,6 +295,10 @@ interface PdfPageCanvasProps {
 function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, containerRef }: PdfPageCanvasProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // The invisible selectable text layer (epic-13 T1, FR-13): the selection
+  // surface the reader's selection bar captures on PDFs. Same lazy window as
+  // the canvas — far pages hold layout only.
+  const textLayerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -334,6 +338,38 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, co
     };
   }, [doc, pageNumber, width, shouldRender]);
 
+  // The text layer rides the same render window; a width change re-renders it
+  // (the spans are percentage-positioned but the font math reads the scale
+  // var renderTextLayer sets). Failures stay honest: no spans, no selection.
+  useEffect(() => {
+    const layer = textLayerRef.current;
+    if (!layer) return;
+    let cancelled = false;
+    let task: { cancel(): void } | undefined;
+    if (shouldRender) {
+      (async () => {
+        try {
+          const pending = await doc.renderTextLayer(pageNumber, layer, width);
+          if (cancelled) {
+            pending.cancel();
+            return;
+          }
+          task = pending;
+          await pending.promise;
+        } catch {
+          // Cancelled (RenderingCancelledException) or failed — the page's
+          // text is simply not selectable, never wrongly selectable.
+        }
+      })();
+    } else {
+      layer.replaceChildren();
+    }
+    return () => {
+      cancelled = true;
+      task?.cancel();
+    };
+  }, [doc, pageNumber, width, shouldRender]);
+
   return (
     <div
       ref={containerRef}
@@ -344,6 +380,7 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, co
       style={{ width, height }}
     >
       <canvas ref={canvasRef} className="block" aria-hidden="true" />
+      <div ref={textLayerRef} className="pdf-text-layer" aria-hidden="true" />
       {/* Citation-tint flash (?hl=1, transient — AD-8); prefers-reduced-motion
           collapses it to an instant state change (index.css media rule). */}
       {flash && (

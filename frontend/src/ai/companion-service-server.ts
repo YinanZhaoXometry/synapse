@@ -193,6 +193,10 @@ export class ServerCompanionService implements CompanionService {
         question: request.question,
         position: request.position,
         escalated: request.escalated === true,
+        // epic-13 T1 (FR-13): the selection grounding text — the ticket
+        // carries it inside; the server's assembly prepends the [selection]
+        // block. Absent for bar-less turns (the payload shape stays frozen).
+        selection: request.selection,
         language: request.language,
       },
       {
