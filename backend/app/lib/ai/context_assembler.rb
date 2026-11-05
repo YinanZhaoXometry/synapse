@@ -318,6 +318,40 @@ module Ai
         Assembled.new(text: parts.strip, truncated: truncated)
       end
 
+      # The Study Focus surface (FR-17, epic-13 T4): the material's own
+      # annotations ride FIRST — they ARE the distillation source of truth
+      # (numbered [annotation N] lines carrying kind + address + quoted
+      # span, so the reply's sourceAnnotationIndex maps back server-side) —
+      # then the section index for coherence (the addresses the annotations
+      # point into). The annotations are the scarce, load-bearing tokens:
+      # when they alone exceed the budget they are hard-truncated honestly
+      # (marker + flag) and the index rides out entirely; the index fills
+      # whatever remains — whole, or hard-cut with the marker. The estimate
+      # never exceeds the budget (the mapping_scope discipline).
+      def annotation_scope(material, annotations, budget: default_budget)
+        block = annotations_block(annotations)
+        block_tokens = estimate_tokens(block)
+
+        if block_tokens > budget
+          cut, = hard_truncate(block, budget)
+          return Assembled.new(text: cut, truncated: true)
+        end
+
+        index = section_index_block(material)
+        index_tokens = estimate_tokens(index)
+        return Assembled.new(text: block.strip, truncated: false) if index_tokens.zero?
+
+        remaining = budget - block_tokens - (block_tokens.positive? ? 1 : 0) # the joining newline
+        if index_tokens <= remaining
+          Assembled.new(text: [ block, index ].join("\n").strip, truncated: false)
+        elsif remaining.positive?
+          cut, = hard_truncate(index, remaining)
+          Assembled.new(text: [ block, cut ].join("\n").strip, truncated: true)
+        else
+          Assembled.new(text: block.strip, truncated: true)
+        end
+      end
+
       # Exact section lookup by id ("markdown slug" or "page-N" for PDFs —
       # the same ids questions cite as source_section_id).
       def section_by_id(material, section_id)
@@ -402,6 +436,33 @@ module Ai
 
         lines.prepend("[material id=#{material.id} title=\"#{material.title}\" sections index]")
         lines.join("\n") + "\n"
+      end
+
+      # The numbered annotation block (FR-17): one line per annotation —
+      # kind, the address the range names (the locator's address backs a
+      # range-less pre-T3 import row), the char offsets, and the quoted
+      # span (the distillation's content ground). The 1-based numbering IS
+      # the reply contract's sourceAnnotationIndex vocabulary — the command
+      # maps it back server-side.
+      def annotations_block(annotations)
+        lines = Array(annotations).each_with_index.map do |annotation, index|
+          range = annotation.range || {}
+          locator = annotation.locator || {}
+          address = if range["sectionId"] || locator["sectionId"]
+            "markdown section #{range["sectionId"] || locator["sectionId"]}"
+          else
+            "pdf page #{range["page"] || locator["page"]}"
+          end
+          line = "[annotation #{index + 1}] kind=#{annotation.kind} #{address}"
+          line += " offsets #{range["start"]}-#{range["end"]}" if range["start"] && range["end"]
+          quote = range["quote"].to_s
+          line += " quote \"#{quote}\"" unless quote.empty?
+          line
+        end
+        return "" if lines.empty?
+
+        lines.prepend("[annotations]")
+        lines.join("\n")
       end
 
       def section_id_for(locator)

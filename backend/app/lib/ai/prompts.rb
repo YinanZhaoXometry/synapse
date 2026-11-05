@@ -32,6 +32,12 @@ module Ai
     # into placeholder cards and export preserves.
     NOTE_MARKER_KINDS = %w[diagram chart image].freeze
 
+    # The Study Focus item target (FR-17, epic-13 T4): a single constant
+    # mirroring QUESTION_TARGET/NOTE_TARGET's posture — the prompt asks for
+    # about this many core items; an honest count may land below it (items
+    # the server's index map drops never come back invented).
+    FOCUS_TARGET = 5
+
     class << self
       # Quiz generation (ticket 03; targeting epic P2-10 T5; material scope
       # epic-13 T2): node-attributed (AD-6) + materials-sourced (NFR-1)
@@ -146,6 +152,37 @@ module Ai
             Write every user-facing string in #{language_word(language)}.
 
             Reply ONLY with the Markdown note itself — no code fences, no commentary before or after.
+          PROMPT
+        ]
+      end
+
+      # Study Focus generation (FR-17, epic-13 T4; OQ-1): the learner's own
+      # annotations distilled into core study items. The annotations ride
+      # the context FIRST (numbered [annotation N] lines — the reply's
+      # sourceAnnotationIndex vocabulary); the section index follows for
+      # coherence ONLY. The NFR-1 law is doubled down here: items distill
+      # from ONLY the annotations — the index is never a content source.
+      # The command maps every sourceAnnotationIndex to that annotation's
+      # range jsonb server-side (an out-of-range index drops the item — an
+      # honest count landing below the target).
+      def study_focus(language:, context:)
+        [ system,
+          user(<<~PROMPT)
+            The learner's annotations on ONE study material (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            Distill these annotations into about #{FOCUS_TARGET} core study items — the points a learner must take away from what they marked.
+            Every item MUST carry:
+            - "title": a short item name (a few words, grounded in the annotations).
+            - "detail": one or two sentences explaining the point, distilled from its annotation.
+            - "sourceAnnotationIndex": the [annotation N] the item distills (the exact Integer N).
+            Distill from ONLY the annotations above — never invent content an annotation does not ground; the section index is for orientation, not sourcing.
+            Write every user-facing string in #{language_word(language)}.
+
+            Reply ONLY with JSON: {"items":[{"title":"…","detail":"…","sourceAnnotationIndex":1}]}
           PROMPT
         ]
       end

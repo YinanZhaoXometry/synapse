@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_160001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_170001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -447,6 +447,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_160001) do
     t.check_constraint "op::text = ANY (ARRAY['companion'::character varying::text, 'proposal'::character varying::text, 'plan_companion'::character varying::text])", name: "stream_tickets_op_check"
   end
 
+  create_table "study_focus_sets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "material_id", null: false
+    t.string "client_uuid", null: false
+    t.jsonb "items", default: [], null: false
+    t.integer "generation", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["client_uuid"], name: "index_study_focus_sets_on_client_uuid", unique: true
+    t.index ["material_id"], name: "index_study_focus_sets_on_material_id"
+    t.index ["user_id", "material_id"], name: "index_study_focus_sets_on_user_and_material", unique: true
+    t.index ["user_id"], name: "index_study_focus_sets_on_user_id"
+  end
+
   create_table "study_plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "user_id", null: false
     t.string "topic", null: false
@@ -536,6 +550,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_160001) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "stream_tickets", "users"
+  add_foreign_key "study_focus_sets", "materials"
+  add_foreign_key "study_focus_sets", "users"
   add_foreign_key "study_plans", "study_plans", column: "forked_from_plan_id", on_delete: :nullify
   add_foreign_key "study_plans", "users"
   add_foreign_key "study_tasks", "knowledge_nodes", column: "node_id"

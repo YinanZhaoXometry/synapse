@@ -21,6 +21,7 @@ class User < ApplicationRecord
   has_many :reading_progresses
   has_many :section_markings
   has_many :annotations
+  has_many :study_focus_sets
   has_many :material_node_mappings
   has_many :manual_tasks
   has_many :requeue_schedules

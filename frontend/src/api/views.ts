@@ -7,6 +7,7 @@
  */
 import type { KnowledgeNode, QuizSession, StudyPlan, StudyTask } from "@/domain/entities";
 import type { Material, Question } from "@/domain/entities";
+import type { AnnotationRange } from "@/domain/annotation-range";
 
 /** Node Mastery Score as the api carries it: integer percent string "0".."100". */
 export type MasteryScoreString = string;
@@ -93,4 +94,31 @@ export interface NoteView {
   enrichment: NoteMarkerView[];
   targeting: unknown;
   createdAt: string;
+}
+
+/**
+ * One distilled Study Focus item (FR-17, epic-13 T4): title + detail +
+ * the server-owned deep-link address — sourceRange rides the source
+ * annotation's range jsonb verbatim (the AD-2 shape); null when the
+ * source annotation predates ranges (a text-only, unlinkable item).
+ */
+export interface StudyFocusItemView {
+  id: string;
+  title: string;
+  detail: string;
+  sourceRange: AnnotationRange | null;
+}
+
+/**
+ * The ONE active Study Focus set for a user+material (FR-17): core items
+ * distilled from the material's annotations. Regeneration replaces the
+ * items in place and bumps `generation` (the wire's vN chip).
+ */
+export interface StudyFocusSetView {
+  id: string;
+  materialId: string;
+  generation: number;
+  items: StudyFocusItemView[];
+  createdAt: string;
+  updatedAt: string;
 }
