@@ -22,15 +22,16 @@ require "rails_helper"
 # P2-11 ticket 03 with the one Square adopt fork (FR-39 web half, OQ-12 —
 # authenticated per delta decision 5); epic-13 T3 with the two annotation
 # ops (FR-16's highlight/underline add/remove, delta decision 3); epic-13
-# T4 with the one study-focus generation mutation (FR-17, OQ-1)
+# T4 with the one study-focus generation mutation (FR-17, OQ-1); epic-14 T1
+# with the one password-change mutation (FR-30's account half)
 # (byte-level idempotence against the committed schema.graphql
 # stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
 # surface shape itself).
 RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
-  it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, the epic P2-12 note mutation, the epic P2-09 weekly-goal setter, the epic P2-09 T3 manual-task ops, the epic P2-09 T4 hub retake, the epic P2-11 T1 visibility flip, the epic P2-11 T3 Square adopt fork, the epic-13 T3 annotation ops, and
-    the epic-13 T4 study-focus generation" do
+  it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, the epic P2-12 note mutation, the epic P2-09 weekly-goal setter, the epic P2-09 T3 manual-task ops, the epic P2-09 T4 hub retake, the epic P2-11 T1 visibility flip, the epic P2-11 T3 Square adopt fork, the epic-13 T3 annotation ops,
+    the epic-13 T4 study-focus generation, and the epic-14 T1 password change" do
     expect(Types::MutationType.fields.keys).to contain_exactly(
-      "register", "login",
+      "register", "login", "changePassword",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan", "setPlanVisibility", "forkSquarePlan",
       "createTask", "attachMaterial", "setMaterialParseResult", "setMaterialScope",
       "mapMaterialSections", "confirmMappingProposals", "rejectMappingProposals",

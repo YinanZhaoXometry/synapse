@@ -322,6 +322,30 @@ module Types
       Hubs.weekly_goal(current_user!, now: Time.current)
     end
 
+    # ── The Settings account surfaces (FR-30/FR-34, epic-14 T1). Both reads
+    # are auth-guarded through the shared guard; the export is a command
+    # (the whole-document gather is a use case, the inverse of the import —
+    # AD-12 command-layer-first), the usage read is a sanctioned bare read
+    # through the cap seam.
+
+    field :export_data, Types::ExportDataType, null: false,
+      description: "The current user's whole document in the import's shape (FR-30, epic-14 T1; delta decision 1), as one JSON string for a client-side Blob download — the inverse of the first-login import, byte-faithful on the way back (export → importDocument on a fresh account re-builds the graph). Materials ride byteless; Phase-2-only rows without an import vocabulary (annotations, notes, mappings, study focus, manual tasks) don't ride."
+
+    def export_data
+      result = ::Export::ExportDataCommand.call(current_user: current_user!)
+      raise_execution_error_for(result.failure) if result.failure?
+
+      { document: JSON.generate(result.value![:document]) }
+    end
+
+    field :ai_usage_today, Types::AiUsageType, null: false,
+      description: "The current user's AI usage today (FR-34, epic-14 T1): the live cap-counter count (every provider call counted, midnight-UTC day key) and the enforced daily limit — server truth from the AD-16 cap seam, rendered honestly by the Settings display."
+
+    def ai_usage_today
+      user = current_user!
+      { calls_today: Ai::DailyCap.count_for(user, now: Time.current), daily_limit: Ai::DailyCap.limit }
+    end
+
     field :badge_state, [ Types::BadgeStateType ], null: false,
       description: "The current user's badge states (FR-28, delta decision 1): all 12 badges of the scaffold taxonomy computed on read, server-side — each with the raw counter and its threshold (b4 flashcards ≥10, b6 mistake-node revisits ≥5, b7/b8/b9 distinct mastered nodes 1/3/5, b10 ≥3 sessions in one UTC day, b11 a plan with every node mastered, b12 any node at score 100, streaks 3/7, evidence ≥100). The progressLabel string is the web's rendering concern (T6)."
 

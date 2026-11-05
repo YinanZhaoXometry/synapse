@@ -28,6 +28,13 @@ import SettingsPage from "./SettingsPage";
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const zh = (key: string) => zhDict[key];
+/** The interpolating twin of the page's t() (the toast/assertion strings
+ * carry {var} placeholders the raw dict lookup leaves in place). */
+const zhT = (key: string, vars: Record<string, string | number>) => {
+  let text = zhDict[key];
+  for (const [name, value] of Object.entries(vars)) text = text.replace(`{${name}}`, String(value));
+  return text;
+};
 
 const PREFS: Array<[string, string]> = [
   ["synapse-lang", "zh"],
@@ -207,6 +214,227 @@ describe("Settings — the weekly-goal setter (epic P2-09 T5)", () => {
   it("the study-goal section is bilingual (zh + en non-empty copy)", () => {
     const enDict = (translations as Record<string, Record<string, string>>).en;
     for (const key of ["settings.studyGoal", "settings.studyGoalHelp", "settings.studyGoalSave", "settings.studyGoalSaved", "settings.studyGoalInvalid", "settings.studyGoalAria", "settings.studyGoalUnit"]) {
+      expect(zhDict[key], `zh ${key}`).toBeTruthy();
+      expect(enDict[key], `en ${key}`).toBeTruthy();
+    }
+  });
+});
+
+/**
+ * The account half (FR-30 + FR-34's display consequence, epic-14 T1): the
+ * password change (client validation BEFORE the mutation; the session-survives
+ * note in the copy), the whole-document data export (Blob download,
+ * synapse-export-<date>.json), and the honest AI-usage display (the live cap
+ * counter + limit, no progress theatrics). These walks mount the page under
+ * MockedProvider — the closed-enum error mapping needs typed mocks carrying
+ * extensions.code (the PlanVisibilityControls precedent), which the echo
+ * harness cannot express.
+ */
+import { MockedProvider } from "@apollo/client/testing/react";
+import type { MockedResponse } from "@apollo/client/testing";
+import { CombinedGraphQLErrors } from "@apollo/client/errors";
+import { ChangePasswordDocument, ExportDataDocument, WeeklyGoalDocument, AiUsageTodayDocument } from "@/types/graphql";
+
+const passwordMutation = (currentPassword: string, newPassword: string) => ({
+  request: { query: ChangePasswordDocument, variables: { input: { currentPassword, newPassword } } },
+  result: {
+    data: {
+      changePassword: {
+        __typename: "ChangePasswordPayload",
+        user: { __typename: "User", id: "user-1", email: "learner@example.com", createdAt: "2026-11-05T00:00:00Z" },
+      },
+    },
+  },
+});
+
+const passwordFailure = (currentPassword: string, newPassword: string, code: string) => ({
+  request: { query: ChangePasswordDocument, variables: { input: { currentPassword, newPassword } } },
+  error: new CombinedGraphQLErrors({
+    errors: [ { message: "refused", extensions: { code } } ],
+  }),
+});
+
+const usageRead = (callsToday: number, dailyLimit: number) => ({
+  request: { query: AiUsageTodayDocument },
+  result: { data: { aiUsageToday: { __typename: "AiUsage", callsToday, dailyLimit } } },
+});
+
+const exportRead = (document: string) => ({
+  request: { query: ExportDataDocument },
+  result: { data: { exportData: { __typename: "ExportData", document } } },
+});
+
+// The page also reads weeklyGoal on mount — answered here so the walks
+// exercise only the operations they assert on.
+const goalRead = {
+  request: { query: WeeklyGoalDocument },
+  result: { data: { weeklyGoal: { __typename: "WeeklyGoal", target: 3, currentWeekSessions: 1, currentWeekStart: "2026-11-02" } } },
+};
+
+function renderAccountPage(mocks: MockedResponse[]) {
+  return render(
+    <MockedProvider mocks={[ goalRead, ...mocks ]}>
+      <LanguageProvider>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={["/settings"]}>
+            <Routes>
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      </LanguageProvider>
+    </MockedProvider>,
+  );
+}
+
+describe("Settings — the account half (epic-14 T1)", () => {
+  beforeEach(() => {
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    localStorage.setItem(TOKEN_KEY, "jwt-for-this-device");
+  });
+
+  it("renders the password form (current/new/confirm + the session-survives note) and the honest usage read", async () => {
+    renderAccountPage([ usageRead(12, 50) ]);
+
+    expect(await screen.findByLabelText(zh("settings.passwordCurrentAria"))).toBeTruthy();
+    expect(screen.getByLabelText(zh("settings.passwordNewAria"))).toBeTruthy();
+    expect(screen.getByLabelText(zh("settings.passwordConfirmAria"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: zh("settings.passwordSave") })).toBeTruthy();
+    // the session-survives policy is stated in the copy (delta decision 2)
+    expect(screen.getByText(zh("settings.passwordNote"))).toBeTruthy();
+
+    // the usage row renders the live counter + limit, neutral (no theatrics)
+    expect(await screen.findByText(zhT("settings.aiUsageValue", { count: 12, limit: 50 }))).toBeTruthy();
+  });
+
+  it("refuses a new password under the register minimum client-side — no mutation call", async () => {
+    renderAccountPage([ passwordMutation("known-password-123", "a-fresh-password-456"), usageRead(0, 50) ]);
+
+    fireEvent.change(await screen.findByLabelText(zh("settings.passwordCurrentAria")), { target: { value: "known-password-123" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordNewAria")), { target: { value: "short" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordConfirmAria")), { target: { value: "short" } });
+    fireEvent.click(screen.getByRole("button", { name: zh("settings.passwordSave") }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zhT("settings.passwordTooShort", { min: 8 })));
+  });
+
+  it("refuses mismatched confirms client-side — no mutation call", async () => {
+    renderAccountPage([ passwordMutation("known-password-123", "a-fresh-password-456"), usageRead(0, 50) ]);
+
+    fireEvent.change(await screen.findByLabelText(zh("settings.passwordCurrentAria")), { target: { value: "known-password-123" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordNewAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordConfirmAria")), { target: { value: "different-entirely" } });
+    fireEvent.click(screen.getByRole("button", { name: zh("settings.passwordSave") }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zh("settings.passwordMismatch")));
+  });
+
+  it("sends the exact wire input on success and toasts the saved state", async () => {
+    renderAccountPage([ passwordMutation("known-password-123", "a-fresh-password-456"), usageRead(0, 50) ]);
+
+    fireEvent.change(await screen.findByLabelText(zh("settings.passwordCurrentAria")), { target: { value: "known-password-123" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordNewAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordConfirmAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.click(screen.getByRole("button", { name: zh("settings.passwordSave") }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(zh("settings.passwordSaved")));
+  });
+
+  it("maps a server VALIDATION_FAILED to the wrong-current toast (the client never bypasses its own validation, so that code means the current password)", async () => {
+    renderAccountPage([ passwordFailure("known-password-123", "a-fresh-password-456", "VALIDATION_FAILED"), usageRead(0, 50) ]);
+
+    fireEvent.change(await screen.findByLabelText(zh("settings.passwordCurrentAria")), { target: { value: "known-password-123" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordNewAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordConfirmAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.click(screen.getByRole("button", { name: zh("settings.passwordSave") }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zh("settings.passwordWrongCurrent")));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("maps RATE_LIMITED to the burst toast", async () => {
+    renderAccountPage([ passwordFailure("known-password-123", "a-fresh-password-456", "RATE_LIMITED"), usageRead(0, 50) ]);
+
+    fireEvent.change(await screen.findByLabelText(zh("settings.passwordCurrentAria")), { target: { value: "known-password-123" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordNewAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.change(screen.getByLabelText(zh("settings.passwordConfirmAria")), { target: { value: "a-fresh-password-456" } });
+    fireEvent.click(screen.getByRole("button", { name: zh("settings.passwordSave") }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zh("settings.passwordErrorRateLimited")));
+  });
+
+  it("exports the whole document as a Blob download named synapse-export-<date>.json", async () => {
+    const document = JSON.stringify({ version: 1, plans: [ { id: "p-1" } ] });
+    const createdUrls: string[] = [];
+    const revokeMock = vi.fn();
+    const clickMock = vi.fn();
+    vi.stubGlobal("URL", Object.assign(globalThis.URL, {
+      createObjectURL: vi.fn((blob: Blob) => {
+        createdUrls.push(`blob:stub-${createdUrls.length}`);
+        expect(blob).toBeInstanceOf(Blob);
+        expect(blob.type).toBe("application/json");
+        return createdUrls[createdUrls.length - 1];
+      }),
+      revokeObjectURL: revokeMock,
+    }));
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click(this: HTMLAnchorElement) {
+      expect(this.download).toMatch(/^synapse-export-\d{4}-\d{2}-\d{2}\.json$/);
+      expect(this.href).toBe(createdUrls[0]);
+      clickMock();
+    });
+
+    try {
+      renderAccountPage([ exportRead(document) ]);
+
+      fireEvent.click(await screen.findByRole("button", { name: zh("settings.exportAction") }));
+
+      await waitFor(() => {
+        expect(clickMock).toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalledWith(zh("settings.exportDone"));
+      });
+      expect(revokeMock).toHaveBeenCalledWith(createdUrls[0]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("surfaces a failed export honestly", async () => {
+    vi.stubGlobal("URL", Object.assign(globalThis.URL, { createObjectURL: vi.fn(), revokeObjectURL: vi.fn() }));
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    try {
+      renderAccountPage([
+        {
+          request: { query: ExportDataDocument },
+          error: new CombinedGraphQLErrors({ errors: [ { message: "boom", extensions: { code: "INTERNAL" } } ] }),
+        },
+      ]);
+
+      fireEvent.click(await screen.findByRole("button", { name: zh("settings.exportAction") }));
+
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zh("settings.exportFailed")));
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("the account namespace is bilingual (zh + en non-empty copy)", () => {
+    const enDict = (translations as Record<string, Record<string, string>>).en;
+    const keys = [
+      "settings.account", "settings.accountHelp",
+      "settings.password", "settings.passwordNote",
+      "settings.passwordCurrentAria", "settings.passwordNewAria", "settings.passwordConfirmAria",
+      "settings.passwordSave", "settings.passwordSaved",
+      "settings.passwordTooShort", "settings.passwordMismatch", "settings.passwordWrongCurrent",
+      "settings.passwordErrorRateLimited", "settings.passwordErrorGeneric",
+      "settings.exportData", "settings.exportDataNote", "settings.exportAction",
+      "settings.exportDone", "settings.exportFailed",
+      "settings.aiUsage", "settings.aiUsageNote", "settings.aiUsageValue", "settings.aiUsageAria",
+      "settings.subtitle",
+    ];
+    for (const key of keys) {
       expect(zhDict[key], `zh ${key}`).toBeTruthy();
       expect(enDict[key], `en ${key}`).toBeTruthy();
     }

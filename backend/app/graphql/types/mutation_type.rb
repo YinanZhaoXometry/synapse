@@ -12,6 +12,12 @@ module Types
     field :register, mutation: Mutations::Register
     field :login, mutation: Mutations::Login
 
+    # The password change (AD-15, FR-30's account half, epic-14 T1): verb-
+    # first next to its auth siblings. The session survives by design — the
+    # stateless JWT needs no re-mint (delta decision 2, stated on the
+    # mutation's description).
+    field :change_password, mutation: Mutations::ChangePassword
+
     field :create_plan, mutation: Mutations::Plans::CreatePlan
     field :confirm_proposal, mutation: Mutations::Plans::ConfirmProposal
     field :update_plan, mutation: Mutations::Plans::UpdatePlan

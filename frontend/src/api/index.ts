@@ -25,6 +25,7 @@ export { sessionBlobs, createSessionBlobRegistry, type SessionBlobRegistry } fro
 export type { PlanDetail } from "./queries/plan-queries";
 
 export * from "./queries/auth-queries";
+export * from "./queries/settings-queries";
 export * from "./queries/annotation-queries";
 export * from "./queries/plan-queries";
 export * from "./queries/material-queries";

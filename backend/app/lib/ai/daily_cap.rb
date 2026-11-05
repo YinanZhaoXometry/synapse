@@ -45,6 +45,15 @@ module Ai
         count > limit
       end
 
+      # The read half (epic-14 T1, FR-34's display consequence): today's
+      # count for the user — the same midnight-UTC day key consume! writes,
+      # read from the one counter row (absent row = zero spent). The count
+      # is server truth; the Settings display renders it, never recomputes.
+      def count_for(user, now: Time.current)
+        counter = AiUsageCounter.find_by(user_id: user.id, day: now.utc.to_date)
+        counter ? counter.call_count : 0
+      end
+
       private
 
       def positive_int(raw)
