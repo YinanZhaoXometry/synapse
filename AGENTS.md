@@ -97,7 +97,7 @@ Playwright (`frontend/playwright.config.ts`) imports `lovable-agent-playwright-c
 - **`frontend/tsconfig.app.tsbuildinfo` / `frontend/tsconfig.node.tsbuildinfo` are committed** (policy unchanged — A6). Their contents are relative paths, so they survive the move; a stale one self-heals on the next `tsc -b` (regen verified byte-identical) — commit the regenerated file if a legit path change lands.
 - **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → codegen (regenerate + diff — schema drift fails loudly) → `tsc -b` → eslint → vitest → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec. Keep local green before pushing.
 - `backend/README.md` is still the Rails generator stub — the backend's real doc is `backend/AGENTS.md`.
-- `lovable-tagger` is still a `frontend/` devDependency and runs as a dev-mode Vite plugin (`componentTagger`) — Lovable-scaffold residue that is inert at build time; removal belongs to a frontend-tooling change, not a docs edit.
+- ~~`lovable-tagger`~~ — the Lovable-scaffold residue was REMOVED 2026-11-06 (debt batch: devDependency + the dev-mode `componentTagger` Vite plugin + lockfile regen); `vite.config.ts` now carries only `react()`.
 
 ## Agent skills
 
