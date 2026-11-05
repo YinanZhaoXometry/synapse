@@ -9,20 +9,11 @@ export function pickL(obj: LangText | null | undefined, lang: Lang): string {
   return obj[lang] != null ? obj[lang] : obj.zh || "";
 }
 
-export function fmtNum(n: number): string {
-  return Number(n).toLocaleString("en-US");
-}
-
-/* ── Mastery ─────────────────────────────────────────── */
-export type MasteryTopic = "design" | "requirements" | "testing";
-
-export const TOPICS: Record<MasteryTopic, LangText> = {
-  design: { zh: "软件设计", en: "Software design" },
-  requirements: { zh: "需求工程", en: "Requirements" },
-  testing: { zh: "软件测试", en: "Software testing" },
-};
-
-export const DEFAULT_MASTERY: Record<MasteryTopic, number> = { design: 84, requirements: 61, testing: 47 };
+/* ── Mastery (retired) ───────────────────────────────── */
+// RETIRED (epic P2-09 T6, 2026-11-05): the demo mastery topics/values died
+// with the demo progress context (its last consumer — the frozen scaffold's
+// three-subject model was generalized long ago; real mastery is per-node,
+// server-computed, AD-14).
 
 /* ── Materials ───────────────────────────────────────── */
 export type MaterialTag = "course" | "notes" | "exam";
@@ -54,29 +45,12 @@ export const TAG_IDS: Array<"all" | MaterialTag> = ["all", "course", "notes", "e
 // suggestions). Other demo-data exports stay until their own tickets retire
 // them.
 
-/* ── Achievements ────────────────────────────────────── */
-export interface Badge {
-  id: string;
-  emoji: string;
-  key: string;
-  desc: string;
-  unlocked: boolean;
-}
-
-export const ACHIEVEMENTS: Badge[] = [
-  { id: "b1", emoji: "🎯", key: "ach.b1", desc: "ach.b1d", unlocked: true },
-  { id: "b2", emoji: "🔥", key: "ach.b2", desc: "ach.b2d", unlocked: true },
-  { id: "b3", emoji: "🔥", key: "ach.b3", desc: "ach.b3d", unlocked: false },
-  { id: "b4", emoji: "🃏", key: "ach.b4", desc: "ach.b4d", unlocked: true },
-  { id: "b5", emoji: "💯", key: "ach.b5", desc: "ach.b5d", unlocked: false },
-  { id: "b6", emoji: "🧭", key: "ach.b6", desc: "ach.b6d", unlocked: true },
-  { id: "b7", emoji: "🧱", key: "ach.b7", desc: "ach.b7d", unlocked: false },
-  { id: "b8", emoji: "🔍", key: "ach.b8", desc: "ach.b8d", unlocked: false },
-  { id: "b9", emoji: "🧪", key: "ach.b9", desc: "ach.b9d", unlocked: false },
-  { id: "b10", emoji: "⏳", key: "ach.b10", desc: "ach.b10d", unlocked: true },
-  { id: "b11", emoji: "🌿", key: "ach.b11", desc: "ach.b11d", unlocked: false },
-  { id: "b12", emoji: "🎓", key: "ach.b12", desc: "ach.b12d", unlocked: false },
-];
+/* ── Achievements (retired) ──────────────────────────── */
+// RETIRED (epic P2-09 T6, 2026-11-05): the demo achievements fixture + its
+// Badge interface left with /achievements' re-point onto the badgeState read
+// model — the page renders only server rows now (the emoji faces live in
+// lib/badges.ts, shared with the dashboard). Other demo-data exports stay
+// until their own tickets retire them.
 
 /* ── Mistakes ────────────────────────────────────────── */
 // RETIRED (epic P2-09 T2, 2026-11-05): the demo Mistake fixture + interface
@@ -97,16 +71,10 @@ export const ACHIEVEMENTS: Badge[] = [
 // server series now (node mastery / weekly accuracy / 14-day consistency).
 // Other demo-data exports stay until their own tickets retire them.
 
-/* ── Progress defaults ───────────────────────────────── */
-export const DEFAULT_PROGRESS = {
-  points: 1750,
-  streak: 5,
-  level: 4,
-  quizzesCompleted: 12,
-  flashcardsReviewed: 46,
-  studyMinutes: 468,
-  correctAnswers: 124,
-  totalAnswers: 151,
-  weeklyGoal: 25,
-  weeklyProgress: 17,
-};
+/* ── Progress defaults (retired) ─────────────────────── */
+// RETIRED (epic P2-09 T6, 2026-11-05): the demo progress constants (points/
+// level/streak/quizzes/minutes...) died with UserProgressContext — the
+// provider, its reads (AppLayout footer, Settings profile meta), and the
+// AchievementsPage demo stats all consumed them, and nothing real existed on
+// the wire to re-point them to (UserType carries id/email/createdAt only).
+// Nothing new builds on points (FR-28's stance).

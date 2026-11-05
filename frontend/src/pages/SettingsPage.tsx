@@ -13,12 +13,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useSetWeeklyGoalMutation, useWeeklyGoalQuery } from "@/api";
 import { clearToken, logout, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
-import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 const PRIMARY_CTA =
@@ -99,7 +97,6 @@ function StudyGoalRow({ target }: { target: number }) {
 // Layout ported from northstar-reference.html settingsView: stacked .settings-group
 // cards with uppercase headers and full-width setting rows (label/help left, control right).
 export default function SettingsPage() {
-  const { progress, resetAll } = useUserProgress();
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme, mode, setMode, reduceMotion, setReduceMotion } = useTheme();
   const goalQuery = useWeeklyGoalQuery();
@@ -130,9 +127,6 @@ export default function SettingsPage() {
           </span>
           <div className="min-w-0">
             <div className="text-base font-semibold">Yinan Chen</div>
-            <div className="text-[10px] text-caption mt-0.5">
-              {t("settings.profileMeta", { level: progress.level, points: fmtNum(progress.points) })}
-            </div>
           </div>
         </div>
         <p className="setting-note px-6 pb-3">{t("settings.profileNote")}</p>
@@ -293,11 +287,13 @@ export default function SettingsPage() {
                 <AlertDialogAction
                   className={PRIMARY_CTA}
                   onClick={() => {
-                    // Cutover semantics (epic P2-8 T1): study data lives on the
-                    // server and is NEVER deleted client-side — reset clears
-                    // this device's UI prefs and signs out (token + Apollo
-                    // cache wiped so no trace of the account renders — FR-4).
-                    // Server-side account surfaces arrive with epic-14.
+                    // Cutover semantics (epic P2-8 T1; the demo re-seed half
+                    // retired with UserProgressContext's deletion, epic P2-09
+                    // T6): study data lives on the server and is NEVER deleted
+                    // client-side — reset clears this device's UI prefs and
+                    // signs out (token + Apollo cache wiped so no trace of the
+                    // account renders — FR-4). Server-side account surfaces
+                    // arrive with epic-14.
                     for (const key of ["synapse-lang", "synapse-theme", "synapse-mode", "synapse-motion"]) {
                       try {
                         localStorage.removeItem(key);
@@ -307,7 +303,6 @@ export default function SettingsPage() {
                     }
                     clearToken();
                     void resetApiClient();
-                    resetAll();
                     toast(t("common.resetDone"));
                     // Fresh reload into the signed-out entry state: `/` re-runs
                     // the entry gate with the client caches reborn empty.

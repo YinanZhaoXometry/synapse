@@ -2,12 +2,11 @@ import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Settings, Search, Flame, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useStreakQuery } from "@/api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
-import { fmtNum } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 const mobileNav = mobileNavPaths
@@ -15,8 +14,13 @@ const mobileNav = mobileNavPaths
   .filter((item): item is (typeof flatNav)[number] => Boolean(item));
 
 export default function AppLayout() {
-  const { progress } = useUserProgress();
   const { t, language } = useLanguage();
+  // The SERVER streak (AD-14) drives the mobile header's pill; the pill only
+  // renders once the read lands (no 0-flash — honest-empty). The demo
+  // progress context's level/points footer line retired with the context's
+  // deletion (epic P2-09 T6): nothing real exists on the wire, so the footer
+  // keeps just the avatar + name + settings gear.
+  const streakQuery = useStreakQuery();
   const location = useLocation();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -112,9 +116,6 @@ export default function AppLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
-              <p className="text-[10px] text-caption leading-tight mt-0.5">
-                {t("dashboard.level", { n: progress.level })} · {fmtNum(progress.points)} {t("common.pointsUnit")}
-              </p>
             </div>
             <NavLink to={SETTINGS_ROUTE.to} aria-label={t("nav.settings")} title={t("nav.settings")} className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-caption hover:bg-[var(--glass-3)] hover:text-foreground transition-colors">
               <Settings className="w-4 h-4" />
@@ -212,10 +213,12 @@ export default function AppLayout() {
             >
               <Search className="w-4 h-4" />
             </button>
-            <span className="pill pill-streak" title={`${t("dashboard.streak", { n: progress.streak })} · ${t("dashboard.streakRule")}`}>
-              <Flame aria-hidden="true" />
-              <span>{t("dashboard.streak", { n: progress.streak })}</span>
-            </span>
+            {streakQuery.data !== undefined && (
+              <span className="pill pill-streak" title={`${t("dashboard.streak", { n: streakQuery.data })} · ${t("dashboard.streakRule")}`}>
+                <Flame aria-hidden="true" />
+                <span>{t("dashboard.streak", { n: streakQuery.data })}</span>
+              </span>
+            )}
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">
@@ -291,9 +294,6 @@ export default function AppLayout() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
-                <p className="text-[10px] text-caption leading-tight mt-0.5">
-                  {t("dashboard.level", { n: progress.level })} · {fmtNum(progress.points)} {t("common.pointsUnit")}
-                </p>
               </div>
               <NavLink to={SETTINGS_ROUTE.to} aria-label={t("nav.settings")} title={t("nav.settings")} className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-caption hover:bg-[var(--glass-3)] hover:text-foreground transition-colors">
                 <Settings className="w-4 h-4" />

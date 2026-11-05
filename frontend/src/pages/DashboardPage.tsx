@@ -15,10 +15,11 @@
  *  • plan-first quick actions on real routes (创建学习计划 → /plan/new,
  *    今日学习 → /planner, 快速测验 → /quiz);
  *  • the recent-unlocked badges summary off badgeState — the server truth,
- *    with a real "none yet" empty state (the full achievements page is T6's).
+ *    with a real "none yet" empty state (the emoji faces ride the shared
+ *    lib/badges map since T6 lifted them there).
  *
  * The demo progress context, the demo fixtures and the fake continue-reading
- * card retired with this re-point — no demo fallbacks remain (T6 finishes
+ * card retired with this re-point — no demo fallbacks remain (T6 finished
  * the context retirement).
  */
 import { Link } from "react-router-dom";
@@ -35,14 +36,7 @@ import {
   useWeeklyGoalQuery,
   usePlansQuery,
 } from "@/api";
-
-/** The id → emoji face of the scaffold's 12-badge taxonomy (the zh/en NAME
- * strings live in the i18n dictionary's ach.b* keys). Display metadata only —
- * unlock state always comes from the server's badgeState. */
-const BADGE_EMOJI: Record<string, string> = {
-  b1: "🎯", b2: "🔥", b3: "🔥", b4: "🃏", b5: "💯", b6: "🧭",
-  b7: "🧱", b8: "🔍", b9: "🧪", b10: "⏳", b11: "🌿", b12: "🎓",
-};
+import { badgeEmoji } from "@/lib/badges";
 
 /** The time-of-day greeting key off the local hour (pure seam — tests pin
  * the boundaries): morning < 12, afternoon < 18, evening otherwise. */
@@ -293,7 +287,7 @@ export default function DashboardPage() {
                 return (
                   <div key={badge.id} className="p-3 rounded-xl bg-card border border-border-soft flex items-center gap-[9px] min-w-0">
                     <span className="w-8 h-8 rounded-[9px] grid place-items-center bg-[var(--surface-warm)] text-base flex-none" aria-hidden="true">
-                      {BADGE_EMOJI[badge.id] ?? "🏅"}
+                      {badgeEmoji(badge.id)}
                     </span>
                     <span className="min-w-0">
                       <span className="block text-[11px] font-semibold leading-[1.3] line-clamp-2">{name}</span>
