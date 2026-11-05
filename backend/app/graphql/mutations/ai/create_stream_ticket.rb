@@ -9,11 +9,11 @@ module Mutations
     # disables auto-reconnect: on drop it mints a FRESH ticket and restarts
     # (counted against the cap).
     class CreateStreamTicket < BaseMutation
-      description "Mint a single-use stream ticket for a streamed AI op (companion chat / plan proposal) — AD-16."
+      description "Mint a single-use stream ticket for a streamed AI op (companion chat / plan proposal / plan-scope companion) — AD-16."
 
       argument :op, String,
                required: true,
-               description: "The streamed op: \"companion\" | \"proposal\"."
+               description: "The streamed op: \"companion\" | \"proposal\" | \"plan_companion\"."
       argument :language, String,
                required: true,
                description: "The reply language: \"zh\" | \"en\" (AD-16 — one parameter, one policy)."
@@ -22,7 +22,7 @@ module Mutations
                description: "companion only: the material's uuid (ownership-checked)."
       argument :question, String,
                required: false,
-               description: "companion only: the learner's question."
+               description: "companion / plan_companion: the learner's question."
       argument :position, Types::ReadingPositionInput,
                required: false,
                description: "companion only: the current ReadingPosition (the grounding input). The text is truncated to the 100k section bound when carried into the ticket."
@@ -35,6 +35,12 @@ module Mutations
       argument :goal, String,
                required: false,
                description: "proposal only: the optional goal."
+      argument :plan_id, String,
+               required: false,
+               description: "plan_companion only: the plan's uuid (ownership-checked — FR-46, epic P2-12 T3)."
+      argument :mistake_entry_id, String,
+               required: false,
+               description: "plan_companion only: the optional mistake entry's uuid — the \"analyze my mistakes\" grounding input (ownership-checked)."
 
       field :token, String,
             null: false,
@@ -43,7 +49,7 @@ module Mutations
             null: false,
             description: "When the ticket dies (~60s TTL; expired → 401)."
 
-      def resolve(op:, language:, material_id: nil, question: nil, position: nil, escalated: nil, topic: nil, goal: nil)
+      def resolve(op:, language:, material_id: nil, question: nil, position: nil, escalated: nil, topic: nil, goal: nil, plan_id: nil, mistake_entry_id: nil)
         result = command_result(::Ai::CreateStreamTicketCommand.call(
           current_user: current_user!,
           op: op,
@@ -53,7 +59,9 @@ module Mutations
           position: position&.to_h,
           escalated: escalated,
           topic: topic,
-          goal: goal
+          goal: goal,
+          plan_id: plan_id,
+          mistake_entry_id: mistake_entry_id
         ))
         ticket = result[:ticket]
         { token: ticket.token, expires_at: ticket.expires_at }

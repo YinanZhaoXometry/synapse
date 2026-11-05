@@ -196,6 +196,116 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
     end
   end
 
+  # epic P2-12 T3 (FR-46): the plan-scope companion stream — the SAME event
+  # vocabulary and prompt posture as companion, grounded on the plan (with
+  # the optional mistake entry); the citation rides the mistake's own source
+  # locator, and no citation exists without one (nothing is fabricated).
+  describe "the plan_companion stream" do
+    let(:plan) { create(:study_plan, user: user) }
+
+    def mint_plan_companion(mistake_entry: nil, language: "zh", question: "这个计划的重点是什么？")
+      result = ::Ai::CreateStreamTicketCommand.call(
+        current_user: user, op: "plan_companion", language: language,
+        plan_id: plan.id, question: question, mistake_entry_id: mistake_entry&.id
+      )
+      result.value![:ticket]
+    end
+
+    def mistake_entry_for(material, section_id)
+      node = create(:knowledge_node, user: user, plan: plan)
+      question = create(:question, user: user, node: node, source_material: material,
+                                   source_section_id: section_id, prompt: "How is every row scoped?")
+      create(:mistake_entry, user: user, question: question, node: node,
+                             source_location: { "kind" => "markdown", "sectionId" => section_id })
+    end
+
+    it "emits rung(hint, canEscalate false — the payload carries no escalation) → token* → terminal{OK} without a citation" do
+      allow(adapter).to receive(:stream).and_return(%w[先 看 节点 层].each)
+
+      stream(mint_plan_companion)
+      expect(response).to have_http_status(:ok)
+
+      expect(events.map { |event| event["event"] }).to eq(%w[rung] + %w[token] * 4 + %w[terminal])
+      rung, _t1, _t2, _t3, _t4, terminal = events
+      expect(rung["data"]).to eq({
+        "intent" => "explain", "rung" => "hint", "canEscalate" => false, "language" => "zh"
+      })
+      expect(terminal["data"]).to eq({ "code" => "OK" })
+    end
+
+    it "carries the mistake's own source locator on the citation event (mistake-grounded turn)" do
+      material = create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "Scoping", "text" => "Every row is scoped by user_id." }
+      ])
+      entry = mistake_entry_for(material, "sec-1")
+      allow(adapter).to receive(:stream).and_return(%w[错因 分析].each)
+
+      stream(mint_plan_companion(mistake_entry: entry))
+
+      expect(events.map { |event| event["event"] }).to eq(%w[rung token token citation terminal])
+      citation = events.fourth
+      expect(citation["data"]).to eq({
+        "locator" => { "kind" => "markdown", "sectionId" => "sec-1" },
+        "quote" => nil
+      })
+      expect(events.last["data"]["code"]).to eq("OK")
+    end
+
+    it "grounds the generation on the plan scope + mistake-first context (the adapter sees the assembled messages)" do
+      material = create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "Scoping", "text" => "Every row is scoped by user_id." }
+      ])
+      entry = mistake_entry_for(material, "sec-1")
+      captured = nil
+      # The adapter seam receives the prompt messages positionally
+      # (Ai::Provider#dispatch → client.stream(messages)).
+      allow(adapter).to receive(:stream) do |messages|
+        captured = messages
+        %w[回答].each
+      end
+
+      stream(mint_plan_companion(mistake_entry: entry, language: "en"))
+
+      messages = captured
+      expect(messages.first[:role]).to eq("system")
+      user_prompt = messages.second[:content]
+      expect(user_prompt).to include("How is every row scoped?")
+      expect(user_prompt).to include("[section id=sec-1")
+      expect(user_prompt).to include("[node ")
+      expect(user_prompt).to include("English")
+    end
+
+    it "answers terminal{NOT_FOUND} when the plan vanished between mint and redeem" do
+      ticket = mint_plan_companion
+      plan.destroy!
+      allow(adapter).to receive(:stream)
+
+      stream(ticket)
+      expect(events.last["data"]["code"]).to eq("NOT_FOUND")
+    end
+
+    it "answers terminal{NOT_FOUND} when the mistake entry vanished between mint and redeem" do
+      material = create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "Scoping", "text" => "scoped" }
+      ])
+      entry = mistake_entry_for(material, "sec-1")
+      ticket = mint_plan_companion(mistake_entry: entry)
+      entry.destroy!
+      allow(adapter).to receive(:stream)
+
+      stream(ticket)
+      expect(events.last["data"]["code"]).to eq("NOT_FOUND")
+    end
+
+    it "carries CAP_REACHED as a terminal code for the plan stream too" do
+      create(:ai_usage_counter, user: user, call_count: 50)
+      allow(adapter).to receive(:stream)
+
+      stream(mint_plan_companion)
+      expect(events.last["data"]["code"]).to eq("CAP_REACHED")
+    end
+  end
+
   describe "the route + CORS posture" do
     it "mounts /api/stream as a GET route (401, never 404)" do
       expect { get "/api/stream", params: { ticket: "x", op: "companion" } }.not_to raise_error

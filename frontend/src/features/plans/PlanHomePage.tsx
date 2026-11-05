@@ -18,12 +18,13 @@
  */
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronUp, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
+import { CompanionPanel } from "@/features/companion";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import MaterialScopeControls from "./MaterialScopeControls";
 import NotesSection from "./NotesSection";
@@ -33,6 +34,7 @@ import {
   useMaterialUpload,
   useFlashcardsByPlanQuery,
   usePlanMaterialsQuery,
+  usePlanMistakeEntriesQuery,
   usePlanNodeMappingsQuery,
   usePlanNodesQuery,
   usePlanQuery,
@@ -91,6 +93,12 @@ export default function PlanHomePage() {
   // node-attached row instead of the per-node N+1): feeds the tree rows AND
   // the graph's detail actions.
   const mappingsQuery = usePlanNodeMappingsQuery(id ?? "");
+  // Epic P2-12 T3 (FR-46): the plan-grounded Companion — the quick action
+  // opens the collapsible chat drawer; the mistake picker feeds from the
+  // plan's mistake entries (the 「分析我的错误」 grounding input).
+  const mistakesQuery = usePlanMistakeEntriesQuery(id ?? "");
+  const [companionOpen, setCompanionOpen] = useState(false);
+  const companionSectionRef = useRef<HTMLElement>(null);
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -192,7 +200,12 @@ export default function PlanHomePage() {
       label: t("plans.quickCompanion"),
       desc: t("plans.quickCompanionDesc"),
       off: false,
-      run: () => toast(t("plans.sliceCompanion")),
+      // Epic P2-12 T3 (FR-46): opens the plan-grounded chat drawer (the
+      // retired slice-4 placeholder toast is gone).
+      run: () => {
+        setCompanionOpen(true);
+        requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      },
     },
   ] as const;
 
@@ -406,6 +419,38 @@ export default function PlanHomePage() {
           </div>
         </div>
       </div>
+
+      {/* Epic P2-12 T3 (FR-46; the kickoff delta's plan-home surface): the
+          collapsible plan-grounded Companion drawer. Mounted-hidden while
+          collapsed — the transcript is session-local state (the plan scope has
+          no ChatThread entity), so collapsing never silently loses it. */}
+      <section
+        ref={companionSectionRef}
+        className={cn("mt-6", !companionOpen && "hidden")}
+        aria-label={t("companion.planSectionTitle")}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="eyebrow flex items-center gap-1.5">
+            <MessageCircle className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
+            {t("companion.planSectionTitle")}
+          </h2>
+          <button
+            type="button"
+            onClick={() => setCompanionOpen(false)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+          >
+            <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" /> {t("companion.planCollapse")}
+          </button>
+        </div>
+        <div className="h-[480px] bg-card border border-border-soft rounded-2xl shadow-raised overflow-hidden">
+          <CompanionPanel
+            mode="plan"
+            planId={plan.id}
+            materials={materials}
+            mistakeEntries={mistakesQuery.data ?? []}
+          />
+        </div>
+      </section>
 
       {/* Epic-6 T2: the quiz launcher — mode + scope, generating cancellable,
           failure toast. On success the route carries the session id (resumable). */}

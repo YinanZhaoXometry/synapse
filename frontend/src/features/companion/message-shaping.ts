@@ -56,6 +56,18 @@ export function locatorDisplayTarget(
 }
 
 /**
+ * The bubble-rendering slice of a transcript row (shared by the reading-mode
+ * CompanionEntry and the plan-mode PlanCompanionEntry — FR-46): text,
+ * citation locators, and the structured reply when the turn is in-session.
+ */
+export interface BubbleEntry {
+  id: string;
+  text: string;
+  citations: ReadingLocator[];
+  reply: CompanionReply | null;
+}
+
+/**
  * One transcript row. `reply` carries the structured contract ONLY for
  * in-session turns (rung labels, escalation control) — restored messages
  * persisted before this render as plain cited bubbles (the ChatThread schema
@@ -63,12 +75,8 @@ export function locatorDisplayTarget(
  * (never persisted): the original question + send-time position, kept so the
  * EscalationControl re-sends the SAME grounding and a failed turn can retry.
  */
-export interface CompanionEntry {
-  id: string;
+export interface CompanionEntry extends BubbleEntry {
   role: "user" | "companion";
-  text: string;
-  citations: ReadingLocator[];
-  reply: CompanionReply | null;
   request: { question: string; position: ReadingPosition; escalated?: boolean } | null;
   failed: boolean;
 }

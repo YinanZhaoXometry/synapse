@@ -15,12 +15,14 @@ import {
   DeletePlanDocument,
   MaterialsDocument,
   PlanDocument,
+  PlanMistakeEntriesDocument,
   PlansDocument,
   ReadingProgressListDocument,
   UpdatePlanDocument,
 } from "@/types/graphql";
-import { mapMaterialSummary, mapNode } from "../mappers";
+import { mapMaterialSummary, mapNode, readingLocator } from "../mappers";
 import type { KnowledgeNodeView, MaterialView, StudyPlanView } from "../views";
+import type { ReadingLocator } from "@/domain/entities";
 
 export interface PlanDetail {
   plan: StudyPlanView;
@@ -100,4 +102,47 @@ export function useDeletePlanMutation() {
       }
     },
   });
+}
+
+/**
+ * One plan's mistake entries (FR-46, epic P2-12 T3): the plan companion's
+ * "analyze my mistakes" picker read — every entry whose node belongs to the
+ * plan, in log order, shaped for the picker rows (the question's prompt +
+ * source pair, the learner's answer, the log date). A plain list over the
+ * Apollo seam; NOT_FOUND (foreign plan) surfaces through error.
+ */
+export interface PlanMistakeEntryView {
+  id: string;
+  questionId: string;
+  nodeId: string;
+  prompt: string;
+  sourceMaterialId: string;
+  sourceSectionId: string;
+  /** The entry's own source locator (FR-23) — the grounded turn's chip target. */
+  sourceLocation: ReadingLocator;
+  userAnswer: string;
+  forfeited: boolean;
+  createdAt: string;
+}
+
+export function usePlanMistakeEntriesQuery(planId: string) {
+  const result = useQuery(PlanMistakeEntriesDocument, { variables: { planId }, skip: !planId });
+  const rows: PlanMistakeEntryView[] = (result.data?.planMistakeEntries ?? []).map((row) => ({
+    id: row.id,
+    questionId: row.questionId,
+    nodeId: row.nodeId,
+    prompt: row.question.prompt,
+    sourceMaterialId: row.question.sourceMaterialId,
+    sourceSectionId: row.question.sourceSectionId,
+    sourceLocation: readingLocator(row.sourceLocation),
+    userAnswer: row.userAnswer,
+    forfeited: row.forfeited,
+    createdAt: row.createdAt,
+  }));
+  return {
+    data: result.data !== undefined ? rows : undefined,
+    loading: result.loading && !result.data,
+    error: result.error,
+    refetch: result.refetch,
+  };
 }

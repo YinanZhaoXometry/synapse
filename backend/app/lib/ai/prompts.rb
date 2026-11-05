@@ -201,6 +201,32 @@ module Ai
         ]
       end
 
+      # Plan-level companion chat (FR-46, epic P2-12 T3): the companion
+      # prompt shape with the plan grounding substituted — no reading-position
+      # section (the plan scope carries no ReadingPosition), and an inline
+      # citation instruction instead (answers name the material/section they
+      # rest on — FR-46's citations without a document). Always hint-first:
+      # the plan_companion payload has no escalation flag (delta decision 6),
+      # so the ladder input never crosses the ticket.
+      def plan_companion(question:, language:, context:)
+        [ system,
+          user(<<~PROMPT)
+            The learner is asking about their whole study plan. Study material context (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+            When an answer rests on specific parts, cite them inline by the material and section names from the context (e.g. 「《…》的「…」一节」 / "the section '…' of '…'").
+
+            Their question: #{question}
+
+            Stay hint-first: guide toward the answer rather than dumping it (the ladder rule).
+            Answer ONLY from the material above; if it does not cover the question, say so honestly.
+            Write your entire reply in #{language_word(language)}.
+          PROMPT
+        ]
+      end
+
       # Plan-creation proposal (FR-1/AD-5): topic (+ optional goal) → a
       # staged node proposal. The reply format is the frozen tag contract
       # (ticket 04): a readable outline between the outline tags (what the

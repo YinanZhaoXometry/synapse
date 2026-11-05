@@ -150,6 +150,14 @@ const proposalRequest = (): StreamRequest => ({
   language: "zh",
 });
 
+const planCompanionRequest = (): StreamRequest => ({
+  op: "plan_companion",
+  planId: "plan-1",
+  question: "这个计划的重点是什么？",
+  mistakeEntryId: "mistake-1",
+  language: "zh",
+});
+
 // -- the frozen server contract fixtures (api_stream_spec.rb verbatim) ---------
 
 const companionRung = { intent: "explain", rung: "hint", canEscalate: true, language: "zh" };
@@ -230,6 +238,24 @@ describe("startStream (the /api/stream EventSource wrapper — epic P2-8 T4)", (
       input: { op: "proposal", language: "zh", topic: "软件工程", goal: "" },
     });
     expect(harness.sources[0].url).toBe("/api/stream?ticket=tok-1&op=proposal");
+  });
+
+  it("mints plan_companion tickets with the plan + mistake grounding inputs (epic P2-12 T3)", async () => {
+    const harness = makeDeps();
+    startStream(planCompanionRequest(), {}, harness.deps);
+    await settle();
+
+    expect(harness.mints).toHaveLength(1);
+    expect(harness.mints[0].variables).toEqual({
+      input: {
+        op: "plan_companion",
+        language: "zh",
+        planId: "plan-1",
+        question: "这个计划的重点是什么？",
+        mistakeEntryId: "mistake-1",
+      },
+    });
+    expect(harness.sources[0].url).toBe("/api/stream?ticket=tok-1&op=plan_companion");
   });
 
   it("the language parameter follows each stream's request (toggle mid-session applies to the next stream)", async () => {

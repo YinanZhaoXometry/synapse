@@ -71,6 +71,22 @@ export interface PlanProposalOptions {
   onNotice?: (messageKey: string) => void;
 }
 
+/**
+ * Plan-level chat request (FR-46, epic P2-12 T3): grounded on the WHOLE plan
+ * (no ReadingPosition). `mistakeEntryId` is the "analyze my mistakes"
+ * grounding input — the entry's question + its source section ride the
+ * server's plan grounding first, and the stream's citation event carries the
+ * entry's own source locator. The onNotice channel is the same
+ * cap-counted-restart pass-through as chat.
+ */
+export interface PlanChatRequest {
+  planId: string;
+  question: string;
+  language: UiLanguage;
+  mistakeEntryId?: string;
+  onNotice?: (messageKey: string) => void;
+}
+
 /** Plan-structure proposal (creation chat): stage-grouped node titles. */
 export interface ProposedStage {
   name: string;

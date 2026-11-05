@@ -126,6 +126,19 @@ module Types
                    .order(:created_at, :id)
     end
 
+    field :plan_mistake_entries, [ Types::MistakeEntryType ], null: false,
+      description: "One plan's mistake entries (FR-46, epic P2-12 T3 — the plan companion's \"analyze my mistakes\" picker): every entry whose node belongs to the plan, in log order, with its mistaken question readable for the picker rows. A plain list (AD-12). A foreign or unknown plan id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :plan_id, String, required: true, description: "The plan's uuid."
+    end
+
+    def plan_mistake_entries(plan_id:)
+      plan = scoped_plan(plan_id)
+      current_user!.mistake_entries
+                   .joins(:node)
+                   .where(knowledge_nodes: { plan_id: plan.id })
+                   .order(:created_at, :id)
+    end
+
     field :notes, [ Types::NoteType ], null: false,
       description: "One plan's study notes (FR-40, epic P2-12 T1; delta decision 3 — plan-scoped, no separate destination): the plan's own notes PLUS the notes scoped to its nodes or its materials (the DB's exactly-one scope check keeps a note on exactly one id, so the plan's list is the union of all three). Newest first. A foreign or unknown plan id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence). A plain list (AD-12)." do
       argument :plan_id, String, required: true, description: "The plan's uuid."

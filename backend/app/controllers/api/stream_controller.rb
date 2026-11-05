@@ -36,6 +36,8 @@ module Api
       payload = redeemed.payload
       if redeemed.op == "proposal"
         stream_proposal(user, payload)
+      elsif redeemed.op == "plan_companion"
+        stream_plan_companion(user, payload)
       else
         stream_companion(user, payload)
       end
@@ -131,6 +133,51 @@ module Api
       return terminal(code: failure.code) if failure.is_a?(ApplicationErrors::Failure)
 
       write_safely { sse("citation", { "locator" => citation_locator(material, position["locator"]), "quote" => nil }) }
+      terminal(code: "OK")
+    end
+
+    # The plan-scope companion redeem branch (FR-46, epic P2-12 T3): the
+    # SAME prompt/system posture and event vocabulary as the material
+    # companion, grounded on the whole plan (ContextAssembler.plan_grounding
+    # — mistake-first when the ticket carried an entry). The rung is always
+    # hint/answer-less: the plan_companion payload has no escalation flag
+    # (delta decision 6), so canEscalate is honestly false. The citation
+    # rides the mistake entry's OWN source locator (AD-5: citations are
+    # derived server-side, never guessed); with no mistake entry there is no
+    # single grounded locator, so no citation event rides.
+    def stream_plan_companion(user, payload)
+      plan = user.study_plans.find_by(id: payload["plan_id"])
+      return terminal(code: "NOT_FOUND") unless plan
+
+      mistake_entry = nil
+      if payload["mistake_entry_id"]
+        mistake_entry = user.mistake_entries.find_by(id: payload["mistake_entry_id"])
+        return terminal(code: "NOT_FOUND") unless mistake_entry
+      end
+
+      language = payload["language"]
+      sse("rung", {
+        "intent" => "explain",
+        "rung" => "hint",
+        "canEscalate" => false,
+        "language" => language
+      })
+
+      context = Ai::ContextAssembler.plan_grounding(plan, mistake_entry: mistake_entry)
+      messages = Ai::Prompts.plan_companion(
+        question: payload["question"].to_s,
+        language: language,
+        context: context
+      )
+      failure = catch(:client_gone) do
+        stream_to_tokens(user, messages, ->(delta) { sse("token", { "text" => delta }) })
+      end
+      return if failure == :client_gone
+      return terminal(code: failure.code) if failure.is_a?(ApplicationErrors::Failure)
+
+      if mistake_entry
+        write_safely { sse("citation", { "locator" => mistake_entry.source_location, "quote" => nil }) }
+      end
       terminal(code: "OK")
     end
 
