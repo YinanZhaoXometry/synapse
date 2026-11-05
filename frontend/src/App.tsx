@@ -3,7 +3,6 @@ import { BrowserRouter, Route, Routes, Navigate, Outlet, useLocation } from "rea
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { UserProgressProvider } from "@/contexts/UserProgressContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { apolloClient, isLoggedIn } from "@/apollo";
@@ -67,74 +66,72 @@ const App = () => (
     <TooltipProvider>
       <LanguageProvider>
         <ThemeProvider>
-          <UserProgressProvider>
-            <Toaster />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<EntryGate />} />
-                {/* the wall (AD-15): standalone static screens, outside the shell */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route element={<RequireAuth />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/plans" element={<PlansHomePage />} />
-                  <Route path="/onboarding" element={<OnboardingPage />} />
-                  <Route path="/plan/new" element={<PlanCreatePage />} />
-                  <Route path="/plan/:id" element={<PlanHomePage />} />
-                  {/* The plan-flow quiz session page (epic-6 T2; AD-8) — the
-                      session id rides in the URL so a reload resumes. */}
-                  <Route path="/plan/:id/quiz" element={<PlanQuizPage />} />
-                  {/* The plan-flow flashcards study page (epic-6 T3; AD-8) —
-                      deliberately stateless across reloads: ratings persist
-                      per card as they happen, a refresh restarts the queue. */}
-                  <Route path="/plan/:id/flashcards" element={<PlanFlashcardsPage />} />
-                  <Route
-                    path="/task/new"
-                    element={
-                      <Suspense fallback={null}>
-                        <TaskCreatePage />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path="/task/:id"
-                    element={
-                      <Suspense fallback={null}>
-                        <TaskHomePage />
-                      </Suspense>
-                    }
-                  />
-                  {/* The task-flow quiz session page (epic-6 T4; AD-8) — the
-                      plan twin's contract scoped to the task's single material
-                      and its auto-owned node (AD-6: planId null, taskId set). */}
-                  <Route path="/task/:id/quiz" element={<TaskQuizPage />} />
-                  {/* The task-flow flashcards study page (epic-6 T4; AD-8) —
-                      the plan twin's contract over the task's single deck. */}
-                  <Route path="/task/:id/flashcards" element={<TaskFlashcardsPage />} />
-                  <Route
-                    path="/read/:materialId"
-                    element={
-                      <Suspense fallback={null}>
-                        <ReaderPage />
-                      </Suspense>
-                    }
-                  />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/ai-tutor" element={<AITutorPage />} />
-                  <Route path="/materials" element={<MaterialsPage />} />
-                  <Route path="/quiz" element={<QuizPage />} />
-                  <Route path="/flashcards" element={<FlashcardsPage />} />
-                  <Route path="/mistakes" element={<MistakesPage />} />
-                  <Route path="/planner" element={<PlannerPage />} />
-                  <Route path="/achievements" element={<AchievementsPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  </Route>
+          <Toaster />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<EntryGate />} />
+              {/* the wall (AD-15): standalone static screens, outside the shell */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route element={<RequireAuth />}>
+              <Route element={<AppLayout />}>
+                <Route path="/plans" element={<PlansHomePage />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/plan/new" element={<PlanCreatePage />} />
+                <Route path="/plan/:id" element={<PlanHomePage />} />
+                {/* The plan-flow quiz session page (epic-6 T2; AD-8) — the
+                    session id rides in the URL so a reload resumes. */}
+                <Route path="/plan/:id/quiz" element={<PlanQuizPage />} />
+                {/* The plan-flow flashcards study page (epic-6 T3; AD-8) —
+                    deliberately stateless across reloads: ratings persist
+                    per card as they happen, a refresh restarts the queue. */}
+                <Route path="/plan/:id/flashcards" element={<PlanFlashcardsPage />} />
+                <Route
+                  path="/task/new"
+                  element={
+                    <Suspense fallback={null}>
+                      <TaskCreatePage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/task/:id"
+                  element={
+                    <Suspense fallback={null}>
+                      <TaskHomePage />
+                    </Suspense>
+                  }
+                />
+                {/* The task-flow quiz session page (epic-6 T4; AD-8) —
+                    the plan twin's contract scoped to the task's single material
+                    and its auto-owned node (AD-6: planId null, taskId set). */}
+                <Route path="/task/:id/quiz" element={<TaskQuizPage />} />
+                {/* The task-flow flashcards study page (epic-6 T4; AD-8) —
+                    the plan twin's contract over the task's single deck. */}
+                <Route path="/task/:id/flashcards" element={<TaskFlashcardsPage />} />
+                <Route
+                  path="/read/:materialId"
+                  element={
+                    <Suspense fallback={null}>
+                      <ReaderPage />
+                    </Suspense>
+                  }
+                />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/ai-tutor" element={<AITutorPage />} />
+                <Route path="/materials" element={<MaterialsPage />} />
+                <Route path="/quiz" element={<QuizPage />} />
+                <Route path="/flashcards" element={<FlashcardsPage />} />
+                <Route path="/mistakes" element={<MistakesPage />} />
+                <Route path="/planner" element={<PlannerPage />} />
+                <Route path="/achievements" element={<AchievementsPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-            </UserProgressProvider>
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
         </ThemeProvider>
       </LanguageProvider>
     </TooltipProvider>
