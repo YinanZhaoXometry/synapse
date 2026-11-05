@@ -32,3 +32,4 @@
 7. The round trip's honest semantic: the import's FR-4 ownership law means the exported uuids land only where they are UNOWNED — a restore into the vacated id space, never concurrent two-account sharing (specs free the original rows first, breaking the task↔node↔material triangle's nullable legs).
 
 **Adjacency:** `settings.subtitle` copy updated (both languages) — "no accounts" became false the moment the account half landed.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — export mirrors the import WIRE shape (string-keyed camelCase, 12 collections) with fidelity notes recorded (materials byteless; Phase-2 tables have no import vocabulary — honest); wrong-current = field error not UNAUTHORIZED; limiter mirrored; cap read = the seam's real read half; weekly goal recorded-not-duplicated. Round-trip AC = spec-proven structural equality. Merged on `epic/p2-14-tail`.
