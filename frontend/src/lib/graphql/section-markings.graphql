@@ -1,0 +1,37 @@
+# Mastery Marking claim operations (FR-15, epic-15 T2). The FR-15 law: a claim
+# is NEVER evidence — it can never move a Mastery Score (ADR-0001; only quiz
+# evidence moves scores). Rows are history: an open claim carries a null
+# clearedAt, unmarking sets clearedAt and never deletes — the client derives
+# the open claims (clearedAt == null); there is no separate "open" read. The
+# read returns ALL of the caller's rows for the material, newest first — the
+# order is kept as returned, never re-sorted client-side.
+
+fragment SectionMarkingParts on SectionMarking {
+  id
+  materialId
+  sectionId
+  claimedAt
+  clearedAt
+}
+
+query SectionMarkings($materialId: String!) {
+  sectionMarkings(materialId: $materialId) {
+    ...SectionMarkingParts
+  }
+}
+
+mutation ClaimSection($input: ClaimSectionInput!) {
+  claimSection(input: $input) {
+    sectionMarking {
+      ...SectionMarkingParts
+    }
+  }
+}
+
+mutation UnclaimSection($input: UnclaimSectionInput!) {
+  unclaimSection(input: $input) {
+    sectionMarking {
+      ...SectionMarkingParts
+    }
+  }
+}

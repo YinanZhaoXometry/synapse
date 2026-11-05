@@ -33,8 +33,9 @@ import type {
   QuestionPartsFragment,
   QuizSessionPartsFragment,
   ReadingPositionPartsFragment,
+  SectionMarkingPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, StudyFocusSetView, StudyPlanView, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, SectionMarkingView, StudyFocusSetView, StudyPlanView, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
@@ -384,5 +385,23 @@ export function mapStudyFocusSet(set: StudyFocusSetPartsFragment): StudyFocusSet
     })),
     createdAt: set.createdAt,
     updatedAt: set.updatedAt,
+  };
+}
+
+// ── Mastery Marking claims (FR-15, epic-15 T2) ───────────────────────────
+
+/** Wire claim row → the domain claim. DateTimes ride as plain strings per the
+ * codegen scalar config — never re-formatted; `clearedAt` stays exactly null
+ * while the claim is open (the open-claim derivation is the consumer's
+ * `clearedAt == null` — rows are history, so a null never becomes a default).
+ * Rows arrive newest-first from the server; a pure per-row map keeps that
+ * order (no client re-sort anywhere in the seam). */
+export function mapSectionMarking(row: SectionMarkingPartsFragment): SectionMarkingView {
+  return {
+    id: row.id,
+    materialId: row.materialId,
+    sectionId: row.sectionId,
+    claimedAt: row.claimedAt,
+    clearedAt: row.clearedAt ?? null,
   };
 }
