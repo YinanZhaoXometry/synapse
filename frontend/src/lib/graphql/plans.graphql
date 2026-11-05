@@ -10,6 +10,7 @@ query Plans {
     createdAt
     masteryScore
     visibility
+    forkedFromTopic
   }
 }
 
@@ -21,6 +22,7 @@ query Plan($id: String!) {
     createdAt
     masteryScore
     visibility
+    forkedFromTopic
     nodes {
       ...KnowledgeNodeParts
     }

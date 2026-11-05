@@ -57,6 +57,7 @@ const planDetail = () => ({
   createdAt: NOW,
   masteryScore: "0",
   visibility: "private",
+  forkedFromTopic: null,
   nodes: [
     { __typename: "KnowledgeNode", id: "n-1", planId: PLAN_ID, taskId: null, stage: "核心", title: "软件测试", order: 0, masteryScore: "0", state: "uncovered", createdAt: NOW },
   ],

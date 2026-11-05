@@ -47,6 +47,7 @@ const wirePlan = (nodes: Record<string, unknown>[]) => ({
     createdAt: "2026-11-05T00:00:00Z",
     masteryScore: "0",
     visibility: "private",
+    forkedFromTopic: null,
     nodes,
     materials: [],
   },

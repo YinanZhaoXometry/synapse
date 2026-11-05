@@ -18,7 +18,7 @@
  */
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, ChevronUp, FileText, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronUp, FileText, GitFork, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -232,6 +232,18 @@ export default function PlanHomePage() {
             <p className="text-xs text-muted-foreground mt-1">
               {t("plans.goalLabel")}
               {plan.goal}
+            </p>
+          )}
+          {/* The fork attribution (OQ-12, epic P2-11 T3; delta decision 4):
+              the 「改编自公开计划」 line — straight off the server's
+              fork-time snapshot field, never re-derived. */}
+          {plan.forkedFromTopic && (
+            <p
+              className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1.5"
+              data-testid="fork-attribution"
+            >
+              <GitFork className="w-3 h-3 flex-none text-accent-ink" aria-hidden="true" />
+              {t("square.adaptedFrom", { topic: plan.forkedFromTopic })}
             </p>
           )}
           {/* Epic P2-11 T1 (FR-38): the visibility chip + confirm-gated flip —

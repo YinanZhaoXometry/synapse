@@ -12,6 +12,7 @@ import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entr
 import PlansHomePage from "@/features/plans/PlansHomePage";
 import PlanCreatePage from "@/features/plans/PlanCreatePage";
 import PlanHomePage from "@/features/plans/PlanHomePage";
+import SquarePlanPage from "@/features/plans/SquarePlanPage";
 import PlanQuizPage from "@/pages/PlanQuizPage";
 import PlanFlashcardsPage from "@/pages/PlanFlashcardsPage";
 import TaskQuizPage from "@/pages/TaskQuizPage";
@@ -76,6 +77,10 @@ const App = () => (
               <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
                 <Route path="/plans" element={<PlansHomePage />} />
+                {/* The Square preview (epic P2-11 T3, delta decision 3): the
+                    广场 card's addressable route — structure-only public
+                    render + the adopt CTA; lives inside the shell. */}
+                <Route path="/square/:planId" element={<SquarePlanPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/plan/new" element={<PlanCreatePage />} />
                 <Route path="/plan/:id" element={<PlanHomePage />} />

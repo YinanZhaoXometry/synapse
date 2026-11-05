@@ -123,7 +123,7 @@ describe("the login wall (epic P2-8 T2, AD-15)", () => {
       query: PlansDocument,
       data: {
         plans: [
-          { __typename: "StudyPlan", id: "plan-a", topic: "A 的计划", goal: null, createdAt: "2026-11-01T00:00:00Z", masteryScore: "40" },
+          { __typename: "StudyPlan", id: "plan-a", topic: "A 的计划", goal: null, createdAt: "2026-11-01T00:00:00Z", masteryScore: "40", forkedFromTopic: null },
         ] as unknown as PlansQuery["plans"],
       },
     });
@@ -146,6 +146,7 @@ describe("the login wall (epic P2-8 T2, AD-15)", () => {
       goal: null,
       createdAt: "2026-11-02T00:00:00Z",
       masteryScore: "0",
+      forkedFromTopic: null,
     });
     // handlers return the ROOT FIELD payload itself (list roots return arrays)
     const stub = createStubClient({ Plans: () => state.plans }, state);

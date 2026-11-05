@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Plus } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, GitFork, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,8 @@ import { localeTag } from "./locale";
 import { MasteryRing, StateMiniBar } from "./atoms";
 import CreationChat from "./CreationChat";
 import ImportOfferDialog from "./ImportOfferDialog";
+import SquareSection from "./SquareSection";
+import { cn } from "@/lib/utils";
 
 /**
  * Plans Home (AD-8; FR-1; Q3/Q5) — the front door. Empty state: the creation
@@ -34,6 +37,12 @@ import ImportOfferDialog from "./ImportOfferDialog";
  * link, newest first; at zero tasks it renders nothing — no empty chrome.
  * Every number is SERVER truth since the cutover (AD-14): rollups and states
  * ride the api's masteryScore/state — the page never recomputes.
+ *
+ * Epic P2-11 T3 (FR-39, delta decision 3): the 我的计划 / 广场 pill toggle —
+ * the Square (external-plan discovery) is a TAB on the plans front door, NOT
+ * a new sidebar destination (the sidebar's ten retained destinations stay
+ * frozen). The mine tab renders exactly what shipped before; the Square tab
+ * renders SquareSection (public-plan cards + adopt).
  */
 export default function PlansHomePage() {
   const { t, language } = useLanguage();
@@ -41,6 +50,9 @@ export default function PlansHomePage() {
   const plansQuery = usePlansQuery();
   const tasksQuery = useTasksQuery();
   const progressQuery = useAllReadingProgressQuery();
+  // The Square tab (delta decision 3): the mine tab keeps every existing
+  // surface; the Square tab swaps the body (public-plan discovery).
+  const [tab, setTab] = useState<"mine" | "square">("mine");
 
   if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return null;
   const plans = plansQuery.data ?? [];
@@ -71,22 +83,49 @@ export default function PlansHomePage() {
         )}
       </div>
 
-      {isEmpty ? (
-        <>
-          <div className="glass-panel rounded-2xl shadow-raised p-4 mt-4 flex flex-wrap items-center gap-3">
-            <BookOpen className="w-4 h-4 text-accent-ink flex-none" aria-hidden="true" />
-            <p className="text-sm font-medium leading-[1.5] flex-1 min-w-[220px]">{t("tasks.pitch")}</p>
-            <Button variant="outline" size="sm" className="flex-none" onClick={() => navigate("/task/new")}>
-              {t("tasks.createEntry")}
-            </Button>
-          </div>
-          <CreationChat />
-        </>
-      ) : (
-        <ReturningHome plans={plans} language={language} />
-      )}
+      {/* The 广场 toggle (delta decision 3): 我的计划 / 广场 pill pair — the
+          plans front door hosts external-plan discovery; no new sidebar slot. */}
+      <div className="flex items-center gap-2 mt-3" role="group" aria-label={t("square.tabAria")} data-testid="plans-home-tabs">
+        <button
+          type="button"
+          aria-pressed={tab === "mine"}
+          onClick={() => setTab("mine")}
+          className={cn("pill cursor-pointer", tab !== "mine" && "pill-muted")}
+        >
+          {t("square.tabMine")}
+        </button>
+        <button
+          type="button"
+          aria-pressed={tab === "square"}
+          onClick={() => setTab("square")}
+          className={cn("pill cursor-pointer", tab !== "square" && "pill-muted")}
+        >
+          {t("square.tabSquare")}
+        </button>
+      </div>
 
-      <TaskSection tasks={tasks} progress={progress} />
+      {tab === "square" ? (
+        <SquareSection />
+      ) : (
+        <>
+          {isEmpty ? (
+            <>
+              <div className="glass-panel rounded-2xl shadow-raised p-4 mt-4 flex flex-wrap items-center gap-3">
+                <BookOpen className="w-4 h-4 text-accent-ink flex-none" aria-hidden="true" />
+                <p className="text-sm font-medium leading-[1.5] flex-1 min-w-[220px]">{t("tasks.pitch")}</p>
+                <Button variant="outline" size="sm" className="flex-none" onClick={() => navigate("/task/new")}>
+                  {t("tasks.createEntry")}
+                </Button>
+              </div>
+              <CreationChat />
+            </>
+          ) : (
+            <ReturningHome plans={plans} language={language} />
+          )}
+
+          <TaskSection tasks={tasks} progress={progress} />
+        </>
+      )}
     </div>
   );
 }
@@ -190,6 +229,18 @@ function PlanCard({ plan }: { plan: StudyPlanView }) {
       <p className="text-[11px] text-muted-foreground mt-2">
         {nodes.length} {t("plans.nodesUnit")} · {(nodesQuery.materials ?? []).length} {t("plans.materialsUnit")}
       </p>
+      {/* The fork attribution (OQ-12, epic P2-11 T3): a small glyph + the
+          source topic snapshot, straight off the server field. */}
+      {plan.forkedFromTopic && (
+        <p
+          className="flex items-center gap-1 text-[11px] text-accent-ink mt-1.5 truncate"
+          title={t("square.forkAria", { topic: plan.forkedFromTopic })}
+          data-testid="plan-card-fork"
+        >
+          <GitFork className="w-3 h-3 flex-none" aria-hidden="true" />
+          <span className="truncate">{plan.forkedFromTopic}</span>
+        </p>
+      )}
     </button>
   );
 }

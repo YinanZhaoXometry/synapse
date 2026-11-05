@@ -42,6 +42,7 @@ export function usePlansQuery() {
     createdAt: plan.createdAt,
     masteryScore: plan.masteryScore,
     visibility: plan.visibility === "public" ? "public" : "private",
+    forkedFromTopic: plan.forkedFromTopic,
   }));
   return { data: result.data !== undefined ? plans : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
@@ -63,6 +64,9 @@ export function usePlanQuery(planId: string) {
         // FR-38 (epic P2-11 T1): the server's own column — rendered by the
         // plan settings control, never recomputed (AD-14 posture).
         visibility: row.visibility === "public" ? "public" : "private",
+        // OQ-12 (epic P2-11 T3): the attribution snapshot — rendered by the
+        // plan home header, never recomputed.
+        forkedFromTopic: row.forkedFromTopic,
       },
       nodes: row.nodes.map(mapNode),
       materials: row.materials.map(mapMaterialSummary),

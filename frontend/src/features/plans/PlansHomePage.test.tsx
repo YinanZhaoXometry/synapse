@@ -9,6 +9,7 @@ import {
   PlanDocument,
   PlansDocument,
   ReadingProgressListDocument,
+  SquarePlansDocument,
   TasksDocument,
 } from "@/types/graphql";
 import PlansHomePage from "./PlansHomePage";
@@ -84,6 +85,7 @@ const planRowFixture = (overrides: Record<string, unknown> = {}) => ({
   goal: null,
   createdAt: NOW,
   masteryScore: "12",
+  forkedFromTopic: null,
   ...overrides,
 });
 
@@ -295,5 +297,85 @@ describe("PlansHomePage — Study Tasks section (FR-37; FR-10; UJ-6)", () => {
     expect(screen.getByPlaceholderText(zh("plans.topicPlaceholder"))).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: zh("tasks.eyebrow") })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: new RegExp("solo-notes") })).toHaveAttribute("href", "/task/t-solo");
+  });
+});
+
+// -- epic P2-11 T3: the 广场 tab + fork attribution ------------------------------
+
+const NOW_T3 = "2026-11-05T00:00:00Z";
+
+const squarePlanFixture = (overrides: Record<string, unknown> = {}) => ({
+  __typename: "SquarePlan",
+  id: "sq-1",
+  topic: "雅思口语 6.5",
+  goal: "六周冲刺",
+  visibility: "public",
+  createdAt: NOW_T3,
+  nodeSummaries: [
+    { __typename: "SquareNodeSummary", title: "基础·语音", stage: "基础", order: 0 },
+    { __typename: "SquareNodeSummary", title: "应用·模考", stage: "应用", order: 1 },
+  ],
+  ...overrides,
+});
+
+describe("PlansHomePage — the 广场 tab (FR-39 web half; delta decision 3)", () => {
+  function squareMock(plans: Array<Record<string, unknown>>) {
+    return { request: { query: SquarePlansDocument, variables: {} }, result: { data: { squarePlans: plans } }, maxUsageCount: 6 };
+  }
+
+  it("renders the 我的计划 / 广场 pill pair with 我的计划 pressed by default", async () => {
+    renderPlansHome(mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }));
+
+    const toggle = await screen.findByTestId("plans-home-tabs");
+    expect(within(toggle).getByRole("button", { name: zh("square.tabMine") })).toHaveAttribute("aria-pressed", "true");
+    expect(within(toggle).getByRole("button", { name: zh("square.tabSquare") })).toHaveAttribute("aria-pressed", "false");
+    // default body is the mine tab (no Square section mounted — no demo data)
+    expect(screen.queryByTestId("square-section")).not.toBeInTheDocument();
+  });
+
+  it("clicking 广场 swaps the body to the Square cards (mine content unmounts — real data only)", async () => {
+    renderPlansHome([
+      ...mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }),
+      squareMock([squarePlanFixture()]),
+    ]);
+
+    fireEvent.click(await screen.findByRole("button", { name: zh("square.tabSquare") }));
+
+    const section = await screen.findByTestId("square-section");
+    expect(within(section).getByTestId("square-plan-card")).toBeInTheDocument();
+    expect(within(section).getByText("雅思口语 6.5")).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: new RegExp(zh("square.adopt")) })).toBeInTheDocument();
+    // the mine body is gone (the plan card unmounts; the header + actions persist by design)
+    expect(screen.queryByText("软件工程备考")).not.toBeInTheDocument();
+    // aria-pressed flips
+    const toggle = screen.getByTestId("plans-home-tabs");
+    expect(within(toggle).getByRole("button", { name: zh("square.tabSquare") })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("the Square tab stays reachable from the empty state (a fresh user can browse public plans)", async () => {
+    renderPlansHome([...mocksFor({}), squareMock([])]);
+
+    fireEvent.click(await screen.findByRole("button", { name: zh("square.tabSquare") }));
+
+    expect(await screen.findByTestId("square-section")).toBeInTheDocument();
+    expect(screen.getByText(zh("square.empty"))).toBeInTheDocument();
+    expect(screen.queryByTestId("square-plan-card")).not.toBeInTheDocument();
+  });
+});
+
+describe("PlansHomePage — fork attribution on plan rows (OQ-12, epic P2-11 T3)", () => {
+  it("a forked plan's card shows the fork glyph + the source topic snapshot", async () => {
+    const forked = planRowFixture({ forkedFromTopic: "雅思口语 6.5" });
+    renderPlansHome(mocksFor({ plans: [forked], planDetail: planDetailFixture(), allMaterials: [] }));
+
+    const card = await screen.findByTestId("plan-card-fork");
+    expect(card).toHaveTextContent("雅思口语 6.5");
+  });
+
+  it("a plan that is not a fork shows no attribution row", async () => {
+    renderPlansHome(mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }));
+
+    expect(await screen.findByRole("button", { name: new RegExp(zh("plans.createNew")) })).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-card-fork")).not.toBeInTheDocument();
   });
 });

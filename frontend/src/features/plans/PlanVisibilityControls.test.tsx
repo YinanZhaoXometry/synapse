@@ -34,6 +34,7 @@ const wirePlan = (visibility: string) => ({
     createdAt: "2026-11-05T00:00:00Z",
     masteryScore: "42",
     visibility,
+    forkedFromTopic: null,
     nodes: [],
     materials: [],
   },

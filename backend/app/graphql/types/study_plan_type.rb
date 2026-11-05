@@ -30,6 +30,15 @@ module Types
           null: false,
           description: "\"private\" (FR-38 default) or \"public\" (the Square opt-in)."
 
+    # The fork attribution (OQ-12, epic P2-11 T3; delta decision 4): the
+    # fork-time topic snapshot of the Square source, set only on adopted
+    # plans. The source's id deliberately stays off the wire — the public
+    # path is structure-only and the source may have gone private since; the
+    # wire carries the attribution LINE, never a pointer back.
+    field :forked_from_topic, String,
+          null: true,
+          description: "The forked plan's attribution line: the source plan's topic, snapshotted at fork time (OQ-12). Null on every plan that is not a fork."
+
     field :created_at, Types::DateTime,
           null: false,
           description: "When the plan was created."
