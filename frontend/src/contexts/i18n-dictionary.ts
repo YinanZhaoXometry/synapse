@@ -798,7 +798,28 @@ export const translations = {
       'scope.errorRateLimited': '请求太频繁，请稍等片刻再试',
       'scope.capReached': '今日使用次数已达上限，请明天再来',
       'scope.errorInternal': '服务暂时不可用，请重试',
-      'scope.failed': '操作失败，请重试'
+      'scope.failed': '操作失败，请重试',
+
+      // 计划可见性（epic P2-11 T1 · FR-38 — 计划首页的公开/私密切换；仅共享结构）
+      'visibility.chipPrivate': '私密',
+      'visibility.chipPublic': '公开',
+      'visibility.privateHint': '仅自己可见——可随时公开到广场',
+      'visibility.publicHint': '已公开到广场（仅结构）',
+      'visibility.action': '更改可见性',
+      'visibility.title': '计划可见性',
+      'visibility.disclosure': '公开后仅共享计划结构（阶段与节点），永不包含资料、标注或成绩。',
+      'visibility.makePublic': '确认公开',
+      'visibility.makePrivate': '设为私密',
+      'visibility.publicToast': '计划已公开——广场读者可以看到它的结构',
+      'visibility.privateToast': '计划已设为私密——已从广场移除',
+      'visibility.errorUnauthorized': '登录状态已过期，请重新登录',
+      'visibility.errorForbidden': '没有权限执行这个操作',
+      'visibility.errorNotFound': '找不到对应的计划',
+      'visibility.errorValidation': '可见性设置不完整，请调整后重试',
+      'visibility.errorRateLimited': '请求太频繁，请稍等片刻再试',
+      'visibility.errorInternal': '服务暂时不可用，请重试',
+      'visibility.failed': '设置失败，请重试',
+      'visibility.createLabel': '创建时的可见性（默认私密）'
     },
     en: {
       'brand.sub': 'Study companion',
@@ -1596,7 +1617,28 @@ export const translations = {
       'scope.errorRateLimited': 'Too many requests — please wait a moment',
       'scope.capReached': 'Daily limit reached — try again tomorrow',
       'scope.errorInternal': 'The service is unavailable — please retry',
-      'scope.failed': 'The action failed — please retry'
+      'scope.failed': 'The action failed — please retry',
+
+      // Plan visibility (epic P2-11 T1, FR-38 — the Plan Home public/private flip; structure only)
+      'visibility.chipPrivate': 'Private',
+      'visibility.chipPublic': 'Public',
+      'visibility.privateHint': 'Only you can see it — make it public in the Square anytime',
+      'visibility.publicHint': 'Listed in the Square (structure only)',
+      'visibility.action': 'Change visibility',
+      'visibility.title': 'Plan visibility',
+      'visibility.disclosure': 'Going public shares the plan\'s STRUCTURE only (stages and nodes) — never your materials, annotations, or scores.',
+      'visibility.makePublic': 'Make public',
+      'visibility.makePrivate': 'Make private',
+      'visibility.publicToast': 'Plan is public — Square readers can see its structure',
+      'visibility.privateToast': 'Plan is private again — removed from the Square',
+      'visibility.errorUnauthorized': 'Your session expired — please sign in again',
+      'visibility.errorForbidden': 'You do not have permission for this action',
+      'visibility.errorNotFound': 'The plan was not found',
+      'visibility.errorValidation': 'The visibility request was incomplete — adjust and retry',
+      'visibility.errorRateLimited': 'Too many requests — please wait a moment',
+      'visibility.errorInternal': 'The service is unavailable — please retry',
+      'visibility.failed': 'Could not set visibility — please retry',
+      'visibility.createLabel': 'Visibility at creation (private by default)'
     }
 
 } as const;

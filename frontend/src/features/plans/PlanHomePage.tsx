@@ -28,6 +28,7 @@ import { CompanionPanel } from "@/features/companion";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import MaterialScopeControls from "./MaterialScopeControls";
 import NotesSection from "./NotesSection";
+import PlanVisibilityControls from "./PlanVisibilityControls";
 import {
   sessionBlobs,
   useAllEvidenceQuery,
@@ -233,6 +234,12 @@ export default function PlanHomePage() {
               {plan.goal}
             </p>
           )}
+          {/* Epic P2-11 T1 (FR-38): the visibility chip + confirm-gated flip —
+              the plan settings affordance lives in the header, next to the
+              plan identity it governs. */}
+          <div className="mt-1.5">
+            <PlanVisibilityControls plan={plan} />
+          </div>
         </div>
         <div className="flex items-start gap-5">
           <StreakChip days={streakQuery.data ?? 0} />

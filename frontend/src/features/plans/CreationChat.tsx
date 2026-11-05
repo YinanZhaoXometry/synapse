@@ -43,6 +43,10 @@ export default function CreationChat() {
   const [goalDraft, setGoalDraft] = useState("");
   // The named goal selection (null = none); a typed goal overrides it.
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  // Epic P2-11 T1 (FR-38): the plan's starting visibility, chosen at the
+  // confirm step (default private — the Square opt-in needs the same
+  // structure-only disclosure as the plan-home flip).
+  const [createVisibility, setCreateVisibility] = useState<"private" | "public">("private");
   // Renames are keyed by the node's proposal-wide order index (proposalNodeKey),
   // never by title — duplicate titles in one draft must rename independently.
   const [renames, setRenames] = useState<Record<string, string>>({});
@@ -95,12 +99,16 @@ export default function CreationChat() {
           clientUuid: newClientUuid(),
           topic: input.topic,
           goal: input.goal,
+          // FR-38 (epic P2-11 T1): the create-step visibility choice — the
+          // api defaults private; the choice is always sent explicitly.
+          visibility: createVisibility,
           nodes: input.nodes,
         },
       },
       onCompleted: (data) => {
         chat.reset();
         setRenames({});
+        setCreateVisibility("private");
         navigate(`/plan/${data.createPlan.plan.id}`);
       },
       onError: () => toast.error(t("plans.createError")),
@@ -182,7 +190,33 @@ export default function CreationChat() {
                   </div>
                 </div>
               ))}
-              <div className="flex items-center gap-2 mt-4">
+              {/* Epic P2-11 T1 (FR-38): the create-step visibility choice —
+                  the disclosure rides along, whichever way the user picks. */}
+              <div className="mt-4 border-t border-border-soft pt-3">
+                <p className="text-[11px] text-muted-foreground">{t("visibility.createLabel")}</p>
+                <div className="flex items-center gap-1.5 mt-1.5" role="radiogroup" aria-label={t("visibility.createLabel")}>
+                  {(["private", "public"] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={createVisibility === value}
+                      data-testid={`create-visibility-${value}`}
+                      onClick={() => setCreateVisibility(value)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-[11px] border transition-colors cursor-pointer",
+                        createVisibility === value
+                          ? "border-[color:var(--accent-edge)] bg-[var(--accent-tint)] text-accent-ink"
+                          : "border-border-soft text-muted-foreground hover:bg-[var(--glass-2)]",
+                      )}
+                    >
+                      {t(value === "private" ? "visibility.chipPrivate" : "visibility.chipPublic")}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5 leading-[1.5]">{t("visibility.disclosure")}</p>
+              </div>
+              <div className="flex items-center gap-2 mt-3">
                 <Button size="sm" onClick={confirm} disabled={planCreating}>
                   {planCreating ? t("plans.creating") : t("plans.confirmCreate")}
                 </Button>

@@ -9,6 +9,7 @@ query Plans {
     goal
     createdAt
     masteryScore
+    visibility
   }
 }
 
@@ -66,5 +67,21 @@ mutation UpdatePlan($input: UpdatePlanInput!) {
 mutation DeletePlan($input: DeletePlanInput!) {
   deletePlan(input: $input) {
     deletedPlanId
+  }
+}
+
+# FR-38 (epic P2-11 T1): the Square opt-in/opt-out flip — full plan returns,
+# so the normalized cache write covers the detail row; the hook adds the
+# Plan read-back sweep.
+mutation SetPlanVisibility($input: SetPlanVisibilityInput!) {
+  setPlanVisibility(input: $input) {
+    plan {
+      id
+      topic
+      goal
+      createdAt
+      masteryScore
+      visibility
+    }
   }
 }

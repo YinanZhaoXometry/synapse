@@ -10,7 +10,7 @@ RSpec.describe "GraphQL plans + nodes operations (epic P2-3 ticket 01)", type: :
   # wire behavior.
 
   describe "the auth guard on every plan operation (kickoff delta 8)" do
-    it "answers UNAUTHORIZED without a token on all six operations" do
+    it "answers UNAUTHORIZED without a token on all seven operations" do
       queries = [
         "query { plans { id } }",
         'query { plan(id: "00000000-0000-0000-0000-000000000000") { id } }'
@@ -21,7 +21,9 @@ RSpec.describe "GraphQL plans + nodes operations (epic P2-3 ticket 01)", type: :
         "mutation { confirmProposal(input: { clientUuid: \"#{SecureRandom.uuid}\", topic: \"t\", " \
           "stages: [{ name: \"s\", nodeTitles: [\"n\"] }] }) { plan { id } } }",
         "mutation { updatePlan(input: { id: \"#{SecureRandom.uuid}\", topic: \"t\" }) { plan { id } } }",
-        "mutation { deletePlan(input: { id: \"#{SecureRandom.uuid}\" }) { deletedPlanId } }"
+        "mutation { deletePlan(input: { id: \"#{SecureRandom.uuid}\" }) { deletedPlanId } }",
+        "mutation { setPlanVisibility(input: { planId: \"#{SecureRandom.uuid}\", " \
+          "visibility: \"public\" }) { plan { id } } }"
       ]
 
       queries.each do |query|
@@ -199,6 +201,28 @@ RSpec.describe "GraphQL plans + nodes operations (epic P2-3 ticket 01)", type: :
       expect(result.dig("data", "createPlan")).to be_nil
       expect(error_code(result)).to eq("VALIDATION_FAILED")
     end
+
+    # FR-38 pin (epic P2-11 T1): the create input's visibility persists — the
+    # Square opt-in crosses the wire, not just the private default (which the
+    # first createPlan case already reads back).
+    it "persists an explicit public visibility and reads it back" do
+      user, token = user_with_token("public-creator@example.com")
+
+      result = graphql(
+        <<~GRAPHQL, token: token
+          mutation {
+            createPlan(input: { clientUuid: "#{SecureRandom.uuid}", topic: "shared roadmap",
+                                visibility: "public", nodes: [{ title: "n" }] }) {
+              plan { id visibility }
+            }
+          }
+        GRAPHQL
+      )
+
+      payload = result.dig("data", "createPlan")
+      expect(payload["plan"]["visibility"]).to eq("public")
+      expect(user.study_plans.first.visibility).to eq("public")
+    end
   end
 
   describe "confirmProposal mutation" do
@@ -301,6 +325,67 @@ RSpec.describe "GraphQL plans + nodes operations (epic P2-3 ticket 01)", type: :
       expect(result.dig("data", "updatePlan")).to be_nil
       expect(error_code(result)).to eq("NOT_FOUND")
       expect(plan.reload.topic).to eq("not yours")
+    end
+  end
+
+  # FR-38's flip (epic P2-11 T1): the plan-settings write on the wire. The
+  # full matrix (enum refusal, idempotent no-write) lives in the command spec
+  # (spec/commands/plans/set_plan_visibility_command_spec.rb); the wire pins
+  # the flip + the read-back and the uniform NOT_FOUND.
+  describe "setPlanVisibility mutation" do
+    it "flips the plan public and reads it back through the plan query" do
+      user, token = user_with_token("visibility-flipper@example.com")
+      plan = create(:study_plan, user: user)
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { planId: plan.id, visibility: "public" } }, token: token
+          mutation SetPlanVisibility($input: SetPlanVisibilityInput!) {
+            setPlanVisibility(input: $input) { plan { id visibility } }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "setPlanVisibility", "plan", "visibility")).to eq("public")
+      expect(plan.reload.visibility).to eq("public")
+
+      read_back = graphql("query($id: String!) { plan(id: $id) { visibility } }",
+                          variables: { id: plan.id }, token: token)
+      expect(read_back.dig("data", "plan", "visibility")).to eq("public")
+    end
+
+    it "answers NOT_FOUND for another user's plan id and changes nothing" do
+      owner, _owner_token = user_with_token("visibility-owner@example.com")
+      _attacker, attacker_token = user_with_token("visibility-attacker@example.com")
+      plan = create(:study_plan, user: owner)
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { planId: plan.id, visibility: "public" } }, token: attacker_token
+          mutation SetPlanVisibility($input: SetPlanVisibilityInput!) {
+            setPlanVisibility(input: $input) { plan { id visibility } }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "setPlanVisibility")).to be_nil
+      expect(error_code(result)).to eq("NOT_FOUND")
+      expect(plan.reload.visibility).to eq("private")
+    end
+
+    it "fails VALIDATION_FAILED for a visibility outside the closed enum" do
+      user, token = user_with_token("visibility-typer@example.com")
+      plan = create(:study_plan, user: user)
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { planId: plan.id, visibility: "unlisted" } }, token: token
+          mutation SetPlanVisibility($input: SetPlanVisibilityInput!) {
+            setPlanVisibility(input: $input) { plan { id visibility } }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "setPlanVisibility")).to be_nil
+      expect(error_code(result)).to eq("VALIDATION_FAILED")
+      expect(plan.reload.visibility).to eq("private")
     end
   end
 
