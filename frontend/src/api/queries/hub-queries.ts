@@ -6,7 +6,9 @@
  * only map the wire honestly (AD-12 plain lists, AD-14 render-never-recompute).
  * T3 adds todayHub (FR-27's 今日学习 assembly) + its manual-task ops (the
  * writes T1 deferred), and the consistency read the week strip maps onto the
- * current week.
+ * current week. T4 adds flashcardDecksHub + quizHistoryHub (FR-41/42) and the
+ * one schema movement — retakeQuizSession, the hub retake (a fresh server-side
+ * generation; each call mints a new attempt).
  *
  * Convention (every hook in src/api/queries):
  *   queries  → { data (mapped view | undefined), loading, error, refetch }
@@ -19,7 +21,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import {
   AddManualTaskDocument,
   DeleteManualTaskDocument,
+  FlashcardDecksHubDocument,
   MistakesHubDocument,
+  QuizHistoryHubDocument,
+  RetakeQuizSessionDocument,
   SetManualTaskDoneDocument,
   TodayConsistencyDocument,
   TodayHubDocument,
@@ -248,6 +253,89 @@ export function useDeleteManualTaskMutation() {
   const { t } = useLanguage();
   const [mutate, result] = useMutation(DeleteManualTaskDocument, {
     refetchQueries: [TodayHubDocument],
+    onError: () => {
+      toast.error(t("errors.persistFailed"));
+    },
+  });
+  return { mutate, result };
+}
+
+// ── flashcardDecksHub + quizHistoryHub + retake (epic P2-09 T4, FR-41/42) ──
+
+/** One deck on the flashcards hub (FR-41): the material's title, its plan/task
+ * origin (exactly one in healthy data — the attach contract; both null → the
+ * row renders without a study action), the card count, and the deck's
+ * creation moment (the MATERIAL's timestamp — the server's decision). */
+export interface HubDeckView {
+  materialId: string;
+  materialTitle: string;
+  planId: string | null;
+  planTitle: string | null;
+  taskId: string | null;
+  cardCount: number;
+  createdAt: string;
+}
+
+export function useFlashcardDecksHubQuery() {
+  const result = useQuery(FlashcardDecksHubDocument);
+  const rows: HubDeckView[] = (result.data?.flashcardDecksHub ?? []).map((row) => ({
+    materialId: row.materialId,
+    materialTitle: row.materialTitle,
+    planId: row.planId,
+    planTitle: row.planTitle,
+    taskId: row.taskId,
+    cardCount: row.cardCount,
+    createdAt: row.createdAt,
+  }));
+  return { data: result.data !== undefined ? rows : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
+}
+
+/** One session on the quiz history hub (FR-42): the origin ids (the plan
+ * title rides the wire; the task title resolves off the tasks list read on
+ * the page — the mistakes-hub convention), the mode, and the GRADED-answers
+ * score summary. A zero total is the honest 未完成 row: evidence lands only
+ * at completion, so zero graded answers = active or abandoned. */
+export interface HubQuizHistoryView {
+  sessionId: string;
+  planId: string | null;
+  planTitle: string | null;
+  taskId: string | null;
+  mode: "open" | "choice" | "mix";
+  createdAt: string;
+  questionCount: number;
+  scoreSummary: { correct: number; total: number };
+}
+
+// The mappers' union-rebuild convention: an unknown wire value is a contract
+// break, not a guess (mappers.ts is the reference).
+function quizMode(mode: string): "open" | "choice" | "mix" {
+  if (mode === "open" || mode === "choice" || mode === "mix") return mode;
+  throw new Error(`unknown quiz mode from the api: ${mode}`);
+}
+
+export function useQuizHistoryHubQuery() {
+  const result = useQuery(QuizHistoryHubDocument);
+  const rows: HubQuizHistoryView[] = (result.data?.quizHistoryHub ?? []).map((row) => ({
+    sessionId: row.sessionId,
+    planId: row.planId,
+    planTitle: row.planTitle,
+    taskId: row.taskId,
+    mode: quizMode(row.mode),
+    createdAt: row.createdAt,
+    questionCount: row.questionCount,
+    scoreSummary: { correct: row.scoreSummary.correct, total: row.scoreSummary.total },
+  }));
+  return { data: result.data !== undefined ? rows : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
+}
+
+/** The hub retake (FR-42): a NEW server-generated session seeded from the old
+ * one's scope + mode — each call mints a fresh attempt (deliberately NOT
+ * idempotent; the api description says so). The sweep re-reads the history so
+ * the new session appears alongside the old. */
+export function useRetakeQuizSessionMutation() {
+  const { t } = useLanguage();
+  const [mutate, result] = useMutation(RetakeQuizSessionDocument, {
+    refetchQueries: [QuizHistoryHubDocument],
     onError: () => {
       toast.error(t("errors.persistFailed"));
     },

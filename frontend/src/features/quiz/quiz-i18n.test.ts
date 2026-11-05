@@ -11,7 +11,9 @@ import { translations } from "@/contexts/i18n-dictionary";
 type Lang = keyof typeof translations;
 
 function quizKeys(lang: Lang): string[] {
-  return Object.keys(translations[lang]).filter((key) => key.startsWith("quiz."));
+  // the quiz.* runner/flow namespace + the quizHub.* history namespace (T4) —
+  // both must stay in parity
+  return Object.keys(translations[lang]).filter((key) => key.startsWith("quiz.") || key.startsWith("quizHub."));
 }
 
 describe("i18n dictionary — quiz.* zh/en parity (AD-9)", () => {
@@ -47,23 +49,41 @@ describe("i18n dictionary — quiz.* zh/en parity (AD-9)", () => {
     }
   });
 
-  it("the T5 /quiz demo additions are present (picker, owner labels, honest empty/not-found edges)", () => {
+  it("the T4 hub additions are present (quizHub.* — history rows, filters, retake) and the T5 picker vocabulary retired", () => {
     const required = [
-      "quiz.demo.pickTitle",
-      "quiz.demo.pickSubtitle",
-      "quiz.demo.fromPlan",
-      "quiz.demo.fromTask",
-      "quiz.demo.emptyTitle",
-      "quiz.demo.emptyBody",
-      "quiz.demo.createPlan",
-      "quiz.demo.createTask",
-      "quiz.demo.backToPicker",
-      "quiz.demo.materialNotFound",
-      "quiz.demo.notQuizable",
+      "quizHub.eyebrow",
+      "quizHub.title",
+      "quizHub.subtitle",
+      "quizHub.modeOpen",
+      "quizHub.modeChoice",
+      "quizHub.modeMix",
+      "quizHub.originPlan",
+      "quizHub.originTask",
+      "quizHub.filterLabel",
+      "quizHub.filterAll",
+      "quizHub.scoreSummary",
+      "quizHub.ungraded",
+      "quizHub.questions",
+      "quizHub.retake",
+      "quizHub.retakeAria",
+      "quizHub.emptyTitle",
+      "quizHub.emptyBody",
+      "quizHub.emptyCta",
+      "quizHub.loadFailed",
+      "quizHub.retry",
     ];
     for (const key of required) {
       expect(translations.zh[key as keyof typeof translations.zh], `zh ${key}`).toBeTruthy();
       expect(translations.en[key as keyof typeof translations.en], `en ${key}`).toBeTruthy();
+    }
+
+    // the retired /quiz picker + demo-head vocabulary is GONE from both tables
+    // (the honest-history hub replaced the material picker, epic P2-09 T4)
+    for (const lang of ["zh", "en"] as const) {
+      const retired = Object.keys(translations[lang]).filter(
+        (key) => key.startsWith("quiz.demo.") || key === "quiz.eyebrow" || key === "quiz.title" || key === "quiz.subtitle",
+      );
+      expect(retired, `${lang} still carries ${retired.join(", ")}`).toEqual([]);
     }
   });
 });

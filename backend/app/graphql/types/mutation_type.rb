@@ -36,6 +36,12 @@ module Types
     field :record_evidence, mutation: Mutations::Quiz::RecordEvidence
     field :abandon_quiz_session, mutation: Mutations::Quiz::AbandonSession
 
+    # The hub retake (FR-42, epic P2-09 T4): the quiz history's per-completed-
+    # session re-attempt — a fresh generation seeded from the old session's
+    # scope + mode (never a replay of graded answers; NFR-8). Deliberately
+    # not idempotent: each call mints a new attempt.
+    field :retake_quiz_session, mutation: Mutations::Quiz::RetakeSession
+
     field :create_flashcards, mutation: Mutations::Flashcards::CreateFlashcards
     field :rate_flashcard, mutation: Mutations::Flashcards::RateFlashcard
 

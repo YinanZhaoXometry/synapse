@@ -1,266 +1,239 @@
-// Northstar prototype v2 port (docs/design/northstar-import/prototype-v2/app.js — renderFlashcards family).
-// Deck: flip → prev/next → difficulty trio after flip → summary (ring + counts).
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Eye, Info, Layers, RefreshCw } from "lucide-react";
+/**
+ * The Flashcards hub (FR-41, epic P2-09 T4): every generated deck across
+ * plans and tasks, from the flashcardDecksHub read model (T1's api
+ * aggregation — one row per material that has flashcards, server-ordered by
+ * the deck material's creation moment). Grouping (plan sections + task
+ * sections) and the plan/task filter are client RENDERING over the flat
+ * server-ordered list, never a re-aggregation. The study action deep-links
+ * into the EXISTING flow routes — /plan/:id/flashcards or /task/:id/
+ * flashcards per the deck's origin kind — so hub-launched study mounts the
+ * real study surface without entering the plan flow (AD-8 addressable
+ * sub-routes); generation stays in-flow (FR-19/FR-36) — the hub never
+ * generates. The origin-less row: a material ALWAYS has a plan or a task (the
+ * attach contract — every attachMaterial names exactly one owner), so the
+ * study link is `planId ? planRoute : taskRoute` by construction; if the data
+ * ever violates that contract, the row renders WITHOUT a study action — an
+ * honest degradation, never an invented route. The Phase-1 demo deck fixture
+ * (and its flash.* copy) retired with this re-point — the empty state is
+ * honest, the page consumes only the hub hook plus the tasks list read (the
+ * task group's title resolution off the wire's task ids).
+ */
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ChevronDown, Layers, Play } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUserProgress } from "@/contexts/UserProgressContext";
-import { FLASHCARDS, pickL } from "@/lib/demo-data";
+import { useFlashcardDecksHubQuery, useTasksQuery, type HubDeckView } from "@/api";
+import { localeTag } from "@/features/plans";
 import { cn } from "@/lib/utils";
 
-/* ── Northstar button recipes (prototype .btn / .btn-primary / .btn-secondary / .btn-ghost) ── */
-const btnPrimary =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-hero px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all hover:-translate-y-px hover:shadow-brand-hover hover:brightness-[1.03] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const btnSecondary =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-[var(--glass-4)] px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-[var(--glass-solid)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const btnGhost =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const btnSm = "rounded-[10px] px-3.5 py-2 text-[13px]";
+/** One grouping unit over the flat hub list: a plan's decks, a task's, or —
+ * only when the attach contract is violated in data — an unattached deck. */
+interface DeckGroup {
+  kind: "plan" | "task" | "unattached";
+  /** The plan/task uuid (the row's origin; first occurrence drives order). */
+  id: string;
+  decks: HubDeckView[];
+}
 
-/* ── Score ring (prototype ringSvg: r=(size-stroke)/2, dashoffset, rotate -90°) ── */
-function ScoreRing({ pct, value, label }: { pct: number; value: number; label: string }) {
-  const size = 132;
-  const stroke = 10;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+/** Group the flat newest-first hub list: first occurrence drives group order
+ * (recency-shaped, matching the server order) — rendering, not re-aggregation. */
+function groupDecks(decks: HubDeckView[]): DeckGroup[] {
+  const groups: DeckGroup[] = [];
+  const byKey = new Map<string, DeckGroup>();
+  for (const deck of decks) {
+    const kind = deck.taskId ? "task" : deck.planId ? "plan" : "unattached";
+    const id = deck.taskId ?? deck.planId ?? deck.materialId;
+    const key = `${kind}:${id}`;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { kind, id, decks: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.decks.push(deck);
+  }
+  return groups;
+}
+
+/** The deck's study route: the EXISTING flow sub-route per origin kind — null
+ * only for the attach-contract-violating origin-less row (no invented route). */
+function deckStudyHref(deck: HubDeckView): string | null {
+  if (deck.taskId) return `/task/${encodeURIComponent(deck.taskId)}/flashcards`;
+  if (deck.planId) return `/plan/${encodeURIComponent(deck.planId)}/flashcards`;
+  return null;
+}
+
+const FOLD_TRIGGER =
+  "flex w-full items-center gap-2 px-1 py-1.5 text-sm font-semibold text-foreground/80 cursor-pointer " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md";
+
+/** One collapsible group section (the MistakesPage shape): fold chevron +
+ * title + kind chip (absent on the honest unattached section) + count. */
+function DeckGroupSection({
+  title,
+  kindChipKey,
+  count,
+  children,
+}: {
+  title: string;
+  kindChipKey: string | null;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(true);
   return (
-    <div className="relative h-[132px] w-[132px] flex-none">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full" role="img" aria-label={`${Math.round(pct)}%`}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--uncovered-fill))" strokeWidth={stroke} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c.toFixed(1)}
-          strokeDashoffset={offset.toFixed(1)}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <b className="font-display text-[30px] font-semibold leading-none tabular-nums">{value}</b>
-        <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
-      </div>
-    </div>
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-5">
+      <CollapsibleTrigger type="button" className={FOLD_TRIGGER} aria-label={title}>
+        <ChevronDown className={cn("w-4 h-4 transition-transform", !open && "-rotate-90")} aria-hidden="true" />
+        <span>{title}</span>
+        {kindChipKey && <span className="pill pill-muted">{t(kindChipKey)}</span>}
+        <span className="pill">{count}</span>
+        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="flex flex-col gap-3 mt-2">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
-type Difficulty = "hard" | "medium" | "easy";
+/** One deck row: material title (the deck), origin chip, card count, created
+ * date, and the study deep link (honestly absent without an origin). */
+function DeckRow({ deck, taskTitle }: { deck: HubDeckView; taskTitle: (taskId: string) => string }) {
+  const { t, language } = useLanguage();
+  const originLabel = deck.taskId ? taskTitle(deck.taskId) : deck.planTitle ?? deck.planId;
+  const studyHref = deckStudyHref(deck);
+  const dateLabel = new Date(deck.createdAt).toLocaleDateString(localeTag(language));
+
+  return (
+    <article className="bg-card border border-border-soft rounded-2xl p-5 shadow-raised">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="pill">{originLabel}</span>
+        <span className="text-[10px] text-caption">{dateLabel}</span>
+      </div>
+      <h3 className="font-body text-[15px] font-semibold leading-snug mt-2 line-clamp-2">{deck.materialTitle}</h3>
+      <div className="flex items-center justify-between gap-3 flex-wrap mt-3">
+        <span className="pill pill-muted">
+          <Layers className="w-3 h-3" aria-hidden="true" />
+          {t("flashcards.hub.cardCount", { n: deck.cardCount })}
+        </span>
+        {studyHref && (
+          <Link
+            to={studyHref}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={t("flashcards.hub.studyAria", { deck: deck.materialTitle })}
+          >
+            <Play className="w-3.5 h-3.5" aria-hidden="true" />
+            {t("flashcards.hub.study")}
+          </Link>
+        )}
+      </div>
+    </article>
+  );
+}
 
 export default function FlashcardsPage() {
-  const { t, language } = useLanguage();
-  const { reviewFlashcard } = useUserProgress();
-  const navigate = useNavigate();
+  const { t } = useLanguage();
+  const hubQuery = useFlashcardDecksHubQuery();
+  const tasksQuery = useTasksQuery();
+  const [filter, setFilter] = useState("");
 
-  /* Deck state (mirrors prototype state.flash) */
-  const [i, setI] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [ratings, setRatings] = useState<Record<string, Difficulty>>({});
-  const [done, setDone] = useState(false);
+  const tasks = tasksQuery.data ?? [];
 
-  const n = FLASHCARDS.length;
-  const card = FLASHCARDS[i];
-  const reviewed = Object.keys(ratings).length;
-  const easyCount = Object.values(ratings).filter(d => d === "easy").length;
-  const pct = n ? Math.round((reviewed / n) * 100) : 0;
+  // The task group's title resolves off the tasks list read (the wire carries
+  // the task ID only — the MistakesPage convention); an unresolvable id
+  // renders raw (honest, never a guessed title).
+  const taskTitle = (taskId: string) => tasks.find((task) => task.id === taskId)?.node.title ?? taskId;
 
-  /* ── Logic (prototype flipCard / flashNext / flashPrev / rateCard) ── */
-  const flipCard = () => {
-    if (done) return;
-    setFlipped(f => !f);
-  };
+  const groups = useMemo(() => groupDecks(hubQuery.data ?? []), [hubQuery.data]);
+  const visibleGroups = filter ? groups.filter((g) => `${g.kind}:${g.id}` === filter) : groups;
 
-  const flashNext = () => {
-    if (done) return;
-    if (i >= n - 1) {
-      setDone(true);
-      return;
-    }
-    setI(i + 1);
-    setFlipped(false);
-  };
+  // Honest-empty posture: nothing renders until the reads land (no demo
+  // fallback, no flash of stale copy).
+  if (hubQuery.loading || tasksQuery.loading) return null;
 
-  const flashPrev = () => {
-    if (done || i === 0) return;
-    setI(i - 1);
-    setFlipped(false);
-  };
+  const decks = hubQuery.data ?? [];
 
-  const rateCard = (diff: Difficulty) => {
-    if (done) return;
-    setRatings(r => ({ ...r, [card.id]: diff }));
-    reviewFlashcard();
-    if (i >= n - 1) {
-      setDone(true);
-    } else {
-      setI(i + 1);
-      setFlipped(false);
-    }
-  };
-
-  const restartDeck = () => {
-    setI(0);
-    setFlipped(false);
-    setRatings({});
-    setDone(false);
-  };
-
-  /* ── Keyboard (prototype handleKeydown flashcards branch; rateCard increments context once per rating) ── */
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (done) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest?.("button, a, input, textarea, select")) return;
-      if (event.key === " " || event.key === "Enter") {
-        event.preventDefault();
-        flipCard();
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        flashNext();
-      } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        flashPrev();
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        setDone(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
-
-  if (done) {
-    /* ── Summary ── */
-    return (
-      <div className="p-6 md:p-8 max-w-[984px] mx-auto">
-        <div>
-          <p className="eyebrow">{t("flash.eyebrow")}</p>
-          <h1 className="page-title">{t("flash.summaryTitle")}</h1>
-        </div>
-        <div className="mt-4 rounded-2xl border border-border-soft bg-card p-8 shadow-raised">
-          <div className="flex flex-wrap items-center gap-6">
-            <ScoreRing pct={pct} value={reviewed} label={t("flash.reviewed")} />
-            <div className="min-w-[200px] flex-1">
-              <h2 className="font-display text-2xl font-semibold tracking-tight">{t("flash.summaryCardTitle")}</h2>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                {t("flash.summaryBody", { n: reviewed, easy: easyCount })}
-              </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button type="button" onClick={restartDeck} className={btnPrimary}>
-                  <RefreshCw className="h-4 w-4" />
-                  {t("flash.again")}
-                </button>
-                <button type="button" onClick={() => navigate("/dashboard")} className={btnSecondary}>
-                  {t("flash.backHome")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Deck ── */
   return (
-    <div className="p-6 md:p-8 max-w-[984px] mx-auto">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">{t("flash.eyebrow")}</p>
-          <h1 className="page-title">{t("flash.title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("flash.subtitle")}</p>
-        </div>
-        <span className="pill">
-          <Layers className="h-3.5 w-3.5" />
-          {t("flash.progress", { i: i + 1, n })}
-        </span>
+    <div className="max-w-[984px] mx-auto px-6 py-8">
+      {/* Page head */}
+      <div>
+        <p className="eyebrow">{t("flashcards.hub.eyebrow")}</p>
+        <h1 className="page-title mt-1.5">{t("flashcards.hub.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-1.5">{t("flashcards.hub.subtitle", { n: decks.length })}</p>
       </div>
 
-      {/* deck-stage */}
-      <div className="mx-auto mt-5 max-w-[680px]">
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={flipCard}
-          aria-label={flipped ? t("flash.back") : t("flash.flip")}
-          className="flex min-h-[320px] cursor-pointer flex-col rounded-[20px] border border-border-soft bg-card p-8 text-left shadow-raised transition-shadow hover:shadow-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            {flipped ? t("flash.back") : t("flash.front")}
-          </span>
-          <span className="mt-4 font-display text-2xl leading-snug tracking-tight">
-            {pickL(card.prompt, language)}
-          </span>
-          {flipped ? (
-            <div className="mt-5 border-t border-border-soft pt-5 text-[15px] leading-loose text-muted-foreground">
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {t("flash.back")}
-              </div>
-              {pickL(card.answer, language)}
-              <div>
-                <span className="citation">
-                  <BookOpen className="h-3 w-3" />
-                  {t("flash.source")} · {pickL(card.source, language)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-auto flex items-center gap-1.5 pt-6 text-xs text-muted-foreground">
-              <Eye className="h-3.5 w-3.5 flex-none" />
-              {t("flash.hint")}
-            </div>
-          )}
+      {hubQuery.error ? (
+        <div className="bg-card border border-border-soft rounded-2xl p-6 shadow-raised mt-6" role="alert">
+          <p className="text-sm font-semibold">{t("flashcards.hub.loadFailed")}</p>
+          <button
+            type="button"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => void hubQuery.refetch()}
+          >
+            {t("flashcards.hub.retry")}
+          </button>
         </div>
+      ) : decks.length === 0 ? (
+        <div className="bg-card border border-border-soft rounded-2xl p-8 shadow-raised mt-6 text-center">
+          <p className="text-sm font-semibold">{t("flashcards.hub.emptyTitle")}</p>
+          <p className="text-sm text-muted-foreground mt-1.5">{t("flashcards.hub.emptyBody")}</p>
+          <Link
+            to="/plans"
+            className="inline-flex items-center gap-2 mt-4 rounded-xl bg-gradient-hero text-white shadow-brand px-4 py-2 text-sm font-semibold transition-all hover:shadow-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t("flashcards.hub.emptyCta")}
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* The plan/task filter (the read model is flat — filtering is rendering) */}
+          <label className="flex items-center gap-2 mt-5 text-xs text-muted-foreground">
+            {t("flashcards.hub.filterLabel")}
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">{t("flashcards.hub.filterAll")}</option>
+              {groups.map((group) => (
+                <option key={`${group.kind}:${group.id}`} value={`${group.kind}:${group.id}`}>
+                  {group.kind === "plan"
+                    ? group.decks[0]?.planTitle ?? group.id
+                    : group.kind === "task"
+                      ? taskTitle(group.id)
+                      : group.decks[0]?.materialTitle ?? group.id}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        {/* deck-meta */}
-        <div className="mt-4 flex items-center gap-3">
-          <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-muted-foreground">
-            {t("flash.progress", { i: i + 1, n })}
-          </span>
-          <div className="flex flex-1 gap-1">
-            {FLASHCARDS.map((c, idx) => (
-              <span key={c.id} className={cn("deck-dot", ratings[c.id] ? "done" : idx === i && "on")} />
+          <div className="flex flex-col">
+            {visibleGroups.map((group) => (
+              <DeckGroupSection
+                key={`${group.kind}:${group.id}`}
+                title={
+                  group.kind === "plan"
+                    ? group.decks[0]?.planTitle ?? group.id
+                    : group.kind === "task"
+                      ? taskTitle(group.id)
+                      : group.decks[0]?.materialTitle ?? group.id
+                }
+                kindChipKey={
+                  group.kind === "plan" ? "flashcards.hub.kindPlan" : group.kind === "task" ? "flashcards.hub.kindTask" : null
+                }
+                count={group.decks.length}
+              >
+                {group.decks.map((deck) => (
+                  <DeckRow key={deck.materialId} deck={deck} taskTitle={taskTitle} />
+                ))}
+              </DeckGroupSection>
             ))}
           </div>
-        </div>
-
-        {/* flash-foot */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={flashPrev} disabled={i === 0} className={cn(btnGhost, btnSm)}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {t("flash.prev")}
-          </button>
-          {flipped ? (
-            <div className="flex gap-2">
-              <button type="button" onClick={() => rateCard("hard")} className="diff-btn diff-hard">
-                {t("flash.hard")}
-              </button>
-              <button type="button" onClick={() => rateCard("medium")} className="diff-btn diff-medium">
-                {t("flash.medium")}
-              </button>
-              <button type="button" onClick={() => rateCard("easy")} className="diff-btn diff-easy">
-                {t("flash.easy")}
-              </button>
-            </div>
-          ) : (
-            <button type="button" onClick={flipCard} className={cn(btnPrimary, btnSm)}>
-              {t("flash.flip")}
-            </button>
-          )}
-          <button type="button" onClick={() => setDone(true)} className={cn(btnSecondary, btnSm)}>
-            {t("flash.finish")}
-          </button>
-        </div>
-
-        <p className="kbd-hint">
-          <Info className="h-3 w-3 flex-none" />
-          {flipped ? t("flash.rateFirst") : t("flash.spaceHint")}
-        </p>
-      </div>
+        </>
+      )}
     </div>
   );
 }
