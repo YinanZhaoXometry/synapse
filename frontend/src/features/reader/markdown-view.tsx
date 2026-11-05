@@ -8,10 +8,26 @@
  * washes once in the citation tint under an overlay — the same mechanism the
  * PDF pages use. Prose typography is the reader-body role plus the
  * .reader-prose rules in index.css (semantic tokens only).
+ *
+ * Annotations (FR-16, epic-13 T3): after each commit the annotation engine
+ * paints the render items onto this subtree (the wrapped-span fallback or
+ * the CSS Custom Highlight API — annotation-engine.ts). The engine's marks
+ * are imperative decorations OUTSIDE React's vdom, so ReactMarkdown is
+ * keyed by the document text: a text change REMOUNTS the prose subtree
+ * fresh, and React never diffs against an engine-mutated DOM. Sections are
+ * the engine's address space (the heading-id regions); the intro contract
+ * rides in exactly as selection-capture's capture does.
  */
 import { useEffect, useRef } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeSlug from "rehype-slug";
+import {
+  applyMarkdownAnnotations,
+  clearMarkdownAnnotations,
+  STALE_TITLE_KEY,
+  type AnnotationApplyResult,
+  type AnnotationRenderItem,
+} from "./annotation-engine";
 
 interface MarkdownViewProps {
   /** The FULL document text, decoded from the session bytes (AD-4). */
@@ -20,6 +36,14 @@ interface MarkdownViewProps {
   flashSection: string | null;
   /** The rendered heading ids, in document order, once they exist in the DOM. */
   onHeadingsResolved?(ids: string[]): void;
+  /** The annotations to paint (render items; empty/undefined = none). */
+  annotations?: AnnotationRenderItem[];
+  /** The intro contract's id (the parsed intro section has no rendered heading). */
+  introSectionId?: string | null;
+  /** The resolved drift copy (the flow passes t("reader.annotationStale")). */
+  staleTitle?: string;
+  /** The engine's per-application results (the list panel's stale/missing honesty). */
+  onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
 }
 
 type HeadingTag = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
@@ -43,7 +67,15 @@ function headingComponent(Tag: HeadingTag, flashSection: string | null) {
   };
 }
 
-export default function MarkdownView({ text, flashSection, onHeadingsResolved }: MarkdownViewProps) {
+export default function MarkdownView({
+  text,
+  flashSection,
+  onHeadingsResolved,
+  annotations,
+  introSectionId,
+  staleTitle,
+  onAnnotationsApplied,
+}: MarkdownViewProps) {
   const docRef = useRef<HTMLDivElement>(null);
 
   // Report the rendered anchors straight from the DOM — the most authoritative
@@ -54,6 +86,25 @@ export default function MarkdownView({ text, flashSection, onHeadingsResolved }:
     if (!headings) return;
     onHeadingsResolved?.(Array.from(headings, (el) => el.getAttribute("id") ?? ""));
   }, [text, onHeadingsResolved]);
+
+  // The annotation pass (FR-16): after every commit — the fresh list is the
+  // truth (the engine clears + re-applies; ranges are text-anchored, so
+  // re-walks are stable). Results feed the list panel's honesty badges.
+  useEffect(() => {
+    const doc = docRef.current;
+    if (!doc) return;
+    const results = applyMarkdownAnnotations(doc, annotations ?? [], {
+      introSectionId: introSectionId ?? null,
+      staleTitle: staleTitle ?? STALE_TITLE_KEY,
+    });
+    onAnnotationsApplied?.(results);
+  }, [text, flashSection, annotations, introSectionId, staleTitle, onAnnotationsApplied]);
+
+  // The engine's marks must never outlive the view.
+  useEffect(() => () => {
+    const doc = docRef.current;
+    if (doc) clearMarkdownAnnotations(doc);
+  }, []);
 
   const components: Components = {
     h1: headingComponent("h1", flashSection),
@@ -66,7 +117,10 @@ export default function MarkdownView({ text, flashSection, onHeadingsResolved }:
 
   return (
     <div ref={docRef} className="reader-prose">
-      <ReactMarkdown rehypePlugins={[rehypeSlug]} components={components}>
+      {/* Keyed by the document text: a text change remounts the prose
+          subtree fresh, so React never diffs against the engine-mutated
+          DOM (the marks are imperative decorations, not vdom). */}
+      <ReactMarkdown key={text} rehypePlugins={[rehypeSlug]} components={components}>
         {text}
       </ReactMarkdown>
     </div>

@@ -22,6 +22,12 @@ import {
 } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { READER_FLASH_MS } from "./anchors";
+import {
+  applyPdfPageAnnotations,
+  clearPdfPageAnnotations,
+  type AnnotationApplyResult,
+  type AnnotationRenderItem,
+} from "./annotation-engine";
 import { clampPage, inRenderWindow, renderWindow, stepPage } from "./pager";
 import { mostVisiblePage, type MeasuredPageRect } from "./position-tracking";
 import { openPdfDocument, type OpenedPdfDocument } from "./pdf-render";
@@ -52,10 +58,18 @@ interface PdfPageFlowProps {
   onPageChange(page: number): void;
   /** The document's page count, once open — the pager's 共 M 页. */
   onTotalPages(total: number): void;
+  /**
+   * The annotations to paint (FR-16, epic-13 T3 — render items, memoized by
+   * the caller). Pages apply their own ranges post-text-layer-render;
+   * results report up (deferred = the page is off the lazy render window).
+   */
+  annotations?: AnnotationRenderItem[];
+  /** The engine's application results (the list panel's honesty badges). */
+  onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
 }
 
 export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function PdfPageFlow(
-  { blob, initialPage, flashTarget, onPageChange, onTotalPages },
+  { blob, initialPage, flashTarget, onPageChange, onTotalPages, annotations, onAnnotationsApplied },
   ref,
 ) {
   const { t } = useLanguage();
@@ -239,6 +253,21 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
     [doc, currentPage],
   );
 
+  // The annotations grouped per page (stable per annotations change — the
+  // pages' apply effects key on these, never on transient render arrays).
+  const annotationsByPage = useMemo(() => {
+    if (!annotations) return null;
+    const map = new Map<number, AnnotationRenderItem[]>();
+    for (const item of annotations) {
+      const page = item.range.page;
+      if (page === undefined) continue;
+      const list = map.get(page) ?? [];
+      list.push(item);
+      map.set(page, list);
+    }
+    return map;
+  }, [annotations]);
+
   if (openFailed) {
     return <StateCard title={t("reader.renderFailedTitle")} body={t("reader.renderFailedBody")} />;
   }
@@ -265,6 +294,8 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
                   height={height}
                   shouldRender={inRenderWindow(n, renderWin)}
                   flash={flashPage === n}
+                  annotations={annotationsByPage?.get(n)}
+                  onAnnotationsApplied={onAnnotationsApplied}
                   containerRef={(el) => {
                     if (el) pageRefs.current.set(n, el);
                     else pageRefs.current.delete(n);
@@ -289,16 +320,24 @@ interface PdfPageCanvasProps {
   height: number;
   shouldRender: boolean;
   flash: boolean;
+  /** This page's annotation render items (stable — grouped by the flow). */
+  annotations?: AnnotationRenderItem[];
+  /** The engine's application results (aggregated up to the list panel). */
+  onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
   containerRef(el: HTMLDivElement | null): void;
 }
 
-function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, containerRef }: PdfPageCanvasProps) {
+function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, annotations, onAnnotationsApplied, containerRef }: PdfPageCanvasProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // The invisible selectable text layer (epic-13 T1, FR-13): the selection
   // surface the reader's selection bar captures on PDFs. Same lazy window as
   // the canvas — far pages hold layout only.
   const textLayerRef = useRef<HTMLDivElement>(null);
+  // The layer's readiness gates the annotation pass (FR-16): the ranges are
+  // text-anchored, so they apply the moment the spans exist — and re-apply
+  // whenever the annotations change while the layer is up.
+  const [layerReady, setLayerReady] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -346,6 +385,7 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, co
     if (!layer) return;
     let cancelled = false;
     let task: { cancel(): void } | undefined;
+    setLayerReady(false);
     if (shouldRender) {
       (async () => {
         try {
@@ -356,6 +396,7 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, co
           }
           task = pending;
           await pending.promise;
+          if (!cancelled) setLayerReady(true);
         } catch {
           // Cancelled (RenderingCancelledException) or failed — the page's
           // text is simply not selectable, never wrongly selectable.
@@ -369,6 +410,27 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, co
       task?.cancel();
     };
   }, [doc, pageNumber, width, shouldRender]);
+
+  // The annotation pass (FR-16, epic-13 T3): once the layer is real (and
+  // again whenever the annotations change), the engine paints this page's
+  // ranges onto the spans — the span fallback path, since jsdom and pdfjs
+  // layers both ride it. Teardown clears the page's highlight registrations.
+  useEffect(() => {
+    const layer = textLayerRef.current;
+    if (!layer || !layerReady) return;
+    const results = applyPdfPageAnnotations(layer, annotations ?? [], { staleTitle: t("reader.annotationStale") });
+    onAnnotationsApplied?.(results);
+  }, [layerReady, annotations, onAnnotationsApplied, t]);
+
+  // The page's annotation marks live in the layer — gone with the layer;
+  // the shared highlight registrations leave explicitly.
+  useEffect(
+    () => () => {
+      const layer = textLayerRef.current;
+      if (layer) clearPdfPageAnnotations(layer);
+    },
+    [],
+  );
 
   return (
     <div

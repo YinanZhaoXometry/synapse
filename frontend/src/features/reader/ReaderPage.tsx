@@ -27,12 +27,13 @@
  * for the grounded badge and send gating. Citation-chip jumps are the AD-8
  * anchor channel's in-reader half — the flow handles scroll AND flash.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
   FileText,
+  Highlighter,
   Maximize2,
   Minimize2,
   PanelRightClose,
@@ -44,12 +45,20 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useViewportTier } from "@/hooks/use-mobile";
-import { useMaterialNodeMappingsQuery, useMaterialQuery, usePlanQuery, useReadingProgressQuery } from "@/api";
+import {
+  useAddAnnotationMutation,
+  useAnnotationsQuery,
+  useMaterialNodeMappingsQuery,
+  useMaterialQuery,
+  usePlanQuery,
+  useReadingProgressQuery,
+  useRemoveAnnotationMutation,
+} from "@/api";
 import { sessionBlobs } from "@/lib/session-blobs";
 import { CompanionPanel, type AskPrefill } from "@/features/companion/CompanionPanel";
 import { CompanionOverlay, CompanionSheet } from "./companion-surfaces";
 import { cn } from "@/lib/utils";
-import type { ReadingLocator } from "@/domain/entities";
+import type { Annotation, ReadingLocator } from "@/domain/entities";
 import { PARSE_REASON_MESSAGE_KEY } from "./parse";
 import { parseReaderHash, parseReaderSearchParams, type ReaderAnchor } from "./anchors";
 import { currentSection } from "./position-tracking";
@@ -64,6 +73,16 @@ import { QuickTestFlow } from "./quick-test-flow";
 import { quickTestGate } from "./quick-test-gate";
 import { SelectionBar, SELECTION_BAR_HEIGHT, SELECTION_BAR_WIDTH } from "./selection-bar";
 import { barAnchor, captureSelection, MAX_SELECTION_CHARS, type CapturedSelection } from "./selection-capture";
+import {
+  ANNOTATION_COLORS,
+  buildRangeFromCapture,
+  type AnnotationApplyResult,
+  type AnnotationApplyStatus,
+  type AnnotationColor,
+  type AnnotationKind,
+  type AnnotationRenderItem,
+} from "./annotation-engine";
+import { AnnotationsPanel } from "./annotations-panel";
 
 export default function ReaderPage() {
   const { materialId } = useParams();
@@ -83,6 +102,18 @@ export default function ReaderPage() {
   // same read (Apollo dedupes) and owns the session takeover.
   const mappingsQuery = useMaterialNodeMappingsQuery(materialId ?? "");
   const quickTestGateState = quickTestGate(mappingsQuery.data, mappingsQuery.error);
+
+  // The annotations surface (FR-16, epic-13 T3): the per-material read feeds
+  // both render halves (the flows' engine passes) and the list panel; the
+  // writes ride the read-back sweeps — the fresh list is the render truth
+  // and the persistence round-trip (reload re-applies from the server rows).
+  const annotationsQuery = useAnnotationsQuery(materialId ?? "");
+  const [addAnnotationMutation] = useAddAnnotationMutation();
+  const [removeAnnotationMutation] = useRemoveAnnotationMutation();
+  const [annotationsPanelOpen, setAnnotationsPanelOpen] = useState(false);
+  // Each engine application reports per-annotation statuses (ok / stale /
+  // missing / deferred) — the list panel's honesty badges ride these.
+  const [annotationStatuses, setAnnotationStatuses] = useState<Record<string, AnnotationApplyStatus>>({});
 
   const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const [immersive, setImmersive] = useState(false);
@@ -129,22 +160,26 @@ export default function ReaderPage() {
   const panelOpen = panelChoice ?? tier === "desktop";
 
   // A11y floor: Esc closes the topmost reader layer — the selection bar first
-  // (it owns its own Escape dismissal below), then the floating Companion
-  // (overlay/sheet; they cover the reading), then immersive exit. The docked
-  // panel and rail are not layers (they never cover the reading) and are left
-  // alone.
+  // (it owns its own Escape dismissal below), then the annotations list
+  // panel, then the floating Companion (overlay/sheet; they cover the
+  // reading), then immersive exit. The docked panel and rail are not layers
+  // (they never cover the reading) and are left alone.
   const [selectionBar, setSelectionBar] = useState<{ captured: CapturedSelection; anchor: { x: number; y: number } } | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (selectionBar) return; // the bar's own listener dismisses it this press
+      if (annotationsPanelOpen) {
+        setAnnotationsPanelOpen(false);
+        return;
+      }
       const floating = tier === "tablet" || tier === "mobile";
       if (floating && panelOpen) setPanelChoice(false);
       else if (immersive) setImmersive(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tier, panelOpen, immersive, selectionBar]);
+  }, [tier, panelOpen, immersive, selectionBar, annotationsPanelOpen]);
 
   // Stored progress (FR-10): the restore target when no anchor asks for one.
   // The flows mount only once this query has settled (gate below), so the
@@ -178,11 +213,16 @@ export default function ReaderPage() {
   // section — it has no heading element, per T3) feed the pure selector with
   // each viewport report. Reports before the headings resolve are ignored —
   // boundaries don't exist yet and sections[0] would mislabel as the intro.
+  // The resolved intro id is STATE (not just a ref) — the annotation engine's
+  // intro contract (FR-16) needs it as a reactive prop into the flow.
   const resolvedHeadingIdsRef = useRef<string[]>([]);
   const headingsResolvedRef = useRef(false);
+  const [introSectionId, setIntroSectionId] = useState<string | null>(null);
   const handleHeadingsResolved = useCallback((ids: string[]) => {
     resolvedHeadingIdsRef.current = ids;
     headingsResolvedRef.current = true;
+    const first = materialRef.current?.kind === "markdown" ? materialRef.current.sections[0] : undefined;
+    setIntroSectionId(first && !ids.includes(first.id) ? first.id : null);
   }, []);
   const materialRef = useRef(material);
   useEffect(() => {
@@ -285,6 +325,75 @@ export default function ReaderPage() {
     setPanelChoice(true); // the Companion opens wherever the ladder puts it
   }, []);
 
+  // ── Annotations (FR-16, epic-13 T3) ────────────────────────────────────
+  // The render items the flows paint (memoized — the engine re-applies when
+  // this array changes identity, never per render).
+  const annotationItems = useMemo<AnnotationRenderItem[]>(
+    () =>
+      (annotationsQuery.data ?? []).map((row) => ({
+        id: row.id,
+        range: row.range,
+        kind: row.kind,
+        color: (ANNOTATION_COLORS as readonly string[]).includes(row.color ?? "") ? (row.color as AnnotationColor) : null,
+        body: row.body,
+      })),
+    [annotationsQuery.data],
+  );
+
+  const handleAnnotationsApplied = useCallback((results: AnnotationApplyResult[]) => {
+    if (results.length === 0) return;
+    setAnnotationStatuses((prev) => {
+      const next = { ...prev };
+      for (const result of results) next[result.id] = result.status;
+      return next;
+    });
+  }, []);
+
+  // The chips' handler: re-capture the LIVE selection (the bar kept it
+  // alive through the click — the mousedown suppression), build the AD-2
+  // range through the engine's capture seam, and persist. The read-back
+  // sweep re-applies; the bar closes (the selection's job is done).
+  const handleAnnotate = useCallback(
+    (kind: AnnotationKind, color: AnnotationColor | null) => {
+      const zone = materialZoneRef.current;
+      const selection = window.getSelection();
+      const current = materialRef.current;
+      if (!zone || !selection || selection.rangeCount === 0 || !current) return;
+      const first = current.kind === "markdown" ? current.sections[0] : undefined;
+      const introId =
+        first && headingsResolvedRef.current && !resolvedHeadingIdsRef.current.includes(first.id) ? first.id : null;
+      const captured = captureSelection(selection, { root: zone, introSectionId: introId });
+      setSelectionBar(null);
+      if (!captured) return;
+      const domRange = selection.getRangeAt(0);
+      const range = buildRangeFromCapture(zone, domRange, captured, introId);
+      if (!range) return;
+      const locatorInput =
+        captured.kind === "pdf" ? { kind: "pdf", page: captured.page } : { kind: "markdown", sectionId: captured.sectionId };
+      const rangeInput =
+        captured.kind === "pdf"
+          ? { page: range.page, start: range.start, end: range.end, quote: range.quote }
+          : { sectionId: range.sectionId, start: range.start, end: range.end, quote: range.quote };
+      void addAnnotationMutation({
+        variables: {
+          input: { materialId: current.id, locator: locatorInput, range: rangeInput, kind, color: color ?? undefined, body: "" },
+        },
+        onError: () => toast.error(t("reader.annotationAddFailed")),
+      });
+    },
+    [addAnnotationMutation, t],
+  );
+
+  const handleRemoveAnnotation = useCallback(
+    (id: string) => {
+      void removeAnnotationMutation({
+        variables: { id },
+        onError: () => toast.error(t("reader.annotationRemoveFailed")),
+      });
+    },
+    [removeAnnotationMutation, t],
+  );
+
   // Citation-chip jumps (AD-8, in-reader half): scroll the flow to the cited
   // page/section AND flash it in the citation tint — the same channel external
   // deep links use, without a route change.
@@ -292,6 +401,15 @@ export default function ReaderPage() {
     if (locator.kind === "pdf") flowRef.current?.scrollToPage(locator.page, true);
     else mdFlowRef.current?.scrollToSection(locator.sectionId, true);
   }, []);
+
+  // The list panel's click-to-scroll — the AD-8 anchor channel's in-reader
+  // half, exactly like the citation chips.
+  const handleJumpAnnotation = useCallback(
+    (annotation: Annotation) => {
+      jumpToLocator(annotation.locator);
+    },
+    [jumpToLocator],
+  );
 
   // Post-reload byte restore (epic P2-6): session bytes are gone after a
   // reload, but the row carries a presigned downloadUrl — fetch the server
@@ -431,6 +549,12 @@ export default function ReaderPage() {
               </>
             )}
             <IconToggle
+              label={t("reader.annotationsPanelOpenAria")}
+              onClick={() => setAnnotationsPanelOpen((open) => !open)}
+            >
+              <Highlighter className="w-4 h-4" />
+            </IconToggle>
+            <IconToggle
               label={panelOpen ? t("reader.panelCollapseAria") : t("reader.panelExpandAria")}
               onClick={() => setPanelChoice(!panelOpen)}
             >
@@ -486,6 +610,10 @@ export default function ReaderPage() {
                   flashTarget={anchor.highlight}
                   onHeadingsResolved={handleHeadingsResolved}
                   onViewportScroll={handleMarkdownViewport}
+                  annotations={annotationItems}
+                  introSectionId={introSectionId}
+                  staleTitle={t("reader.annotationStale")}
+                  onAnnotationsApplied={handleAnnotationsApplied}
                 />
               )
             ) : (
@@ -502,6 +630,8 @@ export default function ReaderPage() {
                 flashTarget={anchor.highlight}
                 onPageChange={handlePageChange}
                 onTotalPages={handleTotalPages}
+                annotations={annotationItems}
+                onAnnotationsApplied={handleAnnotationsApplied}
               />
             )
           ) : (
@@ -582,7 +712,10 @@ export default function ReaderPage() {
         {/* The selection shortcuts bar (FR-13): floats beside the live
             selection, viewport-clamped; gone on scroll/collapse/Escape. The
             快测 action carries the Quick Test gate (T2, AD-6): only a landed
-            mapping read with ≥1 confirmed row enables the dispatch. */}
+            mapping read with ≥1 confirmed row enables the dispatch. T3's
+            third group — the annotation chips (FR-16) — rides onAnnotate:
+            the handler re-captures the live selection, builds the AD-2
+            range, and persists. */}
         {selectionBar && (
           <SelectionBar
             selection={selectionBar.captured}
@@ -591,6 +724,24 @@ export default function ReaderPage() {
             onAsk={handleBarAsk}
             onDismiss={handleBarDismiss}
             quickTestGate={quickTestGateState}
+            onAnnotate={handleAnnotate}
+          />
+        )}
+
+        {/* The annotations list panel (FR-16, T3): the management + keyboard
+            surface — per-row jump (the anchor channel) + delete, stale/
+            missing honesty textually. Rendered only over a parsed material
+            (the zone's state cards never sit under it). */}
+        {annotationsPanelOpen && parseState === "parsed" && (
+          <AnnotationsPanel
+            materialId={material.id}
+            rows={(annotationsQuery.data ?? []).map((annotation) => ({
+              annotation,
+              status: annotationStatuses[annotation.id] ?? "ok",
+            }))}
+            onJump={handleJumpAnnotation}
+            onRemove={handleRemoveAnnotation}
+            onClose={() => setAnnotationsPanelOpen(false)}
           />
         )}
 

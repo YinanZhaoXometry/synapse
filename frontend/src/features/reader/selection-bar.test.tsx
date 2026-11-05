@@ -17,6 +17,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { registerQuickTestHandler } from "./quick-test-seam";
 import { SelectionBar } from "./selection-bar";
+import type { AnnotationColor, AnnotationKind } from "./annotation-engine";
 import type { CapturedSelection } from "./selection-capture";
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
@@ -34,10 +35,11 @@ function renderBar(overrides: {
   materialId?: string;
   selection?: CapturedSelection;
   quickTestGate?: "loading" | "error" | "none" | "ready";
+  onAnnotate?: (kind: AnnotationKind, color: AnnotationColor | null) => void;
 } = {}) {
   const onAsk = overrides.onAsk ?? vi.fn();
   const onDismiss = overrides.onDismiss ?? vi.fn();
-  const { quickTestGate: gate } = overrides;
+  const { quickTestGate: gate, onAnnotate } = overrides;
   render(
     <LanguageProvider>
       <SelectionBar
@@ -47,6 +49,7 @@ function renderBar(overrides: {
         onAsk={onAsk}
         onDismiss={onDismiss}
         quickTestGate={gate}
+        onAnnotate={onAnnotate}
       />
     </LanguageProvider>,
   );
@@ -191,5 +194,68 @@ describe("SelectionBar — the Quick Test gate (epic-13 T2, AD-6)", () => {
       expect(zhDict[key], `zh copy for ${key}`).toBeTruthy();
       expect(enDict[key], `en copy for ${key}`).toBeTruthy();
     }
+  });
+});
+
+describe("SelectionBar — the annotation chips (epic-13 T3, FR-16)", () => {
+  // The bar IS the annotation entry (the delta decision): a third action
+  // group — four highlight color chips + underline — native buttons (the
+  // a11y floor), labels read from the dictionary (zh/en parity), each click
+  // handing (kind, color) to the mounter which re-captures the LIVE
+  // selection and persists.
+
+  it("renders the four color chips + underline as real buttons with bilingual labels", () => {
+    renderBar({ onAnnotate: vi.fn() });
+
+    const colorKeys = [
+      "reader.annotationColorCoralAria",
+      "reader.annotationColorAmberAria",
+      "reader.annotationColorEmeraldAria",
+      "reader.annotationColorBlueAria",
+    ];
+    for (const key of colorKeys) {
+      const chip = screen.getByRole("button", { name: zhDict[key] });
+      expect(chip.tagName).toBe("BUTTON");
+    }
+    const underline = screen.getByRole("button", { name: zhDict["reader.annotationUnderlineAria"] });
+    expect(underline.tagName).toBe("BUTTON");
+
+    // i18n parity (AD-9)
+    for (const key of [...colorKeys, "reader.annotationUnderline", "reader.annotationUnderlineAria"]) {
+      expect(zhDict[key], `zh copy for ${key}`).toBeTruthy();
+      expect(enDict[key], `en copy for ${key}`).toBeTruthy();
+    }
+  });
+
+  it("delivers (highlight, color) to onAnnotate per chip", () => {
+    const onAnnotate = vi.fn();
+    renderBar({ onAnnotate });
+
+    fireEvent.click(screen.getByRole("button", { name: zhDict["reader.annotationColorAmberAria"] }));
+
+    expect(onAnnotate).toHaveBeenCalledWith("highlight", "amber");
+  });
+
+  it("delivers the underline kind with no color", () => {
+    const onAnnotate = vi.fn();
+    renderBar({ onAnnotate });
+
+    fireEvent.click(screen.getByRole("button", { name: zhDict["reader.annotationUnderlineAria"] }));
+
+    expect(onAnnotate).toHaveBeenCalledWith("underline", null);
+  });
+
+  it("hides the chips when no onAnnotate rides (the pre-T3 bar unchanged)", () => {
+    renderBar();
+
+    expect(screen.queryByRole("button", { name: zhDict["reader.annotationColorAmberAria"] })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: zhDict["reader.annotationUnderlineAria"] })).not.toBeInTheDocument();
+  });
+
+  it("keeps the selection alive when a chip is pressed (the bar's mousedown suppressor covers the chips)", () => {
+    renderBar({ onAnnotate: vi.fn() });
+
+    const prevented = fireEvent.mouseDown(screen.getByRole("button", { name: zhDict["reader.annotationColorCoralAria"] }));
+    expect(prevented).toBe(false);
   });
 });

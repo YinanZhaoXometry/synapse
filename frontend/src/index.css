@@ -86,6 +86,21 @@
     --caption-soft: 30 7% 55%;   /* prototype --muted-soft #948c84 (nav icons) */
     --uncovered-fill: 220 40% 95%;
 
+    /* Annotation palette (FR-16, epic-13 T3): the four named keys — the
+       chips' vocabulary AND the render tints (the engine's anno-color-*
+       classes + the ::highlight() rules below). Static rgba (the
+       --glass-* posture — palette-independent); dark mode redefines. */
+    --anno-coral: rgba(255, 95, 95, 0.18);
+    --anno-amber: rgba(234, 155, 39, 0.2);
+    --anno-emerald: rgba(31, 137, 100, 0.18);
+    --anno-blue: rgba(53, 80, 124, 0.18);
+    --anno-coral-edge: rgba(224, 90, 90, 0.6);
+    --anno-amber-edge: rgba(200, 125, 20, 0.65);
+    --anno-emerald-edge: rgba(31, 137, 100, 0.6);
+    --anno-blue-edge: rgba(53, 80, 124, 0.6);
+    --anno-default: rgba(26, 26, 31, 0.12);
+    --anno-default-edge: rgba(26, 26, 31, 0.4);
+
     --mastered: 160 50% 45%;
     --mastered-tint: 152 39% 93%;
     --partial: 20 80% 55%;
@@ -164,6 +179,19 @@
     --switch-off: rgba(255, 255, 255, 0.18);
     --ink-soft: rgba(255, 255, 255, 0.1);
     --scrim: rgba(0, 0, 0, 0.55);
+
+    /* Annotation palette (FR-16, epic-13 T3), dark-mode values — tints lift
+       toward lighter inks so they hold on dark cards. */
+    --anno-coral: rgba(255, 122, 122, 0.26);
+    --anno-amber: rgba(240, 170, 60, 0.26);
+    --anno-emerald: rgba(70, 200, 150, 0.24);
+    --anno-blue: rgba(120, 150, 200, 0.26);
+    --anno-coral-edge: rgba(255, 122, 122, 0.7);
+    --anno-amber-edge: rgba(240, 170, 60, 0.7);
+    --anno-emerald-edge: rgba(70, 200, 150, 0.7);
+    --anno-blue-edge: rgba(120, 150, 200, 0.7);
+    --anno-default: rgba(255, 255, 255, 0.14);
+    --anno-default-edge: rgba(255, 255, 255, 0.45);
 
     --elev-low: 0 2px 8px rgba(0, 0, 0, 0.35);
     --elev-raised: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -511,6 +539,105 @@
 }
 .pdf-text-layer .markedContent { display: contents; }
 .pdf-text-layer ::selection { background: hsl(var(--citation-tint)); }
+
+/* ── Annotations (FR-16, epic-13 T3) — the engine's two render paths ──
+   AD-9 never-color-only: EVERY annotated range also carries a per-kind line
+   (highlight = tint + bottom border; underline = colored underline), and the
+   annotations list renders each row textually. Stale ranges (the quote no
+   longer matches the anchor text) go muted with the drift marker — honest,
+   never misplaced. Lives OUTSIDE @layer (element/pseudo-element selectors
+   get purged from layers — the .pdf-text-layer rule). */
+
+/* The wrapped-<mark> fallback path (no CSS Custom Highlight API). */
+.anno-mark { border-radius: 2px; }
+.anno-mark.anno-hl {
+  background-color: var(--anno-color, var(--anno-default));
+  border-bottom: 2px solid var(--anno-edge, var(--anno-default-edge));
+}
+.anno-mark.anno-ul {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-edge, var(--anno-default-edge));
+}
+.anno-mark.anno-color-coral { --anno-color: var(--anno-coral); --anno-edge: var(--anno-coral-edge); }
+.anno-mark.anno-color-amber { --anno-color: var(--anno-amber); --anno-edge: var(--anno-amber-edge); }
+.anno-mark.anno-color-emerald { --anno-color: var(--anno-emerald); --anno-edge: var(--anno-emerald-edge); }
+.anno-mark.anno-color-blue { --anno-color: var(--anno-blue); --anno-edge: var(--anno-blue-edge); }
+.anno-mark.anno-color-default { --anno-color: var(--anno-default); --anno-edge: var(--anno-default-edge); }
+.anno-mark.anno-stale {
+  background-color: var(--ink-soft);
+  border-bottom: 1px dashed var(--border);
+  text-decoration: none;
+}
+
+/* The CSS Custom Highlight API path — one ::highlight() rule per
+   color+kind group the engine registers (synapse-anno-{kind}-{color}). */
+::highlight(synapse-anno-highlight-coral) {
+  background-color: var(--anno-coral);
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-coral-edge);
+}
+::highlight(synapse-anno-highlight-amber) {
+  background-color: var(--anno-amber);
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-amber-edge);
+}
+::highlight(synapse-anno-highlight-emerald) {
+  background-color: var(--anno-emerald);
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-emerald-edge);
+}
+::highlight(synapse-anno-highlight-blue) {
+  background-color: var(--anno-blue);
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-blue-edge);
+}
+::highlight(synapse-anno-highlight-default) {
+  background-color: var(--anno-default);
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-default-edge);
+}
+::highlight(synapse-anno-underline-coral) {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-coral-edge);
+}
+::highlight(synapse-anno-underline-amber) {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-amber-edge);
+}
+::highlight(synapse-anno-underline-emerald) {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-emerald-edge);
+}
+::highlight(synapse-anno-underline-blue) {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-blue-edge);
+}
+::highlight(synapse-anno-underline-default) {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--anno-default-edge);
+}
 
 /* Markdown prose (FR-9 reader): pairs with .reader-body — headings, lists,
    code, quotes and links restyled from semantic tokens only, so every palette

@@ -61,6 +61,12 @@ module Types
     field :claim_section, mutation: Mutations::Markings::ClaimSection
     field :unclaim_section, mutation: Mutations::Markings::UnclaimSection
 
+    # The FR-16 annotation ops (epic-13 T3, delta decision 3): the
+    # highlight/underline writes — add pins the char-offset range (the
+    # delta-3 shape law lives in the command), remove takes the row down.
+    field :add_annotation, mutation: Mutations::Annotations::AddAnnotation
+    field :remove_annotation, mutation: Mutations::Annotations::RemoveAnnotation
+
     field :create_material_upload, mutation: Mutations::Storage::CreateMaterialUpload
 
     # The first-login import (epic P2-8 ticket 03; AD-15): the whole

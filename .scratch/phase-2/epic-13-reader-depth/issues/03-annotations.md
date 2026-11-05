@@ -4,10 +4,33 @@
 
 **Blocked by:** None (parallel with T1).
 
-**Status:** ready-for-agent (delta-grill: PDF range engine choice)
+**Status:** done
 
 **Bound by:** FR-16, AD-13 (user-scoped), AD-2 (domain shape, one definition), AD-9 (never-color-only — underline/color paired with affordance labels).
 
-- [ ] Annotate/remove on md + pdf fixtures; ranges stable across re-render
-- [ ] Persistence round-trip (reload + second device shape)
-- [ ] Engine decision recorded in `## Comments` (fidelity + bundle criteria)
+- [x] Annotate/remove on md + pdf fixtures; ranges stable across re-render
+- [x] Persistence round-trip (reload + second device shape)
+- [x] Engine decision recorded in `## Comments` (fidelity + bundle criteria)
+
+## Comments
+
+### 2026-11-05 — T3 implementation (epic/p2-13-t03-annotations)
+
+**Delivered:** multi-color highlight + underline on both reader surfaces, persistent + removable (FR-16). The bar gains a THIRD action group (the delta decision — the bar IS the annotation entry): four named color chips (coral | amber | emerald | blue) + one underline chip, all native `<button>`s riding the bar's mousedown suppressor (the live selection survives the click); the mounter (ReaderPage) re-captures, builds the domain range, and persists through `addAnnotation` — the bar knows nothing about offsets. Management/removal/jump live in the **annotations list panel** (`annotations-panel.tsx` — the keyboard path, AD-9): a collapsible card inside the material zone (top-bar 标注 toggle, Esc closes), per-row click-to-scroll (the AD-8 anchor channel, `jumpToLocator`), per-row delete, kind+color rendered TEXTUALLY beside every row (never color-only), empty state naming the entry. The v2 body/note editor is DEFERRED per ticket scoping (KEEP SIMPLE): the chips send the empty body; `body` is stored/capped (2,000 chars → VALIDATION_FAILED) so the v2 editor lands without schema movement.
+
+**ENGINE DECISION (recorded per the ticket AC — fidelity + bundle criteria):** the delta-grill's **zero-dep char-offset ranges** shipped with **CSS Custom Highlight API where available, wrapped-`<mark>` fallback feature-detected** — BOTH paths implemented (`annotation-engine.ts`). Criteria: *fidelity* — both paths paint exactly `text.slice(start, end)` of the anchor's stable text (the shared test suite pins mark positions AND the stubbed-registry range counts), and offsets are TEXT-anchored (a fresh DOM walk per application — markdown: the section's region after its heading; pdf: the T1 text layer's spans — so re-render/re-mount reproduces them; the quote verifies on EVERY application); *bundle* — zero new dependencies (an annotation library would buy nothing the text layer doesn't already give). The Highlight path needs a reader-SCOPED registry (CSS.highlights is one global name→Highlight map, and a reader spans the article + every rendered page layer): per-root stores rebuild the shared registry (a page re-applying never drops another page's ranges). Stale honesty (delta 2's law): a quote that no longer matches renders muted + 「原文已变化」 (span path title; list badge on both paths) — never silently misplaced; a pdf page off the lazy render window reports "deferred" (not an error; re-applied when its layer renders).
+
+**Domain shape (AD-2, one definition):** `frontend/src/domain/annotation-range.ts` — the `AnnotationRange` type ({sectionId?|page?, start, end, quote}), `rangeFromSelection` (builder from a DOM Range over the engine's walked text nodes; the quote IS the slice — drift-consistent by construction; cross-region selections clamp to the anchor side, T1's rule), `isValidAnnotationRange` (the server command law mirrored), `isStaleRange` (the drift check). Pure — no lib.dom (the mastery-vector generator's node project compiles src/domain too, so DOM enters as structural handles, the mastery.ts posture). The `Annotation` entity lands in `entities.ts` (locator + range + kind + color + body).
+
+**Backend (delta 3):** migration pair extends `annotations` with `kind` (NOT NULL default "highlight", CHECK highlight|underline — added NOT VALID, validated in the follow-up, the strong_migrations two-step), `color` (string nullable), `range` (jsonb nullable) — columns only, no new FKs, single-step OK per the ticket note. Model carries the closed kind enum (the annotations_kind_check is the DB floor); the SHAPE law is command-side: `Annotations::AddAnnotationCommand` (locator via the shared ReadingLocators matrix; range = int offsets ≥ 0, end ≥ start, non-blank quote, sectionId XOR page AGREEING with the locator kind — a divergent duplicate address is refused, never stored; kind/color closed vocabularies — `Annotations::NAMED_COLORS` mirrors the frontend chips; body cap 2,000) + `Annotations::RemoveAnnotationCommand` (uniform NOT_FOUND through `current_user.annotations`). Wire: `annotations(materialId:)` (user-scoped, newest-first, plain list) + `addAnnotation`/`removeAnnotation`, verb-first, `AnnotationRangeInput`/`AnnotationRangeType`/`AnnotationType` (locator reuses `ReadingLocatorType`). NOT idempotent by design: the delta-3 op shape has NO client uuid (single-click writes removed by id), so the delta-3 triad stays at FIVE commands and the backend/AGENTS.md "sixth command" extraction is NOT triggered (recorded in the Annotations module comment).
+
+**Schema movement:** `backend/schema.graphql` re-dumped (+231 lines: Annotation/AnnotationRange types + input, 3 ops; dump idempotency spec green in the suite); frontend `pnpm run codegen` regenerated the committed TypedDocumentNodes (annotations.graphql: AnnotationParts fragment + Annotations/AddAnnotation/RemoveAnnotation).
+
+**Deviations/notes:**
+- Two PRE-EXISTING auth specs were time-bombed and expired mid-ticket (hard-coded mint times `2026-11-04T12:00Z` whose 24h TTL lapsed at 12:00Z today — unrelated to annotations): `current_user_resolver_spec` + `token_codec_spec` defused with clock-relative mint times; no production code touched.
+- `auth_surface_spec`'s mutation roster grew by the two new ops (the roster keeper pattern).
+- `SELECTION_BAR_WIDTH` 190 → 344 (the chip group rides the same bar row; the clamp math positions with the constant).
+- MarkdownView keys ReactMarkdown by the document text: a text change remounts the prose subtree fresh, so React never diffs against the engine's imperative marks (the decoration pattern's known hazard, closed by construction).
+- The engine's `mark` titles render the drift copy through the flow-passed `t("reader.annotationStale")` — the engine itself stays language-neutral (AD-9).
+
+**Gates:** backend rubocop clean (432 files) + rspec **1188**/0 (baseline 1140 + 48: 14 model + 25 command + 9 wire) in fresh-db compose form (`-p synapse-t13t03` isolated project, `!override` port file, teardown). Frontend: codegen ✓ · `tsc -b` ✓ · eslint 0 errors (15 warnings, all pre-existing untouched files) · vitest **769**/0 (baseline 720 + 49: 17 domain + 20 engine + 5 bar chips + 6 panel + 1 round-trip) · `vite build` ✓.
