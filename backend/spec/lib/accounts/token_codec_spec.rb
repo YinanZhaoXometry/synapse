@@ -31,7 +31,12 @@ RSpec.describe Accounts::TokenCodec do
 
     it "mints a stateless token whose exp claim is sub's mint time + the ~24h TTL" do
       uuid = "2f0c6a1e-8b3d-4e5f-9a0b-1c2d3e4f5a6b"
-      mint_time = Time.utc(2026, 11, 4, 12, 0, 0)
+      # Clock-relative, NOT a hard-coded instant: a fixed mint time is a
+      # time-bomb — the raw JWT.decode below verifies exp against the REAL
+      # clock, so the fixed 2026-11-04T12:00Z started expiring exactly 24h
+      # later (defused 2026-11-05, epic-13 T3; the exp arithmetic asserted
+      # below is unchanged).
+      mint_time = 23.hours.ago
 
       token = described_class.encode(sub: uuid, now: mint_time)
 

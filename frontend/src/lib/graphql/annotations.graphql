@@ -1,0 +1,44 @@
+# Annotations (FR-16, epic-13 T3): the reader's per-material annotation
+# read + the add/remove writes. The range rides the AD-2 shape verbatim
+# (sectionId xor page + char offsets + the drift-verification quote).
+
+fragment AnnotationParts on Annotation {
+  id
+  materialId
+  createdAt
+  kind
+  color
+  body
+  locator {
+    kind
+    page
+    sectionId
+  }
+  range {
+    sectionId
+    page
+    start
+    end
+    quote
+  }
+}
+
+query Annotations($materialId: String!) {
+  annotations(materialId: $materialId) {
+    ...AnnotationParts
+  }
+}
+
+mutation AddAnnotation($input: AddAnnotationInput!) {
+  addAnnotation(input: $input) {
+    annotation {
+      ...AnnotationParts
+    }
+  }
+}
+
+mutation RemoveAnnotation($id: String!) {
+  removeAnnotation(input: { id: $id }) {
+    deletedAnnotationId
+  }
+}

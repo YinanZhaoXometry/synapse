@@ -356,6 +356,21 @@ module Types
       current_user!.reading_progresses.order(:created_at)
     end
 
+    # The FR-16 annotation read (epic-13 T3): one material's annotations,
+    # the caller's own rows only, newest-first (the list renders the latest
+    # first). A bare sanctioned read — the scoping IS the logic (the
+    # material through the owner's association path, delta 2), no command
+    # wraps a plain SELECT.
+    field :annotations, [ Types::AnnotationType ], null: false,
+      description: "One material's annotations (FR-16, epic-13 T3) — the caller's own rows, newest-first, as a plain list (AD-12). A foreign, unknown, or malformed material id is uniformly NOT_FOUND (delta 2 — never reveals existence)." do
+      argument :material_id, String, required: true, description: "The annotated material's uuid."
+    end
+
+    def annotations(material_id:)
+      material = scoped_material(material_id)
+      current_user!.annotations.where(material_id: material.id).order(created_at: :desc, id: :desc)
+    end
+
     private
 
     # The scope ids are ownership-checked addresses (delta 2): unknown,

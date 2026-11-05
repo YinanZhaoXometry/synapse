@@ -21,6 +21,16 @@
  * line 「关联节点后可快测」 in its place (FR-27's trace-to-gap spirit). Only
  * the landed-and-confirmed state enables the dispatch.
  *
+ * T3 (epic-13, FR-16) adds the bar's THIRD action group — the annotation
+ * entry (the delta decision: the bar IS the annotate surface): four named
+ * highlight color chips + one underline chip, all native buttons (the
+ * keyboard path — the list panel is the management surface). A chip click
+ * hands (kind, color) to onAnnotate; the MOUNTER re-captures the LIVE
+ * selection (the bar's mousedown suppression below keeps it alive through
+ * the click), builds the domain range, and persists — the bar knows
+ * nothing about offsets. When onAnnotate is absent the group hides (the
+ * pre-T3 bar shape, unchanged for T1/T2 consumers and their tests).
+ *
  * The container suppresses mousedown's default: pressing a button would
  * otherwise collapse the selection before the click lands — the bar never
  * destroys the thing it acts on, and the selection stays free to be re-made
@@ -31,15 +41,31 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { MessageCircleQuestion, ListChecks } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ANNOTATION_COLORS, type AnnotationColor, type AnnotationKind } from "./annotation-engine";
 import type { QuickTestGateState } from "./quick-test-gate";
 import { dispatchQuickTest } from "./quick-test-seam";
 import type { CapturedSelection } from "./selection-capture";
 
 /** The bar's approximate footprint (px) — the mounter's clamp math
  * (selection-capture.ts's barAnchor) positions with these; the CSS keeps the
- * real box within them (two compact buttons on one row). */
-export const SELECTION_BAR_WIDTH = 190;
+ * real box within them (two compact buttons + the chip group on one row). */
+export const SELECTION_BAR_WIDTH = 344;
 export const SELECTION_BAR_HEIGHT = 36;
+
+/** The chips' aria-label keys + tint vars (the named palette keys — the
+ * command's closed vocabulary, the engine's render tokens). */
+const COLOR_CHIP_ARIA: Record<AnnotationColor, string> = {
+  coral: "reader.annotationColorCoralAria",
+  amber: "reader.annotationColorAmberAria",
+  emerald: "reader.annotationColorEmeraldAria",
+  blue: "reader.annotationColorBlueAria",
+};
+const COLOR_CHIP_TINT: Record<AnnotationColor, string> = {
+  coral: "var(--anno-coral)",
+  amber: "var(--anno-amber)",
+  emerald: "var(--anno-emerald)",
+  blue: "var(--anno-blue)",
+};
 
 export interface SelectionBarProps {
   /** The captured selection (AD-2 shape + text) the actions act on. */
@@ -61,9 +87,15 @@ export interface SelectionBarProps {
    * the action and the seam's dispatch honesty owned the rest.
    */
   quickTestGate?: QuickTestGateState;
+  /**
+   * The annotation entry (T3, epic-13): present → the chip group renders;
+   * a click hands (kind, color) — the mounter owns the capture + the
+   * persistence. Absent → the group hides (the pre-T3 bar shape).
+   */
+  onAnnotate?(kind: AnnotationKind, color: AnnotationColor | null): void;
 }
 
-export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss, quickTestGate = "ready" }: SelectionBarProps) {
+export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss, quickTestGate = "ready", onAnnotate }: SelectionBarProps) {
   const { t } = useLanguage();
 
   // The bar's keyboard way out (the mounter keeps scroll/collapse dismissal).
@@ -123,9 +155,38 @@ export function SelectionBar({ selection, materialId, anchor, onAsk, onDismiss, 
           title={quickTestGate === "error" ? t("reader.quickTestUnavailable") : undefined}
           className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-[var(--glass-2)] disabled:opacity-50 disabled:pointer-events-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <ListChecks className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
-          {t("reader.selectionQuickTest")}
+        <ListChecks className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
+        {t("reader.selectionQuickTest")}
         </button>
+      )}
+      {onAnnotate && (
+        <>
+          <span className="w-px h-5 bg-border flex-none" aria-hidden="true" />
+          <div role="group" aria-label={t("reader.annotationsPanelTitle")} className="flex items-center gap-1">
+            {ANNOTATION_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                aria-label={t(COLOR_CHIP_ARIA[color])}
+                title={t(COLOR_CHIP_ARIA[color])}
+                onClick={() => onAnnotate("highlight", color)}
+                className="w-6 h-6 rounded-full border border-border-soft flex-none cursor-pointer hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                style={{ background: COLOR_CHIP_TINT[color] }}
+              />
+            ))}
+            <button
+              type="button"
+              aria-label={t("reader.annotationUnderlineAria")}
+              title={t("reader.annotationUnderlineAria")}
+              onClick={() => onAnnotate("underline", null)}
+              className="w-6 h-6 rounded-md flex-none flex items-center justify-center cursor-pointer hover:bg-[var(--glass-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="text-xs font-semibold underline decoration-2 underline-offset-2 text-foreground" aria-hidden="true">
+                U
+              </span>
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

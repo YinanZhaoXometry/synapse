@@ -5,6 +5,7 @@
  * new server value lands as its honest union member or throws loud.
  */
 import type {
+  Annotation,
   ChatMessage,
   ChatThread,
   EvidenceRecord,
@@ -19,7 +20,9 @@ import type {
   ReadingPosition,
   ReadingProgress,
 } from "@/domain/entities";
+import { isValidAnnotationRange, type AnnotationRange } from "@/domain/annotation-range";
 import type {
+  AnnotationPartsFragment,
   ChatMessagePartsFragment,
   KnowledgeNodePartsFragment,
   MaterialNodeMappingPartsFragment,
@@ -302,5 +305,38 @@ export function mapNote(note: NotePartsFragment): NoteView {
     enrichment: note.enrichment,
     targeting: note.targeting,
     createdAt: note.createdAt,
+  };
+}
+
+// ── Annotations (FR-16, epic-13 T3) ──────────────────────────────────────
+
+function annotationKind(kind: string): Annotation["kind"] {
+  if (kind === "highlight" || kind === "underline") return kind;
+  throw new Error(`unknown annotation kind from the api: ${kind}`);
+}
+
+/** The wire range (nullable address halves) → the strict AD-2 domain range
+ * (sectionId XOR page). An invalid row throws loud — the honest-mapper law
+ * (never a silently misplaced annotation). */
+function annotationRange(range: AnnotationPartsFragment["range"]): AnnotationRange {
+  const out: AnnotationRange = { start: range.start, end: range.end, quote: range.quote };
+  if (range.sectionId != null) out.sectionId = range.sectionId;
+  if (range.page != null) out.page = range.page;
+  if (!isValidAnnotationRange(out)) {
+    throw new Error(`invalid annotation range from the api: ${JSON.stringify(range)}`);
+  }
+  return out;
+}
+
+export function mapAnnotation(row: AnnotationPartsFragment): Annotation {
+  return {
+    id: row.id,
+    materialId: row.materialId,
+    locator: readingLocator(row.locator),
+    range: annotationRange(row.range),
+    kind: annotationKind(row.kind),
+    color: row.color,
+    body: row.body,
+    createdAt: row.createdAt,
   };
 }

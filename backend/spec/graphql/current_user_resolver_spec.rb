@@ -21,7 +21,10 @@ RSpec.describe CurrentUserResolver do
 
   let(:user) { create(:user, email: "resolver@example.com", password: "known-password-123") }
   let(:token) { Accounts::TokenCodec.encode(sub: user.id, now: mint_time) }
-  let(:mint_time) { Time.utc(2026, 11, 4, 12, 0, 0) }
+  # Clock-relative, NOT a hard-coded instant: a fixed mint time is a
+  # time-bomb — these specs started failing when 2026-11-04T12:00Z + the
+  # 24h TTL lapsed (defused 2026-11-05, epic-13 T3; no behavior change).
+  let(:mint_time) { Time.current - 1.hour }
   let(:resolver) { described_class.new(authorization) }
 
   describe "#user — the memoized resolution" do

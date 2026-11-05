@@ -5,6 +5,8 @@
  * Names follow the architecture spine's ER diagram + GLOSSARY.md vocabulary.
  */
 
+import type { AnnotationRange } from "./annotation-range";
+
 export type Outcome = "correct" | "partial" | "wrong";
 
 export type NodeState = "uncovered" | "partial" | "mastered";
@@ -195,4 +197,24 @@ export interface SectionMarking {
   sectionId: string;
   claimedAt: string;
   clearedAt: string | null;
+}
+
+/**
+ * One user annotation (FR-16, epic-13 T3): a multi-color highlight or an
+ * underline, user-scoped, pinned by char offsets — the AD-2 range
+ * (domain/annotation-range.ts) anchors it to the markdown section's stable
+ * text or the pdf page's text-layer string, with the quote for drift
+ * verification. `color` is a named palette key (the engine's chips
+ * vocabulary; null rides the reader default); `body` is the free-text note
+ * (empty for pure highlights — the note editor stays a v2).
+ */
+export interface Annotation {
+  id: string;
+  materialId: string;
+  locator: ReadingLocator;
+  range: AnnotationRange;
+  kind: "highlight" | "underline";
+  color: string | null;
+  body: string;
+  createdAt: string;
 }

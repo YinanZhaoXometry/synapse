@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { READER_FLASH_MS } from "./anchors";
+import type { AnnotationApplyResult, AnnotationRenderItem } from "./annotation-engine";
 
 const MarkdownView = lazy(() => import("./markdown-view"));
 
@@ -65,10 +66,21 @@ interface MarkdownFlowProps {
    * caller combines this with measureBoundaries() through the pure selector.
    */
   onViewportScroll?(scrollTop: number): void;
+  /**
+   * The annotations to paint (FR-16, epic-13 T3 — render items, memoized by
+   * the caller). MarkdownView applies them post-commit; results report up.
+   */
+  annotations?: AnnotationRenderItem[];
+  /** The intro contract's id (the parsed intro section — no rendered heading). */
+  introSectionId?: string | null;
+  /** The resolved drift copy (ReaderPage passes t("reader.annotationStale")). */
+  staleTitle?: string;
+  /** The engine's application results (the list panel's honesty badges). */
+  onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
 }
 
 export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(function MarkdownFlow(
-  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll },
+  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll, annotations, introSectionId, staleTitle, onAnnotationsApplied },
   ref,
 ) {
   const [text, setText] = useState<string | null>(null);
@@ -217,7 +229,15 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
             <MarkdownSkeleton />
           ) : (
             <Suspense fallback={<MarkdownSkeleton />}>
-              <MarkdownView text={text} flashSection={flashSection} onHeadingsResolved={handleResolved} />
+              <MarkdownView
+                text={text}
+                flashSection={flashSection}
+                onHeadingsResolved={handleResolved}
+                annotations={annotations}
+                introSectionId={introSectionId}
+                staleTitle={staleTitle}
+                onAnnotationsApplied={onAnnotationsApplied}
+              />
             </Suspense>
           )}
         </article>
