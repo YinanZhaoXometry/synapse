@@ -3642,6 +3642,22 @@ type Query {
   readingProgressList: [ReadingProgress!]!
 
   """
+  One material's Mastery Marking claim rows (FR-15, epic-15 T1 — the read side
+  of claimSection/unclaimSection): ALL of the caller's rows for the material,
+  open and cleared, newest first. Rows are history — an open claim has a null
+  clearedAt, clearing sets clearedAt and never deletes — so the client derives
+  the open claims. A claim is NEVER evidence: it can never move a Mastery Score
+  (ADR-0001). A plain list (AD-12). A foreign, unknown, or malformed material id
+  is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence).
+  """
+  sectionMarkings(
+    """
+    The marked material's uuid.
+    """
+    materialId: String!
+  ): [SectionMarking!]!
+
+  """
   One public plan's structure-only preview by id (FR-39). A private, foreign,
   unknown, or malformed id is uniformly NOT_FOUND — the public path never
   reveals existence.
