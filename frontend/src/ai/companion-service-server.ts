@@ -329,6 +329,9 @@ export class ServerCompanionService implements CompanionService {
     planId?: string | null;
     taskId?: string | null;
     targeting?: { nodeId: string } | null;
+    materialId?: string | null;
+    sectionIds?: string[] | null;
+    targetCount?: number | null;
   }): Promise<GeneratedQuestion[]> {
     // Server-side generation (FR-33): the scope's context is assembled on the
     // api — materials/nodeIds stay the simulated double's local inputs and
@@ -336,6 +339,11 @@ export class ServerCompanionService implements CompanionService {
     // same-user replay returns the session without a provider call).
     // targeting is T5's node Quick Test scope (epic P2-10 T5, FR-21) — the
     // xor scope on the wire: a targeting node rides INSTEAD of planId/taskId.
+    // materialId is T2's material Quick Test scope (epic-13, FR-14) — the
+    // FOURTH xor member: it rides INSTEAD of plan/task/targeting, with its
+    // two narrowing inputs (sectionIds 1–5, targetCount 3–5); the gate
+    // (≥1 confirmed node mapping) is server-side, a refusal surfaces as
+    // VALIDATION_FAILED through the shared mutation path.
     const payload = await this.runMutation(
       GenerateQuizDocument,
       {
@@ -343,9 +351,14 @@ export class ServerCompanionService implements CompanionService {
           clientUuid: crypto.randomUUID(),
           language: currentUiLanguage(),
           mode: input.mode,
-          planId: input.targeting ? undefined : (input.planId ?? undefined), // the node IS the scope
-          taskId: input.targeting ? undefined : (input.taskId ?? undefined),
-          targeting: input.targeting ?? undefined,
+          planId: input.targeting || input.materialId ? undefined : (input.planId ?? undefined),
+          taskId: input.targeting || input.materialId ? undefined : (input.taskId ?? undefined),
+          targeting: input.targeting && !input.materialId ? input.targeting : undefined,
+          // T2 (FR-14): the material scope — absent fields stay undefined so
+          // the wire shape is unchanged for every pre-T2 caller.
+          materialId: input.materialId ?? undefined,
+          sectionIds: input.sectionIds?.length ? input.sectionIds : undefined,
+          targetCount: input.targetCount ?? undefined,
         },
       },
       "generateQuiz",

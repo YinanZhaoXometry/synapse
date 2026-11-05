@@ -226,6 +226,11 @@ export class SimulatedCompanion implements CompanionService {
     materials: MaterialRef[];
     nodeIds: string[];
     mode: QuizMode;
+    // epic-13 T2 (FR-14) pass-through: the Quick Test narrowing honored by
+    // generateQuizFromMaterials; materialId itself stays a server-scope id
+    // (the double works from the already-narrowed materials it receives).
+    sectionIds?: string[] | null;
+    targetCount?: number | null;
   }): Promise<GeneratedQuestion[]> {
     // A "generating" beat so the UI's waiting state renders (Quiz: generating, EXPERIENCE.md).
     await new Promise((r) => setTimeout(r, CHAT_DELAY));

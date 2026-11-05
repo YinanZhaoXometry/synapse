@@ -60,12 +60,19 @@ export function generateQuizFromMaterials(input: {
   materials: MaterialRef[];
   nodeIds: string[];
   mode: QuizMode;
+  /** epic-13 T2 (FR-14): the Quick Test narrowing — section whitelist then
+   * the 3–5 count cap, honored locally so offline tests walk the same shape
+   * the server adapter rides. Untouched callers keep today's behavior. */
+  sectionIds?: string[] | null;
+  targetCount?: number | null;
 }): GeneratedQuestion[] {
+  const only = input.sectionIds?.length ? input.sectionIds : null;
   const candidates: GeneratedQuestion[] = [];
   let nodeCursor = 0;
 
   for (const material of input.materials) {
-    material.sections.forEach((section, i) => {
+    const sections = only ? material.sections.filter((s) => only.includes(s.id)) : material.sections;
+    sections.forEach((section, i) => {
       const nodeId = input.nodeIds[nodeCursor++ % input.nodeIds.length];
       candidates.push(choiceFromSection(section, material.sections, material.materialId, nodeId, i));
       const openNodeId = input.nodeIds[nodeCursor++ % input.nodeIds.length];
@@ -76,7 +83,7 @@ export function generateQuizFromMaterials(input: {
   let picked = candidates;
   if (input.mode === "choice") picked = candidates.filter((q) => q.kind === "choice");
   if (input.mode === "open") picked = candidates.filter((q) => q.kind === "open");
-  return picked.slice(0, MAX_QUESTIONS);
+  return picked.slice(0, Math.min(input.targetCount ?? MAX_QUESTIONS, MAX_QUESTIONS));
 }
 
 export function generateFlashcardsFromMaterials(input: {

@@ -339,17 +339,34 @@ export type GenerateQuizInput = {
   clientUuid: string;
   /** The reply language: "zh" | "en" (AD-16 — one parameter, one policy). */
   language: string;
+  /**
+   * The material Quick Test scope's uuid (FR-14, xor
+   * plan_id/task_id/targeting.nodeId) — the material needs ≥1 CONFIRMED
+   * section→node mapping (evidence is node-attributed, AD-6) or this refuses
+   * VALIDATION_FAILED.
+   */
+  materialId?: string | null | undefined;
   /** The QuizMode: "open" | "choice" | "mix". */
   mode: string;
-  /** The plan scope's uuid (xor task_id and targeting.nodeId). */
+  /** The plan scope's uuid (xor task_id, targeting.nodeId, material_id). */
   planId?: string | null | undefined;
+  /**
+   * With material_id: narrows the Quick Test to 1–5 of the material's sections
+   * (each must exist on the material). Absent → every section rides. Never without material_id.
+   */
+  sectionIds?: Array<string> | null | undefined;
+  /**
+   * With material_id: the Quick Test's question count, 3–5 (default 5). The real
+   * count may land lower honestly — questions citing unmapped sections drop.
+   */
+  targetCount?: number | null | undefined;
   /**
    * Adaptive weak-spot targeting (FR-21): present without nodeId → weak-spot
    * quotas over the plan scope; nodeId set → the node Quick Test scope (xor
-   * planId/taskId).
+   * planId/taskId/materialId).
    */
   targeting?: QuizTargetingInput | null | undefined;
-  /** The task scope's uuid (xor plan_id and targeting.nodeId). */
+  /** The task scope's uuid (xor plan_id, targeting.nodeId, material_id). */
   taskId?: string | null | undefined;
 };
 

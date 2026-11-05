@@ -33,9 +33,11 @@ function renderBar(overrides: {
   onDismiss?: () => void;
   materialId?: string;
   selection?: CapturedSelection;
+  quickTestGate?: "loading" | "error" | "none" | "ready";
 } = {}) {
   const onAsk = overrides.onAsk ?? vi.fn();
   const onDismiss = overrides.onDismiss ?? vi.fn();
+  const { quickTestGate: gate } = overrides;
   render(
     <LanguageProvider>
       <SelectionBar
@@ -44,6 +46,7 @@ function renderBar(overrides: {
         anchor={{ x: 120, y: 200 }}
         onAsk={onAsk}
         onDismiss={onDismiss}
+        quickTestGate={gate}
       />
     </LanguageProvider>,
   );
@@ -117,5 +120,76 @@ describe("SelectionBar (the UX spine's SelectionBar row)", () => {
     fireEvent.click(screen.getByRole("button", { name: zhDict["reader.selectionQuickTest"] }));
 
     expect(toastSpy).toHaveBeenCalledWith(zhDict["reader.quickTestComingSoon"]);
+  });
+});
+
+describe("SelectionBar — the Quick Test gate (epic-13 T2, AD-6)", () => {
+  // A registered handler proves a click never dispatches while the gate blocks.
+  function withHandler(test: (handler: ReturnType<typeof vi.fn>) => void) {
+    const handler = vi.fn();
+    const unregister = registerQuickTestHandler(handler);
+    try {
+      test(handler);
+    } finally {
+      unregister();
+    }
+  }
+
+  it("defaults to ready when the gate prop is absent (the pre-T2 posture)", () => {
+    withHandler((handler) => {
+      renderBar();
+
+      const action = screen.getByTestId("quick-test-action");
+      expect(action).not.toBeDisabled();
+      fireEvent.click(action);
+
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("renders the action disabled-honestly while the mapping read is in flight (no premature clicks)", () => {
+    withHandler((handler) => {
+      renderBar({ quickTestGate: "loading" });
+
+      const action = screen.getByTestId("quick-test-action");
+      expect(action).toBeDisabled();
+      fireEvent.click(action);
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps the action disabled under the honest tooltip when the mapping read failed", () => {
+    withHandler((handler) => {
+      renderBar({ quickTestGate: "error" });
+
+      const action = screen.getByTestId("quick-test-action");
+      expect(action).toBeDisabled();
+      expect(action).toHaveAttribute("title", zhDict["reader.quickTestUnavailable"]);
+      fireEvent.click(action);
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  it("hides the action behind the traceable hint line when no confirmed mapping exists", () => {
+    withHandler((handler) => {
+      renderBar({ quickTestGate: "none" });
+
+      expect(screen.queryByTestId("quick-test-action")).not.toBeInTheDocument();
+      const hint = screen.getByTestId("quick-test-gate-hint");
+      expect(hint).toHaveTextContent(zhDict["reader.quickTestGateHint"]);
+      // Ask still works beside the hint — the gate scopes Quick Test only.
+      fireEvent.click(screen.getByRole("button", { name: zhDict["reader.selectionAsk"] }));
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  it("carries the gate copy bilingually (zh/en parity, AD-9)", () => {
+    const enDict = (translations as Record<string, Record<string, string>>).en;
+    for (const key of ["reader.quickTestGateHint", "reader.quickTestUnavailable", "reader.quickTestGenerating", "reader.quickTestExit"]) {
+      expect(zhDict[key], `zh copy for ${key}`).toBeTruthy();
+      expect(enDict[key], `en copy for ${key}`).toBeTruthy();
+    }
   });
 });

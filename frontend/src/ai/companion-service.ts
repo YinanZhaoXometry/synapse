@@ -60,7 +60,12 @@ export interface CompanionService {
    * one of the two. targeting is T5's additive pass-through (epic P2-10 T5,
    * FR-21): `{ nodeId }` scopes the generation to that plan node (the node
    * Quick Test — xor planId/taskId on the wire); the simulated adapter
-   * ignores it.
+   * ignores it. materialId/sectionIds/targetCount are T2's additive
+   * pass-through (epic-13, FR-14): the material Quick Test scope — the
+   * FOURTH xor member, gated server-side on ≥1 confirmed node mapping; the
+   * server adapter rides them INSTEAD of planId/taskId/targeting, and the
+   * simulated adapter honors them locally (section narrowing + count cap)
+   * so offline tests walk the same shape.
    */
   generateQuiz(input: {
     materials: MaterialRef[];
@@ -69,6 +74,9 @@ export interface CompanionService {
     planId?: string | null;
     taskId?: string | null;
     targeting?: { nodeId: string } | null;
+    materialId?: string | null;
+    sectionIds?: string[] | null;
+    targetCount?: number | null;
   }): Promise<GeneratedQuestion[]>;
 
   /** Materials-sourced flashcard generation (FR-19): one card per section. */
