@@ -90,20 +90,12 @@ export const ACHIEVEMENTS: Badge[] = [
 // page consumes only the hub hook now (study launches into the real flow
 // routes). Other demo-data exports stay until their own tickets retire them.
 
-/* ── Analytics ───────────────────────────────────────── */
-export const WEEK_VALUES = [45, 70, 35, 85, 60, 95, 78];
-export const WEEK_DAYS: Record<Lang, string[]> = {
-  zh: ["一", "二", "三", "四", "五", "六", "日"],
-  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-};
-export const ACCURACY_VALUES = [68, 72, 70, 75, 78, 80, 82];
-export const TOPIC_ROWS: Array<{ key: string; value?: number; topic?: MasteryTopic }> = [
-  { key: "analytics.topicUsability", value: 72 },
-  { key: "analytics.topicCognition", value: 55 },
-  { key: "analytics.topicDesign", topic: "design" },
-  { key: "analytics.topicRequirements", topic: "requirements" },
-  { key: "analytics.topicTesting", topic: "testing" },
-];
+/* ── Analytics (retired) ─────────────────────────────── */
+// RETIRED (epic P2-09 T5, 2026-11-05): the demo analytics fixtures (the week
+// minutes, weekday labels, accuracy values, topic rows) left with /analytics's
+// re-point onto the analyticsSeries read model — the page renders only the
+// server series now (node mastery / weekly accuracy / 14-day consistency).
+// Other demo-data exports stay until their own tickets retire them.
 
 /* ── Progress defaults ───────────────────────────────── */
 export const DEFAULT_PROGRESS = {

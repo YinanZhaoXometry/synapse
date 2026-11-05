@@ -8,7 +8,10 @@
  * writes T1 deferred), and the consistency read the week strip maps onto the
  * current week. T4 adds flashcardDecksHub + quizHistoryHub (FR-41/42) and the
  * one schema movement — retakeQuizSession, the hub retake (a fresh server-side
- * generation; each call mints a new attempt).
+ * generation; each call mints a new attempt). T5 adds analyticsSeries +
+ * weeklyGoal + setWeeklyGoal (FR-26/25: the three series, the weekly-goal read
+ * + its plain setter) and badgeState (the dashboard's recent-unlocked slice;
+ * the full page is T6's).
  *
  * Convention (every hook in src/api/queries):
  *   queries  → { data (mapped view | undefined), loading, error, refetch }
@@ -20,14 +23,18 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   AddManualTaskDocument,
+  BadgeStatesDocument,
+  AnalyticsSeriesDocument,
   DeleteManualTaskDocument,
   FlashcardDecksHubDocument,
   MistakesHubDocument,
   QuizHistoryHubDocument,
   RetakeQuizSessionDocument,
   SetManualTaskDoneDocument,
+  SetWeeklyGoalDocument,
   TodayConsistencyDocument,
   TodayHubDocument,
+  WeeklyGoalDocument,
 } from "@/types/graphql";
 import { readingLocator } from "../mappers";
 import type { ReadingLocator } from "@/domain/entities";
@@ -341,4 +348,126 @@ export function useRetakeQuizSessionMutation() {
     },
   });
   return { mutate, result };
+}
+
+// ── analyticsSeries + weeklyGoal + badgeState (epic P2-09 T5, FR-26/25) ─────
+
+/** Mastery's node-state vocabulary verbatim (AD-6) — structurally the shared
+ * display contract's state type (node-state.ts renders it). */
+export type HubNodeState = "uncovered" | "partial" | "mastered";
+
+/** One node's mastery row on the analytics series (FR-26): the SERVER score
+ * as the string-carrying-percent convention and the SERVER state — rendering
+ * reads them, never recomputes (AD-14). */
+export interface HubNodeMasteryView {
+  nodeId: string;
+  nodeTitle: string;
+  /** The owning plan's uuid (null on task-owned nodes). */
+  planId: string | null;
+  /** "0".."100" — the Mastery Score string, rendered verbatim. */
+  masteryScore: string;
+  state: HubNodeState;
+}
+
+/** One ISO week's accuracy point (FR-26): graded answers bucketed by the
+ * week's Monday-UTC; the accuracy ratio is the page's rendering math. */
+export interface HubWeeklyAccuracyView {
+  /** The ISO Monday as a UTC day key ("YYYY-MM-DD"). */
+  weekStart: string;
+  correct: number;
+  answered: number;
+}
+
+export interface HubAnalyticsSeriesView {
+  nodeMastery: HubNodeMasteryView[];
+  weeklyAccuracy: HubWeeklyAccuracyView[];
+  consistency: ConsistencyDayView[];
+}
+
+// The mappers' union-rebuild convention: an unknown wire value is a contract
+// break, not a guess (mappers.ts is the reference).
+function nodeState(state: string): HubNodeState {
+  if (state === "uncovered" || state === "partial" || state === "mastered") return state;
+  throw new Error(`unknown node state from the api: ${state}`);
+}
+
+export function useAnalyticsSeriesQuery() {
+  const result = useQuery(AnalyticsSeriesDocument);
+  const series: HubAnalyticsSeriesView = {
+    nodeMastery: (result.data?.analyticsSeries.nodeMastery ?? []).map((row) => ({
+      nodeId: row.nodeId,
+      nodeTitle: row.nodeTitle,
+      planId: row.planId,
+      masteryScore: row.masteryScore,
+      state: nodeState(row.state),
+    })),
+    weeklyAccuracy: (result.data?.analyticsSeries.weeklyAccuracy ?? []).map((row) => ({
+      weekStart: row.weekStart,
+      correct: row.correct,
+      answered: row.answered,
+    })),
+    consistency: (result.data?.analyticsSeries.consistency ?? []).map((row) => ({
+      day: row.day,
+      sessionCount: row.sessionCount,
+    })),
+  };
+  return { data: result.data !== undefined ? series : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
+}
+
+/** The weekly goal (FR-25, delta decision 3): the user's sessions/week target
+ * against DISTINCT evidence-producing sessions in the current ISO week
+ * (Mon-UTC) — the dashboard ring's honest source (SM-C3: never minutes). */
+export interface HubWeeklyGoalView {
+  /** Sessions/week; 1..21 (server-validated). */
+  target: number;
+  currentWeekSessions: number;
+  /** The current ISO week's Monday as a UTC day key. */
+  currentWeekStart: string;
+}
+
+export function useWeeklyGoalQuery() {
+  const result = useQuery(WeeklyGoalDocument);
+  const goal: HubWeeklyGoalView | undefined = result.data?.weeklyGoal
+    ? {
+        target: result.data.weeklyGoal.target,
+        currentWeekSessions: result.data.weeklyGoal.currentWeekSessions,
+        currentWeekStart: result.data.weeklyGoal.currentWeekStart,
+      }
+    : undefined;
+  return { data: result.data !== undefined ? goal : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
+}
+
+/** The plain setter (last write wins; 1..21 server-validated, the same range
+ * the DB check pins). The payload echoes the fresh weeklyGoal read — the
+ * normalized cache write-through updates the ring; no refetch needed. */
+export function useSetWeeklyGoalMutation() {
+  const { t } = useLanguage();
+  const [mutate, result] = useMutation(SetWeeklyGoalDocument, {
+    onError: () => {
+      toast.error(t("errors.persistFailed"));
+    },
+  });
+  return { mutate, result };
+}
+
+/** One badge's raw state (FR-28, delta decision 1) — the scaffold taxonomy's
+ * ids ("b1".."b12") with the server counter/threshold/unlocked. The zh/en
+ * name strings live in the i18n dictionary (ach.b*); the full page is T6's,
+ * the dashboard renders the recent-unlocked summary. */
+export interface HubBadgeStateView {
+  id: string;
+  unlocked: boolean;
+  counter: number;
+  threshold: number;
+}
+
+export function useBadgeStatesQuery() {
+  const result = useQuery(BadgeStatesDocument);
+  const rows: HubBadgeStateView[] = (result.data?.badgeState ?? []).map((row) => ({
+    id: row.id,
+    unlocked: row.unlocked,
+    counter: row.counter,
+    threshold: row.threshold,
+  }));
+  return { data: result.data !== undefined ? rows : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
