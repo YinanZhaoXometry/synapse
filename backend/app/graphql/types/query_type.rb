@@ -156,6 +156,21 @@ module Types
       end
     end
 
+    # The FR-15 marking read (epic-15 T1): the read half the marking surface
+    # never had — claimSection/unclaimSection have been live since epic P2-3
+    # T4, but no query exposed the rows back. A bare sanctioned read — the
+    # scoping IS the logic (the material through the owner's association
+    # path, delta 2), no command wraps a plain SELECT.
+    field :section_markings, [ Types::SectionMarkingType ], null: false,
+      description: "One material's Mastery Marking claim rows (FR-15, epic-15 T1 — the read side of claimSection/unclaimSection): ALL of the caller's rows for the material, open and cleared, newest first. Rows are history — an open claim has a null clearedAt, clearing sets clearedAt and never deletes — so the client derives the open claims. A claim is NEVER evidence: it can never move a Mastery Score (ADR-0001). A plain list (AD-12). A foreign, unknown, or malformed material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
+      argument :material_id, String, required: true, description: "The marked material's uuid."
+    end
+
+    def section_markings(material_id:)
+      material = scoped_material(material_id)
+      current_user!.section_markings.where(material_id: material.id).order(claimed_at: :desc, id: :desc)
+    end
+
     field :plan_node_mappings, [ Types::MaterialNodeMappingType ], null: false,
       description: "One plan's node-attached mapping rows in ONE read (FR-5/FR-7, epic P2-10 T4 — the plan-scope batch over the per-node reads; the roadmap graph's node-detail actions need every node's rows at once). Every status rides (the wire's one mapping-list vocabulary, T3's precedent); the consumer filters confirmed for its jump targets. Rows attached to NO node (the gap proposals / unmapped rows) serve no node surface and are excluded. A foreign or unknown plan id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
       argument :plan_id, String, required: true, description: "Scope to a plan's nodes' mapping rows."
