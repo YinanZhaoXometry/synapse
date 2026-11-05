@@ -10,6 +10,60 @@
 # deck aggregation + the full quiz history, and the one schema movement — the
 # hub retake. The retake is a FRESH server-side generation (the api mints the
 # new session's uuid); the web navigates the new session's flow route.
+# analyticsSeries + weeklyGoal + setWeeklyGoal + badgeState (T5, FR-26/25):
+# the three analytics series (node mastery / weekly accuracy / 14-day
+# consistency — every score and count server-computed, AD-14), the weekly-goal
+# read (sessions, never minutes — SM-C3) the dashboard ring consumes, its
+# plain setter (last write wins, 1..21), and the badge states' raw slice for
+# the dashboard's recent-unlocked summary (the full page is T6's).
+
+query AnalyticsSeries {
+  analyticsSeries {
+    nodeMastery {
+      nodeId
+      nodeTitle
+      planId
+      masteryScore
+      state
+    }
+    weeklyAccuracy {
+      weekStart
+      correct
+      answered
+    }
+    consistency {
+      day
+      sessionCount
+    }
+  }
+}
+
+query WeeklyGoal {
+  weeklyGoal {
+    target
+    currentWeekSessions
+    currentWeekStart
+  }
+}
+
+query BadgeStates {
+  badgeState {
+    id
+    unlocked
+    counter
+    threshold
+  }
+}
+
+mutation SetWeeklyGoal($input: SetWeeklyGoalInput!) {
+  setWeeklyGoal(input: $input) {
+    weeklyGoal {
+      target
+      currentWeekSessions
+      currentWeekStart
+    }
+  }
+}
 
 query FlashcardDecksHub {
   flashcardDecksHub {

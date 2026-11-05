@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import {
@@ -14,6 +15,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useSetWeeklyGoalMutation, useWeeklyGoalQuery } from "@/api";
 import { clearToken, logout, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { fmtNum } from "@/lib/demo-data";
@@ -34,12 +36,73 @@ const MODE_LABEL_KEYS: Record<ThemeMode, string> = {
   dark: "settings.modeDark",
 };
 
+/** The weekly study-goal row (FR-25, epic P2-09 T5, delta decision 3): the
+ * plain setter over the server's weekly goal — evidence-producing sessions
+ * per ISO week, target range 1..21 (server-validated; SM-C3 counts sessions,
+ * never minutes). Client-side range validation fires BEFORE the mutation;
+ * success/failure speak through sonner, and the mutation echo writes the
+ * fresh weeklyGoal read back through the cache so the input tracks the
+ * server value. */
+function StudyGoalRow({ target }: { target: number }) {
+  const { t } = useLanguage();
+  const setGoal = useSetWeeklyGoalMutation();
+  const [draft, setDraft] = useState(String(target));
+
+  // The SERVER target is authoritative — the draft tracks it (first render
+  // and any cache change after a set).
+  useEffect(() => {
+    setDraft(String(target));
+  }, [target]);
+
+  const save = () => {
+    const parsed = Number(draft);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 21) {
+      toast.error(t("settings.studyGoalInvalid"));
+      return;
+    }
+    setGoal.mutate({
+      variables: { input: { target: parsed } },
+      onCompleted: () => toast.success(t("settings.studyGoalSaved")),
+    });
+  };
+
+  return (
+    <div className="setting-row">
+      <div className="flex-1 min-w-0">
+        <div className="setting-label">{t("settings.studyGoal")}</div>
+        <div className="setting-help mt-0.5">{t("settings.studyGoalUnit")}</div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <input
+          type="number"
+          min={1}
+          max={21}
+          step={1}
+          value={draft}
+          aria-label={t("settings.studyGoalAria")}
+          onChange={(event) => setDraft(event.target.value)}
+          className="w-[76px] rounded-xl border border-border bg-[var(--glass-4)] py-2 pl-3 pr-2 text-sm font-medium tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={setGoal.result.loading}
+          className="shrink-0 rounded-[10px] bg-card px-3 py-[7px] text-xs font-semibold shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition-colors hover:bg-[var(--glass-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] cursor-pointer disabled:opacity-55 disabled:cursor-wait"
+        >
+          {t("settings.studyGoalSave")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Layout ported from northstar-reference.html settingsView: stacked .settings-group
 // cards with uppercase headers and full-width setting rows (label/help left, control right).
 export default function SettingsPage() {
   const { progress, resetAll } = useUserProgress();
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme, mode, setMode, reduceMotion, setReduceMotion } = useTheme();
+  const goalQuery = useWeeklyGoalQuery();
 
   const langCards: Array<{ lang: "zh" | "en"; labelKey: string; descKey: string }> = [
     { lang: "zh", labelKey: "settings.langZh", descKey: "settings.langZhDesc" },
@@ -174,7 +237,16 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Group 3 — data + keyboard */}
+      {/* Group 3 — study goal (the simple half of FR-25; full Settings
+          surfaces are epic-14). The row renders once the server target is
+          known — no fake default, the row is simply absent until then. */}
+      <section className="settings-group">
+        <h2>{t("settings.studyGoal")}</h2>
+        <p className="group-note">{t("settings.studyGoalHelp")}</p>
+        {goalQuery.data && <StudyGoalRow target={goalQuery.data.target} />}
+      </section>
+
+      {/* Group 4 — data + keyboard */}
       <section className="settings-group">
         <h2>{t("settings.general")}</h2>
 
