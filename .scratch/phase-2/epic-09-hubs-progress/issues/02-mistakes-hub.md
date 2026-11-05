@@ -36,3 +36,4 @@ views carry the wire's ids verbatim). The page groups the flat newest-first list
 - `localeTag` moved to the plans feature's public index (first out-of-feature consumer).
 - One-off full-suite flake observed once mid-ticket (unidentified test, not the new specs —
   three consecutive clean 579/579 runs after); nothing pinned to this change.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — AD-8 anchors consumed verbatim (`readerAnchorHref`/`readerSectionHref`/`nodeQuickTestHref`, hl=1); task-route relaunch carries no nodeId (contract-honest); forfeit label honest; grouping = client rendering over the flat hub list; MISTAKES fixture retired with residue-absence test. Noted: id-only wire forced label-lookup list reads (recorded) — acceptable; per-group PlanNodes reads are the same pattern the plan page already rides. Merged on `epic/p2-09-hubs`.
