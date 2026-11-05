@@ -81,4 +81,38 @@ RSpec.describe Ai::DailyCap do
       expect(described_class.tripped?(51)).to be(true)
     end
   end
+
+  # The read half (epic-14 T1, FR-34's display consequence): today's count +
+  # the limit ride the aiUsageToday query — the counter is server truth, read
+  # through the same seam that enforces it.
+  describe ".count_for" do
+    it "answers 0 for a user who has not spent any call today" do
+      expect(described_class.count_for(create(:user))).to eq(0)
+    end
+
+    it "reflects the recorded consume! count" do
+      user = create(:user)
+      described_class.consume!(user)
+      described_class.consume!(user)
+
+      expect(described_class.count_for(user)).to eq(2)
+    end
+
+    it "is scoped per user and per UTC day (the counter row's own key)" do
+      alice = create(:user)
+      bob = create(:user)
+      late_nov_4 = Time.utc(2026, 11, 4, 23, 30)
+      early_nov_5 = Time.utc(2026, 11, 5, 0, 30)
+      described_class.consume!(alice, now: late_nov_4)
+      described_class.consume!(alice, now: late_nov_4)
+      described_class.consume!(bob, now: late_nov_4)
+
+      aggregate_failures do
+        expect(described_class.count_for(alice, now: late_nov_4)).to eq(2)
+        expect(described_class.count_for(bob, now: late_nov_4)).to eq(1)
+        # A new UTC day starts at zero — yesterday's spend does not leak.
+        expect(described_class.count_for(alice, now: early_nov_5)).to eq(0)
+      end
+    end
+  end
 end

@@ -14,7 +14,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useSetWeeklyGoalMutation, useWeeklyGoalQuery } from "@/api";
+import {
+  useAiUsageTodayQuery,
+  useChangePasswordMutation,
+  useExportDataDownload,
+  useSetWeeklyGoalMutation,
+  useWeeklyGoalQuery,
+} from "@/api";
+import { apiErrorCode } from "@/api";
 import { clearToken, logout, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { cn } from "@/lib/utils";
@@ -90,6 +97,166 @@ function StudyGoalRow({ target }: { target: number }) {
           {t("settings.studyGoalSave")}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** The account half (FR-30 + FR-34's display consequence, epic-14 T1): the
+ * password change, the whole-document data export, and the honest AI-usage
+ * read — one settings-group card, keyboard-complete, bilingual. */
+
+// The register rule's minimum (Accounts::RegisterUserCommand), mirrored for
+// the client-side validation that fires BEFORE the mutation.
+const PASSWORD_MIN_LENGTH = 8;
+
+const ACCOUNT_INPUT =
+  "w-[220px] rounded-xl border border-border bg-[var(--glass-4)] px-3 py-2 text-sm font-medium " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+const NEUTRAL_BTN =
+  "shrink-0 rounded-[10px] bg-card px-3 py-[7px] text-xs font-semibold shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition-colors " +
+  "hover:bg-[var(--glass-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] " +
+  "cursor-pointer disabled:opacity-55 disabled:cursor-wait";
+
+/** The password form (AD-15, delta decision 2): verify-old → bcrypt-new are
+ * the server's rules; the client validates the NEW password (register
+ * minimum + confirm match) BEFORE the mutation and maps the closed enum
+ * honestly — VALIDATION_FAILED can only mean the wrong current password
+ * (the client never sends a weak new one), RATE_LIMITED the burst. The
+ * session survives a change (stateless JWT — the copy says so). */
+function PasswordChangeRow() {
+  const { t } = useLanguage();
+  const [changePasswordMutation, changePasswordResult] = useChangePasswordMutation();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  const save = () => {
+    if (next.length < PASSWORD_MIN_LENGTH) {
+      toast.error(t("settings.passwordTooShort", { min: PASSWORD_MIN_LENGTH }));
+      return;
+    }
+    if (next !== confirm) {
+      toast.error(t("settings.passwordMismatch"));
+      return;
+    }
+    changePasswordMutation({
+      variables: { input: { currentPassword: current, newPassword: next } },
+      onCompleted: () => {
+        toast.success(t("settings.passwordSaved"));
+        setCurrent("");
+        setNext("");
+        setConfirm("");
+      },
+      onError: (error) => {
+        const code = apiErrorCode(error);
+        toast.error(
+          code === "VALIDATION_FAILED"
+            ? t("settings.passwordWrongCurrent")
+            : code === "RATE_LIMITED"
+              ? t("settings.passwordErrorRateLimited")
+              : t("settings.passwordErrorGeneric"),
+        );
+      },
+    });
+  };
+
+  return (
+    <div className="setting-row">
+      <div className="flex-1 min-w-0">
+        <div className="setting-label">{t("settings.password")}</div>
+        <div className="setting-help mt-0.5">{t("settings.passwordNote")}</div>
+      </div>
+      <div className="flex flex-col items-end gap-2 shrink-0">
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          aria-label={t("settings.passwordCurrentAria")}
+          onChange={(event) => setCurrent(event.target.value)}
+          className={ACCOUNT_INPUT}
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={next}
+          aria-label={t("settings.passwordNewAria")}
+          onChange={(event) => setNext(event.target.value)}
+          className={ACCOUNT_INPUT}
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          aria-label={t("settings.passwordConfirmAria")}
+          onChange={(event) => setConfirm(event.target.value)}
+          className={ACCOUNT_INPUT}
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={!current || !next || !confirm || changePasswordResult.loading}
+          className={NEUTRAL_BTN}
+        >
+          {t("settings.passwordSave")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The data-export row (delta decision 1): the whole document as ONE JSON
+ * download in the import's shape — the client Blob-downloads it; the round
+ * trip with the first-login import is the api's tested contract. */
+function ExportDataRow() {
+  const { t } = useLanguage();
+  const { download } = useExportDataDownload();
+  const [busy, setBusy] = useState(false);
+
+  const run = () => {
+    setBusy(true);
+    void download().finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="setting-row">
+      <div className="flex-1 min-w-0">
+        <div className="setting-label">{t("settings.exportData")}</div>
+        <div className="setting-help mt-0.5">{t("settings.exportDataNote")}</div>
+      </div>
+      <button
+        type="button"
+        onClick={run}
+        disabled={busy}
+        className={NEUTRAL_BTN}
+      >
+        {busy ? t("settings.exportPreparing") : t("settings.exportAction")}
+      </button>
+    </div>
+  );
+}
+
+/** The AI-usage row (FR-34): today's cap-counter count + the enforced daily
+ * limit, straight from the server — an honest neutral read, no progress-bar
+ * theatrics (the display consequence, never enforcement). */
+function AiUsageRow() {
+  const { t } = useLanguage();
+  const usageQuery = useAiUsageTodayQuery();
+
+  return (
+    <div className="setting-row">
+      <div className="flex-1 min-w-0">
+        <div className="setting-label">{t("settings.aiUsage")}</div>
+        <div className="setting-help mt-0.5">{t("settings.aiUsageNote")}</div>
+      </div>
+      <span
+        aria-label={t("settings.aiUsageAria")}
+        className="shrink-0 rounded-xl bg-[var(--glass-4)] px-3 py-2 text-sm font-semibold tabular-nums text-accent-ink"
+      >
+        {usageQuery.data
+          ? t("settings.aiUsageValue", { count: usageQuery.data.callsToday, limit: usageQuery.data.dailyLimit })
+          : "—"}
+      </span>
     </div>
   );
 }
@@ -231,13 +398,26 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Group 3 — study goal (the simple half of FR-25; full Settings
-          surfaces are epic-14). The row renders once the server target is
-          known — no fake default, the row is simply absent until then. */}
+      {/* Group 3 — study goal (the simple half of FR-25; the setter landed
+          with epic P2-09 T5 — epic-14 T1 RECORDS the placement and skips the
+          duplicate). The row renders once the server target is known — no
+          fake default, the row is simply absent until then. */}
       <section className="settings-group">
         <h2>{t("settings.studyGoal")}</h2>
         <p className="group-note">{t("settings.studyGoalHelp")}</p>
         {goalQuery.data && <StudyGoalRow target={goalQuery.data.target} />}
+      </section>
+
+      {/* Group 3.5 — the account half (FR-30 + FR-34's display consequence,
+          epic-14 T1): password change, whole-document export, honest AI
+          usage. The weekly-goal target above completes the ticket's four
+          surfaces. */}
+      <section className="settings-group">
+        <h2>{t("settings.account")}</h2>
+        <p className="group-note">{t("settings.accountHelp")}</p>
+        <PasswordChangeRow />
+        <ExportDataRow />
+        <AiUsageRow />
       </section>
 
       {/* Group 4 — data + keyboard */}

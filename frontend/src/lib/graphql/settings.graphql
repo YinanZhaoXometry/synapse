@@ -1,0 +1,28 @@
+# Settings account-surface operations (epic-14 T1, FR-30 + FR-34's display
+# consequence): the password change (the stateless session survives — no
+# token re-mint), the whole-document data export (one JSON string the client
+# Blob-downloads; the import's shape verbatim), and the honest AI-usage read
+# (the live cap counter + the enforced daily limit).
+
+mutation ChangePassword($input: ChangePasswordInput!) {
+  changePassword(input: $input) {
+    user {
+      id
+      email
+      createdAt
+    }
+  }
+}
+
+query ExportData {
+  exportData {
+    document
+  }
+}
+
+query AiUsageToday {
+  aiUsageToday {
+    callsToday
+    dailyLimit
+  }
+}
