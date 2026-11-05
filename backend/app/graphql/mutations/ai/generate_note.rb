@@ -11,6 +11,9 @@ module Mutations
     # nodeId / materialId, matching the scope value. The enrichAt input is
     # the user-requested annotation — one [[enrich|user|…]] marker placed
     # after the matching paragraph (substring) or at the end of the body.
+    # The targeting input (FR-22, T2) biases a plan-scope generation with the
+    # weak-spot coverage plan — the note's targeting jsonb carries the
+    # allocation as provenance.
     class GenerateNote < BaseMutation
       description "Generate a standalone, exportable Markdown study note in the given scope (plan, node, or material) — server-side AI (FR-40). One AI call per generation (the daily cap counts it); the client uuid replays deterministically."
 
@@ -35,12 +38,16 @@ module Mutations
       argument :enrich_at, String,
                required: false,
                description: "The user-requested annotation's free text — one [[enrich|user|…]] marker placed right after the paragraph whose text contains it, or at the end of the body when nothing matches."
+      argument :targeting, Types::NoteTargetingInput,
+               required: false,
+               description: "Weak-spot targeting (FR-22): present with mode \"weakSpot\" → the plan-scope generation biases toward the learner's weak nodes (the server-computed coverage plan); absent → the plain note (T1 shape)."
 
       field :note, Types::NoteType,
             null: false,
             description: "The created (or replayed) note."
 
-      def resolve(client_uuid:, scope:, language:, plan_id: nil, node_id: nil, material_id: nil, enrich_at: nil)
+      def resolve(client_uuid:, scope:, language:, plan_id: nil, node_id: nil, material_id: nil, enrich_at: nil,
+                  targeting: nil)
         command_result(::Ai::GenerateNoteCommand.call(
           current_user: current_user!,
           client_uuid: client_uuid,
@@ -49,7 +56,8 @@ module Mutations
           plan_id: plan_id,
           node_id: node_id,
           material_id: material_id,
-          enrich_at: enrich_at
+          enrich_at: enrich_at,
+          targeting: targeting&.to_h
         ))
       end
     end

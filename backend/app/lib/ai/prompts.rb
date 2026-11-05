@@ -118,14 +118,20 @@ module Ai
       # (delta decision 1's markers-only v1): the model decides WHERE a visual
       # aids understanding and emits [[enrich|kind|suggestion]] on its own
       # line; content stays text and no assets are stored in v1.
-      def note(language:, context:)
+      # `quota_plan` is T2's weak-spot coverage bias (FR-22, epic P2-12): the
+      # server-computed per-node coverage weights — a selection/weighting
+      # layer ONLY (FR-21's targeting layer), never a new source; content
+      # still comes only from the assembled context. nil keeps the prompt
+      # byte-for-byte identical to the T1 shape (pinned full-string-eq in the
+      # note command spec).
+      def note(language:, context:, quota_plan: nil)
         [ system,
           user(<<~PROMPT)
             Study material context (the ONLY allowed source):
             ---
             #{context.text}
             ---
-            #{context_note(context)}
+            #{context_note(context)}#{coverage_note(quota_plan)}
 
             Write a standalone, exportable Markdown study note from ONLY the material above — a learner must be able to read it without the original material at hand.
             Begin the note with a single level-1 heading ("# …") that names the note; structure it with headings and short paragraphs.
@@ -258,6 +264,24 @@ module Ai
           Weak-spot quota plan (server-computed from the learner's Mastery Scores and mistake log — distribute EXACTLY):
           #{quota_plan}
           These quotas bias question selection ONLY — every question still cites its [material id=…] + [section id=…] provenance from ONLY the context above (FR-18); never invent content a quota cannot ground.
+        NOTE
+      end
+
+      # T2's weak-spot coverage block (FR-22, epic P2-12): the deterministic
+      # server-side allocation the command computed (Ai::Targeting over the
+      # SHARED Ai::TargetingCandidates builder), in the quiz quota table's
+      # line shape repurposed for note coverage. Blank → nothing — the T1
+      # prompt shape, byte-for-byte (pinned full-string-eq in the note
+      # command spec).
+      def coverage_note(quota_plan)
+        return "" if quota_plan.blank?
+
+        <<~NOTE
+
+          Weak-spot coverage plan (server-computed from the learner's Mastery Scores and mistake log — cover the marked nodes EXACTLY as allotted):
+          #{quota_plan}
+          This note is aimed at what the learner has not yet demonstrated — cover the marked nodes proportionally to their gaps.
+          Content comes from ONLY the context above (NFR-1) — never invent content a quota cannot ground.
         NOTE
       end
     end

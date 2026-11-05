@@ -185,26 +185,12 @@ module Ai
       quota_plan_text(scope, quotas)
     end
 
-    # The bias inputs through their ONE sources (AD-14: Mastery is the only
-    # scorer — the score rides in its published String! percent form, the
-    # wire's exact value; AD-6: mistakes by node attribution). Evidence is
-    # batch-loaded once in the wire's order convention (created_at, id —
-    # Mastery windows and freshness-caps internally, now: Time.current like
-    # the wire resolvers).
+    # The bias inputs through their ONE source (AD-14: Mastery is the only
+    # scorer; AD-6: mistakes by node attribution) — the shared builder both
+    # targeting commands call (epic P2-12 T2 extracted it verbatim when the
+    # note command grew the same bias; no second heuristic, FR-21).
     def targeting_candidates(plan)
-      nodes = plan.knowledge_nodes.order(:order, :id)
-      node_ids = nodes.map(&:id)
-      evidence = EvidenceRecord.where(user_id: current_user.id, node_id: node_ids)
-                               .order(:created_at, :id)
-                               .group_by(&:node_id)
-      mistake_counts = MistakeEntry.where(user_id: current_user.id, node_id: node_ids).group(:node_id).count
-      nodes.map do |node|
-        Ai::Targeting::Candidate.new(
-          id: node.id,
-          score: Mastery.compute_node_score(evidence[node.id] || [], now: Time.current).to_s,
-          mistakes: mistake_counts[node.id].to_i
-        )
-      end
+      Ai::TargetingCandidates.for(user: current_user, plan: plan)
     end
 
     def quota_plan_text(scope, quotas)

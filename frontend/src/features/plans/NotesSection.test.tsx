@@ -239,3 +239,83 @@ describe("NotesSection (delta decision 3 — plan-scoped, no new route)", () => 
     }
   });
 });
+
+describe("NotesSection weak-spot targeting (FR-22, epic P2-12 T2)", () => {
+  it("enables the 薄弱点加强 toggle only on the plan scope and hints otherwise", () => {
+    mount();
+    const toggle = screen.getByTestId("notes-targeting-toggle");
+    expect(toggle.getAttribute("disabled")).toBeNull();
+    expect(screen.queryByTestId("notes-targeting-hint")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("notes-scope-node"));
+    expect(toggle.getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByTestId("notes-targeting-hint").textContent).toBe(zh("notes.targetingHint"));
+
+    fireEvent.click(screen.getByTestId("notes-scope-plan"));
+    expect(toggle.getAttribute("disabled")).toBeNull();
+    expect(screen.queryByTestId("notes-targeting-hint")).toBeNull();
+  });
+
+  it("passes targeting { mode: weakSpot } only when the toggle is on — null otherwise (plan scope)", async () => {
+    const captured: Array<Record<string, unknown>> = [];
+    const generateMock = {
+      request: {
+        query: GenerateNoteDocument,
+        variables: (vars: { input: Record<string, unknown> }) => {
+          captured.push(vars.input);
+          return vars.input.scope === "plan" && vars.input.planId === "plan-1";
+        },
+      },
+      result: { data: { generateNote: { note: wire(NOTE_PLAN) } } },
+    };
+    // the same mutation fires twice — MockedProvider mocks are single-use,
+    // so the (identical) generate mock rides twice.
+    mount([ notesMock, generateMock, generateMock ]);
+
+    fireEvent.click(screen.getByTestId("notes-generate-run"));
+    expect(await screen.findByText(zh("notes.done"))).toBeInTheDocument();
+    expect(captured[0]?.targeting).toBeNull();
+
+    fireEvent.click(screen.getByTestId("notes-targeting-toggle"));
+    expect((screen.getByTestId("notes-targeting-toggle") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByTestId("notes-generate-run"));
+    await waitFor(() => expect(captured.length).toBe(2));
+    expect(captured[1]?.targeting).toEqual({ mode: "weakSpot" });
+  });
+
+  it("renders the 针对薄弱点 provenance strip above the body from the server's targeting rows", async () => {
+    const targeted = note({
+      id: "note-9",
+      targeting: [
+        { nodeId: "n-1", title: "Consensus", score: "0", mistakes: 1, share: 2 },
+        { nodeId: "n-2", title: "Replication", score: "40", mistakes: 0, share: 1 },
+      ],
+    });
+    mount([
+      { request: { query: PlanNotesDocument, variables: { planId: "plan-1" } }, result: { data: { notes: [wire(targeted)] } } },
+    ]);
+    await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(1));
+    fireEvent.click(screen.getAllByRole("button", { name: /Raft in one note/i })[0]);
+
+    const strip = await screen.findByTestId("note-targeting-strip");
+    expect(strip.textContent).toContain(zh("notes.targetingLabel"));
+    expect(strip.textContent).toContain("Consensus");
+    expect(strip.textContent).toContain("Replication");
+    const chips = strip.querySelectorAll("[data-testid='note-targeting-chip']");
+    expect(chips).toHaveLength(2);
+    // share chips carry the coverage weight (the first node's share is 2)
+    expect(chips[0].getAttribute("title")).toBe(zh("notes.targetingShare").replace("{share}", "2"));
+    expect(chips[1].getAttribute("title")).toBe(zh("notes.targetingShare").replace("{share}", "1"));
+  });
+
+  it("keeps untargeted notes stripless — targeting [] or garbage never renders a strip", async () => {
+    mount();
+    await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(3));
+    fireEvent.click(screen.getAllByRole("button", { name: /Raft in one note/i })[0]);
+
+    const bodies = screen.getAllByTestId("note-body");
+    for (const body of bodies) {
+      expect(body.querySelector("[data-testid='note-targeting-strip']")).toBeNull();
+    }
+  });
+});

@@ -148,4 +148,55 @@ RSpec.describe "GraphQL notes surface (epic P2-12 T1, FR-40)", type: :request do
       expect(error_code(conflict)).to eq("VALIDATION_FAILED")
     end
   end
+
+  describe "generateNote targeting (FR-22, epic P2-12 T2)" do
+    it "carries the weakSpot input shape on the wire and returns the allocation as the note's targeting" do
+      user, token = user_with_token("notes-weakspot@example.com")
+      plan = create(:study_plan, user: user)
+      weak = create(:knowledge_node, user: user, plan: plan, title: "Weak node", order: 0)
+      strong = create(:knowledge_node, user: user, plan: plan, title: "Strong node", order: 1)
+      create(:material, user: user, plan: plan, sections: [
+        { "id" => "sec-1", "title" => "Raft", "text" => "leader election" }
+      ])
+      3.times { create(:evidence_record, user: user, node: weak, outcome: "wrong") }
+      3.times { create(:evidence_record, user: user, node: strong, outcome: "correct") }
+      allow(adapter).to receive(:complete).and_return("# A note\n\nBody.")
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { clientUuid: SecureRandom.uuid, scope: "plan", language: "zh", planId: plan.id, targeting: { mode: "weakSpot" } } }, token: token
+          mutation GenerateNote($input: GenerateNoteInput!) {
+            generateNote(input: $input) {
+              note { id targeting }
+            }
+          }
+        GRAPHQL
+      )
+      note = result.dig("data", "generateNote", "note")
+      expect(note["targeting"]).to eq([
+        { "nodeId" => weak.id, "title" => "Weak node", "score" => "0", "mistakes" => 0, "share" => 2 },
+        { "nodeId" => strong.id, "title" => "Strong node", "score" => "100", "mistakes" => 0, "share" => 0 }
+      ])
+    end
+
+    it "refuses targeting on a node scope and an invalid mode with VALIDATION_FAILED" do
+      user, token = user_with_token("notes-weakspot-refusals@example.com")
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan)
+      allow(adapter).to receive(:complete)
+
+      node_scoped = graphql(
+        "mutation { generateNote(input: { clientUuid: \"#{SecureRandom.uuid}\", scope: \"node\", language: \"zh\", " \
+          "nodeId: \"#{node.id}\", targeting: { mode: \"weakSpot\" } }) { note { id } } }", token: token
+      )
+      invalid_mode = graphql(
+        "mutation { generateNote(input: { clientUuid: \"#{SecureRandom.uuid}\", scope: \"plan\", language: \"zh\", " \
+          "planId: \"#{plan.id}\", targeting: { mode: \"banana\" } }) { note { id } } }", token: token
+      )
+      aggregate_failures do
+        expect(error_code(node_scoped)).to eq("VALIDATION_FAILED")
+        expect(error_code(invalid_mode)).to eq("VALIDATION_FAILED")
+      end
+      expect(adapter).not_to have_received(:complete)
+    end
+  end
 end

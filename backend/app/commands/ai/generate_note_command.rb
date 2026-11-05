@@ -31,6 +31,20 @@ module Ai
   # which case right after that paragraph. Blank ≠ present here on purpose:
   # the annotation is content, not an address — blank adds nothing, honestly.
   #
+  # Weak-spot targeting (FR-22, epic P2-12 T2): an optional `targeting` input
+  # — `targeting: { mode: "weakSpot" }` — biases a PLAN-scope generation with
+  # the deterministic weak-spot coverage plan (the quiz targeting's posture:
+  # the candidates come through the ONE shared builder
+  # Ai::TargetingCandidates, the allocation rides Ai::Targeting with total =
+  # the candidate count so each node's share ∝ its gap weight, and the
+  # prompt's coverage table carries exactly what the note's provenance jsonb
+  # marks). The bias needs a node set — node/material scopes with targeting
+  # refuse VALIDATION_FAILED, and so does a present-but-invalid/blank/missing
+  # mode (blank is not absent, the quiz targeting's refusal mirror).
+  # Targeting absent → T1 byte-for-byte (pinned full-string-eq in the command
+  # spec); replay-before-spend and the ONE cap-counted call are unchanged — a
+  # replayed targeted note returns the same rows.
+  #
   # Failure surface: user-arg problems → VALIDATION_FAILED / NOT_FOUND; cap →
   # CAP_REACHED (passed through from the seam); a provider reply with no
   # usable body → INTERNAL (a provider-contract violation, not a user
@@ -38,6 +52,7 @@ module Ai
   # scope record's own name (plan.topic / node.title / material.title).
   class GenerateNoteCommand < ApplicationCommand
     SCOPES = %w[plan node material].freeze
+    TARGETING_MODE = "weakSpot"
 
     option :current_user
     option :client_uuid
@@ -47,11 +62,16 @@ module Ai
     option :node_id, optional: true
     option :material_id, optional: true
     option :enrich_at, optional: true
+    # The NoteTargetingInput as a plain Hash ({ mode: }) — the mutation
+    # converts; nil = targeting absent (T1 behavior untouched).
+    option :targeting, optional: true
 
     def call
       return Failure(:VALIDATION_FAILED, { message: "language is invalid", field: :language }) unless Ai::LANGUAGES.include?(language.to_s)
       return uuid_shape_failure unless client_uuid.to_s.match?(Accounts::UUID_REGEX)
       return Failure(:VALIDATION_FAILED, { message: "scope is invalid", field: :scope }) unless SCOPES.include?(scope.to_s)
+      refusal = targeting_refusal
+      return refusal if refusal
 
       resolved = resolve_scope
       return resolved if resolved.failure?
@@ -62,14 +82,16 @@ module Ai
       return cross_user_uuid_failure if existing && existing.user_id != current_user.id
       return Success(note: existing) if existing
 
+      coverage = weak_spot_coverage(resolved.value!)
       context = build_context(resolved.value!)
-      provider = Ai::Provider.complete(user: current_user, messages: Ai::Prompts.note(language: language, context: context))
+      provider = Ai::Provider.complete(user: current_user,
+                                       messages: build_messages(context, coverage))
       return provider if provider.failure?
 
       body = provider.value!.to_s.strip
       return internal_payload_failure if body.empty?
 
-      Success(note: persist_note(resolved.value!, body))
+      Success(note: persist_note(resolved.value!, body, coverage))
     end
 
     private
@@ -106,6 +128,32 @@ module Ai
       Success([ scope_key, record ])
     end
 
+    # The weak-spot targeting validation (FR-22, T2): the input is either
+    # absent entirely (nil — T1 byte-for-byte) or a Hash carrying the mode
+    # EXACTLY "weakSpot" on the PLAN scope. A non-Hash is present garbage; a
+    # present-but-blank or missing mode must not normalize into "absent"
+    # (blank is not absent — the quiz targeting's blank-nodeId refusal
+    # mirror); and node/material scopes refuse (the bias needs a node set).
+    # Nothing is spent on any refusal.
+    def targeting_refusal
+      return nil unless targeting
+
+      unless targeting.is_a?(Hash)
+        return Failure(:VALIDATION_FAILED,
+                       { message: "targeting must be the weak-spot object", field: :targeting })
+      end
+      mode = (targeting[:mode] || targeting["mode"]).to_s.strip
+      unless mode == TARGETING_MODE
+        return Failure(:VALIDATION_FAILED,
+                       { message: "targeting mode is invalid — only \"#{TARGETING_MODE}\" targets a note (FR-22)",
+                         field: :mode })
+      end
+      return nil if scope.to_s == "plan"
+
+      Failure(:VALIDATION_FAILED,
+              { message: "weak-spot targeting needs a plan scope — the bias needs a node set", field: :scope })
+    end
+
     def build_context(scope)
       scope_key, record = scope
       assembled = case scope_key
@@ -116,6 +164,53 @@ module Ai
       assembled
     end
 
+    # The prompt: coverage-carrying exactly when the weak-spot plan was
+    # computed; every other call builds T1's prompt byte-for-byte (the nil
+    # shape is pinned full-string-eq in the command spec). One provider call
+    # either way (AD-16).
+    def build_messages(context, coverage)
+      return Ai::Prompts.note(language: language, context: context) unless coverage
+
+      Ai::Prompts.note(language: language, context: context, quota_plan: coverage[:text])
+    end
+
+    # The weak-spot coverage plan (FR-22): nil unless the targeting input is
+    # present (validated above) and the scope is the plan itself. The
+    # candidates come through the ONE shared builder (FR-21's targeting
+    # layer — the quiz command's exact bias inputs; no second heuristic),
+    # the allocation rides Ai::Targeting with total = the candidate count so
+    # each node's share ∝ its gap weight (largest remainder; a 0 share is a
+    # real, published "this node gets nothing"). The prompt's quota table
+    # AND the note's provenance rows derive from the SAME allocation — the
+    # prompt carries exactly what the note marks.
+    def weak_spot_coverage(scope)
+      return nil unless targeting.is_a?(Hash) && scope.first == "plan"
+
+      plan = scope.last
+      candidates = Ai::TargetingCandidates.for(user: current_user, plan: plan)
+      return nil if candidates.empty?
+
+      quotas = Ai::Targeting.allocate(candidates: candidates, total: candidates.count)
+      titles = plan.knowledge_nodes.order(:order, :id).index_by(&:id)
+      rows = candidates.map do |candidate|
+        {
+          "nodeId" => candidate.id,
+          "title" => titles[candidate.id]&.title,
+          "score" => candidate.score,
+          "mistakes" => candidate.mistakes,
+          "share" => quotas[candidate.id]
+        }
+      end
+      { rows: rows, text: coverage_plan_text(rows, candidates.count) }
+    end
+
+    # The prompt's quota table — the quiz prompt's line shape, repurposed for
+    # note coverage: "[node id=…] <title> — coverage weight N of M".
+    def coverage_plan_text(rows, total)
+      rows.map { |row| "[node id=#{row["nodeId"]}] #{row["title"]} — coverage weight #{row["share"]} of #{total}" }
+          .join("\n")
+    end
+
     # The one write path for AI notes (no pre-existing Notes command — the
     # epic P2-3 contexts predate the entity). The client uuid IS the note's
     # id, making the delta-3 replay exact. The scope columns follow the DB's
@@ -123,7 +218,7 @@ module Ai
     # (a material-scoped note keeps plan_id null even for a plan-attached
     # material — the plan's notes list reaches it through the plan's
     # materials, not through plan_id).
-    def persist_note(scope, body)
+    def persist_note(scope, body, coverage)
       scope_key, record = scope
       body = apply_user_marker(body, enrich_at)
       Note.create!(
@@ -136,7 +231,7 @@ module Ai
         title: extract_title(body, scope_title(record)),
         body: body,
         enrichment: extract_markers(body),
-        targeting: []
+        targeting: coverage ? coverage[:rows] : []
       )
     end
 
