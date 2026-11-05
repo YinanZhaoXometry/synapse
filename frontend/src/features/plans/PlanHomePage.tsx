@@ -49,7 +49,7 @@ import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "
 import NodeRow from "./node-row";
 import RoadmapGraph from "./RoadmapGraph";
 import { localeTag } from "./locale";
-import { validateUpload } from "./upload-validation";
+import { isPptxUpload, validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
 import { ContractNote, MasteryRing, StreakChip } from "./atoms";
 
@@ -115,6 +115,9 @@ export default function PlanHomePage() {
       toast.error(t(verdict.messageKey));
       return;
     }
+    // epic-13 T5: a pptx rides the markdown pipeline — state the text-only
+    // limitation once, at attach time (the honest expectation, not later).
+    if (isPptxUpload(file)) toast.info(t("reader.pptxTextOnlyNote"));
     const reuploadId = pickerTargetRef.current;
     pickerTargetRef.current = null;
     if (reuploadId) {
@@ -216,7 +219,7 @@ export default function PlanHomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.md,.markdown,application/pdf,text/markdown"
+        accept=".pdf,.md,.markdown,.pptx,application/pdf,text/markdown,application/vnd.openxmlformats-officedocument.presentationml.presentation"
         className="hidden"
         onChange={(e) => {
           handleFiles(e.target.files);

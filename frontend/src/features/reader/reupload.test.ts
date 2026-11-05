@@ -15,8 +15,17 @@ describe("reuploadKind", () => {
     expect(reuploadKind({ name: "file", type: "text/markdown" })).toBe("markdown");
   });
 
+  it("a .pptx routes to the markdown kind (epic-13 T5: it parses INTO markdown-kind sections)", () => {
+    expect(reuploadKind({ name: "slides.pptx", type: "" })).toBe("markdown");
+    expect(
+      reuploadKind({
+        name: "file",
+        type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      }),
+    ).toBe("markdown");
+  });
+
   it("unknown kinds are null — the reader has no guess to make", () => {
-    expect(reuploadKind({ name: "slides.pptx", type: "" })).toBeNull();
     expect(reuploadKind({ name: "file", type: "text/plain" })).toBeNull();
   });
 });
@@ -25,6 +34,8 @@ describe("validateReupload", () => {
   it("accepts a same-kind file within the cap", () => {
     expect(validateReupload({ name: "a.pdf", type: "", size: 1024 }, "pdf")).toEqual({ ok: true });
     expect(validateReupload({ name: "a.md", type: "", size: 1024 }, "markdown")).toEqual({ ok: true });
+    // the original deck re-uploads into its markdown-kind row (epic-13 T5)
+    expect(validateReupload({ name: "deck.pptx", type: "", size: 1024 }, "markdown")).toEqual({ ok: true });
   });
 
   it("rejects a kind mismatch with the bilingual reason key", () => {

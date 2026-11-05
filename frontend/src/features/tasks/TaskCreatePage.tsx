@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { newClientUuid, useCreateTaskMutation, useMaterialUpload } from "@/api";
 import type { MaterialView } from "@/api/views";
 import { cn } from "@/lib/utils";
-import { validateUpload, type UploadKind } from "@/features/plans";
+import { isPptxUpload, validateUpload, type UploadKind } from "@/features/plans";
 import { useParseMaterialMutation } from "@/features/reader";
 import { resolveTaskName } from "./task-name";
 
@@ -65,6 +65,9 @@ export default function TaskCreatePage() {
       toast.error(t(verdict.messageKey));
       return;
     }
+    // epic-13 T5: a pptx rides the markdown pipeline — state the text-only
+    // limitation once, at attach time (the honest expectation, not later).
+    if (isPptxUpload(candidate)) toast.info(t("reader.pptxTextOnlyNote"));
     setChosen({ file: candidate, kind: verdict.kind });
     setRegisteredMaterialId(null); // a new file is a new material — never reuse
     setName(verdict.title); // pre-fill from the filename (T1 AC)
@@ -108,7 +111,7 @@ export default function TaskCreatePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.md,.markdown,application/pdf,text/markdown"
+        accept=".pdf,.md,.markdown,.pptx,application/pdf,text/markdown,application/vnd.openxmlformats-officedocument.presentationml.presentation"
         className="hidden"
         onChange={(e) => {
           acceptFile(e.target.files?.[0]);

@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { READER_FLASH_MS } from "./anchors";
 import type { AnnotationApplyResult, AnnotationRenderItem } from "./annotation-engine";
+import { parsePptx } from "./parse-pptx";
 
 const MarkdownView = lazy(() => import("./markdown-view"));
 
@@ -91,10 +92,19 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
   const scrollRef = useRef<HTMLDivElement>(null);
   const anchoredRef = useRef(false);
   const flashTimerRef = useRef<number | null>(null);
+  const { language } = useLanguage();
 
   // Decode once per blob identity (AD-4): bytes → the full document text. The
   // parsed Material.sections stay the bounded extraction — that asymmetry is
   // by design; this render shows the document as authored.
+  //
+  // PPT materials (epic-13 T5) are the honest exception: a markdown-kind
+  // material can carry pptx bytes (the deck rides the markdown pipeline), and
+  // a zip decoded as text is garbage. The zip magic on the bytes routes them
+  // through the parse seam — parsePptx synthesizes the 第 N 页-titled slide
+  // document, and the EXISTING markdown view renders it (no special branch).
+  // A pptx that fails to re-parse here (corrupt bytes after a reload) lands in
+  // the same honest render-failure card as an undecodable text document.
   useEffect(() => {
     let stale = false;
     setText(null);
@@ -103,7 +113,16 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
     anchoredRef.current = false;
     (async () => {
       try {
-        const decoded = new TextDecoder("utf-8").decode(await blob.arrayBuffer());
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const isZip =
+          bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+        if (isZip) {
+          const sections = await parsePptx(bytes, language);
+          const synthesized = sections.map((s) => `# ${s.title}\n\n${s.text}`).join("\n\n");
+          if (!stale) setText(synthesized);
+          return;
+        }
+        const decoded = new TextDecoder("utf-8").decode(bytes);
         if (!stale) setText(decoded);
       } catch {
         if (!stale) setDecodeFailed(true); // parsed state lied (or bytes mutated) — say so honestly
@@ -112,7 +131,7 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
     return () => {
       stale = true;
     };
-  }, [blob]);
+  }, [blob, language]);
 
   const handleResolved = useCallback(
     (ids: string[]) => {
