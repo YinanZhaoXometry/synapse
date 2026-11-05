@@ -10,9 +10,12 @@ module Ai
   #
   # The payload shapes ARE the frozen contract epic-08's client consumes
   # (see ticket 04's ## Comments): companion = {material_id, question,
-  # locator, text, escalated, language}; proposal = {topic, goal, language};
-  # plan_companion = {plan_id, question, language, mistake_entry_id?} (epic
-  # P2-12 T3, FR-46) — string-keyed, TS keys verbatim.
+  # locator, text, escalated, language, selection?} (selection is epic-13
+  # T1's FR-13 grounding input — it rides ONLY when present, so the pre-T1
+  # shape stays byte-identical for selection-less turns); proposal = {topic,
+  # goal, language}; plan_companion = {plan_id, question, language,
+  # mistake_entry_id?} (epic P2-12 T3, FR-46) — string-keyed, TS keys
+  # verbatim.
   class CreateStreamTicketCommand < ApplicationCommand
     include ReadingLocators
 
@@ -23,6 +26,7 @@ module Ai
     option :question, optional: true
     option :position, optional: true
     option :escalated, optional: true
+    option :selection, optional: true
     option :topic, optional: true
     option :goal, optional: true
     option :plan_id, optional: true
@@ -67,10 +71,11 @@ module Ai
     private
 
     # Companion inputs: an owned material (NOT_FOUND otherwise), a bounded
-    # question, and a validated ReadingPosition (the saveReadingProgress
-    # validation, verbatim). `escalated` is the ladder-amendment flag —
-    # server-side rung derivation reads it (never trust a client-computed
-    # rung).
+    # question, a validated ReadingPosition (the saveReadingProgress
+    # validation, verbatim), and the optional selection grounding text
+    # (epic-13 T1's FR-13 — the selection bar's Ask). `escalated` is the
+    # ladder-amendment flag — server-side rung derivation reads it (never
+    # trust a client-computed rung).
     def companion_payload
       return Failure(:VALIDATION_FAILED, { message: "the companion stream needs a material", field: :materialId }) unless material_id
       return Failure(:NOT_FOUND, { message: "material not found" }) unless material_id.to_s.match?(Accounts::UUID_REGEX)
@@ -94,14 +99,25 @@ module Ai
       locator_failure = validate_locator!(locator, field: :position)
       return locator_failure if locator_failure
 
-      Success({
+      # The selection grounding input (epic-13 T1, FR-13): the selected text,
+      # bounded with the question's discipline. Blank (or absent) → the key
+      # never rides — the frozen payload shape is unchanged for turns the
+      # bar did not ask.
+      selection_text = selection.to_s.strip
+      if selection_text.length > MAX_QUESTION_CHARS
+        return Failure(:VALIDATION_FAILED, { message: "the selection exceeds the length bound", field: :selection })
+      end
+
+      payload = {
         "material_id" => material.id,
         "question" => question_text,
         "locator" => locator_as_jsonb(locator),
         "text" => position[:text].to_s.slice(0, Materials::MAX_SECTION_CHARS),
         "escalated" => escalated == true,
         "language" => language
-      })
+      }
+      payload["selection"] = selection_text unless selection_text.empty?
+      Success(payload)
     end
 
     # Proposal inputs: a bounded topic (+ optional goal). The transcript is

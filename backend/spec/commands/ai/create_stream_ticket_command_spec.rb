@@ -46,6 +46,27 @@ RSpec.describe Ai::CreateStreamTicketCommand do
     expect(result.value![:ticket].payload["locator"]).to eq({ "kind" => "pdf", "page" => 3 })
   end
 
+  # epic-13 T1 (FR-13): the optional selection grounding input — the reader's
+  # selection bar asks WITH the selected text. It rides the payload only when
+  # present (the frozen shape above stays the no-selection shape), bounded
+  # with the question's discipline.
+  it "carries the bounded selection grounding input when present" do
+    result = call(selection: "  Every row is scoped by user_id.  ")
+    expect(result).to be_success
+    expect(result.value![:ticket].payload["selection"]).to eq("Every row is scoped by user_id.")
+  end
+
+  it "omits the selection key when the input is blank (no grounding input, no key)" do
+    result = call(selection: "   ")
+    expect(result).to be_success
+    expect(result.value![:ticket].payload).not_to have_key("selection")
+  end
+
+  it "refuses a selection past the question bound" do
+    expect(call(selection: "x" * 20_001).failure.code).to eq(:VALIDATION_FAILED)
+    expect(user.stream_tickets.count).to eq(0)
+  end
+
   it "mints proposal tickets with the ephemeral transcript inputs (AD-5)" do
     result = call(op: "proposal", material_id: nil, question: nil, position: nil,
                   topic: "软件工程", goal: "考好 COMP5241")

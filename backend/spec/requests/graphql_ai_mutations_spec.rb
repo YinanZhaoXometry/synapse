@@ -161,6 +161,26 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       expect(error_code(invalid)).to eq("VALIDATION_FAILED")
     end
 
+    it "carries the optional selection grounding input into the payload (epic-13 T1, FR-13)" do
+      user, token = user_with_token("ai-ticket-selection@example.com")
+      material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+
+      variables = { input: { op: "companion", language: "zh", materialId: material.id,
+                             question: "解释这个选段",
+                             position: { locator: { kind: "markdown", sectionId: "sec-1" }, text: "view" },
+                             selection: "Every row is scoped by user_id." } }
+      result = graphql(
+        <<~GRAPHQL, variables: variables, token: token
+          mutation CreateStreamTicket($input: CreateStreamTicketInput!) {
+            createStreamTicket(input: $input) { token expiresAt }
+          }
+        GRAPHQL
+      )
+      expect(result.dig("data", "createStreamTicket", "token")).to be_present
+      minted = user.stream_tickets.sole
+      expect(minted.payload["selection"]).to eq("Every row is scoped by user_id.")
+    end
+
     it "mints plan_companion tickets with the planId/mistakeEntryId inputs (epic P2-12 T3)" do
       user, token = user_with_token("ai-ticket-plan@example.com")
       plan = create(:study_plan, user: user)

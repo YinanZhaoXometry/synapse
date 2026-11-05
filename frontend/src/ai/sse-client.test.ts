@@ -229,6 +229,27 @@ describe("startStream (the /api/stream EventSource wrapper — epic P2-8 T4)", (
     });
   });
 
+  it("mints companion tickets with the selection grounding input riding INSIDE (epic-13 T1)", async () => {
+    const harness = makeDeps();
+    startStream(
+      {
+        op: "companion",
+        materialId: "mat-1",
+        question: "这个部分讲了什么？",
+        position: { locator: { kind: "markdown", sectionId: "sec-1" }, text: "current view" },
+        escalated: false,
+        selection: "Every row is scoped by user_id.",
+        language: "zh",
+      },
+      {},
+      harness.deps,
+    );
+    await settle();
+
+    expect(harness.mints).toHaveLength(1);
+    expect(harness.mints[0].variables.input.selection).toBe("Every row is scoped by user_id.");
+  });
+
   it("mints proposal tickets with topic + goal only", async () => {
     const harness = makeDeps();
     startStream(proposalRequest(), {}, harness.deps);

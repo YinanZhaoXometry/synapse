@@ -352,6 +352,42 @@ RSpec.describe Ai::ContextAssembler do
       assembled = described_class.companion_grounding(material, position, budget: 150)
       expect(described_class.estimate_tokens(assembled.text)).to be <= 152
     end
+
+    # epic-13 T1 (FR-13): the reader's selection bar grounds the turn on the
+    # selected text — a dedicated [selection] block, PREPENDED ahead of the
+    # reading position (the tightest grounding rides first), same budget
+    # discipline as every block: whole while it fits, hard-cut with the
+    # marker when nothing fits, truncated honest, estimate ≤ budget.
+    it "prepends the [selection] block ahead of the reading position" do
+      position = { "locator" => { "kind" => "markdown", "sectionId" => "sec-1" }, "text" => "user's current view" }
+
+      assembled = described_class.companion_grounding(material, position, selection: "Every row is scoped by user_id.")
+
+      expect(assembled.truncated).to be(false)
+      expect(assembled.text).to include("[selection]\nEvery row is scoped by user_id.")
+      expect(assembled.text.index("[selection]")).to be < assembled.text.index("[reading position]")
+    end
+
+    it "assembles unchanged when the selection is blank (no block, no truncation)" do
+      position = { "locator" => { "kind" => "markdown", "sectionId" => "sec-1" }, "text" => "view" }
+
+      assembled = described_class.companion_grounding(material, position, selection: "  ")
+
+      expect(assembled.truncated).to be(false)
+      expect(assembled.text).not_to include("[selection]")
+      expect(assembled.text).to include("[reading position]")
+    end
+
+    it "bounds the selection with the truncation marker and keeps the estimate within the budget" do
+      position = { "locator" => { "kind" => "markdown", "sectionId" => "sec-1" }, "text" => "view" }
+
+      assembled = described_class.companion_grounding(material, position, selection: ("y" * 5_000), budget: 120)
+
+      expect(assembled.truncated).to be(true)
+      expect(assembled.text).to include("[selection]")
+      expect(assembled.text).to include(Ai::ContextAssembler::TRUNCATION_MARKER)
+      expect(described_class.estimate_tokens(assembled.text)).to be <= 122
+    end
   end
 
   # Plan grounding (FR-46, epic P2-12 T3): the plan-scope chat surface —

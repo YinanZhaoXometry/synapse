@@ -467,6 +467,51 @@
   .switch[aria-checked="true"]::after { transform: translateX(18px); }
 }
 
+/* PDF text layer (FR-13, epic-13 T1): pdfjs 6's TextLayer renders the
+   invisible, selectable text spans over each page canvas — the selection
+   surface the reader's selection bar captures. These rules are the faithful
+   port of pdfjs-dist's web/pdf_viewer.css .textLayer contract — exactly the
+   vars and per-span custom properties its layout math reads
+   (--total-scale-factor is set inline by renderTextLayer, --min-font-size by
+   the layer itself). Text stays transparent so the canvas below is the only
+   visible surface in every palette/mode; ::selection rides the citation tint
+   token. Lives OUTSIDE @layer (element/attribute selectors get purged from
+   layers). */
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  text-align: initial;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  user-select: text;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor, 1) * var(--min-font-size));
+}
+.pdf-text-layer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+.pdf-text-layer > :not(.markedContent),
+.pdf-text-layer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(calc(1 / var(--min-font-size)));
+}
+.pdf-text-layer .markedContent { display: contents; }
+.pdf-text-layer ::selection { background: hsl(var(--citation-tint)); }
+
 /* Markdown prose (FR-9 reader): pairs with .reader-body — headings, lists,
    code, quotes and links restyled from semantic tokens only, so every palette
    and dark mode holds (AD-9). Lives OUTSIDE @layer, like svg.lucide below:

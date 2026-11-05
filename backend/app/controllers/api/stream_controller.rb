@@ -118,7 +118,7 @@ module Api
       })
 
       position = { "locator" => payload["locator"] || {}, "text" => payload["text"].to_s }
-      context = Ai::ContextAssembler.companion_grounding(material, position)
+      context = Ai::ContextAssembler.companion_grounding(material, position, selection: payload["selection"].to_s)
       messages = Ai::Prompts.companion(
         question: payload["question"].to_s,
         position_text: position["text"],

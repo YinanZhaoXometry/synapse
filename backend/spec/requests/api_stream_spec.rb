@@ -34,12 +34,13 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
     allow(Ai::Provider).to receive(:adapter).and_return(adapter)
   end
 
-  def mint_companion(escalated: false, language: "zh")
+  def mint_companion(escalated: false, language: "zh", selection: nil)
     result = ::Ai::CreateStreamTicketCommand.call(
       current_user: user, op: "companion", language: language,
       material_id: material.id, question: "这个部分讲了什么？",
       position: { locator: { kind: "markdown", section_id: "sec-1" }, text: "current view" },
-      escalated: escalated
+      escalated: escalated,
+      selection: selection
     )
     result.value![:ticket]
   end
@@ -155,6 +156,25 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
 
       stream(ticket)
       expect(events.last["data"]["code"]).to eq("NOT_FOUND")
+    end
+
+    # epic-13 T1 (FR-13): the selection bar's Ask grounds the turn on the
+    # selected text — the ticket carries it, the assembler prepends the
+    # [selection] block, and the prompt the provider receives shows it.
+    it "grounds on the ticket's selection — the [selection] block rides the assembled context" do
+      captured = nil
+      allow(adapter).to receive(:stream) do |messages|
+        captured = messages
+        %w[selection-grounded].each
+      end
+      ticket = mint_companion(selection: "Every row is scoped by user_id.")
+
+      stream(ticket)
+      expect(response).to have_http_status(:ok)
+      expect(events.last["data"]["code"]).to eq("OK")
+      expect(captured).to be_present
+      expect(captured.last[:content]).to include("[selection]\nEvery row is scoped by user_id.")
+      expect(captured.last[:content].index("[selection]")).to be < captured.last[:content].index("[reading position]")
     end
   end
 

@@ -72,12 +72,14 @@ export interface BubbleEntry {
  * in-session turns (rung labels, escalation control) — restored messages
  * persisted before this render as plain cited bubbles (the ChatThread schema
  * stores text + locators, not the reply contract). `request` is runtime-only
- * (never persisted): the original question + send-time position, kept so the
- * EscalationControl re-sends the SAME grounding and a failed turn can retry.
+ * (never persisted): the original question + send-time position (+ the
+ * selection grounding text when the selection bar asked — epic-13 T1), kept
+ * so the EscalationControl re-sends the SAME grounding and a failed turn can
+ * retry.
  */
 export interface CompanionEntry extends BubbleEntry {
   role: "user" | "companion";
-  request: { question: string; position: ReadingPosition; escalated?: boolean } | null;
+  request: { question: string; position: ReadingPosition; escalated?: boolean; selection?: string } | null;
   failed: boolean;
 }
 
