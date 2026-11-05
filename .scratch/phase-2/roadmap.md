@@ -25,7 +25,7 @@ This file is the phase-level index over `.scratch/phase-2/epic-*/`. Epics stay a
 | 11 | [square-import](epic-11-square-import/epic.md) *(T1–T3 done 2026-11-05, merged to main; T4 roadmap.sh import owner-gated — content license needs prior consent, FR-43 open)* | visibility, Square read + fork, roadmap.sh import (FR-38/39/43) | 08 | ✅ (T4 = owner) |
 | 12 | [notes-plan-companion](epic-12-notes-plan-companion/epic.md) *(done 2026-11-05 — branch epic/p2-12-notes, 3 tickets + two-axis reviews, merged to main)* | Notes + enrichment, weak-spot Notes, plan-level Companion (FR-40/22/46) | 08, 10 | ✅ |
 | 13 | [reader-depth](epic-13-reader-depth/epic.md) *(done 2026-11-05 — branch epic/p2-13-reader, 5 tickets + two-axis reviews, merged to main)* | selection shortcuts, Quick Test, Annotations, Study Focus, PPT upload (FR-13/14/16/17, PPT) | 08 | ✅ |
-| 14 | [small-tail](epic-14-small-tail/epic.md) | Settings account surfaces, Task→Plan promotion, ops hardening (deferred-table tail) | 08 | ❌ |
+| 14 | [small-tail](epic-14-small-tail/epic.md) *(done 2026-11-05 — branch epic/p2-14-tail, 3 tickets + inline two-axis reviews, merged to main; T3 = registry/checklist — all four ops items trigger-recorded, owner-gated; closes Phase 2)* | Settings account surfaces, Task→Plan promotion, ops hardening (deferred-table tail) | 08 | ✅ |
 
 Cross-epic edges are recorded here and on each epic.md's **Gate** line (the ticket-level `Blocked by:` convention stays intra-epic). A gate means: do not start the epic's tickets until the gated epics are `done` on their trackers.
 

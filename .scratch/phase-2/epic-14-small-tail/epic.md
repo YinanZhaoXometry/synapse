@@ -1,6 +1,6 @@
 # Epic 14 (Phase 2) — Small tail: Settings account surfaces, Task→Plan promotion, ops hardening
 
-Status: ready-for-agent (spec + tickets 2026-11-03; delta-grill at kickoff; gate: epic-08 done)
+Status: done (2026-11-05 — all three tickets done + inline two-axis reviews, merged to main; rspec 1285 / vitest 807 at the tip; T3 = registry/checklist disposition per delta decision 3 — all four ops items external-dep, trigger-recorded in ticket 03's registry + deploy.md §11 checklist; Phase-2 §6.2 diff check re-run at close)
 Milestone: Phase 2 — post-deadline
 
 ## Parent
