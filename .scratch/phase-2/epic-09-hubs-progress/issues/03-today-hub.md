@@ -82,3 +82,4 @@ mutation handlers, so the DOM update can ONLY come from the refetch.
 (596/597, test name not captured before re-run); two consecutive clean 597/597 runs followed, plus
 5/5 clean runs of the new spec files. Same shape as T2's recorded one-off; nothing pinned to this
 change.
+- **Two-axis review (2026-11-05, inline):** PASS/PASS — label rule verified in dictionary + page; due-link matrix honest per schedulable kind (deep-linked flow IS the completion, no invented mark-done op); idempotent done-toggle (no write on same state, updated_at untouched, DB-precision + wire pinned); duration/priority NOT added (deferral recorded, partial delivery honest); week strip rides consistency (no new backend field); 13th eslint warning = the house page-file-export precedent. Merged on `epic/p2-09-hubs`.
