@@ -6,6 +6,50 @@
 # ops (T3, FR-27): the 今日学习 assembly read plus the writes T1 deferred —
 # due-item link targets, manual rows, the suggestion slot, and the summary
 # counts ride the wire verbatim; the client renders, never re-aggregates.
+# flashcardDecksHub + quizHistoryHub + retakeQuizSession (T4, FR-41/42): the
+# deck aggregation + the full quiz history, and the one schema movement — the
+# hub retake. The retake is a FRESH server-side generation (the api mints the
+# new session's uuid); the web navigates the new session's flow route.
+
+query FlashcardDecksHub {
+  flashcardDecksHub {
+    materialId
+    materialTitle
+    planId
+    planTitle
+    taskId
+    cardCount
+    createdAt
+  }
+}
+
+query QuizHistoryHub {
+  quizHistoryHub {
+    sessionId
+    planId
+    planTitle
+    taskId
+    mode
+    createdAt
+    questionCount
+    scoreSummary {
+      correct
+      total
+    }
+  }
+}
+
+mutation RetakeQuizSession($input: RetakeSessionInput!) {
+  retakeQuizSession(input: $input) {
+    session {
+      id
+      status
+      mode
+      planId
+      taskId
+    }
+  }
+}
 
 query MistakesHub {
   mistakesHub {

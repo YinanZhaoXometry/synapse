@@ -1,299 +1,207 @@
 /**
- * /quiz — the standalone quiz surface, re-pointed (epic-6 T5; spec decision
- * 10; FR-36 carve-out). The scaffold demo is gone: its hardcoded question
- * bank, fake generation timer, and additive mastery deltas into the frozen
- * scaffold progress context no longer exist here. What remains is the real
- * seam reached OUTSIDE plan context (the demo is owner-agnostic — the user
- * never navigates through a plan to get here, but AD-6 still holds):
- *
- *   picker (every db material, labeled with its owning plan/task) →
- *   real generateQuiz through the AI seam → the shared QuizSessionPage
- *   machinery (launcher → runner → evidence → results).
- *
- * Every session attributes to exactly one plan or task — the owner of the
- * picked material — so this surface demonstrates the same evidence loop the
- * twins run; it is not a fourth owner. The owner context is DERIVED: from the
- * picked material on the launch state, from the session itself on the session
- * state. Honest edges: a fresh user gets an empty state with plan/task
- * creation paths, an unknown/deleted reference gets the not-found card, and a
- * material with no owner (or nothing to quiz from) never enters the picker.
+ * The Quiz history hub (FR-42, epic P2-09 T4): every quiz session from the
+ * quizHistoryHub read model (T1's api aggregation, newest first) with origin
+ * chips, the mode, the log date, the question count, and the GRADED-answers
+ * score summary — plus the hub's one write: the RETAKE. A retake fires
+ * retakeQuizSession (the api mints the NEW session server-side from the old
+ * one's scope + mode — never a replay of graded answers, NFR-8) and navigates
+ * to the new session's FLOW route (/plan/:id/quiz?session= / /task/:id/
+ * quiz?session=), where the existing resumption seam hydrates and runs it;
+ * the fresh-launch marker rides along (the hub just started this round in
+ * this tab). The retake action rides exactly the rows with graded answers —
+ * evidence lands only at completion, so a zero-graded row is an in-progress
+ * or abandoned session (the wire carries no status, so the row reads the
+ * honest 未完成 label and never claims which). Filtering is client rendering
+ * over the flat server-ordered list, never a re-aggregation; generation stays
+ * in-flow (FR-19/FR-36) — new quizzes start inside a plan/task flow, and the
+ * empty state links there. The epic-6 T5 material picker + its demo copy
+ * retired with this re-point: a stale /quiz?session= link lands on the hub
+ * (the history is the honest landing — the row's retake starts a fresh round).
  */
-import { Link, useSearchParams } from "react-router-dom";
-import { FileText, HelpCircle, Layers, ListChecks, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CircleAlert, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-  useAllMaterialsQuery,
-  useMaterialQuery,
-  usePlanMaterialsQuery,
-  usePlanNodesQuery,
-  usePlanQuery,
-  usePlansQuery,
-  useQuizSessionQuery,
-  useTaskMaterialsQuery,
-  useTaskNodeQuery,
-  useTaskQuery,
+  useQuizHistoryHubQuery,
+  useRetakeQuizSessionMutation,
   useTasksQuery,
+  type HubQuizHistoryView,
 } from "@/api";
-import type { Material } from "@/domain/entities";
-import { QuizSessionPage, quizableMaterials, type QuizSessionContext } from "@/features/quiz";
+import { QUIZ_FRESH_LAUNCH_KEY } from "@/features/quiz";
+import { localeTag } from "@/features/plans";
 
-/** Common back edges: every demo state returns to the picker, never a trap. */
-const DEMO_BACK = {
-  homeHref: "/quiz",
-  homeLabelKey: "quiz.demo.backToPicker",
-  lostHref: "/quiz",
-  lostLabelKey: "quiz.demo.backToPicker",
-} as const;
+/** The retake launch: fire the mutation; on the NEW session's arrival, mark
+ * the fresh launch and navigate to its flow route per origin kind. The api
+ * guarantees exactly one owner (the ER's exactly-one-owner law), so the scope
+ * read here is `plan xor task` by construction. */
+function useRetakeAndNavigate() {
+  const { language } = useLanguage();
+  const navigate = useNavigate();
+  const retake = useRetakeQuizSessionMutation();
 
-/** An honest dead-end card: unknown/lost references go back to the picker. */
-function lostContext(notFoundKey: string): QuizSessionContext {
-  return { kind: "plan", ownerId: "", exists: false, nodes: [], materials: [], ...DEMO_BACK, notFoundKey };
+  const retakeSession = (row: HubQuizHistoryView) => {
+    retake.mutate({
+      variables: { input: { sessionId: row.sessionId, language } },
+      onCompleted: (data) => {
+        const session = data.retakeQuizSession?.session;
+        if (!session) return;
+        sessionStorage.setItem(QUIZ_FRESH_LAUNCH_KEY, session.id);
+        if (session.planId) {
+          navigate(`/plan/${encodeURIComponent(session.planId)}/quiz?session=${encodeURIComponent(session.id)}`);
+        } else if (session.taskId) {
+          navigate(`/task/${encodeURIComponent(session.taskId)}/quiz?session=${encodeURIComponent(session.id)}`);
+        }
+      },
+    }).catch(() => {
+      // the hook's onError already toasted; the history stays put
+    });
+  };
+
+  return { retakeSession, retaking: retake.result.loading };
 }
 
-/** The picked-material strip above the inline launcher (picker → launcher continuity). */
-function PickedMaterialStrip({ material, ownerLabel }: { material: Material; ownerLabel: string }) {
+/** One history row: origin chip, mode chip, date, question count, and the
+ * score summary — or the honest zero-graded label. The retake button rides
+ * only the graded rows. */
+function HistoryRow({ row, taskTitle, onRetake, retaking }: {
+  row: HubQuizHistoryView;
+  taskTitle: (taskId: string) => string;
+  onRetake: (row: HubQuizHistoryView) => void;
+  retaking: boolean;
+}) {
+  const { t, language } = useLanguage();
+  const originLabel = row.taskId ? taskTitle(row.taskId) : row.planTitle ?? row.planId;
+  const modeKey = row.mode === "open" ? "quizHub.modeOpen" : row.mode === "choice" ? "quizHub.modeChoice" : "quizHub.modeMix";
+  const graded = row.scoreSummary.total > 0;
+  const dateLabel = new Date(row.createdAt).toLocaleDateString(localeTag(language));
+
   return (
-    <div
-      className="mb-4 flex items-center gap-2.5 rounded-xl border border-border-soft bg-[var(--glass-2)] px-3.5 py-2.5"
-      data-testid="quiz-demo-picked"
-    >
-      <FileText className="w-4 h-4 text-accent-ink flex-none" aria-hidden="true" />
-      <span className="text-[13px] font-semibold truncate min-w-0">{material.title}</span>
-      <span className="ml-auto text-[10px] text-muted-foreground flex-none">{ownerLabel}</span>
-    </div>
-  );
-}
-
-/** One picker row: the material + its owning context label (AD-6, honestly attributed). */
-function PickerRow({ material, ownerLabel, onPick }: { material: Material; ownerLabel: string; onPick: () => void }) {
-  const { t } = useLanguage();
-  return (
-    <button
-      type="button"
-      role="radio"
-      data-testid={`quiz-demo-material-${material.id}`}
-      onClick={onPick}
-      className="flex items-center gap-2.5 rounded-xl border border-border-soft px-3 py-2.5 text-left transition-colors hover:border-[color:var(--accent-edge)] hover:bg-[var(--glass-2)] cursor-pointer min-w-0"
-    >
-      <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-semibold">{material.title}</span>
-        <span className="block truncate text-[10px] text-muted-foreground mt-0.5">{ownerLabel}</span>
-      </span>
-      <span className="text-[10px] text-muted-foreground flex-none">
-        {t("plans.parseParsed", { n: material.sections.length })}
-      </span>
-    </button>
-  );
-}
-
-/** The picker state: every quizable, owned material in the db with its owner label. */
-function MaterialPicker({ onPick }: { onPick: (materialId: string) => void }) {
-  const { t } = useLanguage();
-  const materialsQuery = useAllMaterialsQuery();
-  const plansQuery = usePlansQuery();
-  const tasksQuery = useTasksQuery();
-
-  if (materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return null;
-
-  const plans = plansQuery.data ?? [];
-  const tasks = tasksQuery.data ?? [];
-  const rows = (materialsQuery.data ?? [])
-    .filter((m) => quizableMaterials([m]).length > 0)
-    .map((m) => {
-      // The owner label IS the attribution (AD-6): plan topic / task title
-      // (= its material's title, the TaskRow convention). A material whose
-      // owner no longer resolves is excluded honestly — never an invented label.
-      const ownerLabel = m.planId
-        ? plans.some((p) => p.id === m.planId)
-          ? t("quiz.demo.fromPlan", { plan: plans.find((p) => p.id === m.planId)!.topic })
-          : null
-        : m.taskId && tasks.some((task) => task.id === m.taskId)
-          ? t("quiz.demo.fromTask", { task: m.title })
-          : null;
-      return { material: m, ownerLabel };
-    })
-    .filter((row) => row.ownerLabel !== null);
-
-  if (rows.length === 0) {
-    // The honest empty state (fresh user / nothing parsed yet): paths forward, never a dead end.
-    return (
-      <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="quiz-demo-empty">
-        <p className="eyebrow">{t("quiz.eyebrow")}</p>
-        <h1 className="page-title">{t("quiz.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("quiz.subtitle")}</p>
-        <div className="mt-4 rounded-2xl border border-border-soft bg-card p-8 shadow-raised text-center">
-          <HelpCircle className="w-5 h-5 mx-auto text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm font-semibold mt-2">{t("quiz.demo.emptyTitle")}</p>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-[1.6]">{t("quiz.demo.emptyBody")}</p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <Link
-              to="/plans"
-              data-testid="quiz-demo-goto-plans"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-hero px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition-all hover:-translate-y-px hover:brightness-[1.03] active:scale-[0.97] cursor-pointer"
-            >
-              <Layers className="w-4 h-4" aria-hidden="true" />
-              {t("quiz.demo.createPlan")}
-            </Link>
-            <Link
-              to="/task/new"
-              data-testid="quiz-demo-goto-tasks"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-[var(--glass-4)] px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-[var(--glass-solid)] active:scale-[0.97] cursor-pointer"
-            >
-              <ListChecks className="w-4 h-4" aria-hidden="true" />
-              {t("quiz.demo.createTask")}
-            </Link>
-          </div>
-        </div>
+    <article className="bg-card border border-border-soft rounded-2xl p-5 shadow-raised">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="pill">{originLabel}</span>
+        <span className="text-[10px] text-caption">{dateLabel}</span>
       </div>
-    );
-  }
-
-  return (
-    <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="quiz-demo-picker">
-      <p className="eyebrow">{t("quiz.eyebrow")}</p>
-      <h1 className="page-title">{t("quiz.title")}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{t("quiz.subtitle")}</p>
-      <div className="mt-4 rounded-2xl border border-border-soft bg-card p-6 md:p-8 shadow-raised">
-        <p className="text-sm font-semibold">{t("quiz.demo.pickTitle")}</p>
-        <p className="text-xs text-muted-foreground mt-1 leading-[1.6]">{t("quiz.demo.pickSubtitle")}</p>
-        <div className="mt-4 flex flex-col gap-2" role="radiogroup" aria-label={t("quiz.demo.pickTitle")}>
-          {rows.map(({ material, ownerLabel }) => (
-            <PickerRow key={material.id} material={material} ownerLabel={ownerLabel!} onPick={() => onPick(material.id)} />
-          ))}
-        </div>
-        <p className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Sparkles className="w-3 h-3 flex-none" aria-hidden="true" />
-          {t("quiz.retakeNote")}
-        </p>
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <span className="pill pill-muted">{t(modeKey)}</span>
+        <span className="pill pill-muted">{t("quizHub.questions", { n: row.questionCount })}</span>
       </div>
-    </div>
+      <div className="flex items-center justify-between gap-3 flex-wrap mt-3">
+        {graded ? (
+          <span className="text-sm font-semibold tabular-nums" data-testid={`quiz-history-score-${row.sessionId}`}>
+            {t("quizHub.scoreSummary", { correct: row.scoreSummary.correct, total: row.scoreSummary.total })}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">{t("quizHub.ungraded")}</span>
+        )}
+        {graded && (
+          <button
+            type="button"
+            data-testid={`quiz-retake-${row.sessionId}`}
+            onClick={() => onRetake(row)}
+            disabled={retaking}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+            aria-label={t("quizHub.retakeAria")}
+          >
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            {t("quizHub.retake")}
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
 export default function QuizPage() {
   const { t } = useLanguage();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const sessionParam = searchParams.get("session");
-  const materialParam = searchParams.get("material");
+  const hubQuery = useQuizHistoryHubQuery();
+  const tasksQuery = useTasksQuery();
+  const [filter, setFilter] = useState("");
+  const { retakeSession, retaking } = useRetakeAndNavigate();
 
-  // URL truth rides the api's queries (the cutover replaces the synchronous
-  // repository reads): data arrives mapped, unknown ids read as undefined.
-  const sessionQuery = useQuizSessionQuery(sessionParam ?? "");
-  const materialQuery = useMaterialQuery(!sessionParam && materialParam ? materialParam : "");
-  const session = sessionParam ? sessionQuery.data : undefined;
-  const material = !sessionParam ? materialQuery.data : undefined;
+  const rows = hubQuery.data ?? [];
+  const tasks = tasksQuery.data ?? [];
 
-  // ONE owner lookup set, keyed by the OWNER id — identical across the launch
-  // state (owner = the picked material's owner) and the session state (owner =
-  // the session's own owner; AD-6 makes them the same owner). Same keys →
-  // warm cache across the ?material → ?session URL flip → the shared shell
-  // never unmounts mid-launch (losing its retake params would break 再来一轮).
-  const ownerPlanId = session?.planId ?? material?.planId ?? null;
-  const ownerTaskId = session?.taskId ?? material?.taskId ?? null;
-  const planQuery = usePlanQuery(ownerPlanId ?? "");
-  const planNodesQuery = usePlanNodesQuery(ownerPlanId ?? "");
-  const planMaterialsQuery = usePlanMaterialsQuery(ownerPlanId ?? "");
-  const taskQuery = useTaskQuery(ownerTaskId ?? "");
-  const taskNodeQuery = useTaskNodeQuery(ownerTaskId ?? "");
-  const taskMaterialsQuery = useTaskMaterialsQuery(ownerTaskId ?? "");
+  // The task row's title resolves off the tasks list read (the wire carries
+  // the task ID only — the MistakesPage convention); plan titles ride the
+  // wire. An unresolvable id renders raw (honest, never a guessed title).
+  const taskTitle = (taskId: string) => tasks.find((task) => task.id === taskId)?.node.title ?? taskId;
 
-  const pending = Boolean(
-    (ownerPlanId && (planQuery.loading || planNodesQuery.loading || planMaterialsQuery.loading)) ||
-      (ownerTaskId && (taskQuery.loading || taskNodeQuery.loading || taskMaterialsQuery.loading)) ||
-      (sessionParam && sessionQuery.loading) ||
-      (!sessionParam && materialParam && materialQuery.loading),
-  );
-
-  if (pending) return null;
-
-  // -- ?session=<id>: the owner context derives from the session itself ----------
-  if (sessionParam) {
-    let context: QuizSessionContext;
-    if (!session) {
-      context = lostContext("quiz.runner.notFound");
-    } else if (session.planId) {
-      context = planQuery.data
-        ? {
-            kind: "plan",
-            ownerId: session.planId,
-            exists: true,
-            nodes: planNodesQuery.data ?? [],
-            materials: planMaterialsQuery.data ?? [],
-            ...DEMO_BACK,
-            notFoundKey: "plans.notFound",
-          }
-        : lostContext("plans.notFound");
-    } else if (session.taskId) {
-      context = taskQuery.data
-        ? {
-            kind: "task",
-            ownerId: session.taskId,
-            exists: true,
-            nodes: taskNodeQuery.data ? [taskNodeQuery.data] : [],
-            materials: taskMaterialsQuery.data ?? [],
-            ...DEMO_BACK,
-            notFoundKey: "tasks.notFound",
-          }
-        : lostContext("tasks.notFound");
-    } else {
-      // A session with no owner cannot run anywhere honestly — never here either.
-      context = lostContext("quiz.runner.notFound");
+  // The filter's origin set: first occurrence over the flat list (recency-
+  // shaped, matching the server order) — rendering, not re-aggregation.
+  const origins = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const row of rows) {
+      const key = row.taskId ? `task:${row.taskId}` : `plan:${row.planId}`;
+      if (!seen.has(key)) seen.set(key, row.taskId ? taskTitle(row.taskId) : row.planTitle ?? row.planId ?? "");
     }
-    return <QuizSessionPage context={context} />;
-  }
+    return [...seen.entries()];
+  }, [rows, tasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // -- ?material=<id>: the launch state — the picked material IS the scope -------
-  if (materialParam) {
-    const quizable = material ? quizableMaterials([material]).length > 0 : false;
-    const ownerLabel = material
-      ? material.planId && planQuery.data
-        ? t("quiz.demo.fromPlan", { plan: planQuery.data.plan.topic })
-        : material.taskId && taskQuery.data
-          ? t("quiz.demo.fromTask", { task: material.title })
-          : null
-      : null;
+  const visibleRows = filter ? rows.filter((row) => (row.taskId ? `task:${row.taskId}` : `plan:${row.planId}`) === filter) : rows;
 
-    if (!material || !quizable || !ownerLabel) {
-      // Unknown id / nothing to quiz from / no owner — honest cards, never an invented attribution.
-      return (
-        <QuizSessionPage
-          context={lostContext(!material ? "quiz.demo.materialNotFound" : !quizable ? "quiz.demo.notQuizable" : "quiz.demo.materialNotFound")}
-        />
-      );
-    }
+  // Honest-empty posture: nothing renders until the reads land (no demo
+  // fallback, no flash of stale copy).
+  if (hubQuery.loading || tasksQuery.loading) return null;
 
-    const context: QuizSessionContext =
-      material.planId && planQuery.data
-        ? {
-            kind: "plan",
-            ownerId: planQuery.data.plan.id,
-            exists: true,
-            nodes: planNodesQuery.data ?? [],
-            materials: [material], // scopeLocked: the picker fixed the scope — this material only
-            scopeLocked: true,
-            launchHeader: <PickedMaterialStrip material={material} ownerLabel={ownerLabel} />,
-            ...DEMO_BACK,
-            notFoundKey: "plans.notFound",
-          }
-        : {
-            kind: "task",
-            ownerId: taskQuery.data!.id,
-            exists: true,
-            nodes: taskNodeQuery.data ? [taskNodeQuery.data] : [],
-            materials: [material],
-            scopeLocked: true,
-            launchHeader: <PickedMaterialStrip material={material} ownerLabel={ownerLabel} />,
-            ...DEMO_BACK,
-            notFoundKey: "tasks.notFound",
-          };
-    return <QuizSessionPage context={context} />;
-  }
-
-  // -- no params: the material picker -------------------------------------------
   return (
-    <MaterialPicker
-      onPick={(materialId) => setSearchParams(new URLSearchParams({ material: materialId }))}
-    />
+    <div className="max-w-[984px] mx-auto px-6 py-8">
+      {/* Page head */}
+      <div>
+        <p className="eyebrow">{t("quizHub.eyebrow")}</p>
+        <h1 className="page-title mt-1.5">{t("quizHub.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-1.5">{t("quizHub.subtitle", { n: rows.length })}</p>
+      </div>
+
+      {hubQuery.error ? (
+        <div className="bg-card border border-border-soft rounded-2xl p-6 shadow-raised mt-6" role="alert">
+          <p className="text-sm font-semibold">{t("quizHub.loadFailed")}</p>
+          <button
+            type="button"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => void hubQuery.refetch()}
+          >
+            {t("quizHub.retry")}
+          </button>
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="bg-card border border-border-soft rounded-2xl p-8 shadow-raised mt-6 text-center">
+          <CircleAlert className="w-5 h-5 mx-auto text-muted-foreground" aria-hidden="true" />
+          <p className="text-sm font-semibold mt-2">{t("quizHub.emptyTitle")}</p>
+          <p className="text-sm text-muted-foreground mt-1.5">{t("quizHub.emptyBody")}</p>
+          <Link
+            to="/plans"
+            className="inline-flex items-center gap-2 mt-4 rounded-xl bg-gradient-hero text-white shadow-brand px-4 py-2 text-sm font-semibold transition-all hover:shadow-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t("quizHub.emptyCta")}
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* The plan/task filter (the read model is flat — filtering is rendering) */}
+          <label className="flex items-center gap-2 mt-5 text-xs text-muted-foreground">
+            {t("quizHub.filterLabel")}
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">{t("quizHub.filterAll")}</option>
+              {[...origins].map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-3 mt-4">
+            {visibleRows.map((row) => (
+              <HistoryRow key={row.sessionId} row={row} taskTitle={taskTitle} onRetake={retakeSession} retaking={retaking} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
