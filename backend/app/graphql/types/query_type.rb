@@ -231,6 +231,61 @@ module Types
                    .select { |schedule| schedule.schedulable }
     end
 
+    # ── The hub read model (epic P2-09 T1, delta decision 4): seven separate
+    # scoped queries, not a mega-field. Each answers on the scoping context;
+    # the aggregation logic lives in Hubs (app/lib/hubs.rb) so the resolvers
+    # stay thin. `now` is injected at the request (the freshness/streak
+    # discipline — UTC by contract).
+
+    field :mistakes_hub, [ Types::HubMistakeEntryType ], null: false,
+      description: "The current user's mistake entries (FR-23, epic P2-09 T1): every wrong answer — Choice + Open — as a flat list newest-first, with the question (prompt + source material/section locators), the user's answer, the node/plan/task context, and the verbatim ReadingLocator sourceLocation + materialId for deep links. Grouping/filtering is the web's rendering concern (T2 decides). A plain list (AD-12)."
+
+    def mistakes_hub
+      Hubs.mistakes(current_user!)
+    end
+
+    field :today_hub, Types::TodayHubType, null: false,
+      description: "The 今日学习 assembly (FR-27, epic P2-09 T1): the day's due reviews (epic-07's due logic verbatim — the materialized re-queue schedule, inclusive by the UTC day's end), the per-weak-plan quick-test suggestions (delta decision 2's v1 partial posture), the user's manual tasks, and the day's summary counts."
+
+    def today_hub
+      Hubs.today(current_user!, now: Time.current)
+    end
+
+    field :flashcard_decks_hub, [ Types::FlashcardDeckSummaryType ], null: false,
+      description: "The current user's flashcard decks aggregated (FR-41, epic P2-09 T1): one row per material that has flashcards, grouped server-side — plan/task links and card counts ride each row. A plain list (AD-12)."
+
+    def flashcard_decks_hub
+      Hubs.flashcard_decks(current_user!)
+    end
+
+    field :quiz_history_hub, [ Types::QuizHistoryEntryType ], null: false,
+      description: "The current user's quiz sessions (FR-42, epic P2-09 T1): every session newest-first with its question count and the server-computed score summary (graded answers only — open unanswered/awaiting questions excluded honestly). A plain list (AD-12)."
+
+    def quiz_history_hub
+      Hubs.quiz_history(current_user!)
+    end
+
+    field :analytics_series, Types::AnalyticsSeriesType, null: false,
+      description: "The current user's analytics series (FR-26, epic P2-09 T1): per-node mastery through the one Mastery scorer (freshness engaged), the weekly accuracy trend over the last 8 ISO weeks (Mon-UTC, weeks with evidence only), and the 14-day consistency strip (distinct evidence-producing sessions per UTC day, zeros included — SM-C3)."
+
+    def analytics_series
+      Hubs.analytics_series(current_user!, now: Time.current)
+    end
+
+    field :weekly_goal, Types::WeeklyGoalType, null: false,
+      description: "The current user's weekly goal (FR-25's Phase-2 half, delta decision 3): the target vs. DISTINCT evidence-producing sessions in the current ISO week (Mon 00:00 UTC .. now — SM-C3: sessions, never minutes). Set via setWeeklyGoal."
+
+    def weekly_goal
+      Hubs.weekly_goal(current_user!, now: Time.current)
+    end
+
+    field :badge_state, [ Types::BadgeStateType ], null: false,
+      description: "The current user's badge states (FR-28, delta decision 1): all 12 badges of the scaffold taxonomy computed on read, server-side — each with the raw counter and its threshold (b4 flashcards ≥10, b6 mistake-node revisits ≥5, b7/b8/b9 distinct mastered nodes 1/3/5, b10 ≥3 sessions in one UTC day, b11 a plan with every node mastered, b12 any node at score 100, streaks 3/7, evidence ≥100). The progressLabel string is the web's rendering concern (T6)."
+
+    def badge_state
+      Hubs.badge_state(current_user!, now: Time.current)
+    end
+
     field :chat_thread, Types::ChatThreadType, null: true,
       description: "One material's Companion transcript (the getChatThread mirror) — null when the conversation has not started yet. A foreign or unknown material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
       argument :material_id, String, required: true, description: "The anchored material's uuid."

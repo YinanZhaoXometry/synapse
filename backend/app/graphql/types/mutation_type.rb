@@ -64,5 +64,10 @@ module Types
     # 1+4+5): synchronous through the adapter — one cap-counted provider
     # call, deterministic replay on the client uuid.
     field :generate_note, mutation: Mutations::Ai::GenerateNote
+
+    # The weekly goal setter (FR-25's Phase-2 half, epic P2-09 T1; delta
+    # decision 3): the target's home is users.weekly_goal_target; the
+    # Settings UI lands with T5.
+    field :set_weekly_goal, mutation: Mutations::Hubs::SetWeeklyGoal
   end
 end
