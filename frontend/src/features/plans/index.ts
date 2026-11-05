@@ -19,6 +19,7 @@ export {
 } from "./upload-validation";
 export { useSessionBlob } from "./use-session-blob";
 export { OUTCOME_LABEL_KEY } from "./outcome-labels";
+export { localeTag } from "./locale";
 export { ContractNote, MasteryRing, OutcomeMark } from "./atoms";
 export { NodeStateBadge } from "./node-state-badge";
 export {

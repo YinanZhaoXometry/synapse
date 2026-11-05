@@ -32,3 +32,4 @@ export * from "./queries/scope-queries";
 export * from "./queries/import-queries";
 export * from "./queries/study-queries";
 export * from "./queries/quiz-queries";
+export * from "./queries/hub-queries";

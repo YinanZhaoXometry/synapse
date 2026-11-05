@@ -91,49 +91,10 @@ export const ACHIEVEMENTS: Badge[] = [
 ];
 
 /* ── Mistakes ────────────────────────────────────────── */
-export interface Mistake {
-  id: string;
-  topic: LangText;
-  dateKey: string;
-  question: LangText;
-  given: LangText;
-  correct: LangText;
-  note: LangText;
-  source: LangText;
-}
-
-export const MISTAKES: Mistake[] = [
-  {
-    id: "mk1",
-    topic: { zh: "软件测试", en: "Software testing" },
-    dateKey: "mistakes.date1",
-    question: { zh: "集成测试的主要目的是什么？", en: "What is the main purpose of integration testing?" },
-    given: { zh: "集成测试就是把所有单元测试一次跑完。", en: "Integration testing just runs all the unit tests at once." },
-    correct: { zh: "验证模块之间的接口与协作，不会替代单元测试。", en: "Verify interfaces and collaboration between modules; it does not replace unit tests." },
-    note: { zh: "把「一起运行」当成了「验证协作」。下一步：为每个接口补一条失败路径。", en: "You treated \"run together\" as \"verify collaboration.\" Next: add one failure path per interface." },
-    source: { zh: "COMP5241 Lecture 5 · 第 3 页", en: "COMP5241 Lecture 5 · p.3" },
-  },
-  {
-    id: "mk2",
-    topic: { zh: "需求工程", en: "Requirements" },
-    dateKey: "mistakes.date2",
-    question: { zh: "需求可追溯性最直接的用途是什么？", en: "What is the most direct use of requirements traceability?" },
-    given: { zh: "主要是给审计看的。", en: "It is mainly for audits." },
-    correct: { zh: "变更时定位受影响的设计、实现与测试。", en: "Locate affected design, implementation, and tests when change happens." },
-    note: { zh: "审计只是结果之一。把「变更影响分析」写在便签上，下次先想这一条。", en: "Audit is a side effect. Put \"change-impact analysis\" on a sticky note and reach for it first." },
-    source: { zh: "COMP5241 Lecture 1 · 第 12 页", en: "COMP5241 Lecture 1 · p.12" },
-  },
-  {
-    id: "mk3",
-    topic: { zh: "设计模式", en: "Design patterns" },
-    dateKey: "mistakes.date3",
-    question: { zh: "观察者模式让对象之间完全解耦了吗？", en: "Does Observer fully decouple objects?" },
-    given: { zh: "是的，订阅者完全不依赖主题。", en: "Yes, subscribers have no dependency on the subject." },
-    correct: { zh: "它降低耦合，但订阅者仍依赖主题的接口。", en: "It lowers coupling, but subscribers still depend on the subject interface." },
-    note: { zh: "「解耦」不是「零依赖」。记住保留接口这一层依赖，才算真的理解。", en: "\"Lower coupling\" is not \"zero dependency.\" Keep the interface dependency in view." },
-    source: { zh: "设计模式笔记 · 第 4 页", en: "Design patterns notes · p.4" },
-  },
-];
+// RETIRED (epic P2-09 T2, 2026-11-05): the demo Mistake fixture + interface
+// left with /mistakes' re-point onto the mistakesHub read model — the page
+// consumes only the hub hook now. Other demo-data exports stay until their
+// own tickets retire them.
 
 /* ── Flashcards ──────────────────────────────────────── */
 export interface Flashcard {

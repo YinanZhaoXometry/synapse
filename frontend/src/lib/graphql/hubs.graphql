@@ -1,0 +1,30 @@
+# The hub read-model reads (epic P2-09). T1 landed the api-side aggregation
+# (backend Hubs module — the scoped queries); these are the web's typed reads
+# over it, added per surface ticket. mistakesHub (T2, FR-23) answers the FLAT
+# newest-first list — grouping, filtering, and title resolution off the ids
+# are the web's rendering concerns, decided here.
+
+query MistakesHub {
+  mistakesHub {
+    id
+    questionId
+    sessionId
+    nodeId
+    planId
+    taskId
+    materialId
+    userAnswer
+    sourceLocation {
+      kind
+      page
+      sectionId
+    }
+    forfeited
+    createdAt
+    question {
+      prompt
+      kind
+      options
+    }
+  }
+}
