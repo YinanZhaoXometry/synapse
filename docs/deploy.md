@@ -264,3 +264,20 @@ Before every **graded demo window**: upgrade both paid services for the window, 
 - **Pool arithmetic (why `RAILS_MAX_THREADS` stays unset):** worker threads (`config/queue.yml`, 1) + dispatcher (1) + puma's web threads (`RAILS_MAX_THREADS`, default 3) share ONE ActiveRecord pool sized by `database.yml`'s `max_connections` (fetch default 5) — 3 + 1 + 1 = 5 = the pool. An undersized pool surfaces as `ActiveRecord::ConnectionTimeoutError` exactly when the 10-minute scan overlaps request traffic; setting `RAILS_MAX_THREADS` moves both sides of the equation, so the shipped defaults are the contract.
 - Polling: dispatcher/worker poll at `SOLID_QUEUE_POLLING_INTERVAL` seconds (default 10 — job latency is irrelevant for a 10-minute scan; a 1-second idle poll would keep Neon awake through Render's idle windows). This polling stops when the process sleeps — it is NOT a keep-alive; the app forbids keep-alives (`backend/spec/config/no_keep_alive_spec.rb`). Let the service sleep on the free tier (§7).
 - One recurring task ships (`due_scan` every 10 minutes, `config/recurring.yml` → `Requeue::ScanJob`, the FR-24 re-queue scan; correct-on-wake).
+
+## 11. Ops hardening — the demo-window checklist (epic-14 T3)
+
+**The registry of record** (item / trigger / status / date for the four Deferred-table ops items — error visibility, Neon backups/PITR, password reset, Google OAuth) lives in [`../.scratch/phase-2/epic-14-small-tail/issues/03-ops-hardening-registry.md`](../.scratch/phase-2/epic-14-small-tail/issues/03-ops-hardening-registry.md)'s `## Comments` — maintained there, not duplicated here. Its disposition in one line: every item carries an external dependency (Render plan, Neon console, mail provider, Google console), so each is **trigger-recorded**, and the one item with a demo-window trigger (error visibility) is absorbed by the §8 posture below — the paid upgrade that kills spin-down also buys full dashboard log access for the window.
+
+### Pre-demo checklist — run §8's steps, then verify:
+
+- [ ] **[owner]** §8 steps 1–2: Render upgraded + Neon scaled for the window (this **is** the error-visibility answer: paid Render keeps full dashboard logs for the whole window — no log-drain setup needed).
+- [ ] **[owner]** §8 step 3: wake + verify once pre-demo (`GET /up` → 200; demo login; one Companion stream).
+- [ ] **[owner]** Error visibility DURING the window: watch the Render dashboard Logs after any anomaly; on a paid window, history is there when you need it. **If a demo must run on the free tier instead** (§8 step 5): Render keeps NO log history — capture failures live (copy/screenshot) as they happen; there is no after-the-fact log to consult.
+- [ ] **[owner]** §8 steps 4–5: downgrade both services after the window; never leave the paid tier on (AD-20's window-scoped posture).
+
+### Beyond the demo window — the before-real-users gates (not demo-blockers)
+
+- **Neon backups/PITR** and **password reset (mail provider)** trigger when real users arrive beyond the demo account — both are owner-provisioned vendor features first, then small builds (registry rows 2–3).
+- **Google OAuth** triggers only when a real user asks (registry row 4; email+password is the shipped auth path).
+- Dates and unblock actions for all four: the ticket-03 registry table — update it there when an item moves.
