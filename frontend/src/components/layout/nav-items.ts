@@ -30,10 +30,17 @@ export const NAV_ROUTES = [
 export const SETTINGS_ROUTE = { to: "/settings", labelKey: "nav.settings", icon: Settings };
 
 // Functional grouping — display order for the sidebar + drawer (the rail
-// stays icon-only, no labels). Plan-first per FR-36 (epic-7 T3): 学习 with
-// the front door first → 练习 hubs (FR-36's own listing: 错题本 / 今日学习 /
-// 闪卡 / 测验 — Today returned when FR-27 landed, epic P2-09 T3) → 总览 → 进度.
+// stays icon-only, no labels). Owner ruling 2026-11-06: 总览(仪表盘) leads
+// the sidebar — this overrides the FR-36 plan-first display order (epic-7 T3)
+// for the grouped surfaces; the flat order (NAV_ROUTES — rail, ⌘K palette,
+// mobile nav source) keeps the FR-36 sequence. 练习 hubs follow FR-36's own
+// listing (错题本 / 今日学习 / 闪卡 / 测验 — Today returned when FR-27
+// landed, epic P2-09 T3) → 学习 → 进度.
 export const NAV_GROUPS: ReadonlyArray<{ labelKey: string; items: ReadonlyArray<(typeof NAV_ROUTES)[number]> }> = [
+  {
+    labelKey: "nav.group.overview",
+    items: [NAV_ROUTES[7]], // 仪表盘
+  },
   {
     labelKey: "nav.group.learn",
     items: [NAV_ROUTES[0], NAV_ROUTES[1], NAV_ROUTES[2]], // 学习计划 / AI 导师 / 学习资料
@@ -41,10 +48,6 @@ export const NAV_GROUPS: ReadonlyArray<{ labelKey: string; items: ReadonlyArray<
   {
     labelKey: "nav.group.practice",
     items: [NAV_ROUTES[3], NAV_ROUTES[4], NAV_ROUTES[5], NAV_ROUTES[6]], // 错题本 / 今日学习 / 闪卡 / 测验
-  },
-  {
-    labelKey: "nav.group.overview",
-    items: [NAV_ROUTES[7]], // 仪表盘
   },
   {
     labelKey: "nav.group.progress",

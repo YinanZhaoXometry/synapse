@@ -1,19 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "./nav-items";
 
-// FR-36 plan-first ordering (epic-7 T3; EXPERIENCE.md line-54 ruling fires —
-// the FR-1 front door landed in epic-2): 学习 group leads with 学习计划
-// (the front door) first, hubs follow, 总览/进度 trail. The orchestrator's
-// pre-decided display order: 学习 (学习计划 → AI 导师 → 学习资料) →
-// 练习 (错题本 → 今日学习 → 闪卡 → 测验) → 总览 (仪表盘) → 进度 (成就 →
-// 数据分析). 今日学习 returned to the 练习 group when FR-27 landed (epic
-// P2-09 T3) — nav-items' own recorded intent — under the label rule
-// (zh 今日学习, en Today; 学习计划 stays reserved for Study Plans).
-describe("nav-items plan-first ordering (FR-36, epic-7 T3)", () => {
-  it("leads the sidebar with the 学习 group whose first item is 学习计划", () => {
-    expect(NAV_GROUPS[0].labelKey).toBe("nav.group.learn");
-    expect(NAV_GROUPS[0].items[0].labelKey).toBe("nav.plans");
-    expect(NAV_GROUPS[0].items[0].to).toBe("/plans");
+// Grouped display order per owner ruling 2026-11-06: 总览(仪表盘) leads the
+// sidebar + drawer — this overrides the FR-36 plan-first display order
+// (epic-7 T3, EXPERIENCE.md line-54) for the GROUPED surfaces only. The flat
+// order (NAV_ROUTES — rail, ⌘K palette, mobile nav source) keeps the FR-36
+// sequence: 学习计划 (the front door) first, hubs follow, overview/progress
+// trail. 今日学习 lives in the 练习 group under the label rule (zh 今日学习,
+// en Today; 学习计划 stays reserved for Study Plans).
+describe("nav-items grouping (owner ruling 2026-11-06; flat order stays FR-36)", () => {
+  it("leads the sidebar with the 总览 group whose only item is 仪表盘", () => {
+    expect(NAV_GROUPS[0].labelKey).toBe("nav.group.overview");
+    expect(NAV_GROUPS[0].items.map(i => i.to)).toEqual(["/dashboard"]);
   });
 
   it("orders the 学习 group front-door-first: 学习计划 → AI 导师 → 学习资料", () => {
@@ -29,11 +27,11 @@ describe("nav-items plan-first ordering (FR-36, epic-7 T3)", () => {
     expect(practice?.items[1].to).toBe("/planner");
   });
 
-  it("places 总览 and 进度 after the plan-first groups, in order", () => {
+  it("orders the groups 总览 → 学习 → 练习 → 进度 (owner ruling 2026-11-06)", () => {
     expect(NAV_GROUPS.map(g => g.labelKey)).toEqual([
+      "nav.group.overview",
       "nav.group.learn",
       "nav.group.practice",
-      "nav.group.overview",
       "nav.group.progress",
     ]);
     expect(NAV_GROUPS.find(g => g.labelKey === "nav.group.overview")?.items.map(i => i.to)).toEqual(["/dashboard"]);

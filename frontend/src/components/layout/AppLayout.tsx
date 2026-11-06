@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useStreakQuery } from "@/api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import UserMenuButton from "@/components/shared/UserMenuButton";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -14,12 +15,13 @@ const mobileNav = mobileNavPaths
   .filter((item): item is (typeof flatNav)[number] => Boolean(item));
 
 export default function AppLayout() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   // The SERVER streak (AD-14) drives the mobile header's pill; the pill only
   // renders once the read lands (no 0-flash — honest-empty). The demo
   // progress context's level/points footer line retired with the context's
   // deletion (epic P2-09 T6): nothing real exists on the wire, so the footer
-  // keeps just the avatar + name + settings gear.
+  // keeps just the avatar (the account-menu trigger — sign-out used to live
+  // only on the Settings page and nobody found it) + name + settings gear.
   const streakQuery = useStreakQuery();
   const location = useLocation();
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -111,9 +113,7 @@ export default function AppLayout() {
         {/* User footer (prototype sidebar-foot) — language switch lives on the Settings page, so no lang toggle in the sidebar */}
         <div className="px-1 pt-2.5 border-t border-border-soft">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px]">
-              {language === "zh" ? "学" : "S"}
-            </div>
+            <UserMenuButton />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
             </div>
@@ -165,13 +165,8 @@ export default function AppLayout() {
           >
             <Search className="w-4 h-4" />
           </button>
-          {/* Prototype tablet sidebar-foot keeps the avatar, text hidden */}
-          <div
-            aria-hidden="true"
-            className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px] flex-none"
-          >
-            {language === "zh" ? "学" : "S"}
-          </div>
+          {/* Tablet sidebar-foot avatar = the account-menu trigger */}
+          <UserMenuButton compact />
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink
@@ -289,9 +284,7 @@ export default function AppLayout() {
 
           <div className="px-1 pt-2.5 border-t border-border-soft" onClick={() => setDrawerOpen(false)}>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px]">
-                {language === "zh" ? "学" : "S"}
-              </div>
+              <UserMenuButton onAction={() => setDrawerOpen(false)} />
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
               </div>

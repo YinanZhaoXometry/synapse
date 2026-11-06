@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { toast } from "sonner";
@@ -438,5 +439,23 @@ describe("Settings — the account half (epic-14 T1)", () => {
       expect(zhDict[key], `zh ${key}`).toBeTruthy();
       expect(enDict[key], `en ${key}`).toBeTruthy();
     }
+  });
+});
+
+describe("Settings — page-end sign-out (2026-11-06 logout discoverability fix)", () => {
+  it("the bottom button cuts the session through the real logout seam and lands on /login", async () => {
+    const user = userEvent.setup();
+    renderSettingsPage();
+
+    // Two sign-out affordances share the page now (the general-card row +
+    // this page-end button); the page-end one is last in DOM order.
+    const signOutButtons = screen.getAllByRole("button", { name: zh("settings.logout") });
+    expect(signOutButtons.length).toBe(2);
+    await user.click(signOutButtons[signOutButtons.length - 1]);
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+    // The observable contract (not a mock): the token is gone — the login
+    // wall owns the next visit (AD-15).
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 });
