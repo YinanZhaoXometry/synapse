@@ -33,7 +33,14 @@ test("S2: an unauthenticated visit bounces to the login wall, and the demo entry
 
   await page.getByRole("button", { name: "用演示账号体验" }).click();
   await expect(page).toHaveURL(/\/plans/);
-  await expect(page.getByText("Software engineering interview prep")).toBeVisible();
+  // The topic renders TWICE on a fresh account's Plans Home — the resume-hero
+  // card AND the plan row are both the demo plan there. Anchor on the row
+  // button (its accessible name STARTS with the topic; the hero's starts with
+  // 掌握度). First CI run caught this: locally the demo user's older plans
+  // occupy the hero slot, so the old getByText only ever matched one element.
+  await expect(
+    page.getByRole("button", { name: /^Software engineering interview prep/ })
+  ).toBeVisible();
 });
 
 test("S3: the demo account opens its seeded plan — nodes and the server-computed mastery ring render", async ({

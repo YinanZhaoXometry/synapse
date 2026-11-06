@@ -52,7 +52,11 @@ const config: PlaywrightTestConfig = {
   webServer: [
     {
       // The deterministic AI double — always started; a stray one on the port
-      // is reused (same deterministic contract, so reuse is safe).
+      // is reused (same deterministic contract, so reuse is safe for the
+      // CONTENT). Lifecycle caveat (epic-17 T05's first CI-era local run): a
+      // stale generation can answer the healthz probe then die mid-suite —
+      // `just e2e` sweeps the port before invoking playwright, so what gets
+      // reused is a live server or nothing.
       command: `${process.execPath} e2e/stub-provider.mjs`,
       url: `http://127.0.0.1:${stubPort}/healthz`,
       reuseExistingServer: true,
