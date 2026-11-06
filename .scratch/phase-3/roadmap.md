@@ -12,7 +12,8 @@ owns the sequence story and the parking lot.
 
 | # | Epic | Scope | Gate (must be done first) | State |
 | --- | --- | --- | --- | --- |
-| 16 | [interactive-roadmap](epic-16-interactive-roadmap/epic.md) | roadmap.sh-grade reading mode: real prerequisite edges (AI-expressed, server-validated), deterministic DAG swimlane layout, optional/description node vocabulary, progress bar, deep-links (optimizes FR-5) | main lands the pending uncommitted batch (uuid fallback + e2e harness) | **done** (closed 2026-11-06; baselines: rspec 1325 · vitest 874 · e2e 19 passed + 1 opt-in smoke spec; branch `epic/p3-16-roadmap` + T4 `p3-16/t04-e2e-close`) |
+| 16 | [interactive-roadmap](epic-16-interactive-roadmap/epic.md) | roadmap.sh-grade reading mode: real prerequisite edges (AI-expressed, server-validated), deterministic DAG swimlane layout, optional/description node vocabulary, progress bar, deep-links (optimizes FR-5) | main lands the pending uncommitted batch (uuid fallback + e2e harness) | **done** (closed 2026-11-06; final baselines incl. the dual-axis review-fix round: rspec 1326 · vitest 875 · e2e 19 passed + 1 opt-in smoke spec, both green at T4's tree; branch `epic/p3-16-roadmap`) |
+| 17 | [test-hardening](epic-17-test-hardening/epic.md) | measure what you assert: coverage both stacks (SimpleCov / @vitest/coverage-v8), spec_helper modernization (random order), the 15-spec e2e suite onto CI, backend wire/module/N+1 gap closure, frontend hygiene + high-value direct tests (quality work, no PRD scope) | none — independent of 16 | ready-for-agent |
 
 ## Parking lot (unspecced candidates — nominate/reorder at will)
 
@@ -26,8 +27,10 @@ owns the sequence story and the parking lot.
 
 ## Sequence notes
 
-- Single lane to start: 16 (T1 backend → T2 layout → T3 UX → T4 e2e/close). Nothing else is
-  specced; parking-lot items become epics on owner nomination.
+- Two lanes as of 2026-11-06: 16 (roadmap feature) and 17 (test hardening). They are code-disjoint
+  except `.github/workflows/ci.yml` and `frontend/playwright.config.ts` (both epics touch them) —
+  do not interleave; land one and rebase the other. 17 is owner-commissioned same-day (test
+  completeness audit → plan approved).
 - **Pre-flight satisfied (2026-11-06):** the uuid-fallback + e2e-harness batch landed on main via
   PR #16 (`3f55e1b`, rspec 1290 / vitest 836 baseline, 15 e2e specs) — `epic/p3-16-roadmap` cuts
   from a clean main.
