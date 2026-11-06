@@ -88,17 +88,17 @@ jobs:
               echo "| asset | bytes |"
               echo "| --- | --- |"
               total=0
-              entries=""
+              : > sizes.tmp
               for f in "$dir"/*; do
                 size=$(stat -c%s "$f")
                 total=$((total + size))
-                entries="$entries$size ${f##*/}
-"
+                printf '%s %s\n' "$size" "${f##*/}" >> sizes.tmp
               done
-              printf '%s' "$entries" | sort -rn | while read -r size name; do
+              sort -rn sizes.tmp | while read -r size name; do
                 printf '| %s | %s |\n' "$name" "$size"
               done
               echo "| total | $total |"
+              rm -f sizes.tmp
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Frontend dist assets" >> "$GITHUB_STEP_SUMMARY"
