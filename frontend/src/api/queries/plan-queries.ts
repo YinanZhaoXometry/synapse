@@ -65,13 +65,13 @@ export function usePlanQuery(planId: string) {
         // FR-38 (epic P2-11 T1): the server's own column — rendered by the
         // plan settings control, never recomputed (AD-14 posture).
         visibility: row.visibility === "public" ? "public" : "private",
-      // OQ-12 (epic P2-11 T3): the attribution snapshot — rendered by the
-      // plan home header, never recomputed.
-      forkedFromTopic: row.forkedFromTopic,
-      // epic-16 (FR-5): the persisted prerequisite edges, endpoint uuids
-      // verbatim — the graph's DAG input, selected per-plan by edge presence.
-      edges: row.edges.map((edge) => ({ fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId })),
-    },
+        // OQ-12 (epic P2-11 T3): the attribution snapshot — rendered by the
+        // plan home header, never recomputed.
+        forkedFromTopic: row.forkedFromTopic,
+        // epic-16 (FR-5): the persisted prerequisite edges, endpoint uuids
+        // verbatim — the graph's DAG input, selected per-plan by edge presence.
+        edges: row.edges.map((edge) => ({ fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId })),
+      },
       nodes: row.nodes.map(mapNode),
       materials: row.materials.map(mapMaterialSummary),
     };
