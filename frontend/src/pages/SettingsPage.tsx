@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -301,6 +301,13 @@ export default function SettingsPage() {
     { lang: "en", labelKey: "settings.langEn", descKey: "settings.langEnDesc" },
   ];
 
+  // AD-15 client-side logout (ticket 02): token + cache + live streams die
+  // here; preferences stay (that is reset's job). Shared by the account row
+  // and the page-end button (2026-11-06 logout discoverability fix).
+  const signOut = () => {
+    void logout().then(() => window.location.replace("/login"));
+  };
+
   return (
     <div className="max-w-[984px] mx-auto px-6 py-8">
       {/* Page head */}
@@ -462,11 +469,7 @@ export default function SettingsPage() {
           <button
             type="button"
             className="shrink-0 rounded-[10px] bg-card px-3 py-[7px] text-xs font-semibold shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] transition-colors hover:bg-[var(--glass-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] cursor-pointer"
-            onClick={() => {
-              // AD-15 client-side logout (ticket 02): token + cache + live
-              // streams die here; preferences stay (that is reset's job).
-              void logout().then(() => window.location.replace("/login"));
-            }}
+            onClick={signOut}
           >
             {t("settings.logout")}
           </button>
@@ -533,6 +536,20 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Page-end sign-out — the general card keeps the labeled row; this is
+          the affordance people scan for when a settings list runs long. */}
+      <div className="mt-6 flex justify-center">
+        <button
+          type="button"
+          data-testid="settings-signout-page-end"
+          onClick={signOut}
+          className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-danger-ink hover:bg-[rgba(168,50,50,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          {t("settings.logout")}
+        </button>
+      </div>
     </div>
   );
 }

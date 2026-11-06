@@ -1,11 +1,13 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Settings, Search, Flame, Menu } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useStreakQuery } from "@/api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import UserMenuButton from "@/components/shared/UserMenuButton";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -13,17 +15,120 @@ const mobileNav = mobileNavPaths
   .map(to => flatNav.find(item => item.to === to))
   .filter((item): item is (typeof flatNav)[number] => Boolean(item));
 
+/** Below this horizontal travel a pointer sequence is a tap, not a swipe —
+ * taps must stay clean (links clickable, nothing translates). */
+const SWIPE_ENGAGE_SLOP_PX = 8;
+/** The spring-back transition (released below the dismiss threshold) — gated
+ * on the app's motion setting, like every surface. */
+const SWIPE_SPRING_BACK_TRANSITION = "transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1)";
+/** Dismiss threshold: min(40% of the panel width, 120px); falls back to
+ * 120px when the panel is unmeasurable (hidden layouts, jsdom). */
+const drawerDismissThreshold = (panelWidth: number) =>
+  panelWidth > 0 ? Math.min(panelWidth * 0.4, 120) : 120;
+
 export default function AppLayout() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   // The SERVER streak (AD-14) drives the mobile header's pill; the pill only
   // renders once the read lands (no 0-flash — honest-empty). The demo
   // progress context's level/points footer line retired with the context's
   // deletion (epic P2-09 T6): nothing real exists on the wire, so the footer
-  // keeps just the avatar + name + settings gear.
+  // keeps just the avatar (the account-menu trigger — sign-out used to live
+  // only on the Settings page and nobody found it) + name + settings gear.
   const streakQuery = useStreakQuery();
   const location = useLocation();
+  const { reduceMotion } = useTheme();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Swipe-to-close on the mobile drawer (epic-20 T2, spec decision 5 —
+  // hand-rolled pointer math on this panel, NO vaul). `swipeRef` freezes the
+  // gesture start (pointer id, x, panel width for the threshold); `dragDx`
+  // carries the engaged drag as a leftward-only translate; `springBack` is
+  // the below-threshold release posture (transition back to open, motion-
+  // gated). Vertical travel never reaches us as a swipe: the panel is
+  // touch-action: pan-y, so the browser keeps vertical scrolling native and
+  // reports the takeover as pointercancel (aborted — never dismisses).
+  const swipeRef = useRef<{ pointerId: number; startX: number; width: number } | null>(null);
+  const [dragDx, setDragDx] = useState<number | null>(null);
+  const [springBack, setSpringBack] = useState(false);
+  // The entrance animation must run exactly ONCE per open session: the swipe
+  // postures drop its classes (its fill pins the transform), and RE-ADDING
+  // them after a spring-back would replay the slide-in mid-session — the
+  // panel teleports off-screen on the next tap's pointerdown and eats the
+  // tap (found by the T3 real-browser smoke; jsdom has no animation engine).
+  const swipedOnceRef = useRef(false);
+  // One posture flag for the two swipe render states (drag / spring-back) —
+  // the entrance animation and the click guard both key off it.
+  const swipeActive = dragDx !== null || springBack;
+
+  const onDrawerPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    // A new gesture starts clean: a lingering springBack would otherwise keep
+    // the click-capture guard swallowing every later tap (a tap's moves never
+    // reach the engage branch, so nothing else would reset it).
+    setSpringBack(false);
+    swipeRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      width: event.currentTarget.getBoundingClientRect().width,
+    };
+  };
+
+  const onDrawerPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const start = swipeRef.current;
+    if (!start || event.pointerId !== start.pointerId) return;
+    const dx = Math.max(-start.width, Math.min(event.clientX - start.startX, 0));
+    if (dragDx === null && Math.abs(dx) <= SWIPE_ENGAGE_SLOP_PX) return;
+    if (dragDx === null) {
+      // Capture rides the ENGAGE moment, not pointerdown: an active capture
+      // retargets the click to the panel (W3C pointerevents#356), so a
+      // pointerdown capture would brick the drawer's tap-close paths (nav
+      // links, search pill, footer). A tap never moves, never engages, never
+      // captures. From engage on, the capture carries a fast flick released
+      // over the scrim/main area back to the panel.
+      swipedOnceRef.current = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
+    setSpringBack(false);
+    setDragDx(dx);
+  };
+
+  const endDrawerSwipe = (dismissAllowed: boolean, pointerId: number) => {
+    const start = swipeRef.current;
+    if (!start || pointerId !== start.pointerId) return; // not the gesture's finger
+    swipeRef.current = null;
+    if (dragDx === null) return; // a tap — nothing to settle
+    if (dismissAllowed && -dragDx >= drawerDismissThreshold(start.width)) {
+      setDragDx(null);
+      setSpringBack(false);
+      setDrawerOpen(false);
+    } else {
+      setDragDx(null);
+      setSpringBack(true);
+    }
+  };
+
+  const onDrawerPointerUp = (event: React.PointerEvent<HTMLElement>) => endDrawerSwipe(true, event.pointerId);
+  // The browser took the gesture back (it became a vertical scroll) — spring
+  // back, never dismiss.
+  const onDrawerPointerCancel = (event: React.PointerEvent<HTMLElement>) => endDrawerSwipe(false, event.pointerId);
+
+  // A swipe that started on a nav link must not navigate on release; a tap
+  // (dragDx never engaged, no spring) passes through untouched.
+  const onDrawerClickCapture = (event: React.MouseEvent) => {
+    if (swipeActive) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  const openDrawer = () => {
+    // Reset any stale swipe posture so a reopened drawer enters with its
+    // entrance animation (springBack survives the drawer's unmount otherwise).
+    setDragDx(null);
+    setSpringBack(false);
+    swipedOnceRef.current = false;
+    setDrawerOpen(true);
+  };
 
   // Prototype: Escape closes the mobile drawer (body.side-open).
   useEffect(() => {
@@ -111,9 +216,7 @@ export default function AppLayout() {
         {/* User footer (prototype sidebar-foot) — language switch lives on the Settings page, so no lang toggle in the sidebar */}
         <div className="px-1 pt-2.5 border-t border-border-soft">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px]">
-              {language === "zh" ? "学" : "S"}
-            </div>
+            <UserMenuButton />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
             </div>
@@ -165,13 +268,8 @@ export default function AppLayout() {
           >
             <Search className="w-4 h-4" />
           </button>
-          {/* Prototype tablet sidebar-foot keeps the avatar, text hidden */}
-          <div
-            aria-hidden="true"
-            className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px] flex-none"
-          >
-            {language === "zh" ? "学" : "S"}
-          </div>
+          {/* Tablet sidebar-foot avatar = the account-menu trigger */}
+          <UserMenuButton compact />
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink
@@ -193,7 +291,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setDrawerOpen(true)}
+              onClick={openDrawer}
               aria-label={t("nav.menu")}
               aria-expanded={drawerOpen}
               className="text-caption hover:text-foreground p-1.5 -ml-1.5 rounded-md hover:bg-[var(--glass-3)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -248,6 +346,7 @@ export default function AppLayout() {
       {/* Mobile drawer (prototype body.side-open): off-canvas sidebar + scrim */}
       {drawerOpen && (
         <div
+          data-testid="drawer-scrim"
           className="md:hidden fixed inset-0 z-40 bg-[rgba(26,20,18,0.32)] animate-fade-in"
           onClick={() => setDrawerOpen(false)}
           aria-hidden="true"
@@ -255,10 +354,41 @@ export default function AppLayout() {
       )}
       {drawerOpen && (
         <aside
-          className="md:hidden fixed inset-y-0 left-0 z-50 w-[min(290px,84vw)] flex flex-col gap-2 glass-panel shadow-hover px-3 pt-3.5 pb-3 animate-in slide-in-from-left duration-300"
+          data-testid="drawer-panel"
+          data-motion={reduceMotion ? "off" : "on"}
+          className={cn(
+            "md:hidden fixed inset-y-0 left-0 z-50 w-[min(290px,84vw)] flex flex-col gap-2 glass-panel shadow-hover px-3 pt-3.5 pb-3",
+            // The entrance animation's fill pins transform while it runs —
+            // the moment a swipe posture takes over the transform (drag or
+            // spring-back) it must be gone for the inline style to win. It
+            // never comes back within the session (see swipedOnceRef): only
+            // a fresh OPEN replays it.
+            !swipeActive && !swipedOnceRef.current && "animate-in slide-in-from-left duration-300"
+          )}
           role="dialog"
           aria-modal="true"
           aria-label={t("common.navAria")}
+          // touch-action: pan-y — horizontal gestures belong to the swipe
+          // handler above; vertical pans stay native so the nav list
+          // (overflow-y-auto) still scrolls. (jsdom has no touch-action
+          // engine; the camelCase inline read-back in the tests pins exactly
+          // what React set — the same fidelity posture as the canvas tests.)
+          style={{
+            touchAction: "pan-y",
+            ...(dragDx !== null
+              ? { transform: `translateX(${dragDx}px)` }
+              : springBack
+                ? {
+                    transform: "translateX(0px)",
+                    ...(reduceMotion ? {} : { transition: SWIPE_SPRING_BACK_TRANSITION }),
+                  }
+                : {}),
+          }}
+          onPointerDown={onDrawerPointerDown}
+          onPointerMove={onDrawerPointerMove}
+          onPointerUp={onDrawerPointerUp}
+          onPointerCancel={onDrawerPointerCancel}
+          onClickCapture={onDrawerClickCapture}
         >
           <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-3.5 border-b border-border-soft">
             <span className="w-[34px] h-[34px] rounded-[11px] bg-gradient-hero shadow-brand flex items-center justify-center shrink-0">
@@ -289,9 +419,7 @@ export default function AppLayout() {
 
           <div className="px-1 pt-2.5 border-t border-border-soft" onClick={() => setDrawerOpen(false)}>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px]">
-                {language === "zh" ? "学" : "S"}
-              </div>
+              <UserMenuButton onAction={() => setDrawerOpen(false)} />
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
               </div>

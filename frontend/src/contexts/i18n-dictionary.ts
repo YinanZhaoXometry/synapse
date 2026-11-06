@@ -80,6 +80,7 @@ export const translations = {
       'nav.achievements': '成就',
       'nav.analytics': '数据分析',
       'nav.settings': '设置',
+      'nav.userMenu': '账户菜单',
       'nav.menu': '打开导航',
       'nav.primary': '主导航',
 
@@ -110,7 +111,7 @@ export const translations = {
       'plans.emptyTitle': '想学什么？说个主题，我来搭计划。',
       'plans.returningTitle': '继续你的学习',
       'plans.backToPlans': '所有计划',
-      'plans.createNew': '新建计划',
+      'plans.createNew': '新建学习计划',
       'plans.topicPlaceholder': '例如：COMP5241 软件工程期末备考',
       'plans.goalPlaceholder': '目标（可选）：比如期末考 85+',
       'plans.goalLabel': '目标：',
@@ -728,7 +729,7 @@ export const translations = {
 
       // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
       'tasks.pitch': '只想搞懂一份文档？不需要计划 — 直接开始。',
-      'tasks.createEntry': '开始学习任务',
+      'tasks.createEntry': '新建学习任务',
 
       // Plan-flow quiz (epic-6 T2 — launcher / runner / results, FR-18; AD-6/8/9)
       'quiz.launcher.title': '从材料出题',
@@ -1048,6 +1049,7 @@ export const translations = {
       'nav.achievements': 'Achievements',
       'nav.analytics': 'Analytics',
       'nav.settings': 'Settings',
+      'nav.userMenu': 'Account menu',
       'nav.menu': 'Open navigation',
       'nav.primary': 'Primary',
 
@@ -1078,7 +1080,7 @@ export const translations = {
       "plans.emptyTitle": "What are we mastering? Name a topic, I'll draft the plan.",
       'plans.returningTitle': 'Continue where you left off',
       'plans.backToPlans': 'All plans',
-      'plans.createNew': 'New plan',
+      'plans.createNew': 'New study plan',
       'plans.topicPlaceholder': 'e.g. COMP5241 final exam prep',
       'plans.goalPlaceholder': 'Goal (optional): e.g. score 85+ on the final',
       'plans.goalLabel': 'Goal: ',
@@ -1698,7 +1700,7 @@ export const translations = {
 
       // Study Tasks (epic-5 T3 — Plans Home task section, FR-37; AD-8/9)
       'tasks.pitch': 'Just one document to crack? Skip the plan — start a Study Task.',
-      'tasks.createEntry': 'Start a Study Task',
+      'tasks.createEntry': 'New study task',
 
       // Plan-flow quiz (epic-6 T2 — launcher / runner / results, FR-18; AD-6/8/9)
       'quiz.launcher.title': 'Quiz from your materials',

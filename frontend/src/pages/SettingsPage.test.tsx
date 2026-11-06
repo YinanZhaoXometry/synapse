@@ -442,6 +442,24 @@ describe("Settings — the account half (epic-14 T1)", () => {
   });
 });
 
+describe("Settings — page-end sign-out (2026-11-06 logout discoverability fix)", () => {
+  it("the bottom button cuts the session through the real logout seam and lands on /login", async () => {
+    const user = userEvent.setup();
+    renderSettingsPage();
+
+    // Two sign-out affordances share the page now (the general-card row +
+    // this page-end button); the page-end one is last in DOM order.
+    const signOutButtons = screen.getAllByRole("button", { name: zh("settings.logout") });
+    expect(signOutButtons.length).toBe(2);
+    await user.click(signOutButtons[signOutButtons.length - 1]);
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+    // The observable contract (not a mock): the token is gone — the login
+    // wall owns the next visit (AD-15).
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+});
+
 /** The reader's markdown content theme (epic-24 T3): the claudette toggle.
  * Lazy-write contract — OFF is the ABSENT key; nothing persists until the
  * first enable, disabling removes it again. */
