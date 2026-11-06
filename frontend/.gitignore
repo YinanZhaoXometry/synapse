@@ -2,3 +2,8 @@
 # the typed documents are runtime-load-bearing (features import them), and CI
 # pins freshness with a regenerate+diff gate (see ci.yml / justfile spec).
 # Still clearly generated via its file banner — do not edit by hand.
+
+# Playwright e2e artifacts (frontend/e2e specs are committed; runs are not).
+test-results/
+playwright-report/
+blob-report/
