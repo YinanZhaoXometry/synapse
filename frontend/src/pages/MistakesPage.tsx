@@ -322,7 +322,11 @@ export default function MistakesPage() {
             {t("mistakes.retry")}
           </button>
         </div>
-      ) : entries.length === 0 ? (
+      ) : entries.length === 0 || (visibleGroups.length === 0 && stateFilter === "") ? (
+        // The regular empty card covers BOTH genuinely-no-mistakes AND the
+        // (defensive) picker-driven emptiness — the state note below is the
+        // STATE filter's alone (epic-18 T6 review: state copy never speaks
+        // for a picker-driven empty).
         <div className="bg-card border border-border-soft rounded-2xl p-8 shadow-raised mt-6 text-center">
           <p className="text-sm font-semibold">{t("mistakes.emptyTitle")}</p>
           <p className="text-sm text-muted-foreground mt-1.5">{t("mistakes.emptyBody")}</p>
@@ -368,6 +372,8 @@ export default function MistakesPage() {
           </div>
 
           {visibleGroups.length === 0 ? (
+            // Reached ONLY with the state filter active — the all-states empty
+            // fell to the regular empty card above.
             <p className="text-sm text-muted-foreground mt-6">{t("mistakes.stateEmpty")}</p>
           ) : (
             <div className="flex flex-col">

@@ -468,4 +468,43 @@ describe("MistakesPage — the resolve lifecycle (epic-18 T4, spec decision 4)",
     expect(screen.getByText(zh("mistakes.stateEmpty"))).toBeTruthy();
     expect(screen.queryByText("集成测试的主要目的是什么？")).toBeNull();
   });
+
+  it("picker-driven emptiness falls to the regular empty card — the state note never speaks for the picker (epic-18 T6 review)", async () => {
+    // The stale-picker scenario, driven the user-reachable way: the entry
+    // under the SELECTED plan vanishes server-side between fetches (the
+    // toggle's hub sweep re-reads a hub that no longer carries it), so the
+    // picker holds a group the data no longer has — with the state filter
+    // OFF. The regular empty treatment renders, never the state-filter note.
+    const rows = liveRows();
+    const purged = { done: false };
+    const handlers = {
+      ...hubHandlers(rows),
+      MistakesHub: () => (purged.done ? rows.filter((row) => row.planId !== PLAN_1) : rows),
+      SetMistakeEntryResolved: (variables: Record<string, unknown>) => {
+        purged.done = true;
+        const input = variables.input as { id: string; resolved: boolean };
+        const row = rows.find((r) => r.id === input.id);
+        if (!row) throw new Error("not found: mistake entry");
+        row.resolved = input.resolved;
+        return { __typename: "SetMistakeEntryResolvedPayload", mistakeEntry: { __typename: "MistakeEntry", id: input.id, resolved: input.resolved } };
+      },
+    };
+    renderMistakesPage(handlers);
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+
+    // pick plan-1 → only its entry
+    const picker = screen.getByRole("combobox", { name: zh("mistakes.filterLabel") }) as HTMLSelectElement;
+    fireEvent.change(picker, { target: { value: `plan:${PLAN_1}` } });
+    expect(screen.getByText("集成测试的主要目的是什么？")).toBeTruthy();
+
+    // the toggle's sweep re-reads a hub where plan-1's entry is gone
+    fireEvent.click(within(cardFor("集成测试的主要目的是什么？")).getByRole("button", { name: zh("mistakes.resolveDoneAria") }));
+
+    // entries > 0 (plan-2 + the task's), the picker is stale, the state
+    // filter never moved — the regular empty card, NOT the state note
+    await waitFor(() => expect(screen.getByText(zh("mistakes.emptyTitle"))).toBeTruthy());
+    expect(screen.getByText(zh("mistakes.emptyBody"))).toBeTruthy();
+    expect(screen.queryByText(zh("mistakes.stateEmpty"))).toBeNull();
+  });
 });
