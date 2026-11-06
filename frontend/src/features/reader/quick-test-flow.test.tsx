@@ -284,17 +284,25 @@ function renderFlow(props: { mappings: MaterialNodeMappingView[]; initialEntry?:
     search: () => lastSearch,
     /** Dispatches until the gate's read has LANDED and the launch opens —
      * a dispatch before the landing is the flow's honest no-op (the handler
-     * re-checks the same cache), so the walk retries until the card shows. */
+     * re-checks the same cache). ONE dispatch per window: once a dispatch is
+     * ACCEPTED, the takeover mounts within one render, but the driver stays
+     * idle until its async phase flip — a blind re-dispatch in that window
+     * double-fires the launch effect (seen as a double generation on a
+     * loaded CI runner). So retry only when the takeover never mounted. */
     dispatchUntilLaunched: async () => {
-      await waitFor(
-        () => {
-          if (!screen.queryByTestId("quick-test-generating")) {
-            dispatchQuickTest(dispatchScope);
-            throw new Error("the gate has not landed yet");
-          }
-        },
-        { timeout: 3000 },
-      );
+      for (let attempt = 0; attempt < 15; attempt += 1) {
+        dispatchQuickTest(dispatchScope);
+        try {
+          await waitFor(
+            () => expect(screen.getByTestId("quick-test-takeover")).toBeInTheDocument(),
+            { timeout: 1_000 },
+          );
+          return;
+        } catch {
+          // The dispatch was the gate's no-op (the read hadn't landed) — retry.
+        }
+      }
+      throw new Error("the quick-test gate never landed — no takeover after 15 windows");
     },
   };
 }
