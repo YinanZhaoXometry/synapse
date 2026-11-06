@@ -35,8 +35,9 @@ export default defineConfig(() => ({
     // = ~707 KiB. ~10% headroom → ~777 KiB, ceil to the sane round ceiling
     // 800 (vite compares raw chunk bytes against limit × 1000, so 800 here
     // trips at 800,000 B — 76 kB ≈ 10.5% of headroom over the entry). The
-    // reader-only pdfjs pair (558 kB pdf + 1.3 MB worker, both lazy) still
-    // trips it by design — they are known, stable, and paid only on PDF read.
+    // reader-only pdfjs worker (1.3 MB, lazy) still trips it by design —
+    // known, stable, and paid only on PDF read; the 558 kB pdf chunk sits
+    // under the limit and stays quiet.
     chunkSizeWarningLimit: 800,
   },
   resolve: {
