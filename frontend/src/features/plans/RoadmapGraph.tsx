@@ -225,13 +225,22 @@ export default function RoadmapGraph({
     ensureBoxVisible(box);
   };
 
-  // Deep-link (`?node=<id>`, spec): on mount — and whenever the param or the
-  // layout changes — select the node, pan it into view (the SAME path the
-  // keyboard uses) and open the sheet as if clicked. An id that is not one of
-  // the plan's nodes is ignored. The param stays in the URL (bookmarkable).
+  // Deep-link (`?node=<id>`, spec): MOUNT-ONLY semantics — the param is
+  // consumed ONCE, on the first layout that can resolve it (views may still
+  // be in flight at commit), then never again: a post-quiz refetch that
+  // rebuilds the layout identity must not re-open the sheet the user closed
+  // or re-pan the canvas (review F3). An id that is not one of the plan's
+  // nodes is ignored — attempted once, then latched off. The param stays in
+  // the URL (bookmarkable).
+  const deepLinkDoneRef = useRef(false);
   useEffect(() => {
+    if (deepLinkDoneRef.current) return;
     const id = searchParams.get("node");
     if (!id) return;
+    // Wait for a layout that actually carries nodes (data in flight at
+    // mount); once it exists, this is the one attempt — found or not.
+    if (Object.keys(layout.boxes).length === 0) return;
+    deepLinkDoneRef.current = true;
     const box = layout.boxes[id];
     if (!box) return;
     setSelectedId(id);

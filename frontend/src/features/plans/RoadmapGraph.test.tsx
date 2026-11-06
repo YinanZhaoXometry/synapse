@@ -574,6 +574,23 @@ describe("RoadmapGraph epic-16 graph UX (T3)", () => {
       expect(screen.queryByTestId("roadmap-detail")).not.toBeInTheDocument();
       expect(screen.getByTestId("roadmap-viewport").style.transform).toBe("translate(0px, 0px) scale(1)");
     });
+
+    it("does not re-open on a layout identity churn (mount-only: a refetch rebuilds views, the closed sheet stays closed)", () => {
+      withViewport(800, 440, () => {
+        const graph = render(treeWith(nodeRowViews(NODES, []), { initialEntries: ["/plan/plan-1?node=node-20"] }));
+        expect(screen.getByTestId("roadmap-detail")).toBeInTheDocument();
+
+        // The user closes the sheet; then a post-quiz refetch lands as a NEW
+        // views array (fresh identity, same nodes) — a new layout object. The
+        // deep-link consumed its param at mount: no re-open, no re-pan.
+        fireEvent.keyDown(nodeEl("node-20")!, { key: "Escape" });
+        expect(screen.queryByTestId("roadmap-detail")).not.toBeInTheDocument();
+
+        graph.rerender(treeWith(nodeRowViews(NODES.map((node) => ({ ...node })), []), { initialEntries: ["/plan/plan-1?node=node-20"] }));
+        expect(screen.queryByTestId("roadmap-detail")).not.toBeInTheDocument();
+        expect(screen.getByTestId("roadmap-viewport").style.transform).toBe("translate(0px, -466px) scale(1)");
+      });
+    });
   });
 
   it("the sheet gains the description line and the optional badge", async () => {
