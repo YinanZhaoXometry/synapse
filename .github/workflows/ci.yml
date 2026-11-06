@@ -308,8 +308,10 @@ jobs:
         run: |
           git clone --depth 1 --branch RELEASE.2025-10-15T17-29-55Z https://github.com/minio/minio.git /tmp/minio-src
           git clone --depth 1 https://github.com/minio/mc.git /tmp/mc-src
-          GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /tmp/minio-bin/minio /tmp/minio-src
-          GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /tmp/minio-bin/mc /tmp/mc-src
+          # go build runs from INSIDE each module — building an external path
+          # from a non-module cwd fails ("cannot find main module").
+          cd /tmp/minio-src && GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /tmp/minio-bin/minio .
+          cd /tmp/mc-src && GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /tmp/minio-bin/mc .
           printf '%s\n' \
             'FROM ubuntu:24.04' \
             'RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*' \
