@@ -25,6 +25,20 @@ owns the sequence story and the parking lot.
 - AI proposal quality pass (two-stage generation for bigger graphs) — only if the ≤16 cap proves
   tight in practice.
 
+### Nominated queue — ALL five nominated by the owner 2026-11-06 ("这几个全都一次安排做完")
+
+The owner's nomination fires every parked trigger (including the two conditional ones). Single
+lane, spec lands at each epic's kickoff (delta-grill-at-kickoff convention — later specs learn
+from earlier landings). No numbers are claimed beyond 18–22 for this batch.
+
+| # | Epic (slug) | One-line scope | Gate |
+| --- | --- | --- | --- |
+| 18 | `epic-18-hub-tails` | §6.2 survivors, both spine rows: Materials hub server backing (re-point `/materials` at the existing materials queries — the retained page's demo rows die), MistakeEntry resolved/reviewed lifecycle (flag + hub surface), Today's suggestion slot takes epic-10-T5's documented consumer shape | none — starts now |
+| 19 | `epic-19-bundle-split` | route-level code splitting beyond pdfjs (NFR-6 discipline: measure first — build-size report pinned in the epic record — then React.lazy per feature route; no new deps) | 18 (serial lane) |
+| 20 | `epic-20-touch-batch` | pinch-zoom on the roadmap canvas + drawer gestures (spine row: pointer-drag pan/wheel/buttons already ship); AD-9 keyboard contract untouched | 19 (same canvas files as 22 — keep away from it) |
+| 21 | `epic-21-ai-proposal-quality` | two-stage generation (outline → per-stage enrichment) for bigger graphs; re-estimates the ≤16 cap with the quality data (epic-16 grill decision 3 amended only if evidence supports); GLM daily-cap discipline | 20 (layout 16-node fixtures ride any cap change before the editor builds on them) |
+| 22 | `epic-22-roadmap-editor` | drag-to-reposition + manual connect/disconnect; **reverses epic-16 delta 5** (positions persist; explicit positions override the deterministic layout; fork carries positions; edge edits run the same stage-forward validation); biggest slice — last on purpose | 21 |
+
 ## Sequence notes
 
 - Two lanes as of 2026-11-06: 16 (roadmap feature) and 17 (test hardening). They are code-disjoint
@@ -39,5 +53,5 @@ owns the sequence story and the parking lot.
 
 | When | Item | Feeds |
 | --- | --- | --- |
-| before epic-16 branch | review + land the pending uncommitted batch (uuid fallback + e2e harness) | epic-16 T4 extends the e2e harness |
-| any time | nominate/reorder parking-lot items into epics | the rest of Phase 3 |
+| before epic-16 branch | review + land the pending uncommitted batch (uuid fallback + e2e harness) | ✅ done 2026-11-06 (PR #16) |
+| any time | nominate/reorder parking-lot items into epics | ✅ done 2026-11-06 — all five nominated as epics 18–22 (queue above); the parking lot itself is now empty |
