@@ -7,3 +7,6 @@
 test-results/
 playwright-report/
 blob-report/
+
+# Vitest coverage output (epic P3-17 ticket 02) — measured, never committed.
+coverage/

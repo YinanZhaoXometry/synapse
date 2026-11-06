@@ -66,9 +66,43 @@ jobs:
       - name: Lint
         run: pnpm exec eslint .
       - name: Test
-        run: pnpm exec vitest run
+        run: pnpm exec vitest run --coverage
       - name: Build
         run: pnpm exec vite build
+
+      # Coverage (epic P3-17 ticket 02): vitest's json-summary reporter writes
+      # coverage/coverage-summary.json; publish the totals to the job summary
+      # and keep the HTML report as an artifact. Thresholds (the ratchet floor)
+      # land with epic-17 ticket 10 — measure first, then pin.
+      - name: Coverage summary
+        if: always()
+        run: |
+          file=coverage/coverage-summary.json
+          if [ -f "$file" ]; then
+            lines=$(jq -r '.total.lines.pct' "$file")
+            branches=$(jq -r '.total.branches.pct' "$file")
+            functions=$(jq -r '.total.functions.pct' "$file")
+            {
+              echo "## Frontend coverage"
+              echo ""
+              echo "| metric | covered |"
+              echo "| --- | --- |"
+              echo "| lines | ${lines}% |"
+              echo "| branches | ${branches}% |"
+              echo "| functions | ${functions}% |"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Frontend coverage" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "coverage/coverage-summary.json missing — did the Test step run with --coverage?" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          retention-days: 7
 
       # Anti-drift (AD-14): the TS domain (frontend/src/domain/mastery.ts + streak.ts)
       # is the golden-vector source of truth until the cutover retires it. Regenerate

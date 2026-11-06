@@ -33,16 +33,19 @@ just spec    # web gates + api gates
 # Frontend gates (from frontend/ — two true invocation forms):
 # (sequence kept in sync with the justfile spec recipe + ci.yml web job)
 pnpm run codegen                            # GraphQL documents (freshness-gated — see below)
-cd web && node_modules/.bin/tsc -b          # typecheck (no `typecheck` script exists)
-cd web && node_modules/.bin/eslint .        # eslint 9 flat config
-cd web && node_modules/.bin/vitest run      # tests (watch: pnpm run test:watch)
-cd web && node_modules/.bin/vite build      # build only — does NOT typecheck
+cd frontend && node_modules/.bin/tsc -b     # typecheck (no `typecheck` script exists)
+cd frontend && node_modules/.bin/eslint .   # eslint 9 flat config
+cd frontend && node_modules/.bin/vitest run --coverage  # tests + coverage (epic P3-17; watch: pnpm run test:watch; plain `vitest run` stays fine for iteration)
+cd frontend && node_modules/.bin/vite build # build only — does NOT typecheck
 # Mastery-vector anti-drift (after build; part of just spec + ci.yml's web job,
 # not a standalone command): regenerate backend/spec/fixtures/mastery_vectors.json
 # from the TS domain and require a STAMP-INSENSITIVE match — the diff strips
 # meta.generatedAtSourceCommit (advisory, self-referential provenance) from both
 # sides first. See the justfile spec recipe / ci.yml for the exact step.
-# …or through pnpm directly: ~/Library/pnpm/pnpm --dir web run <script>
+# Coverage: both stacks measure it (SimpleCov backend / @vitest/coverage-v8
+# frontend, epic P3-17 T01/T02); backend's `minimum_coverage line: 95` floor
+# lives in backend/spec/spec_helper.rb — a red floor is a red rspec run.
+# …or through pnpm directly: ~/Library/pnpm/pnpm --dir frontend run <script>
 
 # Api gates (dev containers only — your local Ruby is irrelevant):
 # the api's compose command forms, gate notes, and architecture contract all

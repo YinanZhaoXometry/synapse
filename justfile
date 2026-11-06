@@ -72,7 +72,7 @@ spec:
     git diff --exit-code -- frontend/src/types/graphql.ts
     pnpm --dir frontend exec tsc -b
     pnpm --dir frontend exec eslint .
-    pnpm --dir frontend exec vitest run
+    pnpm --dir frontend exec vitest run --coverage
     pnpm --dir frontend exec vite build
     # Mastery-vector anti-drift (AD-14): the TS domain (frontend/src/domain/
     # mastery.ts + streak.ts) is the golden-vector source of truth until the
