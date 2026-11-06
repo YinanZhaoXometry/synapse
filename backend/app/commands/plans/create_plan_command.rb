@@ -44,7 +44,7 @@ module Plans
         map[attrs[:id].to_s] = index if attrs[:id].present?
       end
       Array(edges).map do |edge|
-        [positions[edge[:from_node_id].to_s], positions[edge[:to_node_id].to_s]]
+        [ positions[edge[:from_node_id].to_s], positions[edge[:to_node_id].to_s] ]
       end
     end
   end

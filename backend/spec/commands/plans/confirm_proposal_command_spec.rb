@@ -116,8 +116,8 @@ RSpec.describe Plans::ConfirmProposalCommand do
       aggregate_failures do
         expect(nodes.map(&:description)).to eq([ nil, "the spine", nil ])
         expect(nodes.map(&:optional)).to eq([ false, false, true ])
-        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] })
-          .to eq([ [nodes[0].id, nodes[2].id] ])
+        expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] })
+          .to eq([ [ nodes[0].id, nodes[2].id ] ])
       end
     end
 

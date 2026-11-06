@@ -91,9 +91,9 @@ RSpec.describe Plans::ForkPlanCommand do
       # in the source's insertion order, owned by the adopter.
       edges = plan.knowledge_node_edges.order(:created_at, :id).to_a
       aggregate_failures do
-        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] }).to eq([
-          [forked_nodes[0].id, forked_nodes[1].id],
-          [forked_nodes[1].id, forked_nodes[2].id]
+        expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] }).to eq([
+          [ forked_nodes[0].id, forked_nodes[1].id ],
+          [ forked_nodes[1].id, forked_nodes[2].id ]
         ])
         expect(edges.map(&:user_id).uniq).to eq([ adopter.id ])
         expect(edges.map(&:plan_id).uniq).to eq([ plan.id ])

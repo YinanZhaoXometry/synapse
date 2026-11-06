@@ -96,7 +96,7 @@ module Plans
     # source's stored edges are already valid for the copied stages — they
     # copy verbatim, no re-validation (faithful structure, not a re-derive).
     def copy_plan_edges(source, plan, source_nodes, forked_nodes)
-      new_by_old = source_nodes.zip(forked_nodes).to_h { |old, fresh| [old.id, fresh] }
+      new_by_old = source_nodes.zip(forked_nodes).to_h { |old, fresh| [ old.id, fresh ] }
       source.knowledge_node_edges.order(:created_at, :id).each do |edge|
         from = new_by_old[edge.from_node_id]
         to = new_by_old[edge.to_node_id]

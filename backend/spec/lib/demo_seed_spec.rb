@@ -96,9 +96,9 @@ RSpec.describe DemoSeed do
       expect(edges.map(&:id)).to eq([ STABLE_UUIDS[:edge_1], STABLE_UUIDS[:edge_2] ])
       # Both prerequisites point INTO the practice drill, from its
       # foundations stage — stage-forward by construction.
-      expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] }).to eq([
-        [nodes[0].id, nodes[2].id],
-        [nodes[1].id, nodes[2].id]
+      expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] }).to eq([
+        [ nodes[0].id, nodes[2].id ],
+        [ nodes[1].id, nodes[2].id ]
       ])
     end
 

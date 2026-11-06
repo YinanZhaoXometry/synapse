@@ -150,8 +150,8 @@ RSpec.describe Plans::CreatePlanCommand do
         expect(nodes.map(&:id)).to eq([ first_id, second_id ])
         expect(nodes.map(&:description)).to eq([ "start here", nil ])
         expect(nodes.map(&:optional)).to eq([ false, true ])
-        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] })
-          .to eq([ [first_id, second_id] ])
+        expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] })
+          .to eq([ [ first_id, second_id ] ])
       end
     end
 
@@ -224,7 +224,7 @@ RSpec.describe Plans::CreatePlanCommand do
 
       aggregate_failures do
         expect(result.success?).to be(true)
-        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] }).to eq([ [first, third] ])
+        expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] }).to eq([ [ first, third ] ])
       end
     end
   end

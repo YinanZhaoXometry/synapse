@@ -85,7 +85,7 @@ module Plans
         positions[title] = positions.key?(title) ? nil : index
       end
       Array(edges).map do |edge|
-        [positions[edge[:from_title]], positions[edge[:to_title]]]
+        [ positions[edge[:from_title]], positions[edge[:to_title]] ]
       end
     end
   end

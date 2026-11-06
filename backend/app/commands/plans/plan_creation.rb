@@ -159,7 +159,7 @@ module Plans
     # The unique [from_node_id, to_node_id] index is the DB floor under the
     # in-memory dedupe.
     def build_plan_edges(plan, nodes, edge_pairs)
-      node_at = nodes.to_h { |node| [node.order, node] }
+      node_at = nodes.to_h { |node| [ node.order, node ] }
       stage_rank = stage_ranks(nodes)
       seen = {}
       edge_pairs.filter_map do |from_position, to_position|
@@ -169,9 +169,9 @@ module Plans
         unless stage_rank[from.id] && stage_rank[to.id] && stage_rank[from.id] < stage_rank[to.id]
           next drop_edge(plan, "edge is not stage-forward")
         end
-        next drop_edge(plan, "edge repeats an earlier [from, to] pair") if seen[[from.id, to.id]]
+        next drop_edge(plan, "edge repeats an earlier [from, to] pair") if seen[[ from.id, to.id ]]
 
-        seen[[from.id, to.id]] = true
+        seen[[ from.id, to.id ]] = true
         plan.knowledge_node_edges.create!(user_id: plan.user_id, from_node: from, to_node: to)
       end
     end
@@ -186,7 +186,7 @@ module Plans
 
         by_stage[node.stage] ||= by_stage.size
       end
-      nodes.to_h { |node| [node.id, node.stage.blank? ? nil : by_stage[node.stage]] }
+      nodes.to_h { |node| [ node.id, node.stage.blank? ? nil : by_stage[node.stage] ] }
     end
 
     # The silent-but-logged drop (epic-16 spec): a dropped edge degrades the
