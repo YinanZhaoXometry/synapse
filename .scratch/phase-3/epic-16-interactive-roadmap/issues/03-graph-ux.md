@@ -4,7 +4,7 @@
 
 **Blocked by:** 2.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06 — landed `0c854ba`, `ed2d74c` on `epic/p3-16-roadmap`)
 
 **Bound by:** AD-9 (keyboard path + not-color-only: dashed optional also carries a label/glyph; states keep glyphs), ADR-0001 + AD-6/14 (progress bar counts server `mastered` states — no manual marking surface of any kind), NFR-6 (no new dependencies), grill decisions 2/8 (reading mode only; roadmap.sh structural vocabulary mapped to semantic tokens, nothing copied).
 

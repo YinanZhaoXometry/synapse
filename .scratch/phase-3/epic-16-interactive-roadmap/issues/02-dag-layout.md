@@ -4,7 +4,7 @@
 
 **Blocked by:** 1.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06 — landed `7337e5a`, `3ccfbf8`, `df20ae9`, `c23bb7f` on `epic/p3-16-roadmap`)
 
 **Bound by:** NFR-6 (zero new dependencies — this is a pure-function module in the plans feature, the epic-10 layout module pattern), AD-14 (layout consumes server states; computes geometry only), grill decisions 4–6 (stage-forward edges, title-paired on the wire, no stored positions).
 

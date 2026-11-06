@@ -12,7 +12,7 @@ owns the sequence story and the parking lot.
 
 | # | Epic | Scope | Gate (must be done first) | State |
 | --- | --- | --- | --- | --- |
-| 16 | [interactive-roadmap](epic-16-interactive-roadmap/epic.md) | roadmap.sh-grade reading mode: real prerequisite edges (AI-expressed, server-validated), deterministic DAG swimlane layout, optional/description node vocabulary, progress bar, deep-links (optimizes FR-5) | main lands the pending uncommitted batch (uuid fallback + e2e harness) | ready-for-agent |
+| 16 | [interactive-roadmap](epic-16-interactive-roadmap/epic.md) | roadmap.sh-grade reading mode: real prerequisite edges (AI-expressed, server-validated), deterministic DAG swimlane layout, optional/description node vocabulary, progress bar, deep-links (optimizes FR-5) | main lands the pending uncommitted batch (uuid fallback + e2e harness) | **done** (closed 2026-11-06; baselines: rspec 1325 · vitest 874 · e2e 19 passed + 1 opt-in smoke spec; branch `epic/p3-16-roadmap` + T4 `p3-16/t04-e2e-close`) |
 
 ## Parking lot (unspecced candidates — nominate/reorder at will)
 
