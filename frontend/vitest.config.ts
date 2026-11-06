@@ -21,6 +21,11 @@ export default defineConfig({
       exclude: ["src/test/**", "src/types/**", "src/**/*.d.ts"],
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage",
+      // Ratchet, not target (epic-17 decision 7): measured 2026-11-06 at
+      // 67.65 lines / 85.4 branches / 79.93 functions (the 0% tail is the
+      // shadcn primitives — the honest denominator stays); floors sit two
+      // points under the measured values and rise only with real coverage.
+      thresholds: { lines: 65, branches: 83, functions: 77, statements: 65 },
     },
   },
   resolve: {
