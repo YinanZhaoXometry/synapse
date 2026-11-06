@@ -43,6 +43,8 @@ const NODES: KnowledgeNodeView[] = Array.from({ length: NODE_COUNT }, (_, i) => 
   taskId: null,
   stage: stageOf(i),
   title: `Node ${i} 学习节点`,
+  description: null,
+  optional: false,
   order: i,
   masteryScore: i === 5 ? "42" : "0",
   state: i === 5 ? "partial" : i === 12 ? "mastered" : "uncovered",

@@ -17,6 +17,7 @@ export { newClientUuid } from "./queries/material-queries";
 export { apiErrorCode, apiErrorKeys, isNetworkError } from "./errors";
 export type { ApiErrorCode } from "./errors";
 export type { KnowledgeNodeView, MaterialView, StudyPlanView, StudyTaskView, MasteryScoreString } from "./views";
+export type { PlanEdgeView } from "./views";
 export type { MaterialNodeMappingView, NoteMarkerView, NoteView } from "./views";
 export type { SectionMarkingView } from "./views";
 export type { StudyFocusItemView, StudyFocusSetView } from "./views";

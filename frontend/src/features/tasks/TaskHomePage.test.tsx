@@ -134,6 +134,8 @@ const serverNode = (masteryScore: string, state: string, overrides: Record<strin
   taskId: TASK_ID,
   stage: null,
   title: "lecture-04",
+  description: null,
+  optional: false,
   order: 0,
   masteryScore,
   state,

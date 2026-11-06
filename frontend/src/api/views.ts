@@ -15,6 +15,29 @@ export type MasteryScoreString = string;
 export interface KnowledgeNodeView extends KnowledgeNode {
   masteryScore: MasteryScoreString;
   state: "uncovered" | "partial" | "mastered";
+  /**
+   * epic-16 (FR-5): the node's one-line roadmap description — null on legacy
+   * nodes (the field is a new-generation artifact, never backfilled). Server
+   * truth, rendered verbatim, never derived.
+   */
+  description: string | null;
+  /**
+   * epic-16 (FR-5): whether the node may be skipped without losing the
+   * thread (the dashed-node vocabulary's data half). Server truth, default
+   * false, never derived.
+   */
+  optional: boolean;
+}
+
+/**
+ * One persisted plan edge (epic-16, FR-5 data half): a from→to
+ * learning-order dependency between two of the plan's nodes, endpoint uuids
+ * verbatim from the api. A zero-edge plan renders via the client's
+ * derived-sequence fallback (the legacy layout path).
+ */
+export interface PlanEdgeView {
+  fromNodeId: string;
+  toNodeId: string;
 }
 
 export interface StudyPlanView extends StudyPlan {
@@ -30,6 +53,13 @@ export interface StudyPlanView extends StudyPlan {
    * forkedFromTopic field), rendered as the attribution line, never re-derived.
    */
   forkedFromTopic: string | null;
+  /**
+   * epic-16 (FR-5): the plan's prerequisite edges — the DAG layout's input,
+   * selected per-plan by edge presence (zero edges → the legacy fallback).
+   * Detail reads carry the server rows; list rows ride empty here the same
+   * way nodeIds do (associations realize on the Plan detail query).
+   */
+  edges: PlanEdgeView[];
 }
 
 export interface StudyTaskView extends StudyTask {

@@ -41,6 +41,8 @@ const nodeFixture = {
   taskId: null,
   stage: "基础",
   title: "基础·概念",
+  description: null,
+  optional: false,
   order: 0,
   masteryScore: "10",
   state: "uncovered",
@@ -56,6 +58,7 @@ const planDetail = (forkedFromTopic: string | null) => ({
   masteryScore: "10",
   visibility: "private",
   forkedFromTopic,
+  edges: [],
   nodes: [nodeFixture],
   materials: [],
 });

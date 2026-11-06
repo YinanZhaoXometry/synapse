@@ -53,6 +53,8 @@ const nodeFixture = (overrides: Record<string, unknown> = {}) => ({
   taskId: null,
   stage: null,
   title: "node-1",
+  description: null,
+  optional: false,
   order: 0,
   masteryScore: "0",
   state: "uncovered",
@@ -93,6 +95,7 @@ const planDetailFixture = () => ({
   __typename: "StudyPlan",
   ...planRowFixture(),
   visibility: "private",
+  edges: [],
   nodes: [nodeFixture()],
   materials: [{ ...materialFixture({ taskId: null, sections: [] }) }],
 });

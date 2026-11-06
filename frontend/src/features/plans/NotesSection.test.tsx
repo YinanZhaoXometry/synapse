@@ -27,8 +27,8 @@ const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const zh = (key: string) => zhDict[key];
 
 const NODES: KnowledgeNodeView[] = [
-  { id: "n-1", planId: "plan-1", taskId: null, stage: null, title: "Consensus", order: 0, masteryScore: "0", state: "uncovered" },
-  { id: "n-2", planId: "plan-1", taskId: null, stage: null, title: "Replication", order: 1, masteryScore: "40", state: "partial" },
+  { id: "n-1", planId: "plan-1", taskId: null, stage: null, title: "Consensus", order: 0, description: null, optional: false, masteryScore: "0", state: "uncovered" },
+  { id: "n-2", planId: "plan-1", taskId: null, stage: null, title: "Replication", order: 1, description: null, optional: false, masteryScore: "40", state: "partial" },
 ];
 
 const MATERIAL: MaterialView = {

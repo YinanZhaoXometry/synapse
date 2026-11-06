@@ -52,7 +52,7 @@ const tasks: EchoFixture[] = [
     materialId: "m-task",
     nodeId: TASK_NODE,
     createdAt: NOW,
-    node: { __typename: "KnowledgeNode", id: TASK_NODE, planId: null, taskId: TASK_1, stage: null, title: "TCP 拥塞控制", order: 0, masteryScore: "0", state: "uncovered", createdAt: NOW },
+    node: { __typename: "KnowledgeNode", id: TASK_NODE, planId: null, taskId: TASK_1, description: null, optional: false, stage: null, title: "TCP 拥塞控制", order: 0, masteryScore: "0", state: "uncovered", createdAt: NOW },
   },
 ];
 
