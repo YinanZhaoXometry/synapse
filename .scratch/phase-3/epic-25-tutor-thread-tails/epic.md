@@ -1,7 +1,7 @@
 # Epic-25: tutor-thread-tails
 
 Milestone: Phase 2 — post-deadline
-Status: ready-for-agent
+Status: in-review (PR #23; T1–T4 done on epic/p3-25-tutor-thread-tails — rspec 1474 · vitest 951; merge = owner verification, then worktree+branch delete per the ruling)
 Created: 2026-11-07 (owner: 「这些需要等其他的session的工作可以新开一个spec在另个git worktree里面搞互不干扰」)
 
 ## Scope
