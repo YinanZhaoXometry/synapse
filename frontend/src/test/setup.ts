@@ -23,3 +23,33 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+// jsdom 20 ships neither ResizeObserver nor IntersectionObserver; today
+// nothing in the render tree invokes them only because recharts/responsive
+// components happen not to mount them in the exercised paths (epic P3-17
+// ticket 04). Stub both so any future observer-dependent component fails on
+// behavior, not on a missing constructor.
+class ResizeObserverStub {
+  observe: () => void = () => {};
+  unobserve: () => void = () => {};
+  disconnect: () => void = () => {};
+}
+
+class IntersectionObserverStub {
+  root: Element | null = null;
+  rootMargin: string = "0px";
+  thresholds: readonly number[] = [0];
+  observe: () => void = () => {};
+  unobserve: () => void = () => {};
+  disconnect: () => void = () => {};
+  takeRecords: () => IntersectionObserverEntry[] = () => [];
+}
+
+if (typeof window.ResizeObserver === "undefined") {
+  (window as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver =
+    ResizeObserverStub as unknown as typeof ResizeObserver;
+}
+if (typeof window.IntersectionObserver === "undefined") {
+  (window as unknown as { IntersectionObserver: typeof IntersectionObserver }).IntersectionObserver =
+    IntersectionObserverStub as unknown as typeof IntersectionObserver;
+}
