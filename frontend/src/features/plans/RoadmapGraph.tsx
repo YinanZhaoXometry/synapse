@@ -339,7 +339,11 @@ export default function RoadmapGraph({
       // First finger: the pan candidate, exactly as before.
       dragRef.current = { x: event.clientX, y: event.clientY, originX: pan.x, originY: pan.y };
     }
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    // NOTE: no setPointerCapture here. A capture active at pointerup
+    // retargets the click to the canvas (W3C pointerevents#356 — spec
+    // behavior), which would swallow every node tap; the capture instead
+    // rides the FIRST DRAG MOVE (below), so taps — which never move — never
+    // capture.
   };
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const tracked = pointersRef.current.get(event.pointerId);
@@ -368,6 +372,10 @@ export default function RoadmapGraph({
     }
     const drag = dragRef.current;
     if (!drag) return;
+    // Capture rides the first drag move (see the pointerdown NOTE): from
+    // here on, a pan released outside the canvas still delivers its stream.
+    // Idempotent for every later move of the drag.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     setPan({ x: drag.originX + (event.clientX - drag.x), y: drag.originY + (event.clientY - drag.y) });
   };
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {

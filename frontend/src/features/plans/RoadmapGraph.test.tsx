@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { installPointerEventShim } from "@/test/pointer-event-shim";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -27,28 +28,10 @@ const zh = (key: string, vars?: Record<string, string>) => {
   return out;
 };
 
-// jsdom 20 predates PointerEvent — the pan contract rides pointer events, so
-// shim the constructor over MouseEvent (RTL then builds real pointer events).
-// The pinch contract additionally keys active pointers by pointerId, which the
-// MouseEvent constructor would silently drop (RTL's createEvent constructs the
-// event and never assigns unconsumed init props onto the instance), so the
-// shim carries pointerId/pointerType/isPrimary itself.
-if (typeof window.PointerEvent === "undefined") {
-  Object.defineProperty(window, "PointerEvent", {
-    writable: true,
-    value: class PointerEventShim extends MouseEvent {
-      pointerId: number;
-      pointerType: string;
-      isPrimary: boolean;
-      constructor(type: string, init: PointerEventInit = {}) {
-        super(type, init);
-        this.pointerId = init.pointerId ?? 1;
-        this.pointerType = init.pointerType ?? "";
-        this.isPrimary = init.isPrimary ?? false;
-      }
-    },
-  });
-}
+// jsdom 20 predates PointerEvent — the pan/pinch contracts ride pointer
+// events, so install the shared shim (src/test/pointer-event-shim.ts, which
+// also carries pointerId/pointerType/isPrimary for the pinch's registry).
+installPointerEventShim();
 
 const NODE_COUNT = 36;
 /** 12 Foundations + 12 Practice + 9 Mastery + 3 unstaged (the trailing default column). */
