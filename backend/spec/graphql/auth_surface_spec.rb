@@ -26,13 +26,16 @@ require "rails_helper"
 # with the one password-change mutation (FR-30's account half); epic-14 T2
 # with the one task→plan promotion mutation (FR-37's stretch half, delta
 # decision 4); epic-18 T1 with the one mistake-lifecycle toggle (the owner's
-# review flag on a logged mistake, spec decision 4)
+# review flag on a logged mistake, spec decision 4); epic-18 T2 with the one
+# generation-backed Today suggestion mutation (the explicit, cap-counted,
+# replay-safe AI pick — the todayHub heuristic v1 card untouched, spec
+# decisions 7–11)
 # (byte-level idempotence against the committed schema.graphql
 # stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
 # surface shape itself).
 RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
   it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, the epic P2-12 note mutation, the epic P2-09 weekly-goal setter, the epic P2-09 T3 manual-task ops, the epic P2-09 T4 hub retake, the epic P2-11 T1 visibility flip, the epic P2-11 T3 Square adopt fork, the epic-13 T3 annotation ops,
-    the epic-13 T4 study-focus generation, the epic-14 T1 password change, the epic-14 T2 promotion, and the epic-18 T1 mistake-lifecycle toggle" do
+    the epic-13 T4 study-focus generation, the epic-14 T1 password change, the epic-14 T2 promotion, the epic-18 T1 mistake-lifecycle toggle, and the epic-18 T2 generation-backed Today suggestion" do
     expect(Types::MutationType.fields.keys).to contain_exactly(
       "register", "login", "changePassword",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan", "setPlanVisibility", "forkSquarePlan",
@@ -48,7 +51,8 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
       "generateNote", "generateStudyFocus",
       "setWeeklyGoal",
       "addManualTask", "setManualTaskDone", "deleteManualTask",
-      "setMistakeEntryResolved"
+      "setMistakeEntryResolved",
+      "generateTodaySuggestion"
     )
   end
 
