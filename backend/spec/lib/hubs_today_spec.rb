@@ -23,10 +23,16 @@ RSpec.describe Hubs do
       node = create(:knowledge_node, user: user, plan_id: plan.id)
       question = create(:question, user: user, node: node,
                                    source_material: create(:material, user: user))
-      create(:mistake_entry, user: user, question: question)
-      card = create(:flashcard, user: user, difficulty: "hard", updated_at: Time.current)
 
+      # The fixtures must anchor INSIDE the traveled clock: the scan derives
+      # next_due_at from the source rows' own timestamps (updated_at), so a
+      # row created at real now while the assertion reads the hardcoded
+      # 2026-11-04 drifts out of the +3d window as the calendar advances
+      # (this spec silently expired on 2026-11-06 — the token-TTL class of
+      # hardcoded-date time bomb).
       travel_to(now) do
+        create(:mistake_entry, user: user, question: question)
+        card = create(:flashcard, user: user, difficulty: "hard", updated_at: Time.current)
         Requeue::ScanDueItemsCommand.call
         # Fresh mistake → due +1d; hard card → due +2d. At +3d BOTH are due —
         # the inclusive window answers everything scheduled BY the day's end.
