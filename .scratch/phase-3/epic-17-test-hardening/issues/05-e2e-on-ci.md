@@ -27,7 +27,12 @@ proven (the backend job already carries the same hosts-line pattern).
       + `test-results/` on failure (retention 7d); `needs: [frontend, backend]`
 - [x] playwright.config.ts: CI retries 2 / local 0; `[["list"]]` locally, `+html` under CI
 - [x] `just e2e` still green locally with the config changes — **15 passed (25.4s), exit 0**
-- [ ] First CI run green (or every red diagnosed at root) — verdict lands in this PR
+- [x] First CI run green (or every red diagnosed at root) — **final verdict: ALL GREEN, both runs
+      on the merge SHA** (e2e passed 4m8s and 13m45s; frontend/backend green alongside). The
+      road there surfaced and fixed four real findings, each recorded above: the dead-upstream
+      minio Dockerfile, the coverage-steps mis-insertion, the go-build cwd, the S2 strict-mode
+      collision, and the stale-stub-generation race (plus the dashboard-KPI substring collision
+      in ticket 09's era — exact-matched).
 - [x] (stretch) axe smoke — verdict in Comments: dropped
 - [x] AGENTS.md CI line updated (web gates + api gates + e2e gate)
 
