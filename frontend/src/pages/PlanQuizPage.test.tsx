@@ -95,7 +95,7 @@ const materialFixture = (): Record<string, unknown> => ({
 });
 
 function nodeFixture(id: string, title: string, order: number, masteryScore = "0", state = "uncovered") {
-  return { __typename: "KnowledgeNode", id, planId: PLAN_ID, taskId: null, stage: "核心", title, order, masteryScore, state, createdAt: NOW };
+  return { __typename: "KnowledgeNode", id, planId: PLAN_ID, taskId: null, description: null, optional: false, stage: "核心", title, order, masteryScore, state, createdAt: NOW };
 }
 
 /** A hand-built persisted session (the reload path — never started on this mount). */
@@ -167,6 +167,7 @@ function pageHandlers(state: HarnessState, nodes: Array<Record<string, unknown>>
         createdAt: NOW,
         masteryScore: "0",
         visibility: "private",
+        edges: [],
         nodes,
         materials: [material],
       };

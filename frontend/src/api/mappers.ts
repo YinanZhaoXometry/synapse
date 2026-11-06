@@ -66,6 +66,10 @@ export function mapNode(node: KnowledgeNodePartsFragment): KnowledgeNodeView {
     taskId: node.taskId,
     stage: node.stage,
     title: node.title,
+    // epic-16 (FR-5): the roadmap metadata rides verbatim — description nulls
+    // on legacy nodes; optional is the server's Boolean! (default false).
+    description: node.description ?? null,
+    optional: node.optional === true,
     order: node.order,
     masteryScore: node.masteryScore,
     state: nodeState(node.state),

@@ -43,6 +43,7 @@ export function usePlansQuery() {
     masteryScore: plan.masteryScore,
     visibility: plan.visibility === "public" ? "public" : "private",
     forkedFromTopic: plan.forkedFromTopic,
+    edges: [], // same association posture — edges ride the Plan detail query (epic-16)
   }));
   return { data: result.data !== undefined ? plans : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
@@ -67,6 +68,9 @@ export function usePlanQuery(planId: string) {
         // OQ-12 (epic P2-11 T3): the attribution snapshot — rendered by the
         // plan home header, never recomputed.
         forkedFromTopic: row.forkedFromTopic,
+        // epic-16 (FR-5): the persisted prerequisite edges, endpoint uuids
+        // verbatim — the graph's DAG input, selected per-plan by edge presence.
+        edges: row.edges.map((edge) => ({ fromNodeId: edge.fromNodeId, toNodeId: edge.toNodeId })),
       },
       nodes: row.nodes.map(mapNode),
       materials: row.materials.map(mapMaterialSummary),

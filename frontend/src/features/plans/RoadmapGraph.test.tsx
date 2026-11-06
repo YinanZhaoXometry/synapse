@@ -43,6 +43,8 @@ const NODES: KnowledgeNodeView[] = Array.from({ length: NODE_COUNT }, (_, i) => 
   taskId: null,
   stage: stageOf(i),
   title: `Node ${i} 学习节点`,
+  description: null,
+  optional: false,
   order: i,
   masteryScore: i === 5 ? "42" : "0",
   state: i === 5 ? "partial" : i === 12 ? "mastered" : "uncovered",
@@ -81,15 +83,21 @@ const mappingRow = (overrides: Partial<MaterialNodeMappingView> = {}): MaterialN
 /** The full provider wrapper as a standalone tree — lets a test `rerender` with changed views. */
 const treeWith = (
   views: NodeRowView[],
-  opts: { mappings?: MaterialNodeMappingView[]; mappingsFailed?: boolean } = {},
+  opts: {
+    mappings?: MaterialNodeMappingView[];
+    mappingsFailed?: boolean;
+    edges?: { fromNodeId: string; toNodeId: string }[];
+    initialEntries?: string[];
+  } = {},
 ) => (
-  <MemoryRouter>
+  <MemoryRouter initialEntries={opts.initialEntries ?? ["/plan/plan-1"]}>
     <ThemeProvider>
       <LanguageProvider>
         <RoadmapGraph
           planId="plan-1"
           views={views}
           materials={MATERIALS}
+          edges={opts.edges}
           mappings={"mappings" in opts ? opts.mappings : [mappingRow()]}
           mappingsFailed={opts.mappingsFailed ?? false}
         />
@@ -140,6 +148,42 @@ describe("RoadmapGraph render", () => {
   it("opts the canvas out of text selection (drag-to-pan must not select node titles)", () => {
     mountGraph();
     expect(screen.getByTestId("roadmap-canvas")).toHaveClass("select-none");
+  });
+});
+
+describe("RoadmapGraph layout selection (epic-16: persisted edges → DAG, zero edges → legacy)", () => {
+  const small = nodeRowViews(
+    [
+      NODES[0], NODES[1], // Foundations rows 0/1
+      NODES[12], NODES[13], // Practice rows 0/1
+    ],
+    [],
+  );
+  const edgePaths = () =>
+    Array.from(document.querySelectorAll("[data-testid='roadmap-edge']")).map((p) => p.getAttribute("d") ?? "");
+
+  it("a zero-edge plan renders the LEGACY bezier routes (present-day behavior kept)", () => {
+    render(treeWith(small));
+    const paths = edgePaths();
+    expect(paths.length).toBeGreaterThan(0);
+    expect(paths.some((d) => d.includes("C"))).toBe(true);
+  });
+
+  it("an edge-carrying plan renders the DAG elbow polylines (no beziers)", () => {
+    render(
+      treeWith(small, {
+        edges: [
+          { fromNodeId: "node-00", toNodeId: "node-12" },
+          { fromNodeId: "node-01", toNodeId: "node-13" },
+        ],
+      }),
+    );
+    const paths = edgePaths();
+    expect(paths).toHaveLength(2);
+    for (const d of paths) {
+      expect(d).toContain("L");
+      expect(d).not.toContain("C");
+    }
   });
 });
 
@@ -277,15 +321,21 @@ describe("RoadmapGraph pan + zoom", () => {
     expect(transform()).toContain("scale(0.5)"); // clamped at min
   });
 
-  it("ctrl/cmd + wheel zooms and clamps", () => {
+  it("wheel zooms inside the canvas — plain wheel zooms, ctrl/cmd kept as alias; clamp unchanged (epic-16 zoom posture)", () => {
     mountGraph();
-    fireEvent.wheel(canvas(), { ctrlKey: true, deltaY: -100 });
-    expect(transform()).toContain("scale(1.25)");
-    for (let i = 0; i < 8; i += 1) fireEvent.wheel(canvas(), { ctrlKey: true, deltaY: -100 });
-    expect(transform()).toContain("scale(2)");
-    // Plain wheel (no ctrl/cmd) never zooms.
+    // Plain wheel now zooms (the spec's roadmap.sh posture; the canvas is a
+    // bounded surface — page-scroll hijack is not a concern).
     fireEvent.wheel(canvas(), { deltaY: -100 });
+    expect(transform()).toContain("scale(1.25)");
+    // ctrl/cmd+wheel stays an alias of the same step.
+    fireEvent.wheel(canvas(), { ctrlKey: true, deltaY: -100 });
+    expect(transform()).toContain("scale(1.5)");
+    // Max clamp unchanged from epic-10.
+    for (let i = 0; i < 8; i += 1) fireEvent.wheel(canvas(), { deltaY: -100 });
     expect(transform()).toContain("scale(2)");
+    // Min clamp unchanged from epic-10.
+    for (let i = 0; i < 14; i += 1) fireEvent.wheel(canvas(), { deltaY: 100 });
+    expect(transform()).toContain("scale(0.5)");
   });
 
   it("the zoom reset button returns to identity", () => {
@@ -341,5 +391,221 @@ describe("RoadmapGraph focusedId reconciliation (graph stays Tab-reachable)", ()
     const reduced = nodeRowViews(NODES.filter((node) => node.id !== "node-00"), []);
     mounted.rerender(treeWith(reduced));
     expect(roving()).toBe("node-01"); // reseeded to the first node of column 0
+  });
+});
+
+describe("RoadmapGraph epic-16 graph UX (T3)", () => {
+  /** Node copy with the epic-16 metadata without touching the shared NODES fixtures. */
+  const withMeta = (i: number, over: Partial<KnowledgeNodeView>): KnowledgeNodeView => ({ ...NODES[i], ...over });
+
+  describe("stage containers + progress (server states only)", () => {
+    it("renders a tinted group container per stage column with the stage's mastered/total", () => {
+      mountGraph();
+      // One container per column (3 stages + the trailing default column).
+      expect(screen.getAllByTestId("roadmap-stage-group")).toHaveLength(4);
+      // 12 Foundations + 12 Practice + 9 Mastery + 3 unstaged; node-12
+      // (Practice) is the only mastered node — SERVER state, rendered not
+      // recomputed (AD-14): Foundations 0/12, Practice 1/12, Mastery 0/9, default 0/3.
+      const counts = screen.getAllByTestId("roadmap-stage-progress").map((el) => el.textContent);
+      expect(counts).toEqual(["0/12", "1/12", "0/9", "0/3"]);
+    });
+
+    it("renders the plan progress bar above the canvas — mastered x of y + percent, off the server states", () => {
+      mountGraph();
+      const bar = screen.getByRole("progressbar", { name: zhDict["plans.graphProgressAria"] });
+      expect(bar).toHaveAttribute("aria-valuemin", "0");
+      expect(bar).toHaveAttribute("aria-valuemax", "100");
+      expect(bar).toHaveAttribute("aria-valuenow", "3"); // round(1/36 * 100)
+      // The visible label reads mastered x of y + percent.
+      const label = bar.nextElementSibling as HTMLElement;
+      expect(label.textContent).toBe("1/36 已掌握 · 3%");
+    });
+  });
+
+  it("legend names the state vocabulary + the optional marker (not color-only)", () => {
+    mountGraph();
+    const legend = screen.getByTestId("roadmap-legend").textContent;
+    expect(legend).toContain(zhDict["plans.stateMastered"]);
+    expect(legend).toContain(zhDict["plans.statePartial"]);
+    expect(legend).toContain(zhDict["plans.stateUncovered"]);
+    expect(legend).toContain(zhDict["plans.nodeOptional"]);
+  });
+
+  it("optional nodes render a dashed border + a visible marker (not color-only) + the optional aria-label", () => {
+    mountGraph({ views: nodeRowViews([withMeta(1, { optional: true }), NODES[2]], []) });
+    const g = nodeEl("node-01")!;
+    expect(g.querySelector("rect")?.getAttribute("stroke-dasharray")).toBe("6 4");
+    // The non-color marker carries the word.
+    expect(g.querySelector("[data-testid='roadmap-node-optional']")?.textContent).toContain(zhDict["plans.nodeOptional"]);
+    expect(g.getAttribute("aria-label")).toBe(
+      zh("plans.graphNodeAriaOptional", { node: "Node 1 学习节点", state: zhDict["plans.stateUncovered"] }),
+    );
+  });
+
+  it("solid topic nodes keep the undashed border and the plain aria-label", () => {
+    mountGraph();
+    const g = nodeEl("node-00")!;
+    expect(g.querySelector("rect")?.getAttribute("stroke-dasharray")).toBeNull();
+    expect(g.querySelector("[data-testid='roadmap-node-optional']")).toBeNull();
+    expect(g.getAttribute("aria-label")).toBe(
+      zh("plans.graphNodeAria", { node: "Node 0 学习节点", state: zhDict["plans.stateUncovered"] }),
+    );
+  });
+
+  it("DAG prerequisite edges carry arrowheads and dash through optional nodes (the optional path)", () => {
+    render(
+      treeWith(nodeRowViews([NODES[0], NODES[1], NODES[12], withMeta(13, { optional: true })], []), {
+        edges: [
+          { fromNodeId: "node-00", toNodeId: "node-12" },
+          { fromNodeId: "node-01", toNodeId: "node-13" },
+        ],
+      }),
+    );
+    const edge = (to: string) => document.querySelector(`[data-testid='roadmap-edge'][data-edge-to='${to}']`);
+    // The arrowhead marker exists and every prerequisite edge ends in it.
+    expect(document.querySelector("[data-testid='roadmap-svg'] marker")).not.toBeNull();
+    expect(edge("node-12")?.getAttribute("marker-end")).toContain("roadmap-arrow");
+    // The edge touching the optional node renders dashed; the plain edge does not.
+    expect(edge("node-13")?.getAttribute("stroke-dasharray")).toBe("5 4");
+    expect(edge("node-12")?.getAttribute("stroke-dasharray")).toBeNull();
+  });
+
+  it("hovering a node shows a tooltip with title + state (+ the optional marker when present)", () => {
+    mountGraph({ views: nodeRowViews([withMeta(1, { optional: true }), NODES[5]], []) });
+    expect(screen.queryByTestId("roadmap-tooltip")).not.toBeInTheDocument();
+
+    fireEvent.pointerEnter(nodeEl("node-01")!);
+    let tip = screen.getByTestId("roadmap-tooltip");
+    expect(tip).toHaveTextContent("Node 1 学习节点");
+    expect(tip).toHaveTextContent(zhDict["plans.stateUncovered"]);
+    expect(tip).toHaveTextContent(zhDict["plans.nodeOptional"]);
+
+    fireEvent.pointerLeave(nodeEl("node-01")!);
+    expect(screen.queryByTestId("roadmap-tooltip")).not.toBeInTheDocument();
+
+    fireEvent.pointerEnter(nodeEl("node-05")!);
+    tip = screen.getByTestId("roadmap-tooltip");
+    expect(tip).toHaveTextContent("Node 5 学习节点");
+    expect(tip).toHaveTextContent(zhDict["plans.statePartial"]);
+    expect(tip.textContent).not.toContain(zhDict["plans.nodeOptional"]);
+  });
+
+  describe("fit-view", () => {
+    const canvas = () => screen.getByTestId("roadmap-canvas");
+    const transform = () => screen.getByTestId("roadmap-viewport").style.transform;
+    const stubViewport = (el: HTMLElement, w: number, h: number) => {
+      Object.defineProperty(el, "clientWidth", { configurable: true, value: w });
+      Object.defineProperty(el, "clientHeight", { configurable: true, value: h });
+    };
+    const parts = () => {
+      const m = /translate\(([-\d.]+)px, ([-\d.]+)px\) scale\(([-\d.]+)\)/.exec(transform())!;
+      return { x: parseFloat(m[1]), y: parseFloat(m[2]), k: parseFloat(m[3]) };
+    };
+    const fourNodes = nodeRowViews([NODES[0], NODES[1], NODES[12], NODES[13]], []);
+
+    it("rescales and recenters the whole roadmap into the viewport (small plan fits under the cap)", () => {
+      mountGraph({ views: fourNodes });
+      stubViewport(canvas(), 800, 440);
+      // Drift away first — fit must recover from any pan/zoom state.
+      fireEvent.click(screen.getByTestId("roadmap-zoom-in"));
+      expect(transform()).toContain("scale(1.25)");
+
+      fireEvent.click(screen.getByTestId("roadmap-fit"));
+      // Layout 476×246 → k = min(776/476, 416/246, 1.15 cap) = 1.15, centered.
+      const { x, y, k } = parts();
+      expect(k).toBeCloseTo(1.15, 5);
+      expect(x).toBeCloseTo((800 - 476 * 1.15) / 2, 5);
+      expect(y).toBeCloseTo((440 - 246 * 1.15) / 2, 5);
+    });
+
+    it("stays inside the epic-10 clamp: a 36-node roadmap fits at the min zoom floor", () => {
+      mountGraph();
+      stubViewport(canvas(), 800, 440);
+      fireEvent.click(screen.getByTestId("roadmap-fit"));
+      // Layout 972×1206 → raw fit 0.345 clamps to the 0.5 floor (clamp unchanged).
+      const { x, y, k } = parts();
+      expect(k).toBeCloseTo(0.5, 5);
+      expect(x).toBeCloseTo((800 - 972 * 0.5) / 2, 5);
+      expect(y).toBeCloseTo((440 - 1206 * 0.5) / 2, 5);
+    });
+  });
+
+  describe("?node= deep-link", () => {
+    /**
+     * jsdom does no layout — the deep-link's pan-into-view reads the canvas'
+     * measured viewport. Pin a representative viewport on the PROTOTYPE for
+     * the mount (the effect runs at commit, before an instance-level stub
+     * could land), then restore — the same honest stub the pan test makes.
+     */
+    const withViewport = (w: number, h: number, run: () => void) => {
+      // Walk up to the prototype that owns the clientWidth accessor (jsdom
+      // implements it on Element, not HTMLElement).
+      let owner: object = window.HTMLElement.prototype;
+      while (owner && !Object.getOwnPropertyDescriptor(owner, "clientWidth")) {
+        owner = Object.getPrototypeOf(owner);
+      }
+      const wDesc = Object.getOwnPropertyDescriptor(owner, "clientWidth")!;
+      const hDesc = Object.getOwnPropertyDescriptor(owner, "clientHeight")!;
+      Object.defineProperty(owner, "clientWidth", { configurable: true, get: () => w });
+      Object.defineProperty(owner, "clientHeight", { configurable: true, get: () => h });
+      try {
+        run();
+      } finally {
+        Object.defineProperty(owner, "clientWidth", wDesc);
+        Object.defineProperty(owner, "clientHeight", hDesc);
+      }
+    };
+    const roving = () => document.querySelector('[data-testid="roadmap-node"][tabindex="0"]')?.getAttribute("data-node-id");
+
+    it("selects the node, pans it into view, moves the roving tabindex, and opens the sheet on mount", () => {
+      withViewport(800, 440, () => {
+        render(treeWith(nodeRowViews(NODES, []), { initialEntries: ["/plan/plan-1?node=node-20"] }));
+      });
+      // node-20 (Practice, row 8): top y = 62+8·96 = 830, bottom 890 > 440−16 → pan −466px.
+      expect(roving()).toBe("node-20");
+      expect(screen.getByTestId("roadmap-viewport").style.transform).toBe("translate(0px, -466px) scale(1)");
+      const sheet = screen.getByTestId("roadmap-detail");
+      expect(sheet).toHaveTextContent("Node 20 学习节点");
+    });
+
+    it("ignores a deep-link id that is not one of the plan's nodes", () => {
+      render(treeWith(nodeRowViews(NODES, []), { initialEntries: ["/plan/plan-1?node=ghost"] }));
+      expect(roving()).toBe("node-00");
+      expect(screen.queryByTestId("roadmap-detail")).not.toBeInTheDocument();
+      expect(screen.getByTestId("roadmap-viewport").style.transform).toBe("translate(0px, 0px) scale(1)");
+    });
+
+    it("does not re-open on a layout identity churn (mount-only: a refetch rebuilds views, the closed sheet stays closed)", () => {
+      withViewport(800, 440, () => {
+        const graph = render(treeWith(nodeRowViews(NODES, []), { initialEntries: ["/plan/plan-1?node=node-20"] }));
+        expect(screen.getByTestId("roadmap-detail")).toBeInTheDocument();
+
+        // The user closes the sheet; then a post-quiz refetch lands as a NEW
+        // views array (fresh identity, same nodes) — a new layout object. The
+        // deep-link consumed its param at mount: no re-open, no re-pan.
+        fireEvent.keyDown(nodeEl("node-20")!, { key: "Escape" });
+        expect(screen.queryByTestId("roadmap-detail")).not.toBeInTheDocument();
+
+        graph.rerender(treeWith(nodeRowViews(NODES.map((node) => ({ ...node })), []), { initialEntries: ["/plan/plan-1?node=node-20"] }));
+        expect(screen.queryByTestId("roadmap-detail")).not.toBeInTheDocument();
+        expect(screen.getByTestId("roadmap-viewport").style.transform).toBe("translate(0px, -466px) scale(1)");
+      });
+    });
+  });
+
+  it("the sheet gains the description line and the optional badge", async () => {
+    mountGraph({ views: nodeRowViews([withMeta(0, { description: "一句话描述这个节点", optional: true }), NODES[1]], []) });
+    fireEvent.click(nodeEl("node-00")!);
+    await screen.findByTestId("roadmap-detail");
+    expect(screen.getByTestId("roadmap-node-desc")).toHaveTextContent("一句话描述这个节点");
+    expect(screen.getByTestId("roadmap-node-optional-badge")).toHaveTextContent(zhDict["plans.nodeOptional"]);
+
+    // A plain node: no badge, and the honest fallback line (legacy nodes never
+    // carry a description — the field is a new-generation artifact).
+    fireEvent.click(nodeEl("node-01")!);
+    await waitFor(() =>
+      expect(screen.getByTestId("roadmap-node-desc")).toHaveTextContent(zhDict["plans.graphNodeDescFallback"]),
+    );
+    expect(screen.queryByTestId("roadmap-node-optional-badge")).not.toBeInTheDocument();
   });
 });

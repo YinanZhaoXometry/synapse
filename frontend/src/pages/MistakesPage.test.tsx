@@ -66,6 +66,8 @@ const node = (over: Record<string, unknown>): EchoFixture => ({
   taskId: null,
   stage: "apply",
   title: "节点",
+  description: null,
+  optional: false,
   order: 0,
   masteryScore: "0",
   state: "uncovered",

@@ -203,20 +203,74 @@ module Api
       proposal = splitter.finish[:proposal]
       return terminal(code: "INTERNAL") unless proposal
 
+      normalized = normalize_proposal(proposal)
+      return terminal(code: "INTERNAL") if normalized["stages"].empty?
+
+      terminal(code: "OK", proposal: normalized.merge("language" => language))
+    end
+
+    # The proposal JSON's roadmap shape (epic-16 T1): stages carry full nodes
+    # ({title, description, optional}) and top-level title-paired edges. The
+    # normalization keeps the model honest — titles/descriptions strip
+    # (blank descriptions land null), optional coerces to a strict boolean,
+    # and edges keep only well-formed non-blank string pairs. Confirm-time
+    # resolution and validity drops are downstream's job (the client's
+    # flatten seam / Plans::PlanCreation).
+    #
+    # The legacy pre-epic-16 shape (review F2) stays accepted here, matching
+    # ConfirmProposalCommand: a stage carrying bare `nodeTitles` (no `nodes`)
+    # maps deterministically to one metadata-less node per title, and the
+    # reply's absent top-level edges land empty — the designed degradation to
+    # an edgeless plan (the client's legacy fallback path renders it), never
+    # a terminal INTERNAL.
+    def normalize_proposal(proposal)
+      legacy_shape = false
       normalized = {
         "topic" => proposal["topic"].to_s,
         "stages" => Array(proposal["stages"]).filter_map do |stage|
           next unless stage.is_a?(Hash)
           name = stage["name"].to_s.strip
-          titles = Array(stage["nodeTitles"]).map { |title| title.to_s.strip }.reject(&:empty?)
-          next if name.empty? || titles.empty?
+          nodes = Array(stage["nodes"]).filter_map do |node|
+            next unless node.is_a?(Hash)
+            title = node["title"].to_s.strip
+            next if title.empty?
 
-          { "name" => name, "nodeTitles" => titles }
+            {
+              "title" => title,
+              "description" => node["description"].to_s.strip.presence,
+              "optional" => node["optional"] == true
+            }
+          end
+          if nodes.empty? && Array(stage["nodeTitles"]).any?
+            legacy_shape = true
+            nodes = Array(stage["nodeTitles"]).filter_map do |title|
+              title = title.to_s.strip
+              next if title.empty?
+
+              { "title" => title, "description" => nil, "optional" => false }
+            end
+          end
+          next if name.empty? || nodes.empty?
+
+          { "name" => name, "nodes" => nodes }
+        end,
+        "edges" => Array(proposal["edges"]).filter_map do |edge|
+          next unless edge.is_a?(Array) && edge.length == 2
+          from, to = edge
+          from = from.to_s.strip
+          to = to.to_s.strip
+          next if from.empty? || to.empty?
+
+          [ from, to ]
         end
       }
-      return terminal(code: "INTERNAL") if normalized["stages"].empty?
-
-      terminal(code: "OK", proposal: normalized.merge("language" => language))
+      if legacy_shape
+        Rails.logger.info(
+          "[plans] legacy proposal shape (nodeTitles) normalized without edges/descriptions — " \
+          "one title-only node per title; the edgeless plan renders via the legacy fallback path"
+        )
+      end
+      normalized
     end
 
     # The citation locator for the grounded position — built server-side

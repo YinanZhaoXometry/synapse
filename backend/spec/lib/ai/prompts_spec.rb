@@ -141,7 +141,9 @@ RSpec.describe Ai::Prompts do
       expect(bare).to include("<outline>")
       expect(bare).to include("<proposal>")
       expect(bare).to include("\"topic\":\"Distributed systems\"")
-      expect(bare).to include("2–5 stages, 3–8 nodes total")
+      # epic-16 T1 raised the scale cap (grill decision 3) — the prompt says
+      # "at most 16 nodes" now, not the pre-epic-16 "3–8".
+      expect(bare).to include("2–5 stages, at most 16 nodes total")
       expect(bare).to include("Distributed systems")
       expect(bare).not_to include("The learner's goal")
       expect(goaled).to include("The learner's goal: interview ready")

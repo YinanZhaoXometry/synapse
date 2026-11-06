@@ -139,7 +139,7 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
         const input = variables.input as EchoFixture;
         const material = server.materials.find((m) => m.id === input.materialId)!;
         const task = { __typename: "StudyTask", id: `task-echo-${server.tasks.length + 1}`, materialId: material.id, nodeId: `node-task-${server.tasks.length + 1}`, createdAt: CREATED };
-        const node = nodeRow({ __typename: "KnowledgeNode", id: task.nodeId, planId: null, taskId: task.id, stage: null, title: material.title, order: 0, createdAt: CREATED });
+        const node = nodeRow({ __typename: "KnowledgeNode", id: task.nodeId, planId: null, taskId: task.id, description: null, optional: false, stage: null, title: material.title, order: 0, createdAt: CREATED });
         material.taskId = task.id;
         server.tasks.push(task);
         server.nodes.push(node);
@@ -157,7 +157,7 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
         const input = variables.input as EchoFixture;
         const plan = { __typename: "StudyPlan", id: "plan-echo-1", topic: input.topic, goal: input.goal ?? null, createdAt: CREATED, masteryScore: "0" };
         const nodes = (input.nodes as EchoFixture[]).map((n, i) =>
-          nodeRow({ __typename: "KnowledgeNode", id: `node-plan-${i + 1}`, planId: plan.id, taskId: null, stage: n.stage ?? null, title: n.title, order: i, createdAt: CREATED }),
+          nodeRow({ __typename: "KnowledgeNode", id: `node-plan-${i + 1}`, planId: plan.id, taskId: null, description: null, optional: false, stage: n.stage ?? null, title: n.title, order: i, createdAt: CREATED }),
         );
         server.nodes.push(...nodes);
         return { plan, nodes };

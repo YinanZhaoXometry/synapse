@@ -119,7 +119,7 @@ function makeWorld(): World {
       const input = variables.input as EchoFixture;
       const plan = { __typename: "StudyPlan", id: "plan-echo-1", topic: input.topic, goal: input.goal ?? null, createdAt: CREATED, masteryScore: "0", forkedFromTopic: null };
       const nodes = (input.nodes as EchoFixture[]).map((n, i) =>
-        nodeRow({ __typename: "KnowledgeNode", id: `node-${i + 1}`, planId: plan.id, taskId: null, stage: n.stage ?? null, title: n.title, order: i, createdAt: CREATED }),
+        nodeRow({ __typename: "KnowledgeNode", id: `node-${i + 1}`, planId: plan.id, taskId: null, description: null, optional: false, stage: n.stage ?? null, title: n.title, order: i, createdAt: CREATED }),
       );
       server.plan = plan;
       server.nodes.push(...nodes);
@@ -155,6 +155,7 @@ function makeWorld(): World {
         __typename: "StudyPlan",
         ...server.plan,
         masteryScore: String(computePlanRollup(byNode, new Date())),
+        edges: [],
         nodes: server.nodes.map(nodeRow),
         materials: server.materials.map((m) => ({ ...m, sections: undefined })), // summaries carry no sections
       };

@@ -27,6 +27,8 @@ const node = (id: string, overrides: Partial<KnowledgeNodeView> = {}): Knowledge
   taskId: null,
   stage: null,
   title: `node-${id}`,
+  description: null,
+  optional: false,
   order: 0,
   masteryScore: "0",
   state: "uncovered",

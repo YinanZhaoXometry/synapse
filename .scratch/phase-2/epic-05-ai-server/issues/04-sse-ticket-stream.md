@@ -33,3 +33,7 @@ Infra notes: tickets live in `stream_tickets` (user-scoped, unique token, payloa
 ---
 
 **SURFACED, not absorbed (2026-11-05 — epic-12 T3, delta decision 6):** epic-12 T3 extends the op set with `plan_companion` — payload `{plan_id, question, language, mistake_entry_id?}` (string-keyed, TS keys verbatim; the mistake key absent when the turn is not mistake-grounded). Same ticket mint/redeem + event vocabulary as companion; plan_companion's rung is always `hint` with `canEscalate: false` (the payload has no escalation flag); the `citation` event (companion-only above) also rides plan_companion turns that carry a `mistake_entry_id`, with the locator = the entry's own `source_location` (no citation event without one). Wire shapes: `CreateStreamTicketInput` gains `planId` + `mistakeEntryId`; the schema movement is T3's (`backend/schema.graphql`).
+
+---
+
+- **2026-11-06 (epic-16 amendment):** the terminal `proposal` payload was reshaped by epic-16 — stages carry `nodes[{title, description, optional}]` and the proposal gains top-level title-paired `edges` (the roadmap DAG's input), replacing `stages[].nodeTitles`. Pre-epic-16 `nodeTitles` replies stay accepted: the stream normalizes them deterministically and logged (`[plans] legacy proposal shape…`) — one title-only node per title, no descriptions, `optional` false, zero edges — instead of a terminal INTERNAL; the edgeless plan renders via the client's legacy fallback path. The confirm surface is unchanged in acceptance: `confirmProposal` still consumes the stream's proposal verbatim, either shape.

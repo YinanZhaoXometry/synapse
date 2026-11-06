@@ -36,8 +36,8 @@ test("S2: an unauthenticated visit bounces to the login wall, and the demo entry
   // The topic renders TWICE on a fresh account's Plans Home — the resume-hero
   // card AND the plan row are both the demo plan there. Anchor on the row
   // button (its accessible name STARTS with the topic; the hero's starts with
-  // 掌握度). First CI run caught this: locally the demo user's older plans
-  // occupy the hero slot, so the old getByText only ever matched one element.
+  // 掌握度). Epic-17 caught this on CI; the graph era (epic-16) keeps the same
+  // Plans Home zones, so the row-button anchor holds there too.
   await expect(
     page.getByRole("button", { name: /^Software engineering interview prep/ })
   ).toBeVisible();
@@ -50,13 +50,15 @@ test("S3: the demo account opens its seeded plan — nodes and the server-comput
   await page.getByRole("button", { name: "用演示账号体验" }).click();
   await expect(page).toHaveURL(/\/plans/);
 
-  // The DemoSeed shape stub: one private plan, two knowledge nodes. Node
-  // titles render in BOTH the list view and the roadmap graph — first() is
-  // the assertion (visible somewhere), the views are not the scenario.
+  // The DemoSeed shape stub: one private plan, three knowledge nodes with two
+  // stage-forward edges (epic-16 T1 seed). Since T3 the plan home renders the
+  // roadmap GRAPH by default — node titles are SVG <text> truncated at 18
+  // chars, so the FULL title lives in the node's aria-label (the accessible
+  // name), which is the honest render assertion for the graph era.
   await page.getByText("Software engineering interview prep").first().click();
   await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
-  await expect(page.getByText("Read the architecture spine").first()).toBeVisible();
-  await expect(page.getByText("Drill one GraphQL mutation end-to-end").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Read the architecture spine/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Drill one GraphQL mutation end-to-end/ }).first()).toBeVisible();
 
   // The mastery display is server-computed (AD-14) — it renders a value; the
   // test never asserts a hand-set score.

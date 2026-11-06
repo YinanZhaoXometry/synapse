@@ -102,7 +102,12 @@ export default function CreationChat() {
           // FR-38 (epic P2-11 T1): the create-step visibility choice — the
           // api defaults private; the choice is always sent explicitly.
           visibility: createVisibility,
+          // epic-16 (FR-5): nodes carry their client-minted ids + metadata;
+          // the proposal's title pairs ride as id pairs (unresolvable pairs
+          // already dropped at the flatten seam — invalid ones the server
+          // drops silently; neither ever blocks the create).
           nodes: input.nodes,
+          edges: input.edges,
         },
       },
       onCompleted: (data) => {
@@ -118,11 +123,11 @@ export default function CreationChat() {
   const suggestions = ["plans.suggestExam", "plans.suggestInterview", "plans.suggestMl"] as const;
 
   // Proposal nodes in the same enumeration order toPlanCreateInput uses, so the
-  // rename keys here match the keys the mapper reads (stage-then-title order).
+  // rename keys here match the keys the mapper reads (stage-then-node order).
   let runningIndex = 0;
   const stageEntries = (chat.proposal?.stages ?? []).map((s) => ({
     name: s.name,
-    entries: s.nodeTitles.map((title) => ({ title, key: proposalNodeKey(runningIndex++) })),
+    entries: s.nodes.map((node) => ({ title: node.title, key: proposalNodeKey(runningIndex++) })),
   }));
 
   return (

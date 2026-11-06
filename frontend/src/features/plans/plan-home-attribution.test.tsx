@@ -5,6 +5,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import {
   AllEvidenceDocument,
@@ -41,6 +42,8 @@ const nodeFixture = {
   taskId: null,
   stage: "基础",
   title: "基础·概念",
+  description: null,
+  optional: false,
   order: 0,
   masteryScore: "10",
   state: "uncovered",
@@ -56,6 +59,7 @@ const planDetail = (forkedFromTopic: string | null) => ({
   masteryScore: "10",
   visibility: "private",
   forkedFromTopic,
+  edges: [],
   nodes: [nodeFixture],
   materials: [],
 });
@@ -77,15 +81,19 @@ function mocksFor(plan: Record<string, unknown>): MockedResponse[] {
 function mount(mocks: MockedResponse[]) {
   return render(
     <TooltipProvider>
-      <LanguageProvider>
-        <MockedProvider mocks={mocks}>
-          <MemoryRouter initialEntries={["/plan/plan-1"]}>
-            <Routes>
-              <Route path="/plan/:id" element={<PlanHomePage />} />
-            </Routes>
-          </MemoryRouter>
-        </MockedProvider>
-      </LanguageProvider>
+      {/* The graph is the default view since epic-16 T3 — the full page now
+          mounts RoadmapGraph, which reads the theme (reduce-motion). */}
+      <ThemeProvider>
+        <LanguageProvider>
+          <MockedProvider mocks={mocks}>
+            <MemoryRouter initialEntries={["/plan/plan-1"]}>
+              <Routes>
+                <Route path="/plan/:id" element={<PlanHomePage />} />
+              </Routes>
+            </MemoryRouter>
+          </MockedProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </TooltipProvider>,
   );
 }

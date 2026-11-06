@@ -38,6 +38,18 @@ module Types
           null: false,
           description: "When the node was created."
 
+    # The roadmap metadata (epic-16 T1, FR-5 data half): the one-line
+    # description and the optional flag the graph renderer draws (optional
+    # nodes render dashed). Null/false on legacy nodes — the columns are
+    # new-generation artifacts, never backfilled (epic-16 delta decision 7).
+    field :description, String,
+          null: true,
+          description: "The node's one-line description (epic-16). Null on legacy nodes — the field is a new-generation artifact, never backfilled."
+
+    field :optional, Boolean,
+          null: false,
+          description: "Whether the node may be skipped without losing the thread (epic-16). Default false."
+
     # The Mastery Score fields (epic P2-4 ticket 03). The ONLY score source on
     # the wire (AD-14: the client renders, never recomputes) — both marshal
     # through Mastery (app/lib/mastery.rb, the api's one scoring

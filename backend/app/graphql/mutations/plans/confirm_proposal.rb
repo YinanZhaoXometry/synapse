@@ -29,7 +29,14 @@ module Mutations
 
       argument :stages, [ Types::ProposedStageInput ],
                required: true,
-               description: "The proposal's stages with their node titles, in proposal order."
+               description: "The proposal's stages with their nodes (epic-16) or node titles (pre-epic-16), in proposal order."
+
+      # The proposal's title-paired edges (epic-16): resolved against the
+      # confirmed nodes' titles server-side. Invalid pairs drop silently —
+      # they never block the confirm.
+      argument :edges, [ Types::ProposedEdgeInput ],
+               required: false,
+               description: "The proposal's edges as [fromTitle, toTitle] pairs (epic-16) — resolved server-side; invalid pairs drop silently."
 
       field :plan, Types::StudyPlanType,
             null: false,
@@ -39,14 +46,15 @@ module Mutations
             null: false,
             description: "The confirmed nodes, stage-then-title flattened into one order."
 
-      def resolve(client_uuid:, topic:, stages:, goal: nil, visibility: nil)
+      def resolve(client_uuid:, topic:, stages:, edges: nil, goal: nil, visibility: nil)
         command_result(::Plans::ConfirmProposalCommand.call(
           current_user: current_user!,
           client_uuid: client_uuid,
           topic: topic,
           goal: goal,
           visibility: visibility,
-          stages: stages.map(&:to_h)
+          stages: stages.map(&:to_h),
+          edges: (edges || []).map(&:to_h)
         ))
       end
     end

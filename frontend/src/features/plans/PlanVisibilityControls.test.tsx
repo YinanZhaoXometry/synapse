@@ -35,6 +35,7 @@ const wirePlan = (visibility: string) => ({
     masteryScore: "42",
     visibility,
     forkedFromTopic: null,
+    edges: [],
     nodes: [],
     materials: [],
   },

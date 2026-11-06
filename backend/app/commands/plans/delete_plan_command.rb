@@ -69,6 +69,7 @@ module Plans
         # Referencing rows first, deepest (evidence) to shallowest, then the
         # Phase-1 cascade itself (nodes, materials, their 1:1 rows), then the
         # plan.
+        current_user.knowledge_node_edges.where(plan_id: plan.id).delete_all
         current_user.evidence_records
           .where(node_id: node_ids)
           .or(current_user.evidence_records.where(question_id: question_ids))

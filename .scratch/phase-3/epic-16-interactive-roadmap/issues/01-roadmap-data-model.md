@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately — pre-flight satisfied 2026-11-06: PR #16 `3f55e1b` landed; cut `epic/p3-16-roadmap` from a clean main).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06 — landed `264db0b` + style pass `790d1a1` on `epic/p3-16-roadmap`)
 
 **Bound by:** FR-5 (structure-faithful graph), AD-12/13 (command layer, closed error enum — no new error values: invalid edges degrade, never reject), ADR-0001 + AD-6/14 (edges carry no progress semantics — evidence-only), the ≤16-node cap (grill decision 3).
 

@@ -8,6 +8,8 @@ fragment KnowledgeNodeParts on KnowledgeNode {
   taskId
   stage
   title
+  description
+  optional
   order
   masteryScore
   state

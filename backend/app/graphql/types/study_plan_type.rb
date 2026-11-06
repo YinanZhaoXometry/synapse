@@ -47,6 +47,14 @@ module Types
           null: false,
           description: "The plan's node tree (the Phase-1 nodeIds array, realized as the association)."
 
+    # The stored prerequisite graph (epic-16 T1, FR-5 data half): the plan's
+    # edges as endpoint id pairs. Empty on legacy plans — edges are
+    # new-generation artifacts (epic-16 delta decision 7: zero-edge plans
+    # keep rendering via the client's derived-sequence fallback).
+    field :edges, [ Types::PlanEdgeType ],
+          null: false,
+          description: "The plan's prerequisite edges (epic-16): each edge's from/to endpoint uuids. Empty on legacy plans — a zero-edge plan renders via the client's derived-sequence fallback."
+
     field :materials, [ Types::MaterialType ],
           null: false,
           description: "The plan's attached materials (the Phase-1 materialIds array, realized as the association — deferred from ticket 01 to the materials ticket)."
@@ -80,6 +88,13 @@ module Types
     # order is the sort key, verbatim.
     def nodes
       object.knowledge_nodes.order(:order)
+    end
+
+    # The stored edge set, in insertion order (created_at, id) — the
+    # deterministic SQL seam (review P2-5a posture), so the wire is stable
+    # across replays of the same plan.
+    def edges
+      object.knowledge_node_edges.order(:created_at, :id)
     end
 
     # The plan-scoped material listing (frontend/src/data/material-repository.ts

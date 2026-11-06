@@ -26,7 +26,8 @@ const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const proposal: PlanStructureProposal = {
   topic: "软件工程",
   language: "zh",
-  stages: [{ name: "阶段一：基础", nodeTitles: ["命令层"] }],
+  stages: [{ name: "阶段一：基础", nodes: [{ title: "命令层" }] }],
+  edges: [],
 };
 
 function renderChat() {

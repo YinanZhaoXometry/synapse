@@ -97,4 +97,56 @@ RSpec.describe Plans::ConfirmProposalCommand do
       expect(StudyPlan.count).to eq(0)
     end
   end
+
+  describe "the epic-16 proposal shape (stage nodes + title-paired edges)" do
+    let(:stages) do
+      [
+        { name: "基础", nodes: [ { title: "Graphql basics" }, { title: "Commands", description: " the spine ", optional: false } ] },
+        { name: "核心", nodes: [ { title: "Scoping", optional: true } ] }
+      ]
+    end
+
+    it "persists the per-node metadata and resolves the title pairs to stored edges" do
+      result = call(edges: [ { from_title: "Graphql basics", to_title: "Scoping" } ])
+
+      plan = result.value![:plan]
+      nodes = plan.knowledge_nodes.order(:order).to_a
+      edges = plan.knowledge_node_edges.order(:created_at, :id).to_a
+
+      aggregate_failures do
+        expect(nodes.map(&:description)).to eq([ nil, "the spine", nil ])
+        expect(nodes.map(&:optional)).to eq([ false, false, true ])
+        expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] })
+          .to eq([ [ nodes[0].id, nodes[2].id ] ])
+      end
+    end
+
+    it "drops an edge naming a duplicate title (unresolvable — deterministic) without blocking the confirm" do
+      dup_stages = [
+        { name: "基础", nodes: [ { title: "same" }, { title: "same" } ] },
+        { name: "核心", nodes: [ { title: "later" } ] }
+      ]
+
+      result = call(stages: dup_stages, edges: [ { from_title: "same", to_title: "later" } ])
+
+      plan = result.value![:plan]
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(plan.knowledge_nodes.count).to eq(3)
+        expect(plan.knowledge_node_edges).to be_empty
+      end
+    end
+
+    it "drops an edge naming an unknown title (membership rule, silent)" do
+      result = call(edges: [ { from_title: "Graphql basics", to_title: "no such node" } ])
+
+      expect(result.value![:plan].knowledge_node_edges).to be_empty
+    end
+
+    it "drops a same-stage title pair via the stage-forward rule (silent)" do
+      result = call(edges: [ { from_title: "Graphql basics", to_title: "Commands" } ])
+
+      expect(result.value![:plan].knowledge_node_edges).to be_empty
+    end
+  end
 end

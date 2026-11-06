@@ -179,11 +179,16 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
   end
 
   describe "the proposal stream" do
-    it "streams only the outline tokens and carries the parsed proposal on the terminal" do
+    it "streams only the outline tokens and carries the parsed roadmap proposal on the terminal" do
       json = { topic: "软件工程", stages: [
-        { name: "阶段一：基础", nodeTitles: [ "命令层", "ER 模型" ] },
-        { name: "阶段二：实践", nodeTitles: [ "集成走查" ] }
-      ] }.to_json
+        { name: "阶段一：基础", nodes: [
+          { title: "命令层", description: "命令层先行", optional: false },
+          { title: "ER 模型" }
+        ] },
+        { name: "阶段二：实践", nodes: [
+          { title: "集成走查", optional: true }
+        ] }
+      ], edges: [ [ "命令层", "集成走查" ], [ "junk" ] ] }.to_json
       reply = "<outline>\n阶段一：基础（命令层、ER 模型）\n阶段二：实践\n</outline>\n<proposal>\n#{json}\n</proposal>"
       # Split mid-tag to prove the wire never sees tag fragments.
       half = reply.length / 2
@@ -197,15 +202,50 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
       expect(token_text).to include("阶段一：基础")
       expect(token_text).not_to include("<outline>")
       expect(token_text).not_to include("nodeTitles")
+      expect(token_text).not_to include('"edges"')
       expect(terminal["data"]["code"]).to eq("OK")
+      # The epic-16 roadmap shape: stage nodes with metadata + title-paired
+      # edges (only well-formed pairs survive the normalization — the
+      # confirm-time resolution and drops are downstream's job).
       expect(terminal["data"]["proposal"]).to eq({
         "topic" => "软件工程",
         "language" => "zh",
         "stages" => [
-          { "name" => "阶段一：基础", "nodeTitles" => [ "命令层", "ER 模型" ] },
-          { "name" => "阶段二：实践", "nodeTitles" => [ "集成走查" ] }
-        ]
+          { "name" => "阶段一：基础", "nodes" => [
+            { "title" => "命令层", "description" => "命令层先行", "optional" => false },
+            { "title" => "ER 模型", "description" => nil, "optional" => false }
+          ] },
+          { "name" => "阶段二：实践", "nodes" => [
+            { "title" => "集成走查", "description" => nil, "optional" => true }
+          ] }
+        ],
+        "edges" => [ [ "命令层", "集成走查" ] ]
       })
+    end
+
+    it "asks the model for the epic-16 roadmap proposal schema (prompt fixture, no live AI)" do
+      captured = nil
+      allow(adapter).to receive(:stream) do |messages|
+        captured = messages
+        [].each
+      end
+
+      stream(mint_proposal(language: "en"))
+
+      user_prompt = captured.last[:content]
+      aggregate_failures do
+        # The proposal JSON schema the reply contract pins: stage nodes with
+        # metadata + title-paired edges.
+        expect(user_prompt).to include(
+          '{"topic":"软件工程","stages":[{"name":"…","nodes":[{"title":"…","description":"…","optional":false}]}],"edges":[["…","…"]]}'
+        )
+        # The four constraints the epic pins on the proposal.
+        expect(user_prompt).to include("at most 16 nodes total")
+        expect(user_prompt).to include("titles are unique")
+        expect(user_prompt).to include("strictly BEFORE")
+        expect(user_prompt).to include("at least one inbound edge")
+        expect(user_prompt).to include("English")
+      end
     end
 
     it "answers terminal{INTERNAL} on a contract-violating reply" do
@@ -213,6 +253,40 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
 
       stream(mint_proposal)
       expect(events.last["data"]["code"]).to eq("INTERNAL")
+    end
+
+    it "accepts the legacy nodeTitles reply via the logged normalization — title-only nodes, zero edges" do
+      # The pre-epic-16 wire shape: stages carry bare titles and the reply has
+      # no top-level edges. The designed degradation — the stream still
+      # completes (never terminal{INTERNAL}) with an edgeless, metadata-less
+      # proposal that renders via the client's legacy fallback path.
+      json = { topic: "软件工程", stages: [
+        { name: "阶段一：基础", nodeTitles: [ "命令层", "ER 模型" ] },
+        { name: "阶段二：实践", nodeTitles: [ "集成走查" ] }
+      ] }.to_json
+      reply = "<outline>\n阶段一：基础（命令层、ER 模型）\n</outline>\n<proposal>\n#{json}\n</proposal>"
+      allow(adapter).to receive(:stream).and_return([ reply ].each)
+      allow(Rails.logger).to receive(:info)
+
+      stream(mint_proposal(language: "zh"))
+
+      terminal = events.last
+      expect(terminal["data"]["code"]).to eq("OK")
+      expect(terminal["data"]["proposal"]).to eq({
+        "topic" => "软件工程",
+        "language" => "zh",
+        "stages" => [
+          { "name" => "阶段一：基础", "nodes" => [
+            { "title" => "命令层", "description" => nil, "optional" => false },
+            { "title" => "ER 模型", "description" => nil, "optional" => false }
+          ] },
+          { "name" => "阶段二：实践", "nodes" => [
+            { "title" => "集成走查", "description" => nil, "optional" => false }
+          ] }
+        ],
+        "edges" => []
+      })
+      expect(Rails.logger).to have_received(:info).with(a_string_including("[plans] legacy proposal shape"))
     end
   end
 

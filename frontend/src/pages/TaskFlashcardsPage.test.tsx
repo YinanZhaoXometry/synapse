@@ -42,6 +42,8 @@ const serverTask = {
     taskId: TASK_ID,
     stage: null,
     title: "lecture-04",
+    description: null,
+    optional: false,
     order: 0,
     masteryScore: "0",
     state: "uncovered",

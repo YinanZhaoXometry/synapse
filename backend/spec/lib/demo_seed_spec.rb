@@ -38,7 +38,10 @@ RSpec.describe DemoSeed do
     alt_email_user: "abcf3da9-1b8e-5b57-bf67-37919af3f0b7",
     plan: "58b6083b-1e27-5eee-b35b-7086c144a361",
     node_1: "0b44ea76-710a-565b-8da6-f21d01dcb324",
-    node_2: "d5828003-d825-5a68-812d-b254a0c8f692"
+    node_2: "d5828003-d825-5a68-812d-b254a0c8f692",
+    node_3: "73655ae9-e3b1-52ae-963d-ab958a6598e1",
+    edge_1: "0ccbf14e-ddad-59be-81d5-0bff779c2d96",
+    edge_2: "d30c836e-8c90-5615-9cf5-03dab0354bf9"
   }.freeze
 
   describe ".stable_uuid" do
@@ -56,11 +59,14 @@ RSpec.describe DemoSeed do
       expect(described_class.stable_uuid("synapse-demo-plan")).to eq(STABLE_UUIDS[:plan])
       expect(described_class.stable_uuid("synapse-demo-node-1")).to eq(STABLE_UUIDS[:node_1])
       expect(described_class.stable_uuid("synapse-demo-node-2")).to eq(STABLE_UUIDS[:node_2])
+      expect(described_class.stable_uuid("synapse-demo-node-3")).to eq(STABLE_UUIDS[:node_3])
+      expect(described_class.stable_uuid("synapse-demo-edge-1")).to eq(STABLE_UUIDS[:edge_1])
+      expect(described_class.stable_uuid("synapse-demo-edge-2")).to eq(STABLE_UUIDS[:edge_2])
     end
   end
 
   describe ".call" do
-    it "creates the demo user, one private plan, and two ordered nodes on first run" do
+    it "creates the demo user, one private plan, and ordered described nodes with a truthful edge set" do
       described_class.call
 
       user = User.find_by(email: "demo@synapse.test")
@@ -76,11 +82,24 @@ RSpec.describe DemoSeed do
       expect(plan.topic).to be_present
       expect(plan.goal).to be_present
 
+      # The roadmap garnish (epic-16 T1): every node described, at least one
+      # optional node, and a truthful stage-forward edge set.
       nodes = plan.knowledge_nodes.order(:order).to_a
-      expect(nodes.map(&:id)).to eq([ STABLE_UUIDS[:node_1], STABLE_UUIDS[:node_2] ])
-      expect(nodes.map(&:order)).to eq([ 1, 2 ])
+      expect(nodes.map(&:id)).to eq([ STABLE_UUIDS[:node_1], STABLE_UUIDS[:node_2], STABLE_UUIDS[:node_3] ])
+      expect(nodes.map(&:order)).to eq([ 1, 2, 3 ])
       expect(nodes.map(&:stage)).to all(be_present)
       expect(nodes.map(&:title)).to all(be_present)
+      expect(nodes.map(&:description)).to all(be_present)
+      expect(nodes.count { |node| node.optional }).to be >= 1
+
+      edges = plan.knowledge_node_edges.order(:created_at, :id).to_a
+      expect(edges.map(&:id)).to eq([ STABLE_UUIDS[:edge_1], STABLE_UUIDS[:edge_2] ])
+      # Both prerequisites point INTO the practice drill, from its
+      # foundations stage — stage-forward by construction.
+      expect(edges.map { |edge| [ edge.from_node_id, edge.to_node_id ] }).to eq([
+        [ nodes[0].id, nodes[2].id ],
+        [ nodes[1].id, nodes[2].id ]
+      ])
     end
 
     it "is rerun-safe: a second run leaves counts, uuids, and timestamps untouched" do
@@ -88,6 +107,7 @@ RSpec.describe DemoSeed do
       first_user = User.find_by(email: "demo@synapse.test")
       first_plan = first_user.study_plans.first
       first_nodes = first_plan.knowledge_nodes.order(:order).to_a
+      first_edges = first_plan.knowledge_node_edges.order(:created_at, :id).to_a
 
       described_class.call
 
@@ -98,13 +118,18 @@ RSpec.describe DemoSeed do
       expect(User.find_by(email: "demo@synapse.test").id).to eq(first_user.id)
       expect(first_user.reload.study_plans.count).to eq(1)
       expect(first_user.study_plans.first.id).to eq(first_plan.id)
-      expect(first_user.study_plans.first.knowledge_nodes.count).to eq(2)
+      expect(first_user.study_plans.first.knowledge_nodes.count).to eq(3)
       expect(first_user.study_plans.first.knowledge_nodes.order(:order).map(&:id)).to eq(first_nodes.map(&:id))
+      expect(first_user.study_plans.first.knowledge_node_edges.count).to eq(2)
+      expect(first_user.study_plans.first.knowledge_node_edges.order(:created_at, :id).map(&:id))
+        .to eq(first_edges.map(&:id))
       # No-churn proof: the second run skipped every write instead of
-      # rewriting the rows in place (first_plan / first_nodes carry the
-      # pre-second-run timestamps).
+      # rewriting the rows in place (first_plan / first_nodes / first_edges
+      # carry the pre-second-run timestamps).
       expect(first_user.study_plans.first.updated_at).to eq(first_plan.updated_at)
       expect(first_user.study_plans.first.knowledge_nodes.order(:order).map(&:updated_at)).to eq(first_nodes.map(&:updated_at))
+      expect(first_user.study_plans.first.knowledge_node_edges.order(:created_at, :id).map(&:updated_at))
+        .to eq(first_edges.map(&:updated_at))
     end
 
     it "adopts a pre-registered demo user instead of duplicating it" do
@@ -128,7 +153,8 @@ RSpec.describe DemoSeed do
       # Content uuids stay stable; ownership follows the adopted row.
       plan = existing.reload.study_plans.sole
       expect(plan.id).to eq(STABLE_UUIDS[:plan])
-      expect(plan.knowledge_nodes.count).to eq(2)
+      expect(plan.knowledge_nodes.count).to eq(3)
+      expect(plan.knowledge_node_edges.count).to eq(2)
     end
   end
 

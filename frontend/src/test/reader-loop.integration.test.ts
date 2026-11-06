@@ -91,7 +91,7 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
         const input = variables.input as EchoFixture;
         const plan = { __typename: "StudyPlan", id: "plan-echo-1", topic: input.topic, goal: input.goal ?? null, createdAt: CREATED, masteryScore: "0" };
         const nodes = (input.nodes as EchoFixture[]).map((n, i) => ({
-          __typename: "KnowledgeNode", id: `node-${i + 1}`, planId: plan.id, taskId: null, stage: n.stage ?? null, title: n.title, order: i, masteryScore: "0", state: "uncovered", createdAt: CREATED,
+          __typename: "KnowledgeNode", id: `node-${i + 1}`, planId: plan.id, taskId: null, description: null, optional: false, stage: n.stage ?? null, title: n.title, order: i, masteryScore: "0", state: "uncovered", createdAt: CREATED,
         }));
         return { plan, nodes };
       },
