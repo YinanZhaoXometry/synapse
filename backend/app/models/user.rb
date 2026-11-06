@@ -24,6 +24,7 @@ class User < ApplicationRecord
   has_many :annotations
   has_many :study_focus_sets
   has_many :material_node_mappings
+  has_many :today_suggestions
   has_many :manual_tasks
   has_many :requeue_schedules
   has_many :ai_usage_counters

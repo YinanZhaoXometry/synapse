@@ -55,6 +55,10 @@ module Types
           null: false,
           description: "「看答案 = 放弃」: graded wrong, no mastery credit (FR-18)."
 
+    field :resolved, Boolean,
+          null: false,
+          description: "The owner's review flag (epic-18 T1, spec decision 4): user-marked lifecycle state, default false, toggled by setMistakeEntryResolved. Display/lifecycle only — never a Mastery or targeting input (AD-6/ADR-0001)."
+
     field :created_at, Types::DateTime,
           null: false,
           description: "When the mistake was logged (server-set)."

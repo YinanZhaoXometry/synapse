@@ -15,28 +15,13 @@ export function pickL(obj: LangText | null | undefined, lang: Lang): string {
 // three-subject model was generalized long ago; real mastery is per-node,
 // server-computed, AD-14).
 
-/* ── Materials ───────────────────────────────────────── */
-export type MaterialTag = "course" | "notes" | "exam";
-
-export interface Material {
-  id: string;
-  title: LangText;
-  type: "pdf" | "md";
-  pages: number;
-  size: string;
-  tag: MaterialTag;
-  updated: LangText;
-}
-
-export const MATERIALS: Material[] = [
-  { id: "m1", title: { zh: "COMP5241 Lecture 4 — 软件设计", en: "COMP5241 Lecture 4 — Software design" }, type: "pdf", pages: 24, size: "3.2 MB", tag: "course", updated: { zh: "2 天前", en: "2 days ago" } },
-  { id: "m2", title: { zh: "COMP5241 Lecture 5 — 测试与交付", en: "COMP5241 Lecture 5 — Testing and delivery" }, type: "pdf", pages: 18, size: "2.6 MB", tag: "course", updated: { zh: "2 天前", en: "2 days ago" } },
-  { id: "m3", title: { zh: "需求工程速记", en: "Requirements engineering notes" }, type: "md", pages: 6, size: "18 KB", tag: "notes", updated: { zh: "4 天前", en: "4 days ago" } },
-  { id: "m4", title: { zh: "期末复习清单", en: "Final exam checklist" }, type: "md", pages: 4, size: "12 KB", tag: "exam", updated: { zh: "1 天前", en: "1 day ago" } },
-  { id: "m5", title: { zh: "设计模式笔记", en: "Design patterns notes" }, type: "pdf", pages: 12, size: "1.1 MB", tag: "notes", updated: { zh: "6 天前", en: "6 days ago" } },
-];
-
-export const TAG_IDS: Array<"all" | MaterialTag> = ["all", "course", "notes", "exam"];
+/* ── Materials (retired) ─────────────────────────────── */
+// RETIRED (epic P3-18 T3, 2026-11-06): the demo MATERIALS fixture + Material
+// interface + MaterialTag/TAG_IDS left with /materials' re-point onto the
+// useAllMaterialsQuery read — the page renders only server rows now (wire
+// truth: kind · sizeBytes · createdAt · parseState; the scope chip resolves
+// real plan/task titles). No demo-data exports have consumers left; the file
+// stays as the retirement record per its house pattern.
 
 /* ── Planner ─────────────────────────────────────────── */
 // RETIRED (epic P2-09 T3, 2026-11-05): the demo PlannerTask fixture +

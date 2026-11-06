@@ -355,22 +355,26 @@ export const translations = {
       'tutor.noPlansCta': '去创建学习计划',
 
       'materials.eyebrow': '学习资料',
-      'materials.title': '你的材料，按标签归档。',
+      'materials.title': '你的材料库',
       'materials.subtitle': '{n} 份文件 · 只在计划或任务中附加',
-      'materials.upload': '添加材料',
-      'materials.uploadHint': '在计划或学习任务中附加 PDF / Markdown（≤20MB）',
-      'materials.uploadToast': '请在学习计划或任务中附加材料。',
-      'materials.search': '搜索标题、标签…',
-      'materials.tagAll': '全部',
-      'materials.tagCourse': '课程',
-      'materials.tagNotes': '笔记',
-      'materials.tagExam': '备考',
-      'materials.empty': '没有匹配的材料。',
-      'materials.emptyHint': '换个关键词，或清除标签筛选。',
-      'materials.pages': '{n} 页',
-      'materials.updated': '更新于 {d}',
+      'materials.upload': '去计划中添加',
+      'materials.uploadHint': '材料在学习计划或任务的流程中附加（≤20MB），附加后出现在这里。',
+      'materials.search': '搜索标题…',
+      'materials.filterLabel': '按类型筛选',
+      'materials.filterAll': '全部',
+      'materials.filterPdf': 'PDF',
+      'materials.filterMd': 'Markdown',
+      'materials.sizeB': '{n} B',
+      'materials.sizeKb': '{n} KB',
+      'materials.sizeMb': '{n} MB',
+      'materials.loadFailed': '材料列表加载失败。',
+      'materials.retry': '重试',
+      'materials.emptyTitle': '还没有材料。',
+      'materials.emptyBody': '在学习计划或任务的流程中附加 PDF / Markdown，附加后出现在这里。',
+      'materials.filterEmptyTitle': '没有匹配的材料。',
+      'materials.filterEmptyBody': '换个关键词，或清除类型与搜索筛选。',
       'materials.open': '打开阅读',
-      'materials.readerToast': '沉浸式阅读器将在计划流程中打开。',
+      'materials.openAria': '打开「{title}」',
       'materials.filePdf': 'PDF',
       'materials.fileMd': 'Markdown',
 
@@ -471,6 +475,21 @@ export const translations = {
       'mistakes.emptyCta': '去逛逛学习计划',
       'mistakes.loadFailed': '错题加载失败。',
       'mistakes.retry': '重试',
+      // 复盘生命周期（epic-18 T4，spec 决策 4）：用户手记的单布尔状态，双向切换；
+      // 已复盘的卡片视觉弱化但仍可读。
+      'mistakes.resolvedChip': '已复盘',
+      'mistakes.resolveDone': '标记已复盘',
+      'mistakes.resolveDoneAria': '标记这条错题已复盘',
+      'mistakes.resolveReopen': '重新打开',
+      'mistakes.resolveReopenAria': '重新打开这条错题',
+      // 复盘切换失败的按码文案（epic-18 T6 review）：NOT_FOUND 走这条诚实键
+      // （条目已不存在），其余错误码仍走 errors.persistFailed。
+      'mistakes.resolveNotFound': '找不到这条错题，可能已被删除。',
+      'mistakes.stateFilterLabel': '按状态筛选',
+      'mistakes.stateAll': '全部状态',
+      'mistakes.stateOpen': '待复盘',
+      'mistakes.stateResolved': '已复盘',
+      'mistakes.stateEmpty': '这个状态下暂无错题。',
 
       // 今日学习 (FR-27, epic P2-09 T3) — the label rule: zh 今日学习;
       // 学习计划 stays reserved for Study Plans (nav.plans).
@@ -494,6 +513,12 @@ export const translations = {
       'planner.suggestionFlag': '按掌握度推荐 · v1',
       'planner.suggestionCta': '节点快测',
       'planner.suggestionCtaAria': '对节点「{node}」做一次快测',
+      // AI 建议（epic-18 T4，spec 决策 7–10）：显式生成，绝不随页面加载触发；
+      // 次日重生成会再次消耗额度，同日点击走服务端免费重放。
+      'planner.aiSuggestCta': '生成 AI 建议',
+      'planner.aiSuggestCtaAria': '为「{plan}」生成 AI 建议',
+      'planner.aiChip': 'AI 建议',
+      'planner.aiCapNote': '今日 AI 次数已用完',
       'planner.manualSection': '我的任务',
       'planner.manualEmpty': '还没有手动任务，用下方表单添加一件。',
       'planner.manualDueOn': '{date} 到期',
@@ -1285,22 +1310,26 @@ export const translations = {
       'tutor.noPlansCta': 'Go to Plans',
 
       'materials.eyebrow': 'Materials',
-      'materials.title': 'Your materials, filed by tag.',
+      'materials.title': 'Your materials',
       'materials.subtitle': '{n} files · attach inside a plan or task',
-      'materials.upload': 'Add material',
-      'materials.uploadHint': 'Attach PDF or Markdown inside a plan or study task (≤20 MB)',
-      'materials.uploadToast': 'Attach materials inside a study plan or task.',
-      'materials.search': 'Search titles and tags…',
-      'materials.tagAll': 'All',
-      'materials.tagCourse': 'Course',
-      'materials.tagNotes': 'Notes',
-      'materials.tagExam': 'Exam',
-      'materials.empty': 'No matching materials.',
-      'materials.emptyHint': 'Try another term, or clear the tag filter.',
-      'materials.pages': '{n} pages',
-      'materials.updated': 'Updated {d}',
+      'materials.upload': 'Add in a plan',
+      'materials.uploadHint': 'Materials attach inside a study plan or task flow (≤ 20 MB) and show up here.',
+      'materials.search': 'Search titles…',
+      'materials.filterLabel': 'Filter by kind',
+      'materials.filterAll': 'All',
+      'materials.filterPdf': 'PDF',
+      'materials.filterMd': 'Markdown',
+      'materials.sizeB': '{n} B',
+      'materials.sizeKb': '{n} KB',
+      'materials.sizeMb': '{n} MB',
+      'materials.loadFailed': 'The materials list failed to load.',
+      'materials.retry': 'Retry',
+      'materials.emptyTitle': 'No materials yet.',
+      'materials.emptyBody': 'Attach a PDF or Markdown inside a study plan or task — it shows up here.',
+      'materials.filterEmptyTitle': 'No matching materials.',
+      'materials.filterEmptyBody': 'Try another term, or clear the kind and search filters.',
       'materials.open': 'Open reader',
-      'materials.readerToast': 'The immersive reader opens inside the plan flow.',
+      'materials.openAria': 'Open {title}',
       'materials.filePdf': 'PDF',
       'materials.fileMd': 'Markdown',
 
@@ -1401,6 +1430,22 @@ export const translations = {
       'mistakes.emptyCta': 'Browse study plans',
       'mistakes.loadFailed': 'Mistakes failed to load.',
       'mistakes.retry': 'Retry',
+      // The review lifecycle (epic-18 T4, spec decision 4): one user-marked
+      // boolean, toggled both ways; resolved cards go quiet but stay readable.
+      'mistakes.resolvedChip': 'Reviewed',
+      'mistakes.resolveDone': 'Mark reviewed',
+      'mistakes.resolveDoneAria': 'Mark this mistake reviewed',
+      'mistakes.resolveReopen': 'Reopen',
+      'mistakes.resolveReopenAria': 'Reopen this mistake',
+      // The resolve-toggle failure's per-code copy (epic-18 T6 review):
+      // NOT_FOUND lands here (the entry is gone); every other code stays on
+      // errors.persistFailed.
+      'mistakes.resolveNotFound': "This mistake entry could not be found — it may have been removed.",
+      'mistakes.stateFilterLabel': 'Filter by state',
+      'mistakes.stateAll': 'All states',
+      'mistakes.stateOpen': 'Open',
+      'mistakes.stateResolved': 'Reviewed',
+      'mistakes.stateEmpty': 'No mistakes in this state.',
 
       // 今日学习 (FR-27, epic P2-09 T3) — the label rule: en "Today"; the zh
       // label is literally 今日学习. 学习计划 stays reserved for Study Plans.
@@ -1424,6 +1469,13 @@ export const translations = {
       'planner.suggestionFlag': 'Mastery-led · v1',
       'planner.suggestionCta': 'Node quick test',
       'planner.suggestionCtaAria': 'Quick-test the node {node}',
+      // The AI suggestion (epic-18 T4, spec decisions 7–10): explicit
+      // generate only — never fired on hub load; a same-day re-click rides
+      // the server's free replay, a new day spends again.
+      'planner.aiSuggestCta': 'Generate AI suggestion',
+      'planner.aiSuggestCtaAria': 'Generate an AI suggestion for {plan}',
+      'planner.aiChip': 'AI suggestion',
+      'planner.aiCapNote': 'AI daily cap used up',
       'planner.manualSection': 'My tasks',
       'planner.manualEmpty': 'No manual tasks yet — add one below.',
       'planner.manualDueOn': 'due {date}',

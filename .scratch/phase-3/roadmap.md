@@ -21,7 +21,7 @@ owns the sequence story and the parking lot.
 - Touch interaction batch (pinch-zoom, drawer gestures) — deferred from epic-16 + spine.
 - Bundle code-splitting beyond pdfjs (NFR-6 deferred row) — trigger stays "if demo load time hurts".
 - Hub state-field tails + MaterialsPage demo data — the §6.2 survivors parked on the spine
-  Deferred table at epic-14 close.
+  Deferred table at epic-14 close. ✅ consumed — nominated as epic-18 (done 2026-11-06; spine rows closed/annotated).
 - AI proposal quality pass (two-stage generation for bigger graphs) — only if the ≤16 cap proves
   tight in practice.
 
@@ -31,13 +31,13 @@ The owner's nomination fires every parked trigger (including the two conditional
 lane, spec lands at each epic's kickoff (delta-grill-at-kickoff convention — later specs learn
 from earlier landings). No numbers are claimed beyond 18–22 for this batch.
 
-| # | Epic (slug) | One-line scope | Gate |
-| --- | --- | --- | --- |
-| 18 | `epic-18-hub-tails` | §6.2 survivors, both spine rows: Materials hub server backing (re-point `/materials` at the existing materials queries — the retained page's demo rows die), MistakeEntry resolved/reviewed lifecycle (flag + hub surface), Today's suggestion slot takes epic-10-T5's documented consumer shape | none — starts now |
-| 19 | `epic-19-bundle-split` | route-level code splitting beyond pdfjs (NFR-6 discipline: measure first — build-size report pinned in the epic record — then React.lazy per feature route; no new deps) | 18 (serial lane) |
-| 20 | `epic-20-touch-batch` | pinch-zoom on the roadmap canvas + drawer gestures (spine row: pointer-drag pan/wheel/buttons already ship); AD-9 keyboard contract untouched | 19 (same canvas files as 22 — keep away from it) |
-| 21 | `epic-21-ai-proposal-quality` | two-stage generation (outline → per-stage enrichment) for bigger graphs; re-estimates the ≤16 cap with the quality data (epic-16 grill decision 3 amended only if evidence supports); GLM daily-cap discipline | 20 (layout 16-node fixtures ride any cap change before the editor builds on them) |
-| 22 | `epic-22-roadmap-editor` | drag-to-reposition + manual connect/disconnect; **reverses epic-16 delta 5** (positions persist; explicit positions override the deterministic layout; fork carries positions; edge edits run the same stage-forward validation); biggest slice — last on purpose | 21 |
+| # | Epic (slug) | One-line scope | Gate | State |
+| --- | --- | --- | --- | --- |
+| 18 | `epic-18-hub-tails` | §6.2 survivors, both spine rows: Materials hub server backing (re-point `/materials` at the existing materials queries — the retained page's demo rows die), MistakeEntry resolved/reviewed lifecycle (flag + hub surface), Today's suggestion slot takes epic-10-T5's documented consumer shape | none — starts now | **done** (closed 2026-11-06; five tickets landed on `epic/p3-18-hub-tails` @ 2cbef6f + T5's close-out; final baselines: rspec 1452 · vitest 917 · e2e 21 passed + the opt-in visual smoke; targeting-bonus open-only variant consciously deferred to epic-21 — spine annotated) |
+| 19 | `epic-19-bundle-split` | route-level code splitting beyond pdfjs (NFR-6 discipline: measure first — build-size report pinned in the epic record — then React.lazy per feature route; no new deps) | 18 (serial lane) | queued |
+| 20 | `epic-20-touch-batch` | pinch-zoom on the roadmap canvas + drawer gestures (spine row: pointer-drag pan/wheel/buttons already ship); AD-9 keyboard contract untouched | 19 (same canvas files as 22 — keep away from it) | queued |
+| 21 | `epic-21-ai-proposal-quality` | two-stage generation (outline → per-stage enrichment) for bigger graphs; re-estimates the ≤16 cap with the quality data (epic-16 grill decision 3 amended only if evidence supports); GLM daily-cap discipline | 20 (layout 16-node fixtures ride any cap change before the editor builds on them) | queued |
+| 22 | `epic-22-roadmap-editor` | drag-to-reposition + manual connect/disconnect; **reverses epic-16 delta 5** (positions persist; explicit positions override the deterministic layout; fork carries positions; edge edits run the same stage-forward validation); biggest slice — last on purpose | 21 | queued |
 
 ## Sequence notes
 

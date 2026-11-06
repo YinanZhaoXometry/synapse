@@ -18,12 +18,15 @@
  * wire-shaped fixtures; the mutation handlers mutate the captured fixture
  * arrays so the read-back sweep (refetchQueries) is observable in the DOM.
  */
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { CombinedGraphQLErrors } from "@apollo/client/errors";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
+import { clearToken, setToken } from "@/apollo";
 import type { HubDueItemView } from "@/api";
+import { todaySuggestionClientUuid } from "@/lib/uuid5";
 import { utcDayKey } from "@/domain/today-week";
 import { createStubClient, makeStubWrapper } from "@/test/apollo-harness";
 import type { EchoFixture } from "@/test/apollo-harness";
@@ -371,5 +374,199 @@ describe("dueItemHref — the honest per-kind link matrix (pure seam)", () => {
     // the out-of-contract value is the point — the cast builds it
     const broken = { ...item({}), kind: "note" as HubDueItemView["kind"] };
     expect(() => dueItemHref(broken)).toThrow();
+  });
+});
+
+// ── the AI suggestion (epic-18 T4, spec decisions 7–10) ────────────────────
+
+const TEST_USER = "3f9d23ab-1c4e-4f6a-9b2d-8e5c7a1d0e4f";
+const AI_NODE = "ai-node-9";
+const AI_TITLE = "依赖注入与测试替身";
+const AI_REASON = "该节点尚未覆盖，且这个计划里有 2 条相关错题还没复盘。";
+
+/** A fake session JWT whose payload carries the same claims shape the api
+ * mints ({ sub, exp }) — authedUserUuid() reads the sub half. */
+function fakeJwt(sub: string): string {
+  const b64url = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${b64url({ alg: "HS256", typ: "JWT" })}.${b64url({ sub, exp: 1893456000 })}.sig`;
+}
+
+/** The server-double for generateTodaySuggestion: ONE spend per derived key
+ * (replay-before-spend, spec decision 9), call/spend surfaces for the pins,
+ * and a mutable mode for the honest failure states. */
+function aiSuggestionState() {
+  return {
+    calls: [] as EchoFixture[],
+    spends: 0,
+    persisted: new Map<string, EchoFixture>(),
+    mode: "ok" as "ok" | "cap" | "internal",
+  };
+}
+
+type AiState = ReturnType<typeof aiSuggestionState>;
+
+function aiHandler(state: AiState) {
+  return (variables: Record<string, unknown>) => {
+    state.calls.push(variables);
+    if (state.mode === "cap") {
+      throw new CombinedGraphQLErrors({ errors: [{ message: "daily cap reached", extensions: { code: "CAP_REACHED" } }] });
+    }
+    if (state.mode === "internal") {
+      throw new CombinedGraphQLErrors({ errors: [{ message: "nothing usable", extensions: { code: "INTERNAL" } }] });
+    }
+    const input = variables.input as { clientUuid: string; planId: string; language: string };
+    let row = state.persisted.get(input.clientUuid);
+    if (!row) {
+      state.spends += 1; // the ONE cap-counted provider call
+      row = { __typename: "AiTodaySuggestion", planId: input.planId, nodeId: AI_NODE, nodeTitle: AI_TITLE, reason: AI_REASON, day: utcDayKey(new Date()) };
+      state.persisted.set(input.clientUuid, row);
+    }
+    return { __typename: "GenerateTodaySuggestionPayload", todaySuggestion: row };
+  };
+}
+
+describe("PlannerPage — the AI suggestion (epic-18 T4, spec decisions 7–10)", () => {
+  afterEach(() => {
+    clearToken();
+  });
+
+  it("fires NO suggestion mutation on hub load — the button is the only trigger; the v1 card + chip stand untouched", async () => {
+    const state = aiSuggestionState();
+    const handlers = hubHandlers();
+    (handlers as Record<string, unknown>).GenerateTodaySuggestion = aiHandler(state);
+
+    renderPlannerPage(handlers);
+
+    // the v1 card renders (the page is up), yet the generation never fired
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+    expect(screen.getByText(zh("planner.suggestionFlag"))).toBeTruthy();
+    expect(state.calls).toHaveLength(0);
+
+    // the v1 card's article carries no AI additions — the trigger lives
+    // OUTSIDE the card, the card's own markup is byte-identical to today's
+    const v1Card = screen.getByText(zh("planner.suggestionFlag")).closest("article") as HTMLElement;
+    expect(within(v1Card).queryByText(zh("planner.aiSuggestCta"))).toBeNull();
+    expect(within(v1Card).queryByText(zh("planner.aiChip"))).toBeNull();
+  });
+
+  it("click → the deterministic replay-key mutation → the AI card renders (chip, node title, reason, the same quick-test deep link)", async () => {
+    const state = aiSuggestionState();
+    const handlers = hubHandlers();
+    (handlers as Record<string, unknown>).GenerateTodaySuggestion = aiHandler(state);
+    setToken(fakeJwt(TEST_USER));
+
+    renderPlannerPage(handlers);
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) }));
+
+    // the reply rides the payload — chip, node title, reason line
+    expect(await screen.findByText(zh("planner.aiChip"))).toBeTruthy();
+    expect(screen.getByText(AI_TITLE)).toBeTruthy();
+    expect(screen.getByText(AI_REASON)).toBeTruthy();
+
+    // the deep link is the SAME nodeQuickTestHref shape the v1 card uses
+    const aiCard = screen.getByText(zh("planner.aiChip")).closest("article") as HTMLElement;
+    const cta = within(aiCard).getByRole("link", { name: zhVars("planner.suggestionCtaAria", { node: AI_TITLE }) });
+    expect(cta.getAttribute("href")).toBe(`/plan/${PLAN_1}/quiz?nodeId=${AI_NODE}`);
+
+    // the wire saw the DETERMINISTIC key: uuid5(user, planId, UTC day) —
+    // independently derived here through the pinned mirror
+    expect(state.calls).toHaveLength(1);
+    const input = state.calls[0].input as Record<string, unknown>;
+    expect(input.planId).toBe(PLAN_1);
+    expect(input.language).toBe("zh");
+    expect(input.clientUuid).toBe(todaySuggestionClientUuid(TEST_USER, PLAN_1, utcDayKey(new Date())));
+    expect(state.spends).toBe(1);
+  });
+
+  it("a same-day re-click renders the held reply WITHOUT a second mutation call (stub call count pinned)", async () => {
+    const state = aiSuggestionState();
+    const handlers = hubHandlers();
+    (handlers as Record<string, unknown>).GenerateTodaySuggestion = aiHandler(state);
+    setToken(fakeJwt(TEST_USER));
+
+    renderPlannerPage(handlers);
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+
+    const trigger = () => screen.getByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) });
+    fireEvent.click(trigger());
+    expect(await screen.findByText(zh("planner.aiChip"))).toBeTruthy();
+    expect(state.calls).toHaveLength(1);
+
+    // same-day re-click → instant render from the held reply, zero new calls
+    fireEvent.click(trigger());
+    expect(screen.getByText(AI_TITLE)).toBeTruthy();
+    expect(state.calls).toHaveLength(1);
+    expect(state.spends).toBe(1);
+  });
+
+  it("across remounts the same derived key replays server-side: two mutations, ONE spend, the card renders both times", async () => {
+    const state = aiSuggestionState();
+    const handlers = hubHandlers();
+    (handlers as Record<string, unknown>).GenerateTodaySuggestion = aiHandler(state);
+    setToken(fakeJwt(TEST_USER));
+
+    const first = renderPlannerPage(handlers);
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) }));
+    expect(await screen.findByText(zh("planner.aiChip"))).toBeTruthy();
+    first.unmount();
+
+    // second mount: fresh page state, the SAME deterministic key — the stub
+    // replays the persisted row (spend stays 1) and the card renders again
+    renderPlannerPage(handlers);
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) }));
+    expect(await screen.findByText(zh("planner.aiChip"))).toBeTruthy();
+
+    expect(state.calls).toHaveLength(2);
+    const keys = state.calls.map((call) => (call.input as Record<string, unknown>).clientUuid);
+    expect(keys[0]).toBe(keys[1]);
+    expect(state.spends).toBe(1);
+  });
+
+  it("CAP_REACHED → the honest toast + the trigger goes disabled with the cap note; the v1 card stays", async () => {
+    const state = aiSuggestionState();
+    state.mode = "cap";
+    const handlers = hubHandlers();
+    (handlers as Record<string, unknown>).GenerateTodaySuggestion = aiHandler(state);
+    setToken(fakeJwt(TEST_USER));
+
+    renderPlannerPage(handlers);
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) }));
+
+    const trigger = await screen.findByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) });
+    await waitFor(() => expect((trigger as HTMLButtonElement).disabled).toBe(true));
+    expect(trigger.textContent).toBe(zh("planner.aiCapNote"));
+
+    // the v1 card never went away — the slot never goes empty because the AI did
+    expect(screen.getByText(zh("planner.suggestionFlag"))).toBeTruthy();
+    expect(screen.queryByText(zh("planner.aiChip"))).toBeNull();
+    // the refusal precedes the provider call: the mutation rode the wire
+    // once, ZERO spends (the cap gate is honest — no call was ever made)
+    expect(state.calls).toHaveLength(1);
+    expect(state.spends).toBe(0);
+  });
+
+  it("INTERNAL → an honest failure and the trigger stays usable (retry allowed), v1 card stays", async () => {
+    const state = aiSuggestionState();
+    state.mode = "internal";
+    const handlers = hubHandlers();
+    (handlers as Record<string, unknown>).GenerateTodaySuggestion = aiHandler(state);
+    setToken(fakeJwt(TEST_USER));
+
+    renderPlannerPage(handlers);
+    expect(await screen.findByText("软工备考")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) }));
+
+    const trigger = await screen.findByRole("button", { name: zhVars("planner.aiSuggestCtaAria", { plan: "软工备考" }) });
+    await waitFor(() => expect(state.calls).toHaveLength(1));
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
+    expect(trigger.textContent).toBe(zh("planner.aiSuggestCta"));
+    expect(screen.getByText(zh("planner.suggestionFlag"))).toBeTruthy();
   });
 });

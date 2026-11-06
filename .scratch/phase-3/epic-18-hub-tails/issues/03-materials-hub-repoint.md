@@ -4,7 +4,7 @@
 
 **Blocked by:** None (independent of 01/02; T4 does not touch this page).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; landed on `epic/p3-18-hub-tails`: e963366 — server rows replace the demo fixture)
 
 **Bound by:** decision 1–3 of the spec (read/open/filter only; demo columns die with nothing faked back; real scope chips hidden when unresolvable), NFR-6 (zero new deps), i18n-mandatory, the api-layer conventions (`frontend/src/api/index.ts` header), the AD-8 reader deep-link paths MistakesPage already uses.
 

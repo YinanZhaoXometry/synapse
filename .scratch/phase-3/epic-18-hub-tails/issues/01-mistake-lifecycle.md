@@ -4,7 +4,7 @@
 
 **Blocked by:** None (epic gate).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; landed on `epic/p3-18-hub-tails`: 4bd7603 migration · c632479 command · e3dc982 wire+specs · 402272f targeting-bonus ruling docs)
 
 **Bound by:** AD-12 (command-layer; client-supplied uuid replay-before-write; closed error enum — no new values), AD-13 (user scoping via the roster), decision 4/5/6 of the spec (user-marked boolean; forfeited resolvable; bonus stays any-entry), the AD-6/ADR-0001 fence (nothing touches `evidence_records` or Mastery).
 

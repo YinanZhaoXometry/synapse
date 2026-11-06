@@ -187,6 +187,39 @@ module Ai
         ]
       end
 
+      # The generation-backed Today suggestion (epic-18 T2, spec decisions
+      # 7–11): pick ONE "study next" node from the SERVER-assembled candidate
+      # pool (the plan's non-mastered, confirmed-mapped nodes, weakest first,
+      # each with its server-computed mastery facts + open-mistake count) and
+      # say why in one line. Title-only leak discipline: the candidate index
+      # rides ids + titles + server-computed state ONLY — no section text, no
+      # material content — so the reason can only be grounded in the facts the
+      # server gave (the command validates the reply's nodeId against the same
+      # pool; an unresolvable id is an honest INTERNAL, never a fabricated
+      # fallback).
+      def today_suggestion(language:, candidates:)
+        index_lines = candidates.map do |candidate|
+          "[node id=#{candidate[:node].id}] #{candidate[:node].title} — mastery #{candidate[:score]}/100, state #{candidate[:state]}, open mistakes #{candidate[:open_mistakes]}"
+        end
+        [ system,
+          user(<<~PROMPT)
+            The learner's study-plan nodes with server-computed state (the ONLY allowed targets):
+            ---
+            #{index_lines.join("\n")}
+            ---
+
+            Pick EXACTLY ONE node the learner should study next and explain why in ONE line.
+            - "nodeId": the chosen node's id EXACTLY as written in the [node id=…] index above — never invent or alter an id.
+            - "nodeTitle": that node's title EXACTLY as written above.
+            - "reason": ONE short sentence grounded ONLY in the server-computed facts above (the mastery score, the state, the open-mistake count) — never invent claims about what the node's material contains.
+            The weakest, least-covered nodes come FIRST in the index — prefer them.
+            Write "reason" in #{language_word(language)}.
+
+            Reply ONLY with JSON: {"nodeId":"…","nodeTitle":"…","reason":"…"}
+          PROMPT
+        ]
+      end
+
       # Open-answer grading (AD-5): grade + rationale against the section the
       # question cites. The keyword-count rule is Phase-1's documented
       # simulated-adapter rule (≥2 hits correct, 1 partial, 0 wrong), passed

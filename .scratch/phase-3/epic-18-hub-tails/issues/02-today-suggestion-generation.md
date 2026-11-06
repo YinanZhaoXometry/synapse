@@ -4,7 +4,7 @@
 
 **Blocked by:** None (independent of 01).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; landed on `epic/p3-18-hub-tails`: 7bac306 key · 58a4a4c table+model · c1117a1 command · 1da07a8 wire+specs · bf7f681 inventory)
 
 **Bound by:** AD-16 (server-side AI through the adapter seam; ONE SSE surface stays; STREAM_OPS does not grow), the cap law (every provider call counts against 50/day), decisions 7–11 of the spec (addition-not-replacement; never-on-load; deterministic per-(plan, UTC-day) replay uuid; persisted row; honest failures), AD-12 (command skeleton, closed enum), GenerateStudyFocusCommand/GenerateNoteCommand as the family shape.
 

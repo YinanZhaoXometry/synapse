@@ -27,15 +27,18 @@ import {
   AnalyticsSeriesDocument,
   DeleteManualTaskDocument,
   FlashcardDecksHubDocument,
+  GenerateTodaySuggestionDocument,
   MistakesHubDocument,
   QuizHistoryHubDocument,
   RetakeQuizSessionDocument,
   SetManualTaskDoneDocument,
+  SetMistakeEntryResolvedDocument,
   SetWeeklyGoalDocument,
   TodayConsistencyDocument,
   TodayHubDocument,
   WeeklyGoalDocument,
 } from "@/types/graphql";
+import { apiErrorCode } from "../errors";
 import { readingLocator } from "../mappers";
 import type { ReadingLocator } from "@/domain/entities";
 
@@ -70,6 +73,10 @@ export interface HubMistakeEntryView {
   sourceLocation: ReadingLocator;
   /** 「看答案 = 放弃」: graded wrong, no mastery credit (FR-18). */
   forfeited: boolean;
+  /** The user-marked lifecycle state (epic-18 T1, spec decision 4) — the
+   * page toggles it both ways through setMistakeEntryResolved; display/
+   * lifecycle only, never a Mastery input (AD-6/ADR-0001). */
+  resolved: boolean;
   createdAt: string;
   question: HubMistakeQuestionView;
 }
@@ -95,6 +102,7 @@ export function useMistakesHubQuery() {
     userAnswer: row.userAnswer,
     sourceLocation: readingLocator(row.sourceLocation),
     forfeited: row.forfeited,
+    resolved: row.resolved,
     createdAt: row.createdAt,
     question: {
       prompt: row.question.prompt,
@@ -119,6 +127,32 @@ export function resolveMistakeAnswer(entry: HubMistakeEntryView): string {
       ? entry.question.options?.find((option) => option === entry.userAnswer)
       : undefined;
   return choiceOption ?? entry.userAnswer;
+}
+
+// ── the mistake lifecycle (epic-18 T4, spec decision 4) ────────────────────
+// The setter toggles BOTH ways (user-marked, no auto-resolve). Read-back-is-
+// truth (the scope-mutation posture): the payload echoes the toggled entry,
+// but the page renders the hub read — the sweep re-reads mistakesHub so the
+// card re-renders on server truth. Failures toast per code at the hook (the
+// Planner generate path's mapping posture, epic-18 T6 review): NOT_FOUND is
+// its own honest key (the entry is gone), every other code — and null-code
+// transport/parse failures — stay on the generic persist-failed key.
+
+// The per-code toast map (AD-9's one place, apiErrorKeys' mapping pattern):
+// only NOT_FOUND reads differently for a resolve toggle; the rest of the
+// closed enum collapses onto the persist-failed key.
+const RESOLVE_ERROR_KEYS: Record<string, string> = { NOT_FOUND: "mistakes.resolveNotFound" };
+
+export function useSetMistakeEntryResolvedMutation() {
+  const { t } = useLanguage();
+  const [mutate, result] = useMutation(SetMistakeEntryResolvedDocument, {
+    refetchQueries: [MistakesHubDocument],
+    onError: (error) => {
+      const code = apiErrorCode(error);
+      toast.error(t((code && RESOLVE_ERROR_KEYS[code]) || "errors.persistFailed"));
+    },
+  });
+  return { mutate, result };
 }
 
 // ── todayHub (epic P2-09 T3, FR-27) ────────────────────────────────────────
@@ -264,6 +298,47 @@ export function useDeleteManualTaskMutation() {
       toast.error(t("errors.persistFailed"));
     },
   });
+  return { mutate, result };
+}
+
+// ── the on-demand AI suggestion (epic-18 T2/T4, spec decisions 7–10) ───────
+// generateTodaySuggestion is the Today hub's generation-backed ADDITION to
+// the v1 heuristic slot: ONE cap-counted provider call server-side,
+// replay-before-spend on the client-derived deterministic key (uuid5 over
+// the user-scoped namespace + planId + UTC day — src/lib/uuid5.ts mirrors
+// Ai::TodaySuggestionKey). Explicit-generate only: the button is the ONLY
+// trigger — nothing fires on hub load. No refetch sweep: the reply is the
+// payload (the v1 todayHub read is untouched by the generation), and the
+// caller maps the error codes (CAP_REACHED needs its own honest state).
+
+/** One generation-backed Today suggestion (the mutation's reply): the
+ * server-chosen node + the reason line (the model never owns the name — the
+ * title resolves through the persisted node server-side) + the suggestion's
+ * UTC day key (the replay key's day half). */
+export interface AiTodaySuggestionView {
+  planId: string;
+  /** The suggested node's uuid (the deep link's nodeId). */
+  nodeId: string;
+  nodeTitle: string;
+  reason: string;
+  /** "YYYY-MM-DD" UTC — the day the key was derived for. */
+  day: string;
+}
+
+/** Wire → view (the mappers' verbatim convention — the reply has no closed
+ * enums, every field rides as-is). */
+export function mapAiTodaySuggestion(row: {
+  planId: string;
+  nodeId: string;
+  nodeTitle: string;
+  reason: string;
+  day: string;
+}): AiTodaySuggestionView {
+  return { planId: row.planId, nodeId: row.nodeId, nodeTitle: row.nodeTitle, reason: row.reason, day: row.day };
+}
+
+export function useGenerateTodaySuggestionMutation() {
+  const [mutate, result] = useMutation(GenerateTodaySuggestionDocument);
   return { mutate, result };
 }
 

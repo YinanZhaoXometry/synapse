@@ -18,24 +18,47 @@
  * fallback). The label rule holds: zh 今日学习; 学习计划 stays reserved for
  * Study Plans. The demo fixtures (DEFAULT_TASKS + the planner.task* keys)
  * retired with this re-point — the empty state is honest.
+ *
+ * The AI suggestion (epic-18 T4, spec decisions 7–10): a per-plan generation-
+ * backed card under the v1 slot — the ADDITION, never a replacement. The
+ * 「生成 AI 建议」 button is the ONLY trigger (no provider call on hub load);
+ * the mutation rides the DETERMINISTIC per-(user, plan, UTC day) client uuid
+ * (src/lib/uuid5.ts mirrors Ai::TodaySuggestionKey) so the server replays a
+ * same-day regeneration for free (replay-before-spend), CAP_REACHED lands as
+ * an honest disabled cap note, any other failure toasts the closed-enum key,
+ * and the v1 card above stays byte-identical either way.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { BookOpen, Check, Flame, Layers, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { authedUserUuid } from "@/apollo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
+  apiErrorCode,
+  apiErrorKeys,
+  mapAiTodaySuggestion,
   useAddManualTaskMutation,
   useDeleteManualTaskMutation,
+  useGenerateTodaySuggestionMutation,
   useSetManualTaskDoneMutation,
   useStreakQuery,
   useTodayConsistencyQuery,
   useTodayHubQuery,
+  type AiTodaySuggestionView,
   type HubDueItemView,
   type HubManualTaskView,
 } from "@/api";
 import { todayWeekStrip, utcDayKey, type WeekStripCell } from "@/domain/today-week";
 import { nodeQuickTestHref } from "@/features/plans";
+import { todaySuggestionClientUuid } from "@/lib/uuid5";
 import { cn } from "@/lib/utils";
+
+// The closed-enum → t()-key map for the generation failures (AD-9's one
+// place; the ai.generate.* keys already carry the honest copy for every
+// code). null-code errors (transport/parse) land on the generic failure key.
+const AI_GENERATION_KEYS: Record<string, string> = apiErrorKeys("ai.generate.");
+const AI_GENERATION_FAILED_KEY = "ai.generate.failed";
 
 /** The study-flow deep link for one due review, per its schedulable kind.
  * Each target launches the flow that produces the item's completing
@@ -120,6 +143,88 @@ function SuggestionCard({ suggestion }: { suggestion: { planId: string; planTitl
         {t("planner.suggestionCta")}
       </Link>
     </article>
+  );
+}
+
+/** The generation-backed suggestion card (spec decision 10): the 「AI 建议」
+ * chip, the server-chosen node title, the reason line (the model's why —
+ * readable, line-clamped), and the SAME nodeQuickTestHref deep link the v1
+ * card uses. */
+function AiSuggestionCard({ planId, reply }: { planId: string; reply: AiTodaySuggestionView }) {
+  const { t } = useLanguage();
+  return (
+    <article className="bg-card border border-border-soft rounded-2xl p-4 shadow-raised flex items-center gap-3">
+      <Sparkles className="w-4 h-4 text-accent-ink flex-none" aria-hidden="true" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold leading-snug truncate">{reply.nodeTitle}</div>
+        <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{reply.reason}</div>
+      </div>
+      <span className="pill flex-none">{t("planner.aiChip")}</span>
+      <Link
+        to={nodeQuickTestHref(planId, reply.nodeId)}
+        className="flex-none inline-flex items-center gap-1.5 rounded-xl bg-gradient-hero text-white shadow-brand px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={t("planner.suggestionCtaAria", { node: reply.nodeTitle })}
+      >
+        {t("planner.suggestionCta")}
+      </Link>
+    </article>
+  );
+}
+
+/** One plan's AI zone under the v1 card (spec decisions 7–9): the explicit
+ * 「生成 AI 建议」 trigger — the ONLY path to the provider (nothing fires on
+ * hub load). The mutation carries the DETERMINISTIC per-(user, plan, UTC
+ * day) client uuid, so a remount's click replays server-side for free; a
+ * same-mount re-click renders the held reply without a second call.
+ * CAP_REACHED parks the trigger on a disabled cap note; every other closed-
+ * enum code toasts its honest key with the trigger left usable. The v1 card
+ * above is untouched — this zone is the ADDITION. */
+function AiSuggestionZone({ planId, planTitle }: { planId: string; planTitle: string }) {
+  const { t, language } = useLanguage();
+  const generate = useGenerateTodaySuggestionMutation();
+  const [reply, setReply] = useState<AiTodaySuggestionView | null>(null);
+  const [capped, setCapped] = useState(false);
+  const userUuid = authedUserUuid();
+
+  const onGenerate = () => {
+    if (reply || capped || generate.result.loading || !userUuid) return;
+    generate.mutate({
+      variables: {
+        input: {
+          clientUuid: todaySuggestionClientUuid(userUuid, planId, utcDayKey(new Date())),
+          language,
+          planId,
+        },
+      },
+      onCompleted: (data) => {
+        const row = data.generateTodaySuggestion?.todaySuggestion;
+        if (row) setReply(mapAiTodaySuggestion(row));
+      },
+      onError: (error) => {
+        const code = apiErrorCode(error);
+        if (code === "CAP_REACHED") {
+          setCapped(true); // the honest cap state — the trigger goes quiet
+        }
+        const key = (code && AI_GENERATION_KEYS[code]) || AI_GENERATION_FAILED_KEY;
+        toast.error(t(key));
+      },
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 items-start">
+      {reply && <AiSuggestionCard planId={planId} reply={reply} />}
+      <button
+        type="button"
+        onClick={onGenerate}
+        disabled={capped || !userUuid || generate.result.loading}
+        aria-label={t("planner.aiSuggestCtaAria", { plan: planTitle })}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-55 disabled:hover:shadow-none disabled:hover:brightness-100 disabled:cursor-not-allowed cursor-pointer"
+      >
+        <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+        {capped ? t("planner.aiCapNote") : t("planner.aiSuggestCta")}
+      </button>
+    </div>
   );
 }
 
@@ -291,13 +396,18 @@ export default function PlannerPage() {
             </div>
           )}
 
-          {/* The suggestion slot (delta decision 2, v1 partial) */}
+          {/* The suggestion slot (delta decision 2, v1 partial): the v1 card
+              first, the AI zone under it — spec decision 7's addition, the
+              v1 card's markup untouched. */}
           {suggestions.length > 0 && (
             <div className="mt-3">
               <h2 className="text-[15px] font-semibold tracking-[-0.01em] px-1">{t("planner.suggestionSection")}</h2>
               <div className="flex flex-col gap-3 mt-2">
                 {suggestions.map((suggestion) => (
-                  <SuggestionCard key={suggestion.planId} suggestion={suggestion} />
+                  <Fragment key={suggestion.planId}>
+                    <SuggestionCard suggestion={suggestion} />
+                    <AiSuggestionZone planId={suggestion.planId} planTitle={suggestion.planTitle} />
+                  </Fragment>
                 ))}
               </div>
             </div>
