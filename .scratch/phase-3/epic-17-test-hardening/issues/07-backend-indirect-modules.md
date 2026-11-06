@@ -16,7 +16,7 @@ today only a handful run inside the import spec).
 
 **Blocked by:** —.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06)
 
 **Bound by:** suite idioms — query-count via ActiveSupport::Notifications
 (graphql_mastery_scores_spec.rb:131-146 is the pattern), factories over fixtures,
@@ -24,14 +24,42 @@ verify_partial_doubles on (stub only real methods); plan_creation/reading_locato
 host-covered if assessment shows they're thin (record the call in Comments — no
 spec-for-spec's-sake).
 
-- [ ] prompts_spec: language matrix (zh/en), header invariants, placeholder-free assertion, determinism check
-- [ ] targeting_candidates_spec: assembly order / tie-break / mistake-join pinned against factories
-- [ ] evidence_records_source_spec: 1-query batching assertion + foreign-node exclusion assertion
-- [ ] document_validation_spec: table-driven, one row per VALIDATION_FAILED leg (host-class include)
-- [ ] section_validation_spec: same table-driven shape
-- [ ] plan_creation/reading_locators assessed; verdict recorded (covered-or-specced)
-- [ ] Full backend gates green
+- [x] prompts_spec: language matrix (zh/en), contract invariants, placeholder-free assertion, determinism check
+- [x] targeting_candidates_spec: assembly order / Mastery-string form / mistake-join / user scoping pinned against factories
+- [x] evidence_records_source_spec: 1-query batching (load_all) + foreign-user exclusion + request-order/empty shape
+- [x] document_validation_spec: table-driven, every VALIDATION_FAILED leg (host-class include)
+- [x] section_validation_spec: same shape, boundary-inclusive cap pinned
+- [x] plan_creation/reading_locators assessed; verdict recorded in Comments
+- [x] Full backend gates green (1346/0; rubocop 464 files clean; line coverage 97.97% → 98.41%)
 
 ## Comments
 
-- (none yet)
+- Five new files, 42 examples, suite 1304 → **1346, 0 failures**, line coverage **98.41%**.
+- `spec/lib/ai/prompts_spec.rb` (13 examples): [system, user] shape + sourcing/JSON law
+  (wrap-safe substrings — the SYSTEM heredoc line-wraps), zh/en switch, open/choice/mix mode
+  rules, quota/attribution/coverage blocks present-or-absent, note word band + [[enrich|kind|]]
+  marker contract, ladder flip on escalation, plan_companion hint-first + inline citations,
+  grade's keyword-count rule verbatim, annotation vocabulary, never-drop mapping law, proposal
+  tag contract + goal line + 2–5/3–8 bounds, truncation honesty, byte-identical determinism.
+- `spec/lib/ai/targeting_candidates_spec.rb` (5): node order (the first tie-break), the String!
+  percent form == a direct Mastery call, mistake join, and the scoping leak-detector (3 own
+  correct vs 3 foreign wrong — a leak would drag 100 → 50; at the ≥3-evidence bar no cap hides
+  it), empty plan → [].
+- `spec/graphql/dataloader_sources/evidence_records_source_spec.rb` (4): request-order results,
+  empty → [], foreign-user exclusion (the documented leak guard), batching via
+  `with_dataloading` + `load_all` == ONE query. graphql-ruby 2.5 API notes: `with_dataloading`
+  takes NO args and passes the dataloader as the block argument; bare `load` inside a job
+  resolves its own batch per call (2 queries) — `load_all` is the one-batch contract.
+- `spec/commands/import/document_validation_spec.rb` (15): the ApplicationCommand-host pattern
+  (`Class.new(ApplicationCommand) { include mixins }.new` — brings the Failure factory free)
+  table-drives every leg: id shape/dup, plan topic, material title/kind/parse-state/
+  failure-reason, section id/cap, session vocab + exactly-one-scope, question fields/kind,
+  evidence outcome, flashcard fields/difficulty, locator shapes on mistakes/progress/citations
+  (pdf needs a positive page, markdown a section id), position-text cap, chat role/text/id,
+  and the linkage law incl. the both-rows-bear-the-task duplicate case.
+- `spec/commands/materials/section_validation_spec.rb` (6): clean nil, blank-id refusal, over-cap
+  refusal WITHOUT server truncation, cap boundary inclusive, first-failure-wins, jsonb shape.
+- **Assessment verdict:** `reading_locators` — now directly exercised through the
+  document_validation host's locator group (pdf/markdown/citation legs), no dedicated file needed.
+  `plan_creation` — thin over its three host commands (create_plan/confirm_proposal/fork specs
+  already walk every branch); stays host-covered, no spec-for-spec's-sake.

@@ -581,6 +581,21 @@ RSpec.describe "GraphQL evidence + quiz + flashcard operations (epic P2-3 ticket
       expect(error_code(result)).to eq("NOT_FOUND")
       expect(foreign_card.reload.difficulty).to be_nil
     end
+
+    it "answers VALIDATION_FAILED for an invalid difficulty over the wire (epic P3-17 ticket 06)" do
+      user, token = user_with_token("rater-bad-difficulty@example.com")
+      card = create(:flashcard, user: user)
+
+      result = graphql(
+        "mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"brutal\" }) " \
+          "{ flashcard { id } } }",
+        token: token
+      )
+
+      expect(result.dig("data", "rateFlashcard")).to be_nil
+      expect(error_code(result)).to eq("VALIDATION_FAILED")
+      expect(card.reload.difficulty).to be_nil
+    end
   end
 
   describe "flashcards query" do

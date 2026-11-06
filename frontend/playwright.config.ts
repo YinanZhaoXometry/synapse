@@ -37,7 +37,11 @@ const config: PlaywrightTestConfig = {
   fullyParallel: false,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [["list"]],
+  // CI retries twice (transient CI-runner flake budget) and keeps the HTML
+  // report for the uploaded artifact; locally the list reporter and zero
+  // retries stay — a local flake should be seen, not masked (epic-17 ticket 05).
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://localhost:8080",
     // The UI's language defaults to zh (the synapse-lang key is lazy-written,
@@ -48,7 +52,11 @@ const config: PlaywrightTestConfig = {
   webServer: [
     {
       // The deterministic AI double — always started; a stray one on the port
-      // is reused (same deterministic contract, so reuse is safe).
+      // is reused (same deterministic contract, so reuse is safe for the
+      // CONTENT). Lifecycle caveat (epic-17 T05's first CI-era local run): a
+      // stale generation can answer the healthz probe then die mid-suite —
+      // `just e2e` sweeps the port before invoking playwright, so what gets
+      // reused is a live server or nothing.
       command: `${process.execPath} e2e/stub-provider.mjs`,
       url: `http://127.0.0.1:${stubPort}/healthz`,
       reuseExistingServer: true,

@@ -161,7 +161,11 @@ test.describe("deterministic destinations", () => {
       await page.goto(route);
       await expect(page).not.toHaveURL(/\/login/);
       // The shell rendered (any sidebar link proves the layout mounted).
-      await expect(page.getByRole("link", { name: "错题本" })).toBeVisible();
+      // exact:true — getByRole names match by SUBSTRING by default, and on
+      // /dashboard the page's own KPI card (aria-label "错题本: 0") collides
+      // with the sidebar link once its data lands (first CI run's only red:
+      // the twin run passed because the KPI loaded after the assertion).
+      await expect(page.getByRole("link", { name: "错题本", exact: true })).toBeVisible();
     }
   });
 });

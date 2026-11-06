@@ -59,4 +59,9 @@ group :development, :test do
   # Spine stack table: rspec-rails + factory_bot_rails
   gem "rspec-rails", "~> 8.0.4"
   gem "factory_bot_rails", "~> 6.5.1"
+
+  # Coverage measurement (epic P3-17 ticket 01): line+branch over app/, started
+  # at the top of spec_helper — it must boot before Rails does. The floor is a
+  # ratchet pinned to the measured baseline (epic-17 decision 7), not a target.
+  gem "simplecov", "~> 0.22.0", require: false
 end

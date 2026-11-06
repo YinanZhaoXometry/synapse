@@ -33,16 +33,19 @@ just spec    # web gates + api gates
 # Frontend gates (from frontend/ — two true invocation forms):
 # (sequence kept in sync with the justfile spec recipe + ci.yml web job)
 pnpm run codegen                            # GraphQL documents (freshness-gated — see below)
-cd web && node_modules/.bin/tsc -b          # typecheck (no `typecheck` script exists)
-cd web && node_modules/.bin/eslint .        # eslint 9 flat config
-cd web && node_modules/.bin/vitest run      # tests (watch: pnpm run test:watch)
-cd web && node_modules/.bin/vite build      # build only — does NOT typecheck
+cd frontend && node_modules/.bin/tsc -b     # typecheck (no `typecheck` script exists)
+cd frontend && node_modules/.bin/eslint .   # eslint 9 flat config
+cd frontend && node_modules/.bin/vitest run --coverage  # tests + coverage (epic P3-17; watch: pnpm run test:watch; plain `vitest run` stays fine for iteration)
+cd frontend && node_modules/.bin/vite build # build only — does NOT typecheck
 # Mastery-vector anti-drift (after build; part of just spec + ci.yml's web job,
 # not a standalone command): regenerate backend/spec/fixtures/mastery_vectors.json
 # from the TS domain and require a STAMP-INSENSITIVE match — the diff strips
 # meta.generatedAtSourceCommit (advisory, self-referential provenance) from both
 # sides first. See the justfile spec recipe / ci.yml for the exact step.
-# …or through pnpm directly: ~/Library/pnpm/pnpm --dir web run <script>
+# Coverage: both stacks measure it (SimpleCov backend / @vitest/coverage-v8
+# frontend, epic P3-17 T01/T02); backend's `minimum_coverage line: 95` floor
+# lives in backend/spec/spec_helper.rb — a red floor is a red rspec run.
+# …or through pnpm directly: ~/Library/pnpm/pnpm --dir frontend run <script>
 
 # Api gates (dev containers only — your local Ruby is irrelevant):
 # the api's compose command forms, gate notes, and architecture contract all
@@ -50,7 +53,7 @@ cd web && node_modules/.bin/vite build      # build only — does NOT typecheck
 ```
 
 
-Tests (frontend): Vitest, jsdom env, globals on, setup in `frontend/src/test/setup.ts` (jest-dom + a `matchMedia` mock); place tests as `frontend/src/**/*.{test,spec}.{ts,tsx}`.
+Tests (frontend): Vitest, jsdom env, globals on, setup in `frontend/src/test/setup.ts` (jest-dom + `matchMedia` mock + `ResizeObserver`/`IntersectionObserver` stubs — jsdom 20 ships neither); place tests as `frontend/src/**/*.{test,spec}.{ts,tsx}`. Interaction tests are **userEvent-first** (epic-17 convention, 2026-11-06): new tests use `@testing-library/user-event`, not `fireEvent` — the 400+ legacy `fireEvent` calls stay as-is, migrate opportunistically when a test is already being touched. The i18n dictionary's zh/en parity is enforced over the FULL table by `src/contexts/i18n-full-parity.test.ts` — a one-sided key fails CI.
 
 Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the backend to the stub provider, runs the suite, restores the demo stack; 2026-11-06): the critical-flow suite (auth wall, demo plan, creation chat, material→reader→claim honesty, quiz→mastery loop, mistakes hub, square fork, task promotion, settings, hubs) runs against the live local stack with a deterministic **stub AI provider** (`frontend/e2e/stub-provider.mjs`, auto-started by the config) — no GLM key, no live AI. AI-gated surfaces (companion, quick test, open/mix quiz, notes, flashcard generation) are deliberately uncovered. Upload prerequisites: `127.0.0.1 minio` /etc/hosts entry + bucket CORS (the demo boot has both). Tests self-isolate via fresh registered users; the dev DB accumulates e2e rows. The old `lovable-agent-playwright-config` import (never installed) was removed with this harness.
 
@@ -95,7 +98,7 @@ Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the b
 - **HMR error overlay is disabled** (`frontend/vite.config.ts`), so dev errors only appear in the terminal — watch it, not just the browser.
 - **Web dev server binds host `::` on port 8080** (not Vite's default 5173). The api serves on port 3000 (compose).
 - **`frontend/tsconfig.app.tsbuildinfo` / `frontend/tsconfig.node.tsbuildinfo` are committed** (policy unchanged — A6). Their contents are relative paths, so they survive the move; a stale one self-heals on the next `tsc -b` (regen verified byte-identical) — commit the regenerated file if a legit path change lands.
-- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → codegen (regenerate + diff — schema drift fails loudly) → `tsc -b` → eslint → vitest → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec. Keep local green before pushing.
+- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → codegen (regenerate + diff — schema drift fails loudly) → `tsc -b` → eslint → vitest --coverage → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec (SimpleCov line floor lives in spec_helper); **e2e** (epic-17 T05) = compose demo stack + `compose.e2e.yaml` stub wiring → Playwright critical flows (retries 2 in CI, report/traces uploaded on failure). Keep local green before pushing.
 - `backend/README.md` is still the Rails generator stub — the backend's real doc is `backend/AGENTS.md`.
 - ~~`lovable-tagger`~~ — the Lovable-scaffold residue was REMOVED 2026-11-06 (debt batch: devDependency + the dev-mode `componentTagger` Vite plugin + lockfile regen); `vite.config.ts` now carries only `react()`.
 

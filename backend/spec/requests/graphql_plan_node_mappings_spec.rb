@@ -84,4 +84,36 @@ RSpec.describe "GraphQL planNodeMappings (epic P2-10 T4, FR-5/FR-7)", type: :req
     result = query_mappings(nil, { planId: plan.id })
     expect(error_code(result)).to eq("UNAUTHORIZED")
   end
+
+  describe "bounded reads (the T3-review eager-N+1 concern, pinned — epic P3-17 ticket 08)" do
+    # This file's own header documents the risk: before the batch read
+    # existed, the per-row mapping read was an eager N+1 at the 30+ node bar.
+    # The query count must stay FIXED as the plan's node/mapping rows grow.
+    it "keeps planNodeMappings at a fixed query count as the plan grows" do
+      owner, token = user_with_token("plan-mapping-bounded@example.com")
+      plan = create(:study_plan, user: owner)
+      material = create(:material, user: owner, plan: plan)
+      3.times do |i|
+        node = create(:knowledge_node, user: owner, plan: plan, title: "n#{i}", order: i)
+        create(:material_node_mapping, :confirmed, user: owner, material: material, node: node,
+                                                   section_id: "sec-#{i}")
+      end
+      query = "query { planNodeMappings(planId: \"#{plan.id}\") { id nodeId } }"
+
+      graphql(query, token: token) # warm-up
+      solo_count = count_selects { graphql(query, token: token) }
+
+      6.times do |i|
+        node = create(:knowledge_node, user: owner, plan: plan, title: "late-#{i}", order: 10 + i)
+        create(:material_node_mapping, :confirmed, user: owner, material: material, node: node,
+                                                   section_id: "sec-late-#{i}")
+      end
+
+      grown_count = count_selects { graphql(query, token: token) }
+
+      # One plan-scoped mapping read (+ the auth resolution) — never one query per node.
+      expect(solo_count).to be <= 3
+      expect(grown_count).to eq(solo_count)
+    end
+  end
 end

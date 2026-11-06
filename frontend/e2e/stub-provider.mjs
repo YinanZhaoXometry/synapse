@@ -120,6 +120,11 @@ const server = http.createServer((request, response) => {
   });
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`e2e stub provider listening on http://127.0.0.1:${port}`);
+// Loopback by default — the local api container reaches the host through
+// Docker Desktop's built-in host.docker.internal. CI (Linux runners) needs
+// the stub reachable via the host-gateway bridge instead, so it binds all
+// interfaces there (E2E_PROVIDER_HOST=0.0.0.0 in the ci.yml e2e job).
+const host = process.env.E2E_PROVIDER_HOST || "127.0.0.1";
+server.listen(port, host, () => {
+  console.log(`e2e stub provider listening on http://${host}:${port}`);
 });

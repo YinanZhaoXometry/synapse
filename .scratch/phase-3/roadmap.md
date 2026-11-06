@@ -13,7 +13,7 @@ owns the sequence story and the parking lot.
 | # | Epic | Scope | Gate (must be done first) | State |
 | --- | --- | --- | --- | --- |
 | 16 | [interactive-roadmap](epic-16-interactive-roadmap/epic.md) | roadmap.sh-grade reading mode: real prerequisite edges (AI-expressed, server-validated), deterministic DAG swimlane layout, optional/description node vocabulary, progress bar, deep-links (optimizes FR-5) | main lands the pending uncommitted batch (uuid fallback + e2e harness) | ready-for-agent |
-| 17 | [test-hardening](epic-17-test-hardening/epic.md) | measure what you assert: coverage both stacks (SimpleCov / @vitest/coverage-v8), spec_helper modernization (random order), the 15-spec e2e suite onto CI, backend wire/module/N+1 gap closure, frontend hygiene + high-value direct tests (quality work, no PRD scope) | none — independent of 16 | ready-for-agent |
+| 17 | [test-hardening](epic-17-test-hardening/epic.md) | measure what you assert: coverage both stacks (SimpleCov / @vitest/coverage-v8), spec_helper modernization (random order), the 15-spec e2e suite onto CI, backend wire/module/N+1 gap closure, frontend hygiene + high-value direct tests (quality work, no PRD scope) | none — independent of 16 | done (2026-11-06, PR #17) |
 
 ## Parking lot (unspecced candidates — nominate/reorder at will)
 

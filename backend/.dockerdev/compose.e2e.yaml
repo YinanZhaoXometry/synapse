@@ -18,6 +18,11 @@
 # is the Docker-Desktop path from the api container to the host-run stub.
 services:
   backend:
+    # host.docker.internal is Docker-Desktop built-in; plain Linux (the ci.yml
+    # e2e job's ubuntu runner) only resolves it with the host-gateway mapping.
+    # Redundant-but-harmless on macOS, load-bearing on CI (epic-17 ticket 05).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       PROVIDER_BASE_URL: http://host.docker.internal:8791
       PROVIDER_KEY: e2e-stub-placeholder-key
