@@ -37,7 +37,11 @@ const config: PlaywrightTestConfig = {
   fullyParallel: false,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [["list"]],
+  // CI retries twice (transient CI-runner flake budget) and keeps the HTML
+  // report for the uploaded artifact; locally the list reporter and zero
+  // retries stay — a local flake should be seen, not masked (epic-17 ticket 05).
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://localhost:8080",
     // The UI's language defaults to zh (the synapse-lang key is lazy-written,

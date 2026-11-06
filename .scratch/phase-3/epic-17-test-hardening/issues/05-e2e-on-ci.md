@@ -12,7 +12,7 @@ violations, log the findings in Comments and drop the gate rather than fix a11y 
 
 **Blocked by:** 1, 2 (ci.yml sequencing, not logic).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; first CI verdict pending this PR's run)
 
 **Bound by:** the `just e2e` recipe (justfile:104-126) is the local truth — the CI job mirrors its
 compose file list (`compose.yaml` + `compose.e2e.yaml`, plus override when present) and its
@@ -20,18 +20,34 @@ always-restore posture; provider seam ENVs from `backend/app/lib/ai/provider.rb`
 (PROVIDER_BASE_URL/KEY/MODEL read at call time); minio hosts entry + bucket CORS are demo-boot
 proven (the backend job already carries the same hosts-line pattern).
 
-- [ ] ci.yml `e2e` job: checkout → pnpm/node setup → `pnpm install --frozen-lockfile` (frontend) →
-      `127.0.0.1 minio` hosts line → compose stack up
-      (`-f backend/.dockerdev/compose.yaml -f backend/.dockerdev/compose.e2e.yaml`, `--wait`) →
+- [x] ci.yml `e2e` job: checkout → pnpm/node setup → `pnpm install --frozen-lockfile` (frontend) →
+      `127.0.0.1 minio` hosts line → **pinned-minio image built from source** → compose stack up
+      (`-f compose.yaml -f compose.e2e.yaml`, `--wait`) →
       `playwright install --with-deps chromium` → `playwright test` → upload `playwright-report/`
-      + `test-results/` on failure (retention 7d)
-- [ ] playwright.config.ts: CI retries 2 / local 0; `[["list"]]` locally, `+html` under CI
-- [ ] `just e2e` still green locally with the config changes
-- [ ] First CI run green (or every red diagnosed at root: image build time, stub readiness, port
-      collisions — no suite skips)
-- [ ] (stretch) axe smoke verdict recorded in Comments — landed or dropped with findings
-- [ ] AGENTS.md CI line updated (web gates + api gates + e2e gate)
+      + `test-results/` on failure (retention 7d); `needs: [frontend, backend]`
+- [x] playwright.config.ts: CI retries 2 / local 0; `[["list"]]` locally, `+html` under CI
+- [x] `just e2e` still green locally with the config changes — **15 passed (25.4s), exit 0**
+- [ ] First CI run green (or every red diagnosed at root) — verdict lands in this PR
+- [x] (stretch) axe smoke — verdict in Comments: dropped
+- [x] AGENTS.md CI line updated (web gates + api gates + e2e gate)
 
 ## Comments
 
-- (none yet)
+- **Three Linux-CI realities the local mac flow hides, all fixed:**
+  1. `minio/minio:RELEASE.2025-10-15T17-29-55Z` is not pullable (the documented registry
+     graveyard) — the e2e job builds the identical pinned source as an IMAGE before compose up
+     (the backend job builds the binary; compose needs the image).
+  2. `host.docker.internal` is Docker-Desktop built-in and does not resolve on Linux —
+     `compose.e2e.yaml` now adds `extra_hosts: ["host.docker.internal:host-gateway"]` to the
+     backend service (redundant-but-harmless on macOS, load-bearing on CI).
+  3. The stub binds loopback — with host-gateway the api container arrives via the docker bridge,
+     so `stub-provider.mjs` gained `E2E_PROVIDER_HOST` (default 127.0.0.1 unchanged; CI sets
+     0.0.0.0 at the job level).
+- **CORS is a server default, not per-bucket provisioning** (empirically probed): a FRESH bucket
+  with zero configuration passes the browser preflight (`OPTIONS PUT` → 204 + origin echo) on the
+  current minio — so CI's fresh stack needs no bucket CORS step. The old "provisioning item"
+  note in compose.yaml's comment is superseded by this default for this release.
+- (stretch) **axe smoke dropped**: landing the e2e job already carries three CI-environment
+  novelties; an axe gate needs a dependency add plus a violations inventory pass (and either a11y
+  fixes or a non-gating warn, both out of this epic's scope). Rescheduled as an AD-9 backlog
+  item — not silently forgotten.
