@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Epic-16 样式参照 — 自研 SVG 路线图（阅读模式）</title>
+<!--
+  Epic-16 (Phase 3) style reference — the approved visual-language target for the roadmap renderer
+  upgrade (owner sign-off 2026-11-06, decide-all delegation).
+
+  WHAT THIS IS: a zero-dependency, self-contained mock (handwritten SVG + ~100 lines vanilla JS)
+  pinning the structural vocabulary: orthogonal elbow edges (dashed = optional path), solid
+  rounded nodes with state glyphs (✦ mastered / ◐ partial / ○ uncovered — never color-only),
+  tinted swimlane group containers with per-stage progress, plan progress bar, pan / wheel-zoom
+  / fit-view, click-to-sheet. Follows system light/dark via light-dark().
+
+  WHAT THIS IS NOT: production code. Colors here APPROXIMATE the sunset palette with inline
+  light-dark() values — the real implementation must map every color to the app's existing
+  semantic tokens (frontend/src/index.css CSS-variable tokens, e.g. --glass-*, --accent-tint*,
+  --border, --muted-foreground) and verify dark mode + all palettes. Geometry (node 158×50,
+  gaps) is indicative, not contractual — the deterministic layout function owns final geometry.
+
+  Open directly in a browser; no build step, no network beyond Google Fonts (Inter / Source
+  Serif 4 — the app's own font-display / font-body stack).
+-->
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
+<div id="rm-demo" class="rm">
+  <div class="rm-stage">
+    <div class="rm-app">
+      <div class="rm-head">
+        <div class="rm-head-l">
+          <div class="rm-plan-title">React 前端学习计划</div>
+          <div class="rm-progress-row">
+            <div class="rm-progress" role="progressbar" aria-label="计划进度" aria-valuenow="27" aria-valuemin="0" aria-valuemax="100"><div class="rm-progress-fill" id="rm-prog-fill"></div></div>
+            <span class="rm-progress-label"><b id="rm-prog-num">3</b>/11 已掌握 · <span id="rm-prog-pct">27%</span></span>
+          </div>
+        </div>
+        <div class="rm-head-r">
+          <div class="rm-legend">
+            <span class="rm-lg"><i class="rm-dot rm-d-m"></i>已掌握</span>
+            <span class="rm-lg"><i class="rm-dot rm-d-p"></i>部分掌握</span>
+            <span class="rm-lg"><i class="rm-dot rm-d-u"></i>未开始</span>
+            <span class="rm-lg"><i class="rm-dot rm-d-o"></i>可选</span>
+          </div>
+          <div class="rm-pills" role="tablist" aria-label="视图切换">
+            <button type="button" class="rm-pill">列表</button>
+            <button type="button" class="rm-pill rm-pill-on" aria-pressed="true">图谱</button>
+          </div>
+        </div>
+      </div>
+      <div class="rm-canvas" id="rm-canvas">
+        <div class="rm-world" id="rm-world"></div>
+        <div class="rm-tools">
+          <button type="button" class="rm-tool" id="rm-zin" aria-label="放大">＋</button>
+          <button type="button" class="rm-tool" id="rm-zout" aria-label="缩小">－</button>
+          <button type="button" class="rm-tool rm-tool-fit" id="rm-fit" aria-label="适应视图">⤢</button>
+        </div>
+        <div class="rm-sheet" id="rm-sheet" hidden>
+          <button type="button" class="rm-sheet-x" id="rm-sheet-x" aria-label="关闭详情">✕</button>
+          <div class="rm-sheet-state" id="rm-sh-state"></div>
+          <h3 class="rm-sheet-title" id="rm-sh-title"></h3>
+          <div class="rm-sheet-score" id="rm-sh-score"></div>
+          <p class="rm-sheet-desc" id="rm-sh-desc"></p>
+          <div class="rm-sheet-acts">
+            <span class="rm-chip rm-chip-a">去阅读</span>
+            <span class="rm-chip">Quick Test</span>
+          </div>
+        </div>
+      </div>
+      <div class="rm-hint">拖拽平移 · 滚轮缩放 · 点击节点看详情（正交连线 = 真实前置依赖边）</div>
+    </div>
+  </div>
+</div>
+<style>
+  #rm-demo { --rm-bg: light-dark(#faf5f0, #171210); --rm-panel: light-dark(#fffdfb, #211a15);
+    --rm-surface: light-dark(#ffffff, #2a211a); --rm-ink: light-dark(#2c231d, #f2eae3);
+    --rm-sub: light-dark(#8d7f74, #b09e91); --rm-line: light-dark(#eadfd4, #382d24);
+    --rm-edge: light-dark(#c8b6a6, #655346); --rm-accent: light-dark(#ee5629, #ff8a5f);
+    --rm-group: light-dark(rgba(238,86,41,.045), rgba(255,138,95,.05));
+    --rm-m: light-dark(#2f9e6e, #57c28e); --rm-mt: light-dark(rgba(47,158,110,.12), rgba(87,194,142,.16));
+    --rm-p: light-dark(#d78712, #e6a63f); --rm-pt: light-dark(rgba(215,135,18,.13), rgba(230,166,63,.16));
+    font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--rm-ink); }
+  .rm-stage { padding: 14px; }
+  .rm-app { background: var(--rm-panel); border: 1px solid var(--rm-line); border-radius: 14px;
+    padding: 16px 18px 12px; box-shadow: 0 10px 30px light-dark(rgba(60,40,25,.08), rgba(0,0,0,.4)); }
+  .rm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 10px; }
+  .rm-plan-title { font-family: "Source Serif 4", serif; font-size: 19px; font-weight: 600; letter-spacing: .2px; }
+  .rm-progress-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .rm-progress { width: 200px; height: 7px; border-radius: 99px; background: var(--rm-line); overflow: hidden; }
+  .rm-progress-fill { height: 100%; width: 0; border-radius: 99px; background: var(--rm-accent); transition: width .5s ease; }
+  .rm-progress-label { font-size: 12.5px; color: var(--rm-sub); } .rm-progress-label b { color: var(--rm-ink); font-weight: 600; }
+  .rm-head-r { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .rm-legend { display: flex; gap: 10px; font-size: 11.5px; color: var(--rm-sub); flex-wrap: wrap; }
+  .rm-lg { display: inline-flex; align-items: center; gap: 4px; }
+  .rm-dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+  .rm-d-m { background: var(--rm-m); } .rm-d-p { background: var(--rm-p); }
+  .rm-d-u { background: var(--rm-surface); border: 1.5px solid var(--rm-sub); }
+  .rm-d-o { background: transparent; border: 1.5px dashed var(--rm-sub); }
+  .rm-pills { display: inline-flex; background: var(--rm-bg); border: 1px solid var(--rm-line); border-radius: 10px; padding: 3px; }
+  .rm-pill { border: 0; background: transparent; color: var(--rm-sub); font: inherit; font-size: 12.5px;
+    padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+  .rm-pill-on { background: var(--rm-accent); color: #fff; font-weight: 500; }
+  .rm-canvas { position: relative; height: 450px; border-radius: 12px; overflow: hidden;
+    background: var(--rm-bg); border: 1px solid var(--rm-line); cursor: grab; touch-action: none; }
+  .rm-canvas.rm-dragging { cursor: grabbing; }
+  .rm-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .rm-tools { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .rm-tool { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--rm-line);
+    background: var(--rm-panel); color: var(--rm-ink); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; }
+  .rm-tool:hover { border-color: var(--rm-accent); color: var(--rm-accent); }
+  .rm-hint { margin-top: 8px; font-size: 11.5px; color: var(--rm-sub); text-align: center; }
+  .rm-sheet { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 250px;
+    background: var(--rm-panel); border: 1px solid var(--rm-line); border-radius: 12px;
+    padding: 16px; box-shadow: 0 14px 40px light-dark(rgba(60,40,25,.16), rgba(0,0,0,.5)); }
+  .rm-sheet-x { position: absolute; top: 10px; right: 10px; border: 0; background: none;
+    color: var(--rm-sub); font-size: 13px; cursor: pointer; padding: 4px; }
+  .rm-sheet-state { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px;
+    padding: 3px 9px; border-radius: 99px; margin-bottom: 8px; }
+  .rm-sheet-title { font-family: "Source Serif 4", serif; font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+  .rm-sheet-score { font-size: 12.5px; color: var(--rm-sub); margin-bottom: 10px; }
+  .rm-sheet-desc { font-size: 12.5px; line-height: 1.65; color: var(--rm-ink); opacity: .85; margin: 0 0 14px; }
+  .rm-sheet-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rm-chip { font-size: 12px; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--rm-line); color: var(--rm-sub); }
+  .rm-chip-a { background: var(--rm-accent); border-color: var(--rm-accent); color: #fff; font-weight: 500; }
+  .rm-sel { outline: 2px solid var(--rm-accent); outline-offset: 2px; }
+  .rm-svg text { font-family: Inter, "PingFang SC", sans-serif; }
+</style>
+<script>
+(function () {
+  var root = document.getElementById('rm-demo');
+  var STAGES = [
+    { title: '基础 · Foundations', nodes: [
+      { id: 'n1', t: 'HTML 与语义化', state: 'mastered', score: 86, desc: '文档结构、语义标签与可访问性基础。' },
+      { id: 'n2', t: 'CSS 布局与响应式', state: 'mastered', score: 92, desc: 'Flex / Grid、媒体查询与移动优先。' },
+      { id: 'n3', t: 'JavaScript 核心', state: 'mastered', score: 84, desc: '原型链、异步模型、模块系统。' } ] },
+    { title: '核心 · Core', nodes: [
+      { id: 'n4', t: 'TypeScript', state: 'partial', score: 58, desc: '静态类型、泛型与类型推断。' },
+      { id: 'n5', t: 'React 组件模型', state: 'uncovered', desc: '组件、Hooks 与渲染生命周期。' },
+      { id: 'n6', t: '状态管理', state: 'uncovered', optional: true, desc: '可选：全局状态的必要性与取舍。' },
+      { id: 'n7', t: '构建工具链', state: 'uncovered', optional: true, desc: '可选：Vite / 打包与转译的常识。' } ] },
+    { title: '进阶 · Advanced', nodes: [
+      { id: 'n8', t: '路由与数据获取', state: 'uncovered', desc: '客户端路由、Suspense 与缓存。' },
+      { id: 'n9', t: '性能优化', state: 'uncovered', desc: '代码分割、懒加载与渲染开销。' },
+      { id: 'n10', t: '测试策略', state: 'uncovered', desc: '单测、组件测与 E2E 的分层。' },
+      { id: 'n11', t: '部署与 CI/CD', state: 'uncovered', desc: '静态托管、预览环境与流水线。' } ] }
+  ];
+  var EDGES = [ ['n3','n4'], ['n3','n5'], ['n2','n5'], ['n4','n6'], ['n5','n8'],
+    ['n5','n9'], ['n5','n10'], ['n3','n7'], ['n9','n11'], ['n8','n11'] ];
+  var NW = 158, NH = 50, CGAP = 86, VGAP = 26, PAD = 26, HB = 44;
+  var pos = {}, colX = [], colH = [];
+  STAGES.forEach(function (st, i) {
+    colX[i] = PAD + i * (NW + CGAP);
+    var y = PAD + HB;
+    st.nodes.forEach(function (n) { pos[n.id] = { x: colX[i], y: y, stage: i, n: n }; y += NH + VGAP; });
+    colH[i] = y - VGAP - PAD;
+  });
+  var W = PAD * 2 + STAGES.length * NW + (STAGES.length - 1) * CGAP;
+  var H = PAD * 2 + Math.max.apply(null, colH);
+  var GLYPH = { mastered: '✦', partial: '◐', uncovered: '○' };
+  var LABEL = { mastered: '已掌握', partial: '部分掌握', uncovered: '未开始' };
+  var TINT = { mastered: 'var(--rm-mt)', partial: 'var(--rm-pt)', uncovered: 'var(--rm-surface)' };
+  var INK = { mastered: 'var(--rm-m)', partial: 'var(--rm-p)', uncovered: 'var(--rm-sub)' };
+  var svg = '<svg class="rm-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="React 前端学习计划路线图">';
+  svg += '<defs><marker id="rm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--rm-edge)"/></marker></defs>';
+  STAGES.forEach(function (st, i) {
+    var done = st.nodes.filter(function (n) { return n.state === 'mastered'; }).length;
+    svg += '<rect x="' + (colX[i] - 14) + '" y="' + (PAD - 12) + '" width="' + (NW + 28) + '" height="' + (colH[i] + 26) + '" rx="14" fill="var(--rm-group)" stroke="var(--rm-line)"/>';
+    svg += '<text x="' + colX[i] + '" y="' + (PAD + 6) + '" font-size="12" font-weight="600" fill="var(--rm-sub)">' + st.title + '</text>';
+    svg += '<text x="' + (colX[i] + NW) + '" y="' + (PAD + 6) + '" font-size="11" text-anchor="end" fill="var(--rm-sub)">' + done + '/' + st.nodes.length + '</text>';
+  });
+  EDGES.forEach(function (e) {
+    var a = pos[e[0]], b = pos[e[1]];
+    var x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x - 5, y2 = b.y + NH / 2, mx = (x1 + x2) / 2;
+    var dash = (a.n.optional || b.n.optional) ? ' stroke-dasharray="5 4"' : '';
+    svg += '<path d="M' + x1 + ',' + y1 + ' L' + mx + ',' + y1 + ' L' + mx + ',' + y2 + ' L' + x2 + ',' + y2 + '" fill="none" stroke="var(--rm-edge)" stroke-width="1.5"' + dash + ' marker-end="url(#rm-arrow)"/>';
+  });
+  STAGES.forEach(function (st) { st.nodes.forEach(function (n) {
+    var p = pos[n.id];
+    var dash = n.optional ? ' stroke-dasharray="6 4"' : '';
+    svg += '<g class="rm-node" data-id="' + n.id + '" role="button" aria-label="' + n.t + '，' + LABEL[n.state] + (n.optional ? '，可选' : '') + '" style="cursor:pointer">';
+    svg += '<rect x="' + p.x + '" y="' + p.y + '" width="' + NW + '" height="' + NH + '" rx="10" fill="' + TINT[n.state] + '" stroke="var(--rm-line)" stroke-width="1.2"' + dash + '/>';
+    svg += '<text x="' + (p.x + 13) + '" y="' + (p.y + NH / 2 + 1) + '" font-size="13" fill="' + INK[n.state] + '" text-anchor="middle" dominant-baseline="middle">' + GLYPH[n.state] + '</text>';
+    svg += '<text x="' + (p.x + 30) + '" y="' + (p.y + NH / 2 + 1) + '" font-size="12.5" font-weight="500" fill="var(--rm-ink)" dominant-baseline="middle">' + n.t + '</text>';
+    svg += '</g>';
+  }); });
+  svg += '</svg>';
+  var world = root.querySelector('#rm-world');
+  world.innerHTML = svg;
+  var canvas = root.querySelector('#rm-canvas');
+  var view = { k: 1, x: 0, y: 0 };
+  function apply() { world.style.transform = 'translate(' + view.x + 'px,' + view.y + 'px) scale(' + view.k + ')'; }
+  function fit() {
+    var r = canvas.getBoundingClientRect();
+    view.k = Math.min((r.width - 24) / W, (r.height - 24) / H, 1.15);
+    view.x = (r.width - W * view.k) / 2; view.y = (r.height - H * view.k) / 2; apply();
+  }
+  fit();
+  root.querySelector('#rm-fit').addEventListener('click', fit);
+  function zoomBy(f, cx, cy) {
+    var r = canvas.getBoundingClientRect();
+    cx = cx == null ? r.width / 2 : cx; cy = cy == null ? r.height / 2 : cy;
+    var k = Math.min(2, Math.max(0.5, view.k * f));
+    view.x = cx - (cx - view.x) * (k / view.k); view.y = cy - (cy - view.y) * (k / view.k);
+    view.k = k; apply();
+  }
+  root.querySelector('#rm-zin').addEventListener('click', function () { zoomBy(1.25); });
+  root.querySelector('#rm-zout').addEventListener('click', function () { zoomBy(0.8); });
+  canvas.addEventListener('wheel', function (ev) { ev.preventDefault(); var r = canvas.getBoundingClientRect(); zoomBy(ev.deltaY < 0 ? 1.12 : 0.89, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
+  var drag = null;
+  canvas.addEventListener('pointerdown', function (ev) {
+    if (ev.target.closest('.rm-node') || ev.target.closest('.rm-tool') || ev.target.closest('.rm-sheet')) return;
+    drag = { x: ev.clientX, y: ev.clientY, vx: view.x, vy: view.y };
+    canvas.classList.add('rm-dragging'); canvas.setPointerCapture(ev.pointerId);
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!drag) return;
+    view.x = drag.vx + (ev.clientX - drag.x); view.y = drag.vy + (ev.clientY - drag.y); apply();
+  });
+  canvas.addEventListener('pointerup', function () { drag = null; canvas.classList.remove('rm-dragging'); });
+  var sheet = root.querySelector('#rm-sheet'), selId = null;
+  function select(id) {
+    var prev = world.querySelector('.rm-node.rm-sel'); if (prev) prev.classList.remove('rm-sel');
+    selId = id;
+    if (!id) { sheet.hidden = true; return; }
+    var n = pos[id].n, pre = EDGES.filter(function (e) { return e[1] === id; }).length;
+    world.querySelector('.rm-node[data-id="' + id + '"]').classList.add('rm-sel');
+    root.querySelector('#rm-sh-title').textContent = n.t;
+    root.querySelector('#rm-sh-state').textContent = GLYPH[n.state] + ' ' + LABEL[n.state] + (n.optional ? ' · 可选' : '');
+    root.querySelector('#rm-sh-state').style.cssText = n.state === 'mastered'
+      ? 'background:var(--rm-mt);color:var(--rm-m)' : n.state === 'partial'
+      ? 'background:var(--rm-pt);color:var(--rm-p)' : 'background:var(--rm-line);color:var(--rm-sub)';
+    root.querySelector('#rm-sh-score').textContent = n.score != null
+      ? '掌握度 ' + n.score + '%（' + pre + ' 个前置节点）' : '尚无证据 · ' + pre + ' 个前置节点';
+    root.querySelector('#rm-sh-desc').textContent = n.desc || '（计划生成时由 AI 补充一句话描述）';
+    sheet.hidden = false;
+  }
+  world.addEventListener('click', function (ev) {
+    var g = ev.target.closest('.rm-node'); if (g) select(g.dataset.id);
+  });
+  root.querySelector('#rm-sheet-x').addEventListener('click', function () { select(null); });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && selId) select(null); });
+  var mastered = 0; STAGES.forEach(function (s) { s.nodes.forEach(function (n) { if (n.state === 'mastered') mastered++; }); });
+  root.querySelector('#rm-prog-num').textContent = mastered;
+  root.querySelector('#rm-prog-pct').textContent = Math.round(mastered / 11 * 100) + '%';
+  requestAnimationFrame(function () { root.querySelector('#rm-prog-fill').style.width = Math.round(mastered / 11 * 100) + '%'; });
+})();
+</script>
+</body>
+</html>
