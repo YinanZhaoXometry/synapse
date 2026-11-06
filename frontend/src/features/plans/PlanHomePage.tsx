@@ -5,7 +5,8 @@
  * rollup and node scores/states ride the api's masteryScore/state fields and
  * the streak rides the api — the page never recomputes. The nodes zone is a
  * two-way toggle (epic P2-10 T4, FR-5 — the UX spine's "view tab inside Plan
- * Home"): the stage-grouped list (default) or the interactive roadmap graph.
+ * Home"): the interactive roadmap graph (default since epic-16 T3) or the
+ * stage-grouped list, one click away.
  * Both ride the PLAN-SCOPE batch mapping read (one read for every node's
  * click-through rows — T4's binding, the per-node read was an eager N+1).
  * Materials attach via the upload flow (FR-2; Q1; epic P2-6): validated
@@ -87,9 +88,10 @@ export default function PlanHomePage() {
   // expands under its parsed row — one open at a time keeps the list scannable.
   const [coverageFor, setCoverageFor] = useState<string | null>(null);
   // Epic P2-10 T4 (FR-5): the roadmap graph is a VIEW TAB inside Plan Home
-  // (the UX spine's Phase-2 position) — the stage-grouped list stays the
-  // default; the toggle swaps the nodes zone only.
-  const [nodesView, setNodesView] = useState<"list" | "graph">("list");
+  // (the UX spine's Phase-2 position). Epic-16 T3 flips the default: the
+  // graph IS the reading view (roadmap.sh posture) — the stage-grouped list
+  // stays one click away; the toggle swaps the nodes zone only.
+  const [nodesView, setNodesView] = useState<"list" | "graph">("graph");
   // The plan-scope batch mapping read (T4's binding — one read for every
   // node-attached row instead of the per-node N+1): feeds the tree rows AND
   // the graph's detail actions.

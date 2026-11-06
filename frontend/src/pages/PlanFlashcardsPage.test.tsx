@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import PlanHomePage from "@/features/plans/PlanHomePage";
 import {
@@ -176,25 +177,29 @@ function renderAt(mocks: Array<Record<string, unknown>>, path: string, surface: 
   return render(
     <LanguageProvider>
       <TooltipProvider>
-        <MockedProvider mocks={mocks as never}>
-          <MemoryRouter initialEntries={[path]}>
-            <Toaster />
-            <Routes>
-              {surface === "flashcards" ? (
-                <>
-                  <Route path="/plan/:id/flashcards" element={<PlanFlashcardsPage />} />
-                  <Route path="/plan/:id" element={<PlanLanding />} />
-                </>
-              ) : (
-                <>
-                  {/* the tile test: Plan Home renders; its navigation lands on the stub */}
-                  <Route path="/plan/:id" element={<PlanHomePage />} />
-                  <Route path="/plan/:id/flashcards" element={<FlashcardsLanding />} />
-                </>
-              )}
-            </Routes>
-          </MemoryRouter>
-        </MockedProvider>
+        {/* The graph is the default view since epic-16 T3 — Plan Home now
+            mounts RoadmapGraph, which reads the theme (reduce-motion). */}
+        <ThemeProvider>
+          <MockedProvider mocks={mocks as never}>
+            <MemoryRouter initialEntries={[path]}>
+              <Toaster />
+              <Routes>
+                {surface === "flashcards" ? (
+                  <>
+                    <Route path="/plan/:id/flashcards" element={<PlanFlashcardsPage />} />
+                    <Route path="/plan/:id" element={<PlanLanding />} />
+                  </>
+                ) : (
+                  <>
+                    {/* the tile test: Plan Home renders; its navigation lands on the stub */}
+                    <Route path="/plan/:id" element={<PlanHomePage />} />
+                    <Route path="/plan/:id/flashcards" element={<FlashcardsLanding />} />
+                  </>
+                )}
+              </Routes>
+            </MemoryRouter>
+          </MockedProvider>
+        </ThemeProvider>
       </TooltipProvider>
     </LanguageProvider>,
   );
