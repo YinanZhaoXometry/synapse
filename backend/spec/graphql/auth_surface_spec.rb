@@ -33,7 +33,8 @@ require "rails_helper"
 # surface: appendChatMessage grows the plan addressing mode (materialId
 # required→optional, planId optional — wire-compatible per epic-25 decision
 # 2) and QueryType gains the NEW planChatThread field (chatThread stays
-# frozen)
+# frozen); epic-25 T3 with the one me query (the minimal MeType — email
+# only, the chrome's identity read beside the frozen UserType)
 # (byte-level idempotence against the committed schema.graphql
 # stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
 # surface shape itself).
@@ -66,6 +67,15 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
 
   it "exposes a minimal User type — identity only, no credential material" do
     expect(Types::UserType.fields.keys).to contain_exactly("id", "email", "createdAt")
+  end
+
+  # epic-25 T3's surface shape: the me query answers the reduced MeType —
+  # email ONLY (epic-25 decision 4): no profile entity, and UserType stays
+  # frozen (register/login keep their payload). The chrome derives its
+  # display name + avatar letter from the email's local-part client-side.
+  it "exposes the me query (epic-25 T3) — a minimal MeType, email only" do
+    expect(Types::QueryType.fields.keys).to include("me")
+    expect(Types::MeType.fields.keys).to contain_exactly("email")
   end
 
   # The query-side auth posture, recorded by the epic P2-11 T2 exception:

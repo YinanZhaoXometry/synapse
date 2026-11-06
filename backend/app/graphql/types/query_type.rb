@@ -353,6 +353,20 @@ module Types
       { document: JSON.generate(result.value![:document]) }
     end
 
+    # The session identity read (epic-25 T3, epic decision 4): the chrome's
+    # `me` — a bare sanctioned read over the caller (the scoping IS the
+    # logic: the identity IS the authenticated account, nothing to scope),
+    # answering the reduced MeType so no profile entity and no UserType
+    # credentials surface ride. Auth-guarded through the shared guard like
+    # every read here — unauthenticated is impossible on this field (the
+    # AD-13 exceptions stay health + the Square path only).
+    field :me, Types::MeType, null: false,
+      description: "The current session's identity (epic-25 T3): the authenticated account's email — the chrome derives its display name and avatar letter from the local-part. Deliberately minimal (email only, epic-25 decision 4); auth-guarded like every read here."
+
+    def me
+      { email: current_user!.email }
+    end
+
     field :ai_usage_today, Types::AiUsageType, null: false,
       description: "The current user's AI usage today (FR-34, epic-14 T1): the live cap-counter count (every provider call counted, midnight-UTC day key) and the enforced daily limit — server truth from the AD-16 cap seam, rendered honestly by the Settings display."
 

@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 vi.mock("@/apollo", () => ({ logout: vi.fn().mockResolvedValue(undefined) }));
 import { logout } from "@/apollo";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { createHarnessState, createStubClient, makeStubWrapper } from "@/test/apollo-harness";
 import UserMenuButton from "./UserMenuButton";
 
 /** jsdom cannot navigate — stub the whole location so `replace` is observable
@@ -38,14 +39,25 @@ afterEach(() => {
   });
 });
 
-const renderMenu = (props: { compact?: boolean; onAction?: () => void } = {}) =>
-  render(
+/** The stub-GraphQL client (the house harness): the Me read answers the
+ * demo session's email by default; a test wires its own handler to vary it. */
+const stubWrapper = (meHandler: () => unknown = () => ({ __typename: "Me", email: "demo@synapse.test" })) => {
+  const client = createStubClient({ Me: meHandler }, createHarnessState());
+  return makeStubWrapper(client);
+};
+
+const renderMenu = (props: { compact?: boolean; onAction?: () => void } = {}, meHandler?: () => unknown) => {
+  const Wrapper = stubWrapper(meHandler);
+  return render(
     <LanguageProvider>
       <MemoryRouter>
-        <UserMenuButton {...props} />
+        <Wrapper>
+          <UserMenuButton {...props} />
+        </Wrapper>
       </MemoryRouter>
     </LanguageProvider>
   );
+};
 
 describe("UserMenuButton (the sidebar account menu)", () => {
   it("opens the popover with the settings link and the sign-out item (zh)", async () => {
@@ -86,5 +98,41 @@ describe("UserMenuButton (the sidebar account menu)", () => {
 
     expect(onAction).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+  });
+});
+
+describe("UserMenuButton avatar letter (the session identity, epic-25 T3)", () => {
+  it("renders the 学 placeholder while me loads, then the email's first grapheme once it lands", async () => {
+    // The stub link answers on the next tick, so the first paint IS the
+    // loading frame — placeholder letter, never a wrong identity.
+    renderMenu();
+    expect(screen.getByRole("button", { name: "账户菜单" })).toHaveTextContent("学");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "账户菜单" })).toHaveTextContent("D"));
+  });
+
+  it("the en placeholder is S and dies the same way (demo → D)", async () => {
+    localStorage.setItem("synapse-lang", "en");
+    renderMenu();
+    // the aria-label localizes too — query the menu's only button
+    expect(screen.getByRole("button")).toHaveTextContent("S");
+
+    await waitFor(() => expect(screen.getByRole("button")).toHaveTextContent("D"));
+  });
+
+  it("on error the placeholder letter stays (a failed identity read never invents one)", async () => {
+    renderMenu({}, () => {
+      throw new Error("me is unreachable");
+    });
+    expect(screen.getByRole("button", { name: "账户菜单" })).toHaveTextContent("学");
+
+    // let the error settle — the letter never leaves the placeholder
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(screen.getByRole("button", { name: "账户菜单" })).toHaveTextContent("学");
+  });
+
+  it("the letter is the local-part's first grapheme, not the email's", async () => {
+    renderMenu({}, () => ({ __typename: "Me", email: "yinan.chen@polyu.edu.hk" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "账户菜单" })).toHaveTextContent("Y"));
   });
 });

@@ -7,6 +7,7 @@ import { useStreakQuery } from "@/api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import UserMenuButton from "@/components/shared/UserMenuButton";
+import { useSessionIdentity } from "@/components/shared/session-identity";
 import { recordNavPathname } from "@/lib/nav-history";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,13 @@ export default function AppLayout() {
   // deletion (epic P2-09 T6): nothing real exists on the wire, so the footer
   // keeps just the avatar (the account-menu trigger — sign-out used to live
   // only on the Settings page and nobody found it) + name + settings gear.
+  // The name line is the session identity (epic-25 T3): the me email's
+  // local-part once the read lands, EMPTY until then — the scaffold's
+  // hardcoded "Yinan Chen" was a wrong identity and never renders again
+  // (the shared useSessionIdentity derivation; the avatar letter lives in
+  // UserMenuButton through the same seam).
   const streakQuery = useStreakQuery();
+  const identity = useSessionIdentity();
   const location = useLocation();
   // One-deep origin recorder (nav-history): spine-owned surfaces derive their
   // source-aware back from this. Render-body call on purpose — a route's first
@@ -121,7 +128,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-2.5">
             <UserMenuButton />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
+              <p className="text-[13px] font-semibold truncate leading-tight">{identity.name}</p>
             </div>
             <NavLink to={SETTINGS_ROUTE.to} aria-label={t("nav.settings")} title={t("nav.settings")} className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-caption hover:bg-[var(--glass-3)] hover:text-foreground transition-colors">
               <Settings className="w-4 h-4" />
@@ -292,7 +299,7 @@ export default function AppLayout() {
             <div className="flex items-center gap-2.5">
               <UserMenuButton onAction={() => setDrawerOpen(false)} />
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold truncate leading-tight">Yinan Chen</p>
+                <p className="text-[13px] font-semibold truncate leading-tight">{identity.name}</p>
               </div>
               <NavLink to={SETTINGS_ROUTE.to} aria-label={t("nav.settings")} title={t("nav.settings")} className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-caption hover:bg-[var(--glass-3)] hover:text-foreground transition-colors">
                 <Settings className="w-4 h-4" />

@@ -2778,6 +2778,18 @@ input MaterialSectionInput {
 }
 
 """
+The authenticated session's identity (epic-25 T3): the account email the chrome
+derives its display name and avatar letter from. Deliberately minimal — email
+only (epic-25 decision 4), no profile entity.
+"""
+type Me {
+  """
+  The session account's email (downcased at registration).
+  """
+  email: String!
+}
+
+"""
 A logged wrong answer with its source location (FR-23); forfeited marks the 「看答案」 give-up.
 """
 type MistakeEntry {
@@ -3775,6 +3787,13 @@ type Query {
     """
     taskId: String
   ): [Material!]!
+
+  """
+  The current session's identity (epic-25 T3): the authenticated account's email
+  — the chrome derives its display name and avatar letter from the local-part.
+  Deliberately minimal (email only, epic-25 decision 4); auth-guarded like every read here.
+  """
+  me: Me!
 
   """
   The current user's mistake entries (FR-23, epic P2-09 T1): every wrong answer
