@@ -52,7 +52,7 @@ cd web && node_modules/.bin/vite build      # build only — does NOT typecheck
 
 Tests (frontend): Vitest, jsdom env, globals on, setup in `frontend/src/test/setup.ts` (jest-dom + a `matchMedia` mock); place tests as `frontend/src/**/*.{test,spec}.{ts,tsx}`.
 
-Playwright (`frontend/playwright.config.ts`) imports `lovable-agent-playwright-config`, which is **not in package.json** — e2e won't run locally until that dep is added; no e2e specs exist yet (known debt, moves with the epic that owns e2e).
+Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the backend to the stub provider, runs the suite, restores the demo stack; 2026-11-06): the critical-flow suite (auth wall, demo plan, creation chat, material→reader→claim honesty, quiz→mastery loop, mistakes hub, square fork, task promotion, settings, hubs) runs against the live local stack with a deterministic **stub AI provider** (`frontend/e2e/stub-provider.mjs`, auto-started by the config) — no GLM key, no live AI. AI-gated surfaces (companion, quick test, open/mix quiz, notes, flashcard generation) are deliberately uncovered. Upload prerequisites: `127.0.0.1 minio` /etc/hosts entry + bucket CORS (the demo boot has both). Tests self-isolate via fresh registered users; the dev DB accumulates e2e rows. The old `lovable-agent-playwright-config` import (never installed) was removed with this harness.
 
 ## Architecture
 

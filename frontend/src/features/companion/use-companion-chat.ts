@@ -32,6 +32,7 @@ import type { CompanionReply } from "@/ai/types";
 import { useAppendChatMessageMutation, useChatThreadQuery } from "@/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ReadingPosition } from "@/domain/entities";
+import { newClientUuid } from "@/lib/uuid";
 import {
   entriesFromThread,
   replyCitationLocators,
@@ -104,7 +105,7 @@ export function useCompanionChat(
       setInput((current) => (current === displayText ? "" : current));
 
       // Optimistic user row (UI only — see the persistence honesty rule).
-      const userEntryId = existingUserId ?? crypto.randomUUID();
+      const userEntryId = existingUserId ?? newClientUuid();
       if (!existingUserId) {
         setEntries((prev) => [
           ...prev,
@@ -173,7 +174,7 @@ export function useCompanionChat(
           setEntries((prev) => [
             ...prev,
             {
-              id: crypto.randomUUID(),
+              id: newClientUuid(),
               role: "companion",
               text: reply.text,
               citations,

@@ -25,6 +25,7 @@ import { apiErrorCode, apiErrorKeys } from "@/api/errors";
 import { readingLocator } from "@/api/mappers";
 import type { ErrorLike } from "@apollo/client";
 import { AppError } from "@/lib/app-error";
+import { newClientUuid } from "@/lib/uuid";
 import { currentUiLanguage } from "@/contexts/LanguageContext";
 import {
   GenerateQuizDocument,
@@ -348,7 +349,7 @@ export class ServerCompanionService implements CompanionService {
       GenerateQuizDocument,
       {
         input: {
-          clientUuid: crypto.randomUUID(),
+          clientUuid: newClientUuid(),
           language: currentUiLanguage(),
           mode: input.mode,
           planId: input.targeting || input.materialId ? undefined : (input.planId ?? undefined),

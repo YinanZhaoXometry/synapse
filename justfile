@@ -101,6 +101,30 @@ spec:
 down:
     {{compose}} down
 
+# The Playwright e2e suite (frontend/e2e, frontend/pnpm run test:e2e): flips
+# the backend to the stub AI provider (compose.e2e.yaml — no GLM key, no live
+# AI), runs the critical-flow specs, then ALWAYS restores the demo stack on
+# the way out — a forgotten restore would silently point the demo's AI at the
+# stub. `just dev` may run or not (Playwright reuses or starts Vite).
+e2e:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    e2e_files="-f backend/.dockerdev/compose.yaml"
+    restore_files="-f backend/.dockerdev/compose.yaml"
+    if [ -f backend/.dockerdev/compose.override.yaml ]; then
+      e2e_files="$e2e_files -f backend/.dockerdev/compose.override.yaml"
+      restore_files="$restore_files -f backend/.dockerdev/compose.override.yaml"
+    fi
+    e2e_files="$e2e_files -f backend/.dockerdev/compose.e2e.yaml"
+    restore() {
+      # shellcheck disable=SC2086
+      docker compose $restore_files up -d --wait
+    }
+    trap restore EXIT
+    # shellcheck disable=SC2086
+    docker compose $e2e_files up -d --wait
+    pnpm --dir frontend exec playwright test
+
 # Follow the backend stack's logs.
 logs:
     {{compose}} logs -f

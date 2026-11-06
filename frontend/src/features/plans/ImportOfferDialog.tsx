@@ -72,9 +72,10 @@ export default function ImportOfferDialog() {
     try {
       await refreshBytes(materialId, file);
       setAttachState((prev) => ({ ...prev, [materialId]: "done" }));
-    } catch {
+    } catch (err) {
       // honest failure: the row stays byteless (the reader renders it
       // text-only) and the invite stays available for another try.
+      console.error("[import] re-attach failed:", err);
       setAttachState((prev) => ({ ...prev, [materialId]: "failed" }));
       toast.error(t("import.reattachFailed"));
     }

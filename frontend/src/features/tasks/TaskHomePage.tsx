@@ -130,7 +130,12 @@ export default function TaskHomePage() {
     if (material.parseState === "pending" || material.parseState === "failed") {
       parseMaterial.mutate(material.id);
     }
-    upload.refreshBytes(material.id, file).catch(() => toast.error(t("errors.uploadFailed")));
+    upload
+      .refreshBytes(material.id, file)
+      .catch((err) => {
+        console.error("[upload] re-upload failed:", err);
+        toast.error(t("errors.uploadFailed"));
+      });
   };
 
   // T4 quick actions — the Plan Home policy mirrored on the single material:

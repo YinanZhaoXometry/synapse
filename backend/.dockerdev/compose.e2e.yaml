@@ -1,0 +1,24 @@
+# The e2e provider stub wiring (the frontend/e2e harness). NOT loaded by
+# `just up` — compose only merges extra files when the invocation lists them
+# explicitly (the deploy.md §1 discipline that already governs
+# compose.override.yaml):
+#
+#   docker compose \
+#     -f backend/.dockerdev/compose.yaml \
+#     -f backend/.dockerdev/compose.override.yaml \
+#     -f backend/.dockerdev/compose.e2e.yaml up -d --wait
+#
+# (drop the override line when that file does not exist on the machine).
+#
+# The stub (frontend/e2e/stub-provider.mjs, auto-started by Playwright's
+# webServer) answers every provider call deterministically — an e2e run never
+# spends a live AI call. PROVIDER_KEY is placeholder-forced here (last file
+# wins) so Provider.configured? is true even without the override, and
+# PROVIDER_BASE_URL is what actually routes the traffic to the stub; host.docker.internal
+# is the Docker-Desktop path from the api container to the host-run stub.
+services:
+  backend:
+    environment:
+      PROVIDER_BASE_URL: http://host.docker.internal:8791
+      PROVIDER_KEY: e2e-stub-placeholder-key
+      PROVIDER_MODEL: e2e-stub

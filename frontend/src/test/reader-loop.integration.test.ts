@@ -199,7 +199,10 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
       createElement(LanguageProvider, null, makeStubWrapper(client)({ children }));
     const parse = renderHook(() => useParseMaterialMutation(attached), { wrapper: providerWrapper });
     parse.result.current.mutate("m-echo-1");
-    await waitFor(() => expect(server.materials[0].parseState).toBe("parsed"));
+    // The write-back rides the attach → presign → parse → mutation chain —
+    // give the conditional wait room for a loaded CI runner (default 1s
+    // expired there while every local run was instant).
+    await waitFor(() => expect(server.materials[0].parseState).toBe("parsed"), { timeout: 10_000 });
 
     // 3. parsed with sections — the extracted text now survives server-side
     const parsedRaw = await client.query({ query: MaterialDocument, variables: { id: "m-echo-1" }, fetchPolicy: "network-only" });
