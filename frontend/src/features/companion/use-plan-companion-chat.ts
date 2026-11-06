@@ -25,6 +25,7 @@ import { getCompanionService } from "@/ai/companion-service";
 import type { CompanionReply } from "@/ai/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { ReadingLocator } from "@/domain/entities";
+import { newClientUuid } from "@/lib/uuid";
 
 export interface PlanTurnRequest {
   question: string;
@@ -77,7 +78,7 @@ export function usePlanCompanionChat(planId: string) {
       // The sent text leaves the composer; a half-typed draft stays untouched.
       setInput((current) => (current === displayText ? "" : current));
 
-      const userEntryId = existingEntryId ?? crypto.randomUUID();
+      const userEntryId = existingEntryId ?? newClientUuid();
       if (!existingEntryId) {
         setEntries((prev) => [
           ...prev,
@@ -120,7 +121,7 @@ export function usePlanCompanionChat(planId: string) {
           setEntries((prev) => [
             ...prev,
             {
-              id: crypto.randomUUID(),
+              id: newClientUuid(),
               role: "companion",
               text: reply.text,
               citations: reply.citations.map((citation) => citation.locator),

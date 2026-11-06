@@ -19,10 +19,12 @@ import {
 import { mapMaterial, mapMaterialSummary } from "../mappers";
 import type { MaterialView } from "../views";
 
-/** Client-supplied uuid for every create-shaped mutation (AD-12 idempotency key). */
-export function newClientUuid(): string {
-  return crypto.randomUUID();
-}
+/** Client-supplied uuid for every create-shaped mutation (AD-12 idempotency key).
+ *  The mint itself lives in @/lib/uuid — secure-context-safe for the LAN demo
+ *  origin (crypto.randomUUID does not exist outside HTTPS/localhost). */
+import { newClientUuid } from "@/lib/uuid";
+
+export { newClientUuid };
 
 export function useMaterialQuery(materialId: string) {
   const result = useQuery(MaterialDocument, { variables: { id: materialId }, skip: !materialId });

@@ -132,7 +132,12 @@ export default function PlanHomePage() {
         }
         // FR-29: the row keeps its metadata and id — only the bytes refresh
         // (server copy via a fresh presign PUT + this session's registry).
-        upload.refreshBytes(reuploadId, file).catch(() => toast.error(t("errors.uploadFailed")));
+        upload
+          .refreshBytes(reuploadId, file)
+          .catch((err) => {
+            console.error("[upload] re-upload failed:", err);
+            toast.error(t("errors.uploadFailed"));
+          });
       }
       return;
     }
@@ -142,7 +147,10 @@ export default function PlanHomePage() {
     upload
       .attach({ file, title: verdict.title, kind: verdict.kind, planId, taskId: null })
       .then((material) => parseMaterial.mutate(material.id, material))
-      .catch(() => toast.error(t("errors.uploadFailed")));
+      .catch((err) => {
+        console.error("[upload] attach failed:", err);
+        toast.error(t("errors.uploadFailed"));
+      });
   };
 
   if (planQuery.loading || nodesQuery.loading || materialsQuery.loading || evidenceQuery.loading || flashcardsQuery.loading) return null;
