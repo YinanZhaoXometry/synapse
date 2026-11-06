@@ -130,15 +130,9 @@ RSpec.describe "GraphQL mastery scores + streak on the wire (epic P2-4 ticket 03
       # third stays uncovered — the batch covers empty results too. Six score
       # field resolutions (2 fields × 3 nodes) ride one batched load.
 
-      evidence_queries = 0
-      callback = ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start, _finish, _id, payload|
-        evidence_queries += 1 if payload[:name] == "EvidenceRecord Load"
-      end
-
-      begin
+      result = nil
+      evidence_queries = count_loads_of(:evidence_record) do
         result = score_query(token, plan.id)
-      ensure
-        ActiveSupport::Notifications.unsubscribe(callback)
       end
 
       expect(evidence_queries).to eq(1)

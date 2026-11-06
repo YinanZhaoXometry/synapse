@@ -225,15 +225,7 @@ RSpec.describe "GraphQL Square public read path (epic P2-11 T2)", type: :request
     # warm-up first so schema-cache chatter cannot leak into the measurement.
     def selects_for(query)
       graphql(query) # warm-up
-      selects = 0
-      subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |*args|
-        payload = args.last
-        selects += 1 if payload[:sql].to_s.strip.upcase.start_with?("SELECT")
-      end
-      graphql(query)
-      selects
-    ensure
-      ActiveSupport::Notifications.unsubscribe(subscription)
+      count_selects { graphql(query) }
     end
 
     it "keeps the node-summaries load at a fixed query count as the plan count grows" do

@@ -457,4 +457,23 @@ RSpec.describe "GraphQL plans + nodes operations (epic P2-3 ticket 01)", type: :
       ]
     }
   end
+
+  describe "bounded reads (the plans list — epic P3-17 ticket 08)" do
+    it "keeps the plans list at a fixed query count as the plan count grows" do
+      user, token = user_with_token("plans-bounded@example.com")
+      create(:study_plan, user: user)
+      query = "query { plans { id } }"
+
+      graphql(query, token: token) # warm-up
+      solo_count = count_selects { graphql(query, token: token) }
+
+      4.times { |i| create(:study_plan, user: user, topic: "extra #{i}") }
+
+      five_count = count_selects { graphql(query, token: token) }
+
+      # One caller-scoped list read (+ the auth resolution) — never one query per plan.
+      expect(solo_count).to be <= 3
+      expect(five_count).to eq(solo_count)
+    end
+  end
 end
