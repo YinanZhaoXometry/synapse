@@ -12,11 +12,16 @@ const DEMO_PASSWORD = "e2e-password-123";
 
 const uniqueEmail = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@synapse.test`;
 
+/** The api origin the preflight waits on — the SAME api the app talks to
+ * (default the compose-published port; override when the stack runs on
+ * remapped ports, mirroring visual-smoke's E2E_API_URL). */
+const API = (process.env.E2E_API_URL ?? "http://localhost:3000").replace(/\/graphql\/?$/, "").replace(/\/$/, "");
+
 test("preflight: the api answers the health query (the e2e compose stack is up)", async ({ request }) => {
   // Polls because a freshly recreated backend (the compose.e2e recipe) answers
   // its container healthcheck before Rails finishes booting.
   await expect(async () => {
-    const response = await request.post("http://localhost:3000/graphql", {
+    const response = await request.post(`${API}/graphql`, {
       data: { query: "{ health }" },
     });
     expect(response.ok()).toBeTruthy();
