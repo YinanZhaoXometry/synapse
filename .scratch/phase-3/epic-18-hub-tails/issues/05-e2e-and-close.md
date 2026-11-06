@@ -4,7 +4,7 @@
 
 **Blocked by:** 3, 4.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; e2e 19 → 21 passed (hub-tails.spec.ts: materials-hub server row + mistake lifecycle, no new stub shapes), live browser smoke 12 shots self-reviewed (light+dark+twilight+reduced-motion, screenshots outside the repo), spine rows closed/annotated (ca0fbcb), all gates green — rspec 1452 / vitest 917 / codegen zero-diff / mastery anti-drift / rubocop / tsc / eslint / build)
 
 **Bound by:** the e2e harness conventions (deterministic stub provider, self-isolating users; AI-gated surfaces stay e2e-uncovered — the suggestion generation is AI-gated and gets NO stub reply), the spine-maintenance discipline (rows closed where the decision was made), scope exception: THIS ticket edits `.scratch/phase-3/` + the two spine rows in `docs/architecture/architecture-synapse/architecture-synapse.md` only.
 

@@ -1,6 +1,6 @@
 # Epic 18 (Phase 3) — hub tails: Materials server backing, mistake lifecycle, generation-backed Today suggestions
 
-Status: ready-for-agent (spec'd + ticketed 2026-11-06, one pass under the standing decide-all delegation; grill round 1 self-answered — see spec "Implementation decisions" + delta review below)
+Status: done (closed 2026-11-06; five tickets landed on `epic/p3-18-hub-tails` @ 2cbef6f + the T5 close-out (71a12b5 e2e · ca0fbcb spine); final baselines: rspec 1452 · vitest 917 · e2e 21 passed + the opt-in visual smoke; spine §6.2 survivor rows consumed — Materials hub SHIPPED, Hub state-field tails annotated with the targeting-bonus epic-21 deferral)
 Milestone: Phase 3 — optimization season
 
 ## Parent
@@ -26,6 +26,7 @@ Materials hub renders only server rows (demo-data imports gone from the page) ·
 - T1 and T2 are independent backend tickets (serial lane regardless — single-implementer cadence).
 - The 16-node/e2e harness is untouched except T5's additions; the suggestion generation is AI-gated and stays e2e-uncovered by convention.
 - Guards to respect: architecture.guard.test.ts (frontend), no_keep_alive_spec.rb + user-scoping roster (backend auto-covers `today_suggestions` once the model has `belongs_to :user` + factory).
+- Close-out (T5, 2026-11-06): e2e 19 → 21 passed — `frontend/e2e/hub-tails.spec.ts` covers the two server-live flows (materials hub server row + reader deep link; mistake resolve toggle surviving reload and driving the open/reviewed filter both ways); NO new stub-provider prompt shape (the T2 suggestion stays AI-gated/uncovered, asserted nowhere in e2e). Live browser smoke (bundled Chromium, real stack): /materials + /mistakes + /planner across light+dark, dark twilight, reduced motion — 12 screenshots outside the repo, self-reviewed clean (dark/reduce-motion html classes + twilight `--grad-a` re-tint verified per state; the 「生成 AI 建议」 trigger rendered but stayed unclicked). Honest caveats: theme/palette/motion pinned via ThemeContext's localStorage contract, not Settings clicks; the planner's suggestion slot needed one confirmed mapping seeded directly on the worktree dev DB (`mapMaterialSections` is AI-gated — not drivable on the stub); the browser storage PUT rides the shared main-stack minio (host 3000/9000 held — the worktree stack remaps to 13000/19000 via a /tmp compose override, but storage.yml pins the presigned host `minio:9000`, which resolves to the shared minio: same dev creds, same bucket, CORS default-open). Gates: rspec 1452 / vitest 917 (baselines held exactly — nothing grew, nothing broke) / codegen zero-diff / mastery-vector anti-drift green / rubocop / tsc / eslint / build / e2e.
 
 ## Kickoff delta review — 2026-11-06 (grill round 1 self-answered; owner may veto any line asynchronously)
 

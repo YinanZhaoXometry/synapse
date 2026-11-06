@@ -4,7 +4,7 @@
 
 **Blocked by:** 1, 2.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; landed on `epic/p3-18-hub-tails`: 7247915 uuid5 mirror · ac44eeb mistakes lifecycle · 746337e planner AI card · a2aa0e3 review fix · 2cbef6f buildinfo)
 
 **Bound by:** decisions 4/7–10 of the spec (toggle both ways; v1 card untouched verbatim; explicit generate only — no provider call on load; cap-honest failure states; 「AI 建议」 chip + reason line; same `nodeQuickTestHref` deep link), AD-14 (client renders server fields, never recomputes), i18n-mandatory, the Apollo stub harness conventions.
 
