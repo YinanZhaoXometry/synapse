@@ -27,6 +27,8 @@ import {
 } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { cn } from "@/lib/utils";
+import { useReaderMdTheme } from "@/lib/reader-md-theme";
 import { READER_FLASH_MS } from "./anchors";
 import type { AnnotationApplyResult, AnnotationRenderItem } from "./annotation-engine";
 import type { QuickTestGateState } from "./quick-test-gate";
@@ -80,6 +82,12 @@ interface MarkdownFlowProps {
   /** The engine's application results (the list panel's honesty badges). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
   /**
+   * Remove one annotation (epic-24 T2) — pass-through to MarkdownView's
+   * hover popover; absent = the affordance is off. The mounter owns the
+   * mutation (the same call site the list panel's delete uses).
+   */
+  onRemoveAnnotation?(id: string): void;
+  /**
    * Mastery Marking (FR-15, epic-15 T3) — pass-through to MarkdownView:
    * open-claim ids + handlers (absent = feature off) and the confirm-quiz
    * gate. The mounter (ReaderPage) owns the state; this flow adds nothing.
@@ -91,13 +99,18 @@ interface MarkdownFlowProps {
 }
 
 export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(function MarkdownFlow(
-  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll, annotations, introSectionId, staleTitle, onAnnotationsApplied, claimedSectionIds, onToggleClaim, onConfirmQuiz, quickTestGate },
+  { blob, initialSection, flashTarget, onHeadingsResolved, onViewportScroll, annotations, introSectionId, staleTitle, onAnnotationsApplied, onRemoveAnnotation, claimedSectionIds, onToggleClaim, onConfirmQuiz, quickTestGate },
   ref,
 ) {
   const [text, setText] = useState<string | null>(null);
   const [decodeFailed, setDecodeFailed] = useState(false);
   const [resolved, setResolved] = useState(false);
   const [flashSection, setFlashSection] = useState<string | null>(null);
+
+  // The optional reader content skin (epic-24 T3): claudette rides the scroll
+  // container + article via index.css; the hook syncs live when Settings
+  // flips. Default stays the app look.
+  const [mdTheme] = useReaderMdTheme();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const anchoredRef = useRef(false);
@@ -251,7 +264,11 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto relative bg-secondary/50">
+    <div
+      ref={scrollRef}
+      data-theme={mdTheme === "claudette" ? "claudette" : undefined}
+      className={cn("flex-1 min-h-0 overflow-y-auto relative bg-secondary/50", mdTheme === "claudette" && "reader-claudette")}
+    >
       <div className="w-full px-4 md:px-8 py-6 md:py-8 flex justify-center">
         <article className="reader-body reader-prose w-full max-w-[70ch]">
           {text === null ? (
@@ -266,6 +283,7 @@ export const MarkdownFlow = forwardRef<MarkdownFlowHandle, MarkdownFlowProps>(fu
                 introSectionId={introSectionId}
                 staleTitle={staleTitle}
                 onAnnotationsApplied={onAnnotationsApplied}
+                onRemoveAnnotation={onRemoveAnnotation}
                 claimedSectionIds={claimedSectionIds}
                 onToggleClaim={onToggleClaim}
                 onConfirmQuiz={onConfirmQuiz}

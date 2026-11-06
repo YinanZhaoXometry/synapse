@@ -18,6 +18,7 @@ import type {
   UiLanguage,
 } from "@/ai/types";
 import type { CompanionService } from "@/ai/companion-service";
+import { formatQuizFence, type CompanionQuiz } from "@/ai/quiz";
 import type { ReadingLocator } from "@/domain/entities";
 import { planTemplateFor } from "./templates";
 import { firstSentence, splitSentences } from "./text";
@@ -36,7 +37,9 @@ const COPY = {
     hint: (quote: string) => `先往这个方向想：这一页谈到「${quote}」。它为什么成立？再试试？`,
     answer: (quote: string) => `答案：${quote}（来自你正在读的一页）`,
     reference: (quote: string) => `${quote}——这一页给了定义，注意它的前提条件。`,
-    quizMe: (quote: string) => `好，考你一个：${quote}——你会怎么向别人解释这句话？先说说看。`,
+    quizLead: () => `好，考你一题——就来自你正在读的这一页：`,
+    quizExplain: (quote: string) => `答案出自这一页的原句：「${quote}」`,
+    quizShortExplain: () => `对照上面的原句，说中要点即可。`,
     summarize: (quote: string) => `这一页的主线：「${quote}」——页面其余部分都围绕这一点展开。`,
     beyond: "这一页答不了这个问题。我可以基于通用知识回答，但会明确标注不是来自你的材料。",
   },
@@ -44,7 +47,9 @@ const COPY = {
     hint: (quote: string) => `Try this direction first: this page says "${quote}". Why would that hold? Give it another shot.`,
     answer: (quote: string) => `Answer: ${quote} (from the page you're on)`,
     reference: (quote: string) => `${quote} — the page defines it; watch its preconditions.`,
-    quizMe: (quote: string) => `Let's test you: "${quote}" — how would you explain this line to someone else? Go ahead.`,
+    quizLead: () => `Let's test you — straight from the page you're reading:`,
+    quizExplain: (quote: string) => `The answer comes from this page's own sentence: "${quote}"`,
+    quizShortExplain: () => `Compare with the quoted sentence above — hit its key terms.`,
     summarize: (quote: string) => `This page's throughline: "${quote}" — the rest of the page builds around it.`,
     beyond: "This page can't answer that. I can answer from general knowledge — clearly labeled as outside your material.",
   },
@@ -82,6 +87,81 @@ function matchSentence(question: string, positionText: string): string | null {
   return null;
 }
 
+// ── the deterministic quiz fence (epic-24 T4) ───────────────────────────
+// 考考我 used to stream Socratic prose — no actual question. Now the double
+// emits the same ```synapse-quiz fence the GLM prompts ask for, derived
+// deterministically from the grounding text (no randomness — same input,
+// same question).
+
+/** Salient terms of a text: latin words ≥4 chars + CJK runs ≥4 (capped 8). */
+function salientTerms(text: string): string[] {
+  const latin = text.match(/[A-Za-z]{4,}/g) ?? [];
+  const cjk = (text.match(/[\u4e00-\u9fff]{4,}/g) ?? []).map((run) => run.slice(0, 8));
+  return [...new Set([...latin.map((w) => w.toLowerCase()), ...cjk])];
+}
+
+/** Deterministic 0..n-1 placement from the answer's own characters. */
+function answerSlot(answer: string, slots: number): number {
+  let sum = 0;
+  for (let i = 0; i < answer.length; i++) sum += answer.charCodeAt(i);
+  return slots === 0 ? 0 : sum % slots;
+}
+
+/**
+ * A cloze choice question over the quote when it offers a salient term and
+ * the page supplies ≥3 distinct distractors; null otherwise (the short form
+ * takes over). Distractors come from ELSEWHERE in the position text — wrong
+ * options are page words, never invented ones.
+ */
+function buildClozeChoice(
+  quote: string,
+  positionText: string,
+  language: UiLanguage,
+): CompanionQuiz | null {
+  const quoteTerms = salientTerms(quote);
+  if (quoteTerms.length === 0) return null;
+  const answer = quoteTerms.sort((a, b) => b.length - a.length)[0];
+  const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const blanked = quote.replace(new RegExp(escaped, "i"), "____");
+  if (blanked === quote) return null;
+  const distractors = salientTerms(positionText).filter(
+    (term) => term !== answer && !blanked.includes(term),
+  );
+  if (distractors.length < 3) return null;
+  const picked = distractors.slice(0, 3);
+  const slot = answerSlot(answer, 4);
+  const options = [...picked];
+  options.splice(slot, 0, answer);
+  return {
+    kind: "choice",
+    question: blanked,
+    options,
+    answer: options.indexOf(answer),
+    explanation: COPY[language].quizExplain(quote),
+  };
+}
+
+/** The short form: explain the quote in your own words, keyword-graded. */
+function buildShortExplain(quote: string, language: UiLanguage): CompanionQuiz {
+  return {
+    kind: "short",
+    question:
+      language === "zh"
+        ? `用自己的话说说，这句话在讲什么：「${quote}」`
+        : `Explain this sentence in your own words: "${quote}"`,
+    answerText: quote,
+    keywords: salientTerms(quote).slice(0, 3),
+    explanation: COPY[language].quizShortExplain(),
+  };
+}
+
+/** The quiz-me reply: one lead line + the synapse-quiz fence. */
+function buildQuizReply(quote: string, positionText: string, language: UiLanguage): string {
+  const lead = COPY[language].quizLead();
+  const quiz = buildClozeChoice(quote, positionText, language) ?? buildShortExplain(quote, language);
+  return `${lead}\n\n${formatQuizFence(quiz)}`;
+}
+
 function emit(text: string, onToken?: (chunk: string) => void): Promise<void> {
   if (!onToken) return Promise.resolve();
   // Deterministic slicing — no randomness anywhere in the simulated adapter.
@@ -113,11 +193,13 @@ export class SimulatedCompanion implements CompanionService {
 
     if (QUIZ_ME.test(question)) {
       // Quiz-me is inherently grounded on the open page (NFR-8) — cite it even
-      // when no keyword overlap exists.
+      // when no keyword overlap exists. Epic-24 T4: the reply ends in an
+      // interactive ```synapse-quiz block (a real question, not Socratic
+      // prose), deterministically derived from the page's own text.
       intent = "quiz-me";
       rung = "hint";
       quote ??= firstSentence(position.text);
-      text = copy.quizMe(quote);
+      text = buildQuizReply(quote, position.text, language);
     } else if (DIRECT.test(question)) {
       // Page-anchored intents route BEFORE the overlap gate (epic-4 fix): a
       // direct request must be honored even with no keyword overlap — the
