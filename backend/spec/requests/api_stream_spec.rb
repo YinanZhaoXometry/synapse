@@ -254,6 +254,40 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
       stream(mint_proposal)
       expect(events.last["data"]["code"]).to eq("INTERNAL")
     end
+
+    it "accepts the legacy nodeTitles reply via the logged normalization — title-only nodes, zero edges" do
+      # The pre-epic-16 wire shape: stages carry bare titles and the reply has
+      # no top-level edges. The designed degradation — the stream still
+      # completes (never terminal{INTERNAL}) with an edgeless, metadata-less
+      # proposal that renders via the client's legacy fallback path.
+      json = { topic: "软件工程", stages: [
+        { name: "阶段一：基础", nodeTitles: [ "命令层", "ER 模型" ] },
+        { name: "阶段二：实践", nodeTitles: [ "集成走查" ] }
+      ] }.to_json
+      reply = "<outline>\n阶段一：基础（命令层、ER 模型）\n</outline>\n<proposal>\n#{json}\n</proposal>"
+      allow(adapter).to receive(:stream).and_return([ reply ].each)
+      allow(Rails.logger).to receive(:info)
+
+      stream(mint_proposal(language: "zh"))
+
+      terminal = events.last
+      expect(terminal["data"]["code"]).to eq("OK")
+      expect(terminal["data"]["proposal"]).to eq({
+        "topic" => "软件工程",
+        "language" => "zh",
+        "stages" => [
+          { "name" => "阶段一：基础", "nodes" => [
+            { "title" => "命令层", "description" => nil, "optional" => false },
+            { "title" => "ER 模型", "description" => nil, "optional" => false }
+          ] },
+          { "name" => "阶段二：实践", "nodes" => [
+            { "title" => "集成走查", "description" => nil, "optional" => false }
+          ] }
+        ],
+        "edges" => []
+      })
+      expect(Rails.logger).to have_received(:info).with(a_string_including("[plans] legacy proposal shape"))
+    end
   end
 
   # epic P2-12 T3 (FR-46): the plan-scope companion stream — the SAME event

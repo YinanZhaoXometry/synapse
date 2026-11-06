@@ -216,8 +216,16 @@ module Api
     # and edges keep only well-formed non-blank string pairs. Confirm-time
     # resolution and validity drops are downstream's job (the client's
     # flatten seam / Plans::PlanCreation).
+    #
+    # The legacy pre-epic-16 shape (review F2) stays accepted here, matching
+    # ConfirmProposalCommand: a stage carrying bare `nodeTitles` (no `nodes`)
+    # maps deterministically to one metadata-less node per title, and the
+    # reply's absent top-level edges land empty — the designed degradation to
+    # an edgeless plan (the client's legacy fallback path renders it), never
+    # a terminal INTERNAL.
     def normalize_proposal(proposal)
-      {
+      legacy_shape = false
+      normalized = {
         "topic" => proposal["topic"].to_s,
         "stages" => Array(proposal["stages"]).filter_map do |stage|
           next unless stage.is_a?(Hash)
@@ -233,6 +241,15 @@ module Api
               "optional" => node["optional"] == true
             }
           end
+          if nodes.empty? && Array(stage["nodeTitles"]).any?
+            legacy_shape = true
+            nodes = Array(stage["nodeTitles"]).filter_map do |title|
+              title = title.to_s.strip
+              next if title.empty?
+
+              { "title" => title, "description" => nil, "optional" => false }
+            end
+          end
           next if name.empty? || nodes.empty?
 
           { "name" => name, "nodes" => nodes }
@@ -247,6 +264,13 @@ module Api
           [ from, to ]
         end
       }
+      if legacy_shape
+        Rails.logger.info(
+          "[plans] legacy proposal shape (nodeTitles) normalized without edges/descriptions — " \
+          "one title-only node per title; the edgeless plan renders via the legacy fallback path"
+        )
+      end
+      normalized
     end
 
     # The citation locator for the grounded position — built server-side
