@@ -38,6 +38,23 @@ module Ai
     # the server's index map drops never come back invented).
     FOCUS_TARGET = 5
 
+    # The companion quiz-block rule (epic-24 T4): shared by companion and
+    # plan_companion — a quiz request ends in ONE fenced ```synapse-quiz JSON
+    # block riding the reply TEXT (the client renders it interactive; the SSE
+    # wire + thread persistence stay byte-frozen). The answer never leaves the
+    # block (NFR-8's server half), and "keywords" grades the short form the
+    # same way the open-answer grader counts terms.
+    QUIZ_RULE = <<~RULE.freeze
+      If their question asks you to test them (考考我 / quiz me / test me), TEST them:
+      end your reply with EXACTLY ONE fenced code block tagged synapse-quiz holding ONE question
+      sourced ONLY from the material above, with the JSON keys EXACTLY as shown —
+      choice form: {"kind":"choice","question":"…","options":["…","…","…","…"],"answer":0,"explanation":"…"}
+      short form: {"kind":"short","question":"…","answerText":"…","keywords":["…","…"],"explanation":"…"}
+      ("answer" is the 0-based index of the correct option; "keywords" are 2–3 terms a good short
+      answer must use.) Write the question in the reply language. One short lead-in line may
+      precede the block — never reveal the answer or explanation outside the block.
+    RULE
+
     class << self
       # Quiz generation (ticket 03; targeting epic P2-10 T5; material scope
       # epic-13 T2): node-attributed (AD-6) + materials-sourced (NFR-1)
@@ -253,6 +270,11 @@ module Ai
       # character streams as token events. The guardrail posture (rung) is
       # REQUEST-derived server-side (escalated → "answer", else "hint") —
       # the ladder rule rides the contract, never the model's mood.
+      # Epic-24 T4: a quiz request (考考我 / quiz me / test me) ends in ONE
+      # fenced ```synapse-quiz JSON block (the client renders it as an
+      # interactive question; the block rides the reply TEXT so the SSE wire
+      # and the thread persistence stay byte-frozen). The answer lives ONLY
+      # inside the block — never in the lead prose (NFR-8's server half).
       def companion(question:, position_text:, language:, escalated:, context:)
         [ system,
           user(<<~PROMPT)
@@ -269,6 +291,7 @@ module Ai
             Their question: #{question}
 
             #{escalated ? "The learner explicitly asked for the direct answer — give it, grounded and cited." : "Stay hint-first: guide toward the answer rather than dumping it (the ladder rule — the learner can escalate with one click)."}
+            #{QUIZ_RULE}
             Answer ONLY from the material above; if it does not cover the question, say so honestly.
             Write your entire reply in #{language_word(language)}.
           PROMPT
@@ -295,6 +318,7 @@ module Ai
             Their question: #{question}
 
             Stay hint-first: guide toward the answer rather than dumping it (the ladder rule).
+            #{QUIZ_RULE}
             Answer ONLY from the material above; if it does not cover the question, say so honestly.
             Write your entire reply in #{language_word(language)}.
           PROMPT

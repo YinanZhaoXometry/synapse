@@ -111,6 +111,21 @@ RSpec.describe Ai::Prompts do
     end
   end
 
+  it "carries the companion quiz-block contract (epic-24 T4) in companion AND plan_companion" do
+    hint = described_class.companion(question: "考考我", position_text: "I am here.",
+                                     language: "zh", escalated: false, context: context)[1][:content]
+    plan = described_class.plan_companion(question: "quiz me", language: "en", context: context)[1][:content]
+    aggregate_failures do
+      [ hint, plan ].each do |content|
+        expect(content).to include("synapse-quiz")
+        expect(content).to include('"kind":"choice"')
+        expect(content).to include('"kind":"short"')
+        expect(content).to include("never reveal the answer or explanation outside the block")
+        expect(content).to include("ONLY from the material above")
+      end
+    end
+  end
+
   it "carries the grading inputs and the keyword-count rule verbatim" do
     content = described_class.grade(answer: "My answer.", keywords: %w[leader raft],
                                     source_text: "Raft elects a leader.", language: "en")[1][:content]

@@ -178,3 +178,49 @@ describe("plan structure proposal (creation chat, spec Q4)", () => {
     expect(chunks.join("")).toContain("## ");
   });
 });
+
+/**
+ * The quiz-me fence (epic-24 T4): 考考我 no longer streams Socratic prose —
+ * the reply ends in ONE ```synapse-quiz block derived deterministically from
+ * the grounding text, and the client parser (splitQuizBlock) accepts it
+ * (the contract both the double and the GLM prompts speak).
+ */
+describe("quiz-me reply (epic-24 T4)", () => {
+  it("ends in a VALID synapse-quiz fence, still grounded + cited (choice form)", async () => {
+    const { splitQuizBlock } = await import("@/ai/quiz");
+    const reply = await svc.chat({ question: "考考我", position, language: "zh" });
+    expect(reply.intent).toBe("quiz-me");
+    expect(reply.citations[0].locator).toEqual({ kind: "pdf", page: 7 }); // still cited
+    const { lead, quiz } = splitQuizBlock(reply.text);
+    expect(lead.length).toBeGreaterThan(0);
+    expect(quiz).not.toBeNull();
+    expect(quiz!.kind).toBe("choice");
+    expect(quiz!.options).toHaveLength(4);
+    expect(quiz!.options![quiz!.answer!]).toBeTruthy();
+    // the cloze is honest: the blanked term came OFF the page, distractors are page words
+    expect(reply.text).toContain("____");
+  });
+
+  it("degrades to the SHORT form when the quote offers no clozable term", async () => {
+    const { splitQuizBlock } = await import("@/ai/quiz");
+    const sparse: ReadingPosition = {
+      locator: { kind: "pdf", page: 1 },
+      text: "是一个。",
+    };
+    const reply = await svc.chat({ question: "考考我", position: sparse, language: "zh" });
+    const { quiz } = splitQuizBlock(reply.text);
+    expect(quiz!.kind).toBe("short");
+    expect(quiz!.answerText!.length).toBeGreaterThan(0);
+  });
+
+  it("is deterministic — same input, same question (the Nov 6 demo repeats)", async () => {
+    const a = await svc.chat({ question: "quiz me", position, language: "en" });
+    const b = await svc.chat({ question: "quiz me", position, language: "en" });
+    expect(a.text).toBe(b.text);
+  });
+
+  it("escalation still flips a quiz turn to the direct answer", async () => {
+    const reply = await svc.chat({ question: "考考我", position, language: "zh", escalated: true });
+    expect(reply.rung).toBe("answer");
+  });
+});

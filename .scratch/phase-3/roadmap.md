@@ -38,6 +38,7 @@ from earlier landings). No numbers are claimed beyond 18–22 for this batch.
 | 20 | `epic-20-touch-batch` | pinch-zoom on the roadmap canvas + drawer gestures (spine row: pointer-drag pan/wheel/buttons already ship); AD-9 keyboard contract untouched | 19 (same canvas files as 22 — keep away from it) | queued |
 | 21 | `epic-21-ai-proposal-quality` | two-stage generation (outline → per-stage enrichment) for bigger graphs; re-estimates the ≤16 cap with the quality data (epic-16 grill decision 3 amended only if evidence supports); GLM daily-cap discipline | 20 (layout 16-node fixtures ride any cap change before the editor builds on them) | queued |
 | 22 | `epic-22-roadmap-editor` | drag-to-reposition + manual connect/disconnect; **reverses epic-16 delta 5** (positions persist; explicit positions override the deterministic layout; fork carries positions; edge edits run the same stage-forward validation); biggest slice — last on purpose | 21 | queued |
+| 24 | [reader-companion-ux](epic-24-reader-companion-ux/epic.md) | owner-reported batch 2026-11-06: GFM tables in the reader (renderer + sectioner parity), annotation hover-remove popover, Claudette reader theme (MIT port) + Settings toggle (default off), companion chips always visible + interactive 考考我 quiz block (fenced synapse-quiz in reply text; wire unchanged) | none — independent of 20–22 | done (2026-11-06; branch `epic/p3-24-reader-companion-ux`; 23 flashcard-motion stays specced-not-implemented, numbering skips it by dir-order) |
 
 ## Sequence notes
 
