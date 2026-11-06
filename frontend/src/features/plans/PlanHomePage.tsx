@@ -300,6 +300,7 @@ export default function PlanHomePage() {
                 planId={plan.id}
                 views={views}
                 materials={materials}
+                edges={plan.edges}
                 mappings={mappingsQuery.data}
                 mappingsFailed={!!mappingsQuery.error}
               />

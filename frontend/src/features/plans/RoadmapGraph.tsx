@@ -1,8 +1,10 @@
 /**
- * The roadmap graph (epic P2-10 T4, FR-5; delta decision 1 — custom SVG over
- * the pure roadmap-layout, ZERO new dependencies, NFR-6; the data model's
- * total `order` + stage labels make deterministic columns the
- * structure-faithful rendering). The UX spine names the graph "a view tab
+ * The roadmap graph (epic P2-10 T4, FR-5; delta decision 1 — custom SVG, ZERO
+ * new dependencies, NFR-6; epic-16 upgrades the structure: persisted
+ * prerequisite edges render through the pure DAG layout — swimlane stage
+ * columns, barycenter ordering, orthogonal elbows — while zero-edge plans
+ * keep the epic-10 derived-sequence layout, selected per-plan by edge
+ * presence). The UX spine names the graph "a view tab
  * inside Plan Home" (EXPERIENCE.md Phase-2 positions); the node detail is a
  * SIDE SHEET (the spine is silent on panel-vs-sheet — recorded in the ticket:
  * a sheet keeps the pannable canvas context visible, matching the scaffold's
@@ -33,12 +35,13 @@ import NodeActions from "./node-actions";
 import { NodeStateBadge } from "./node-state-badge";
 import { NODE_STATE_DISPLAY, NODE_STATE_FACE, nodeJumpTargets } from "./node-state";
 import {
-  roadmapEdgePath,
-  roadmapLayout,
+  planGraphEdgePath,
+  planGraphLayout,
   ROADMAP_NODE_H,
   ROADMAP_NODE_W,
   type RoadmapBox,
-} from "./roadmap-layout";
+} from "./roadmap-dag-layout";
+import type { PlanEdgeView } from "@/api/views";
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
@@ -52,6 +55,7 @@ export default function RoadmapGraph({
   planId,
   views,
   materials,
+  edges,
   mappings,
   mappingsFailed = false,
 }: {
@@ -59,16 +63,27 @@ export default function RoadmapGraph({
   /** The plan's node rows, already shaped by nodeRowViews (score/state server fields, AD-14). */
   views: NodeRowView[];
   materials: MaterialView[];
+  /** The plan's persisted prerequisite edges (epic-16, server rows) — the
+   * DAG layout's input; a zero-edge plan falls back to the epic-10
+   * derived-sequence layout (per-plan selection by edge presence). */
+  edges?: PlanEdgeView[];
   /** The plan-scope batch mapping rows; undefined while the read is in flight. */
   mappings?: MaterialNodeMappingView[];
   mappingsFailed?: boolean;
 }) {
   const { t } = useLanguage();
   const { reduceMotion } = useTheme();
-  const layout = useMemo(
-    () => roadmapLayout(views.map((view) => ({ id: view.node.id, order: view.node.order, stage: view.node.stage }))),
-    [views],
+  // The per-plan layout selection (epic-16): persisted edges → the swimlane
+  // DAG with barycenter ordering; zero edges → the legacy derived sequence.
+  const graph = useMemo(
+    () =>
+      planGraphLayout(
+        views.map((view) => ({ id: view.node.id, order: view.node.order, stage: view.node.stage })),
+        (edges ?? []).map((edge) => ({ from: edge.fromNodeId, to: edge.toNodeId })),
+      ),
+    [views, edges],
   );
+  const layout = graph.layout;
   const byId = useMemo(() => new Map(views.map((view) => [view.node.id, view])), [views]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -243,7 +258,7 @@ export default function RoadmapGraph({
               return (
                 <path
                   key={`${edge.kind}-${edge.from}-${edge.to}`}
-                  d={roadmapEdgePath(from, to)}
+                  d={planGraphEdgePath(graph.kind, from, to)}
                   fill="none"
                   stroke="hsl(var(--border))"
                   strokeWidth={edge.kind === "stage-connector" ? 1.5 : 1.25}

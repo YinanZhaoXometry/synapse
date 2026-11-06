@@ -83,7 +83,7 @@ const mappingRow = (overrides: Partial<MaterialNodeMappingView> = {}): MaterialN
 /** The full provider wrapper as a standalone tree — lets a test `rerender` with changed views. */
 const treeWith = (
   views: NodeRowView[],
-  opts: { mappings?: MaterialNodeMappingView[]; mappingsFailed?: boolean } = {},
+  opts: { mappings?: MaterialNodeMappingView[]; mappingsFailed?: boolean; edges?: { fromNodeId: string; toNodeId: string }[] } = {},
 ) => (
   <MemoryRouter>
     <ThemeProvider>
@@ -92,6 +92,7 @@ const treeWith = (
           planId="plan-1"
           views={views}
           materials={MATERIALS}
+          edges={opts.edges}
           mappings={"mappings" in opts ? opts.mappings : [mappingRow()]}
           mappingsFailed={opts.mappingsFailed ?? false}
         />
@@ -142,6 +143,42 @@ describe("RoadmapGraph render", () => {
   it("opts the canvas out of text selection (drag-to-pan must not select node titles)", () => {
     mountGraph();
     expect(screen.getByTestId("roadmap-canvas")).toHaveClass("select-none");
+  });
+});
+
+describe("RoadmapGraph layout selection (epic-16: persisted edges → DAG, zero edges → legacy)", () => {
+  const small = nodeRowViews(
+    [
+      NODES[0], NODES[1], // Foundations rows 0/1
+      NODES[12], NODES[13], // Practice rows 0/1
+    ],
+    [],
+  );
+  const edgePaths = () =>
+    Array.from(document.querySelectorAll("[data-testid='roadmap-svg'] path")).map((p) => p.getAttribute("d") ?? "");
+
+  it("a zero-edge plan renders the LEGACY bezier routes (present-day behavior kept)", () => {
+    render(treeWith(small));
+    const paths = edgePaths();
+    expect(paths.length).toBeGreaterThan(0);
+    expect(paths.some((d) => d.includes("C"))).toBe(true);
+  });
+
+  it("an edge-carrying plan renders the DAG elbow polylines (no beziers)", () => {
+    render(
+      treeWith(small, {
+        edges: [
+          { fromNodeId: "node-00", toNodeId: "node-12" },
+          { fromNodeId: "node-01", toNodeId: "node-13" },
+        ],
+      }),
+    );
+    const paths = edgePaths();
+    expect(paths).toHaveLength(2);
+    for (const d of paths) {
+      expect(d).toContain("L");
+      expect(d).not.toContain("C");
+    }
   });
 });
 
