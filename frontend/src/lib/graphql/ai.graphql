@@ -8,6 +8,11 @@
 # generateFlashcards is per-material (one card per usable section);
 # gradeOpenAnswer grades by questionId — the server owns the keywords and the
 # cited source section, so grading inputs never ride the wire.
+# generateTodaySuggestion (epic-18 T4, spec decisions 8+9): the Today hub's
+# on-demand generation-backed suggestion — ONE cap-counted provider call,
+# replay-before-spend on the client-derived deterministic key (uuid5 over the
+# user-scoped namespace + planId + UTC day; src/lib/uuid5.ts mirrors the
+# server derivation), CAP_REACHED honest, the v1 heuristic slot untouched.
 mutation GenerateQuiz($input: GenerateQuizInput!) {
   generateQuiz(input: $input) {
     questions {
@@ -38,6 +43,18 @@ mutation GradeOpenAnswer($input: GradeOpenAnswerInput!) {
         }
         quote
       }
+    }
+  }
+}
+
+mutation GenerateTodaySuggestion($input: GenerateTodaySuggestionInput!) {
+  generateTodaySuggestion(input: $input) {
+    todaySuggestion {
+      planId
+      nodeId
+      nodeTitle
+      reason
+      day
     }
   }
 }

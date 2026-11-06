@@ -475,6 +475,18 @@ export const translations = {
       'mistakes.emptyCta': '去逛逛学习计划',
       'mistakes.loadFailed': '错题加载失败。',
       'mistakes.retry': '重试',
+      // 复盘生命周期（epic-18 T4，spec 决策 4）：用户手记的单布尔状态，双向切换；
+      // 已复盘的卡片视觉弱化但仍可读。
+      'mistakes.resolvedChip': '已复盘',
+      'mistakes.resolveDone': '标记已复盘',
+      'mistakes.resolveDoneAria': '标记这条错题已复盘',
+      'mistakes.resolveReopen': '重新打开',
+      'mistakes.resolveReopenAria': '重新打开这条错题',
+      'mistakes.stateFilterLabel': '按状态筛选',
+      'mistakes.stateAll': '全部状态',
+      'mistakes.stateOpen': '待复盘',
+      'mistakes.stateResolved': '已复盘',
+      'mistakes.stateEmpty': '这个状态下暂无错题。',
 
       // 今日学习 (FR-27, epic P2-09 T3) — the label rule: zh 今日学习;
       // 学习计划 stays reserved for Study Plans (nav.plans).
@@ -498,6 +510,12 @@ export const translations = {
       'planner.suggestionFlag': '按掌握度推荐 · v1',
       'planner.suggestionCta': '节点快测',
       'planner.suggestionCtaAria': '对节点「{node}」做一次快测',
+      // AI 建议（epic-18 T4，spec 决策 7–10）：显式生成，绝不随页面加载触发；
+      // 次日重生成会再次消耗额度，同日点击走服务端免费重放。
+      'planner.aiSuggestCta': '生成 AI 建议',
+      'planner.aiSuggestCtaAria': '为「{plan}」生成 AI 建议',
+      'planner.aiChip': 'AI 建议',
+      'planner.aiCapNote': '今日 AI 次数已用完',
       'planner.manualSection': '我的任务',
       'planner.manualEmpty': '还没有手动任务，用下方表单添加一件。',
       'planner.manualDueOn': '{date} 到期',
@@ -1409,6 +1427,18 @@ export const translations = {
       'mistakes.emptyCta': 'Browse study plans',
       'mistakes.loadFailed': 'Mistakes failed to load.',
       'mistakes.retry': 'Retry',
+      // The review lifecycle (epic-18 T4, spec decision 4): one user-marked
+      // boolean, toggled both ways; resolved cards go quiet but stay readable.
+      'mistakes.resolvedChip': 'Reviewed',
+      'mistakes.resolveDone': 'Mark reviewed',
+      'mistakes.resolveDoneAria': 'Mark this mistake reviewed',
+      'mistakes.resolveReopen': 'Reopen',
+      'mistakes.resolveReopenAria': 'Reopen this mistake',
+      'mistakes.stateFilterLabel': 'Filter by state',
+      'mistakes.stateAll': 'All states',
+      'mistakes.stateOpen': 'Open',
+      'mistakes.stateResolved': 'Reviewed',
+      'mistakes.stateEmpty': 'No mistakes in this state.',
 
       // 今日学习 (FR-27, epic P2-09 T3) — the label rule: en "Today"; the zh
       // label is literally 今日学习. 学习计划 stays reserved for Study Plans.
@@ -1432,6 +1462,13 @@ export const translations = {
       'planner.suggestionFlag': 'Mastery-led · v1',
       'planner.suggestionCta': 'Node quick test',
       'planner.suggestionCtaAria': 'Quick-test the node {node}',
+      // The AI suggestion (epic-18 T4, spec decisions 7–10): explicit
+      // generate only — never fired on hub load; a same-day re-click rides
+      // the server's free replay, a new day spends again.
+      'planner.aiSuggestCta': 'Generate AI suggestion',
+      'planner.aiSuggestCtaAria': 'Generate an AI suggestion for {plan}',
+      'planner.aiChip': 'AI suggestion',
+      'planner.aiCapNote': 'AI daily cap used up',
       'planner.manualSection': 'My tasks',
       'planner.manualEmpty': 'No manual tasks yet — add one below.',
       'planner.manualDueOn': 'due {date}',

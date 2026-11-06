@@ -15,7 +15,7 @@
  * the label-lookup list reads (materials/plans/tasks + the per-plan node
  * reads) with wire-shaped factory fixtures.
  */
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -107,6 +107,7 @@ const entry = (over: Record<string, unknown>): EchoFixture => ({
   userAnswer: "",
   sourceLocation: { __typename: "ReadingLocator", kind: "markdown", page: null, sectionId: "sec-1" },
   forfeited: false,
+  resolved: false,
   createdAt: NOW,
   question: { __typename: "Question", prompt: "题干", kind: "open", options: null },
   ...over,
@@ -314,6 +315,157 @@ describe("MistakesPage — the hub re-point (FR-23, epic P2-09 T2)", () => {
     // the stub link resolves on the next tick — the first paint waits
     expect(container.innerHTML).toBe("");
     expect(screen.queryByText(zh("mistakes.emptyTitle"))).toBeNull();
+    expect(screen.queryByText("集成测试的主要目的是什么？")).toBeNull();
+  });
+});
+
+// ── the resolve lifecycle (epic-18 T4, spec decision 4) ────────────────────
+
+/** The lifecycle fixtures' LIVE copy: the SetMistakeEntryResolved handler
+ * mutates these rows so the refetch read-back (MistakesHub re-served from
+ * the same array) is observable in the DOM — the wire round-trip proven the
+ * planner manual-task way. Fresh per test (the handler mutates the row
+ * objects, never the shared factory output). */
+function liveRows(): EchoFixture[] {
+  return hubEntries.map((row) => ({ ...row }));
+}
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The lifecycle handlers: MistakesHub serves the live rows verbatim; the
+ * resolve mutation records its call (variables + a call counter) and flips
+ * the row server-style. */
+function lifecycleHandlers(rows: EchoFixture[], calls: EchoFixture[]) {
+  return {
+    ...hubHandlers(rows),
+    SetMistakeEntryResolved: (variables: Record<string, unknown>) => {
+      calls.push(variables);
+      const input = variables.input as { id: string; resolved: boolean; clientUuid: string };
+      const row = rows.find((r) => r.id === input.id);
+      if (!row) throw new Error("not found: mistake entry");
+      row.resolved = input.resolved;
+      return { __typename: "SetMistakeEntryResolvedPayload", mistakeEntry: { __typename: "MistakeEntry", id: input.id, resolved: input.resolved } };
+    },
+  };
+}
+
+function cardFor(prompt: string): HTMLElement {
+  const card = screen.getByText(prompt).closest("article");
+  expect(card).toBeTruthy();
+  return card as HTMLElement;
+}
+
+describe("MistakesPage — the resolve lifecycle (epic-18 T4, spec decision 4)", () => {
+  it("toggles an entry resolved through the mutation; the hub read-back re-renders the quiet resolved state", async () => {
+    const rows = liveRows();
+    const calls: EchoFixture[] = [];
+    renderMistakesPage(lifecycleHandlers(rows, calls));
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+
+    // no resolved chip before the toggle (scoped to the card — the state
+    // picker's 「已复盘」 option shares the chip's text)
+    const card0 = cardFor("集成测试的主要目的是什么？");
+    expect(within(card0).queryByText(zh("mistakes.resolvedChip"))).toBeNull();
+
+    fireEvent.click(within(card0).getByRole("button", { name: zh("mistakes.resolveDoneAria") }));
+
+    // the chip + quiet state arrive ONLY through the refetch (no optimistic
+    // write) — the wait is scoped to the CARD (the state picker's option
+    // shares the chip's text from first paint)
+    const card = await waitFor(() => {
+      const c = cardFor("集成测试的主要目的是什么？");
+      expect(within(c).getByText(zh("mistakes.resolvedChip"))).toBeTruthy();
+      return c;
+    });
+    expect(screen.getByText("集成测试的主要目的是什么？")).toBeTruthy(); // readable, not removed
+    expect(card.className).toContain("opacity-60"); // visually quiet
+    expect(within(card).getByRole("button", { name: zh("mistakes.resolveReopenAria") }).getAttribute("aria-pressed")).toBe("true");
+
+    // the mutation rode the wire with the entry's id + the TOGGLED state + a uuid-shaped client key
+    expect(calls).toHaveLength(1);
+    const input = calls[0].input as Record<string, unknown>;
+    expect(input.id).toBe("me-1");
+    expect(input.resolved).toBe(true);
+    expect(UUID_SHAPE.test(String(input.clientUuid))).toBe(true);
+  });
+
+  it("reuses ONE stable client uuid per entry across toggles and retries (replay-safe)", async () => {
+    const rows = liveRows();
+    const calls: EchoFixture[] = [];
+    renderMistakesPage(lifecycleHandlers(rows, calls));
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+    const button = () => within(cardFor("集成测试的主要目的是什么？")).getByRole("button", { name: zh("mistakes.resolveDoneAria") });
+
+    fireEvent.click(button());
+    await waitFor(() => expect(within(cardFor("集成测试的主要目的是什么？")).getByText(zh("mistakes.resolvedChip"))).toBeTruthy());
+    fireEvent.click(within(cardFor("集成测试的主要目的是什么？")).getByRole("button", { name: zh("mistakes.resolveReopenAria") }));
+    // back to open: the chip leaves through the refetch
+    await waitFor(() => expect(within(cardFor("集成测试的主要目的是什么？")).queryByText(zh("mistakes.resolvedChip"))).toBeNull());
+    fireEvent.click(button());
+    await waitFor(() => expect(within(cardFor("集成测试的主要目的是什么？")).getByText(zh("mistakes.resolvedChip"))).toBeTruthy());
+
+    // three toggles, ONE client uuid (minted once per entry, reused — the
+    // server's replay answer is the state comparison, the key stays stable)
+    expect(calls).toHaveLength(3);
+    const uuids = calls.map((call) => (call.input as Record<string, unknown>).clientUuid);
+    expect(new Set(uuids).size).toBe(1);
+    // toggled BOTH ways: true → false → true
+    expect(calls.map((call) => (call.input as Record<string, unknown>).resolved)).toEqual([true, false, true]);
+  });
+
+  it("resolves a forfeited entry identically (a forfeit is still a mistake worth reviewing)", async () => {
+    const rows = liveRows();
+    const calls: EchoFixture[] = [];
+    renderMistakesPage(lifecycleHandlers(rows, calls));
+
+    expect(await screen.findByText("TCP 慢启动从一个多大的窗口开始？")).toBeTruthy();
+
+    fireEvent.click(within(cardFor("TCP 慢启动从一个多大的窗口开始？")).getByRole("button", { name: zh("mistakes.resolveDoneAria") }));
+
+    await waitFor(() => expect(within(cardFor("TCP 慢启动从一个多大的窗口开始？")).getByText(zh("mistakes.resolvedChip"))).toBeTruthy());
+    const input = calls[0].input as Record<string, unknown>;
+    expect(input.id).toBe("me-3");
+    expect(input.resolved).toBe(true);
+  });
+
+  it("filters by state through the second dropdown: open / resolved / all", async () => {
+    const rows = liveRows();
+    const calls: EchoFixture[] = [];
+    renderMistakesPage(lifecycleHandlers(rows, calls));
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+    fireEvent.click(within(cardFor("集成测试的主要目的是什么？")).getByRole("button", { name: zh("mistakes.resolveDoneAria") }));
+    await waitFor(() => expect(within(cardFor("集成测试的主要目的是什么？")).getByText(zh("mistakes.resolvedChip"))).toBeTruthy());
+
+    const picker = screen.getByRole("combobox", { name: zh("mistakes.stateFilterLabel") }) as HTMLSelectElement;
+
+    // resolved → only the toggled entry
+    fireEvent.change(picker, { target: { value: "resolved" } });
+    expect(screen.getByText("集成测试的主要目的是什么？")).toBeTruthy();
+    expect(screen.queryByText("需求可追溯性最直接的用途是什么？")).toBeNull();
+    expect(screen.queryByText("TCP 慢启动从一个多大的窗口开始？")).toBeNull();
+
+    // open → the other two
+    fireEvent.change(picker, { target: { value: "open" } });
+    expect(screen.queryByText("集成测试的主要目的是什么？")).toBeNull();
+    expect(screen.getByText("需求可追溯性最直接的用途是什么？")).toBeTruthy();
+    expect(screen.getByText("TCP 慢启动从一个多大的窗口开始？")).toBeTruthy();
+
+    // all → every entry back
+    fireEvent.change(picker, { target: { value: "" } });
+    expect(screen.getByText("集成测试的主要目的是什么？")).toBeTruthy();
+    expect(screen.getByText("TCP 慢启动从一个多大的窗口开始？")).toBeTruthy();
+  });
+
+  it("a state filter that empties the list shows the honest quiet note (not a blank page)", async () => {
+    renderMistakesPage(lifecycleHandlers(liveRows(), []));
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: zh("mistakes.stateFilterLabel") }), { target: { value: "resolved" } });
+
+    expect(screen.getByText(zh("mistakes.stateEmpty"))).toBeTruthy();
     expect(screen.queryByText("集成测试的主要目的是什么？")).toBeNull();
   });
 });

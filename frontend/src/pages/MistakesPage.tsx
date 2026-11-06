@@ -11,18 +11,29 @@
  * (MISTAKES fixture + weak-topics card) retired with this re-point — the
  * empty state is honest, the page consumes only the hub hook plus the
  * label-lookup list reads.
+ *
+ * The resolve lifecycle (epic-18 T4, spec decision 4): each card toggles the
+ * user-marked `resolved` boolean BOTH ways through setMistakeEntryResolved —
+ * read-back-is-truth (the scope-mutation posture: the mutation + the
+ * mistakesHub refetch re-render server truth, no optimistic write). The
+ * client uuid is minted ONCE per entry and reused across toggles/retries
+ * (replay-safe — the server's replay answer is the state comparison).
+ * Resolved cards go visually quiet (opacity) but stay readable; a second
+ * dropdown filters open/resolved. Forfeited entries toggle identically.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChevronDown, RotateCcw } from "lucide-react";
+import { BookOpen, Check, ChevronDown, RotateCcw, Undo2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
+  newClientUuid,
   resolveMistakeAnswer,
   useAllMaterialsQuery,
   useMistakesHubQuery,
   usePlanNodesQuery,
   usePlansQuery,
+  useSetMistakeEntryResolvedMutation,
   useTasksQuery,
   type HubMistakeEntryView,
 } from "@/api";
@@ -95,17 +106,20 @@ function MistakeGroupSection({
 }
 
 /** One wrong answer card: prompt, the user's answer, node chip, log date, the
- * source deep link, and the re-quiz launch. */
+ * source deep link, the re-quiz launch, and the resolve toggle. A resolved
+ * card goes visually quiet (opacity) but stays readable. */
 function MistakeCard({
   entry,
   materialTitle,
   sectionTitle,
   nodeTitle,
+  onToggleResolved,
 }: {
   entry: HubMistakeEntryView;
   materialTitle: (materialId: string) => string;
   sectionTitle: (materialId: string, sectionId: string) => string;
   nodeTitle: (nodeId: string) => string;
+  onToggleResolved: (entry: HubMistakeEntryView) => void;
 }) {
   const { t, language } = useLanguage();
   const answer = resolveMistakeAnswer(entry);
@@ -133,9 +147,12 @@ function MistakeCard({
       : null;
 
   return (
-    <article className="bg-card border border-border-soft rounded-2xl p-5 shadow-raised">
+    <article className={cn("bg-card border border-border-soft rounded-2xl p-5 shadow-raised", entry.resolved && "opacity-60")}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="pill">{nodeTitle(entry.nodeId)}</span>
+        <span className="flex items-center gap-1.5 flex-wrap">
+          <span className="pill">{nodeTitle(entry.nodeId)}</span>
+          {entry.resolved && <span className="pill pill-muted">{t("mistakes.resolvedChip")}</span>}
+        </span>
         <span className="text-[10px] text-caption">{dateLabel}</span>
       </div>
       <h3 className="font-body text-[15px] font-semibold leading-snug mt-2 line-clamp-2">{entry.question.prompt}</h3>
@@ -150,16 +167,30 @@ function MistakeCard({
           <BookOpen className="w-3 h-3" aria-hidden="true" />
           {materialTitle(entry.materialId)} · {locatorLabel}
         </Link>
-        {requizHref && (
-          <Link
-            to={requizHref}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={t("mistakes.requizAria", { node: nodeTitle(entry.nodeId) })}
+        <span className="flex items-center gap-2 flex-wrap">
+          {/* The lifecycle toggle (both ways; the read-back sweep re-renders
+              server truth — aria-pressed carries the state). */}
+          <button
+            type="button"
+            onClick={() => onToggleResolved(entry)}
+            aria-pressed={entry.resolved}
+            aria-label={entry.resolved ? t("mistakes.resolveReopenAria") : t("mistakes.resolveDoneAria")}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-            {t("mistakes.requiz")}
-          </Link>
-        )}
+            {entry.resolved ? <Undo2 className="w-3.5 h-3.5" aria-hidden="true" /> : <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+            {entry.resolved ? t("mistakes.resolveReopen") : t("mistakes.resolveDone")}
+          </button>
+          {requizHref && (
+            <Link
+              to={requizHref}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t("mistakes.requizAria", { node: nodeTitle(entry.nodeId) })}
+            >
+              <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+              {t("mistakes.requiz")}
+            </Link>
+          )}
+        </span>
       </div>
     </article>
   );
@@ -173,12 +204,14 @@ function PlanMistakesSection({
   entries,
   materialTitle,
   sectionTitle,
+  onToggleResolved,
 }: {
   planId: string;
   title: string;
   entries: HubMistakeEntryView[];
   materialTitle: (materialId: string) => string;
   sectionTitle: (materialId: string, sectionId: string) => string;
+  onToggleResolved: (entry: HubMistakeEntryView) => void;
 }) {
   const nodesQuery = usePlanNodesQuery(planId);
   const nodes = nodesQuery.data ?? [];
@@ -186,7 +219,7 @@ function PlanMistakesSection({
   return (
     <MistakeGroupSection title={title} kindChipKey="mistakes.kindPlan" count={entries.length}>
       {entries.map((entry) => (
-        <MistakeCard key={entry.id} entry={entry} materialTitle={materialTitle} sectionTitle={sectionTitle} nodeTitle={nodeTitle} />
+        <MistakeCard key={entry.id} entry={entry} materialTitle={materialTitle} sectionTitle={sectionTitle} nodeTitle={nodeTitle} onToggleResolved={onToggleResolved} />
       ))}
     </MistakeGroupSection>
   );
@@ -198,18 +231,20 @@ function TaskMistakesSection({
   entries,
   materialTitle,
   sectionTitle,
+  onToggleResolved,
 }: {
   taskId: string;
   title: string;
   entries: HubMistakeEntryView[];
   materialTitle: (materialId: string) => string;
   sectionTitle: (materialId: string, sectionId: string) => string;
+  onToggleResolved: (entry: HubMistakeEntryView) => void;
 }) {
   const nodeTitle = (nodeId: string) => title || nodeId;
   return (
     <MistakeGroupSection title={title} kindChipKey="mistakes.kindTask" count={entries.length}>
       {entries.map((entry) => (
-        <MistakeCard key={entry.id} entry={entry} materialTitle={materialTitle} sectionTitle={sectionTitle} nodeTitle={nodeTitle} />
+        <MistakeCard key={entry.id} entry={entry} materialTitle={materialTitle} sectionTitle={sectionTitle} nodeTitle={nodeTitle} onToggleResolved={onToggleResolved} />
       ))}
     </MistakeGroupSection>
   );
@@ -221,7 +256,14 @@ export default function MistakesPage() {
   const materialsQuery = useAllMaterialsQuery();
   const plansQuery = usePlansQuery();
   const tasksQuery = useTasksQuery();
+  const resolveToggle = useSetMistakeEntryResolvedMutation();
   const [filter, setFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState<"" | "open" | "resolved">("");
+  // ONE stable client uuid per entry, minted on first toggle and reused
+  // across toggles + retries (replay-safe: the server's replay answer is the
+  // entry's state comparison). The map lives at page level so it survives
+  // the sections' re-renders.
+  const resolveUuids = useRef(new Map<string, string>());
 
   const materials = materialsQuery.data ?? [];
   const plans = plansQuery.data ?? [];
@@ -235,14 +277,28 @@ export default function MistakesPage() {
   const planTopic = (planId: string) => plans.find((p) => p.id === planId)?.topic ?? planId;
   const taskTitle = (taskId: string) => tasks.find((task) => task.id === taskId)?.node.title ?? taskId;
 
-  const groups = useMemo(() => groupMistakes(hubQuery.data ?? []), [hubQuery.data]);
+  const toggleResolved = (entry: HubMistakeEntryView) => {
+    let clientUuid = resolveUuids.current.get(entry.id);
+    if (!clientUuid) {
+      clientUuid = newClientUuid();
+      resolveUuids.current.set(entry.id, clientUuid);
+    }
+    resolveToggle.mutate({ variables: { input: { clientUuid, id: entry.id, resolved: !entry.resolved } } });
+  };
+
+  // Filtering is rendering over the flat list: the state filter runs first,
+  // then grouping, then the plan/task picker (the read model stays flat).
+  const entries = hubQuery.data ?? [];
+  const stateFiltered = useMemo(
+    () => (stateFilter ? entries.filter((entry) => entry.resolved === (stateFilter === "resolved")) : entries),
+    [entries, stateFilter],
+  );
+  const groups = useMemo(() => groupMistakes(stateFiltered), [stateFiltered]);
   const visibleGroups = filter ? groups.filter((g) => `${g.kind}:${g.id}` === filter) : groups;
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
   if (hubQuery.loading || materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return null;
-
-  const entries = hubQuery.data ?? [];
 
   return (
     <div className="max-w-[984px] mx-auto px-6 py-8">
@@ -277,46 +333,67 @@ export default function MistakesPage() {
         </div>
       ) : (
         <>
-          {/* The plan/task filter (the read model is flat — filtering is rendering) */}
-          <label className="flex items-center gap-2 mt-5 text-xs text-muted-foreground">
-            {t("mistakes.filterLabel")}
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">{t("mistakes.filterAll")}</option>
-              {groups.map((group) => (
-                <option key={`${group.kind}:${group.id}`} value={`${group.kind}:${group.id}`}>
-                  {group.kind === "plan" ? planTopic(group.id) : taskTitle(group.id)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="flex flex-col">
-            {visibleGroups.map((group) =>
-              group.kind === "plan" ? (
-                <PlanMistakesSection
-                  key={group.id}
-                  planId={group.id}
-                  title={planTopic(group.id)}
-                  entries={group.entries}
-                  materialTitle={materialTitle}
-                  sectionTitle={sectionTitle}
-                />
-              ) : (
-                <TaskMistakesSection
-                  key={group.id}
-                  taskId={group.id}
-                  title={taskTitle(group.id)}
-                  entries={group.entries}
-                  materialTitle={materialTitle}
-                  sectionTitle={sectionTitle}
-                />
-              ),
-            )}
+          {/* The filter row (the read model is flat — filtering is rendering):
+              plan/task picker + the open/resolved state picker. */}
+          <div className="flex items-center gap-4 flex-wrap mt-5 text-xs text-muted-foreground">
+            <label className="flex items-center gap-2">
+              {t("mistakes.filterLabel")}
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">{t("mistakes.filterAll")}</option>
+                {groups.map((group) => (
+                  <option key={`${group.kind}:${group.id}`} value={`${group.kind}:${group.id}`}>
+                    {group.kind === "plan" ? planTopic(group.id) : taskTitle(group.id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              {t("mistakes.stateFilterLabel")}
+              <select
+                value={stateFilter}
+                onChange={(e) => setStateFilter(e.target.value as "" | "open" | "resolved")}
+                className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">{t("mistakes.stateAll")}</option>
+                <option value="open">{t("mistakes.stateOpen")}</option>
+                <option value="resolved">{t("mistakes.stateResolved")}</option>
+              </select>
+            </label>
           </div>
+
+          {visibleGroups.length === 0 ? (
+            <p className="text-sm text-muted-foreground mt-6">{t("mistakes.stateEmpty")}</p>
+          ) : (
+            <div className="flex flex-col">
+              {visibleGroups.map((group) =>
+                group.kind === "plan" ? (
+                  <PlanMistakesSection
+                    key={group.id}
+                    planId={group.id}
+                    title={planTopic(group.id)}
+                    entries={group.entries}
+                    materialTitle={materialTitle}
+                    sectionTitle={sectionTitle}
+                    onToggleResolved={toggleResolved}
+                  />
+                ) : (
+                  <TaskMistakesSection
+                    key={group.id}
+                    taskId={group.id}
+                    title={taskTitle(group.id)}
+                    entries={group.entries}
+                    materialTitle={materialTitle}
+                    sectionTitle={sectionTitle}
+                    onToggleResolved={toggleResolved}
+                  />
+                ),
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

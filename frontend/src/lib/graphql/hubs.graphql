@@ -16,6 +16,11 @@
 # read (sessions, never minutes — SM-C3) the dashboard ring consumes, its
 # plain setter (last write wins, 1..21), and the badge states' raw slice for
 # the dashboard's recent-unlocked summary (the full page is T6's).
+# setMistakeEntryResolved (epic-18 T4, spec decision 4): the mistake
+# lifecycle's single-boolean setter — user-marked, toggles BOTH ways; the
+# server's replay answer is the state comparison (a same-state toggle returns
+# unchanged), so the client uuid rides per AD-12 as the shape-checked
+# idempotency key.
 
 query AnalyticsSeries {
   analyticsSeries {
@@ -121,11 +126,21 @@ query MistakesHub {
       sectionId
     }
     forfeited
+    resolved
     createdAt
     question {
       prompt
       kind
       options
+    }
+  }
+}
+
+mutation SetMistakeEntryResolved($input: SetMistakeEntryResolvedInput!) {
+  setMistakeEntryResolved(input: $input) {
+    mistakeEntry {
+      id
+      resolved
     }
   }
 }
