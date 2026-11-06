@@ -160,6 +160,36 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       expect(cards.sole["materialId"]).to eq(material.id)
       expect(cards.sole["nodeId"]).to be_nil
     end
+
+    it "rides the cap through the seam — CAP_REACHED on the wire (epic P3-17 ticket 06)" do
+      user, token = user_with_token("ai-flashcards-cap@example.com")
+      material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+      create(:ai_usage_counter, user: user, call_count: 50) # DailyCap.limit, today (UTC)
+      allow(adapter).to receive(:complete)
+
+      result = graphql(
+        "mutation { generateFlashcards(input: { materialId: \"#{material.id}\", language: \"zh\" }) " \
+          "{ cards { id } } }",
+        token: token
+      )
+      expect(error_code(result)).to eq("CAP_REACHED")
+      expect(adapter).not_to have_received(:complete)
+    end
+
+    it "answers NOT_FOUND for a foreign material without spending the call" do
+      _owner, token = user_with_token("ai-flashcards-foreign@example.com")
+      foreign = create(:material, user: create(:user),
+                                  sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+      allow(adapter).to receive(:complete)
+
+      result = graphql(
+        "mutation { generateFlashcards(input: { materialId: \"#{foreign.id}\", language: \"zh\" }) " \
+          "{ cards { id } } }",
+        token: token
+      )
+      expect(error_code(result)).to eq("NOT_FOUND")
+      expect(adapter).not_to have_received(:complete)
+    end
   end
 
   describe "gradeOpenAnswer" do
@@ -188,6 +218,39 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       expect(graded["outcome"]).to eq("partial")
       expect(graded["citation"]["locator"]["kind"]).to eq("markdown")
       expect(graded["citation"]["locator"]["sectionId"]).to eq("sec-1")
+    end
+
+    it "refuses an over-bound answer with VALIDATION_FAILED before the seam (epic P3-17 ticket 06)" do
+      user, token = user_with_token("ai-grader-bound@example.com")
+      material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "support" } ])
+      question = create(:question, user: user, source_material: material, source_section_id: "sec-1")
+      allow(adapter).to receive(:complete)
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { questionId: question.id, answer: "a" * 20_001, language: "zh" } }, token: token
+          mutation GradeOpenAnswerBound($input: GradeOpenAnswerInput!) {
+            gradeOpenAnswer(input: $input) { gradedAnswer { outcome } }
+          }
+        GRAPHQL
+      )
+      expect(error_code(result)).to eq("VALIDATION_FAILED")
+      expect(adapter).not_to have_received(:complete)
+    end
+
+    it "rides the cap through the seam — CAP_REACHED on the wire" do
+      user, token = user_with_token("ai-grader-cap@example.com")
+      material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "support" } ])
+      question = create(:question, user: user, source_material: material, source_section_id: "sec-1")
+      create(:ai_usage_counter, user: user, call_count: 50) # DailyCap.limit, today (UTC)
+      allow(adapter).to receive(:complete)
+
+      result = graphql(
+        "mutation { gradeOpenAnswer(input: { questionId: \"#{question.id}\", answer: \"a\", language: \"zh\" }) " \
+          "{ gradedAnswer { outcome } } }",
+        token: token
+      )
+      expect(error_code(result)).to eq("CAP_REACHED")
+      expect(adapter).not_to have_received(:complete)
     end
   end
 
@@ -271,6 +334,25 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
         token: token
       )
       expect(error_code(foreign)).to eq("NOT_FOUND")
+    end
+
+    it "answers RATE_LIMITED once MAX_LIVE_TICKETS unconsumed tickets are live (epic P3-17 ticket 06)" do
+      user, token = user_with_token("ai-ticket-flood@example.com")
+      material = create(:material, user: user, sections: [ { "id" => "sec-1", "title" => "S", "text" => "body" } ])
+      create_list(:stream_ticket, Ai::CreateStreamTicketCommand::MAX_LIVE_TICKETS, user: user)
+
+      variables = { input: { op: "companion", language: "zh", materialId: material.id,
+                             question: "还在吗？",
+                             position: { locator: { kind: "markdown", sectionId: "sec-1" }, text: "view" } } }
+      result = graphql(
+        <<~GRAPHQL, variables: variables, token: token
+          mutation CreateStreamTicketFlood($input: CreateStreamTicketInput!) {
+            createStreamTicket(input: $input) { token }
+          }
+        GRAPHQL
+      )
+      expect(error_code(result)).to eq("RATE_LIMITED")
+      expect(user.stream_tickets.count).to eq(Ai::CreateStreamTicketCommand::MAX_LIVE_TICKETS) # nothing minted
     end
   end
 
