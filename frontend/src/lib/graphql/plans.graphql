@@ -23,6 +23,12 @@ query Plan($id: String!) {
     masteryScore
     visibility
     forkedFromTopic
+    # epic-16: the plan's persisted prerequisite edges — the DAG layout's
+    # input; a zero-edge plan renders via the derived-sequence fallback.
+    edges {
+      fromNodeId
+      toNodeId
+    }
     nodes {
       ...KnowledgeNodeParts
     }
