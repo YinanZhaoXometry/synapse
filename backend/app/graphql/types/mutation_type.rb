@@ -118,5 +118,13 @@ module Types
     field :add_manual_task, mutation: Mutations::Hubs::AddManualTask
     field :set_manual_task_done, mutation: Mutations::Hubs::SetManualTaskDone
     field :delete_manual_task, mutation: Mutations::Hubs::DeleteManualTask
+
+    # The mistake-lifecycle toggle (epic-18 T1, spec decision 4): the owner's
+    # review toggle on a logged mistake — verb-first next to its sibling
+    # setters. The flag is lifecycle + display only (readable on both mistake
+    # types); it never moves a Mastery Score (AD-6/ADR-0001) and the targeting
+    # bonus keeps riding any entry (the ruling annotated at
+    # Ai::TargetingCandidates).
+    field :set_mistake_entry_resolved, mutation: Mutations::Mistakes::SetMistakeEntryResolved
   end
 end
