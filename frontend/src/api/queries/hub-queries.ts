@@ -38,6 +38,7 @@ import {
   TodayHubDocument,
   WeeklyGoalDocument,
 } from "@/types/graphql";
+import { apiErrorCode } from "../errors";
 import { readingLocator } from "../mappers";
 import type { ReadingLocator } from "@/domain/entities";
 
@@ -132,15 +133,23 @@ export function resolveMistakeAnswer(entry: HubMistakeEntryView): string {
 // The setter toggles BOTH ways (user-marked, no auto-resolve). Read-back-is-
 // truth (the scope-mutation posture): the payload echoes the toggled entry,
 // but the page renders the hub read — the sweep re-reads mistakesHub so the
-// card re-renders on server truth. Failures toast honestly at the hook (the
-// closed enum's NOT_FOUND/VALIDATION_FAILED all read as "didn't persist").
+// card re-renders on server truth. Failures toast per code at the hook (the
+// Planner generate path's mapping posture, epic-18 T6 review): NOT_FOUND is
+// its own honest key (the entry is gone), every other code — and null-code
+// transport/parse failures — stay on the generic persist-failed key.
+
+// The per-code toast map (AD-9's one place, apiErrorKeys' mapping pattern):
+// only NOT_FOUND reads differently for a resolve toggle; the rest of the
+// closed enum collapses onto the persist-failed key.
+const RESOLVE_ERROR_KEYS: Record<string, string> = { NOT_FOUND: "mistakes.resolveNotFound" };
 
 export function useSetMistakeEntryResolvedMutation() {
   const { t } = useLanguage();
   const [mutate, result] = useMutation(SetMistakeEntryResolvedDocument, {
     refetchQueries: [MistakesHubDocument],
-    onError: () => {
-      toast.error(t("errors.persistFailed"));
+    onError: (error) => {
+      const code = apiErrorCode(error);
+      toast.error(t((code && RESOLVE_ERROR_KEYS[code]) || "errors.persistFailed"));
     },
   });
   return { mutate, result };

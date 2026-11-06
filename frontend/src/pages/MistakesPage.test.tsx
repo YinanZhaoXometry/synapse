@@ -16,8 +16,16 @@
  * reads) with wire-shaped factory fixtures.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { CombinedGraphQLErrors } from "@apollo/client/errors";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
+
+// Toasts are asserted directly (the real sonner Toaster is not mounted here);
+// the resolve-toggle failure path pins the per-code toast at the hook.
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+}));
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { createStubClient, makeStubWrapper } from "@/test/apollo-harness";
@@ -506,5 +514,48 @@ describe("MistakesPage — the resolve lifecycle (epic-18 T4, spec decision 4)",
     await waitFor(() => expect(screen.getByText(zh("mistakes.emptyTitle"))).toBeTruthy());
     expect(screen.getByText(zh("mistakes.emptyBody"))).toBeTruthy();
     expect(screen.queryByText(zh("mistakes.stateEmpty"))).toBeNull();
+  });
+
+  // ── the toggle failure's per-code toast (epic-18 T6 review) ──────────────
+
+  /** Handlers whose resolve mutation fails with the given closed-enum code
+   * (the Apollo 4 wire shape thrown through the harness link — the
+   * import-offer validation-failure precedent). */
+  function failingResolveHandlers(code: string) {
+    const rows = liveRows();
+    return {
+      ...hubHandlers(rows),
+      SetMistakeEntryResolved: () => {
+        throw new CombinedGraphQLErrors({
+          errors: [{ message: `resolve failed: ${code}`, extensions: { code } }],
+        });
+      },
+    };
+  }
+
+  function toggleFirstCard() {
+    fireEvent.click(within(cardFor("集成测试的主要目的是什么？")).getByRole("button", { name: zh("mistakes.resolveDoneAria") }));
+  }
+
+  it("a NOT_FOUND toggle failure toasts its honest per-code key, never the generic persist-failed line", async () => {
+    vi.mocked(toast.error).mockClear();
+    renderMistakesPage(failingResolveHandlers("NOT_FOUND"));
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+    toggleFirstCard();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zh("mistakes.resolveNotFound")));
+    expect(toast.error).not.toHaveBeenCalledWith(zh("errors.persistFailed"));
+  });
+
+  it("a VALIDATION_FAILED toggle failure stays on the generic persist-failed toast", async () => {
+    vi.mocked(toast.error).mockClear();
+    renderMistakesPage(failingResolveHandlers("VALIDATION_FAILED"));
+
+    expect(await screen.findByText("集成测试的主要目的是什么？")).toBeTruthy();
+    toggleFirstCard();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(zh("errors.persistFailed")));
+    expect(toast.error).not.toHaveBeenCalledWith(zh("mistakes.resolveNotFound"));
   });
 });

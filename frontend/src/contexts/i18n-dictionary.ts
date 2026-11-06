@@ -482,6 +482,9 @@ export const translations = {
       'mistakes.resolveDoneAria': '标记这条错题已复盘',
       'mistakes.resolveReopen': '重新打开',
       'mistakes.resolveReopenAria': '重新打开这条错题',
+      // 复盘切换失败的按码文案（epic-18 T6 review）：NOT_FOUND 走这条诚实键
+      // （条目已不存在），其余错误码仍走 errors.persistFailed。
+      'mistakes.resolveNotFound': '找不到这条错题，可能已被删除。',
       'mistakes.stateFilterLabel': '按状态筛选',
       'mistakes.stateAll': '全部状态',
       'mistakes.stateOpen': '待复盘',
@@ -1434,6 +1437,10 @@ export const translations = {
       'mistakes.resolveDoneAria': 'Mark this mistake reviewed',
       'mistakes.resolveReopen': 'Reopen',
       'mistakes.resolveReopenAria': 'Reopen this mistake',
+      // The resolve-toggle failure's per-code copy (epic-18 T6 review):
+      // NOT_FOUND lands here (the entry is gone); every other code stays on
+      // errors.persistFailed.
+      'mistakes.resolveNotFound': "This mistake entry could not be found — it may have been removed.",
       'mistakes.stateFilterLabel': 'Filter by state',
       'mistakes.stateAll': 'All states',
       'mistakes.stateOpen': 'Open',
