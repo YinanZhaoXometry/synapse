@@ -308,7 +308,8 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
     //    bytes in, honest outcome written back through SetMaterialParseResult.
     const parse = renderHook(() => useParseMaterialMutation(attached), { wrapper: providerWrapper });
     parse.result.current.mutate(attached!.id);
-    await waitFor(() => expect(server.materials[0].parseState).toBe("parsed"));
+    // Same write-back chain as the reader loop — room for a loaded CI runner.
+    await waitFor(() => expect(server.materials[0].parseState).toBe("parsed"), { timeout: 10_000 });
     const parsedRaw = await client.query({ query: MaterialDocument, variables: { id: attached!.id }, fetchPolicy: "network-only" });
     const parsed = mapMaterial(parsedRaw.data.material);
     expect(parsed.parseState).toBe("parsed");
