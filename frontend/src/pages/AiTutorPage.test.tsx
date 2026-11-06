@@ -7,7 +7,7 @@
  * mounts the plan-grounded panel, no plans → the honest empty state, and no
  * demo residue (the retired fixture copy never renders again).
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -43,10 +43,47 @@ const stubService = (): CompanionService => ({
 type LooseHandlers = Record<string, (variables: Record<string, unknown>) => unknown>;
 
 function plansHandlers(plans: Array<Record<string, unknown>>): LooseHandlers {
+  // The tutor page's walk includes the plan thread (epic-25 T2): the panel
+  // hydrates from planChatThread and a completed turn appends user-then-
+  // companion rows — the stub echoes both into the same per-plan map.
+  const planThreads = new Map<string, Array<Record<string, unknown>>>();
   return {
     Plans: () => plans,
     Materials: (variables) => (variables.planId === PLAN_ID ? [] : []),
     PlanMistakeEntries: () => [],
+    PlanChatThread: (variables) => {
+      const planId = variables.planId as string;
+      return {
+        __typename: "ChatThread",
+        id: `thread-plan-${planId}`,
+        materialId: null,
+        planId,
+        updatedAt: NOW,
+        messages: planThreads.get(planId) ?? [],
+      };
+    },
+    AppendChatMessage: (variables) => {
+      const input = variables.input as {
+        planId?: string;
+        message: { role: string; text: string; citations: Array<Record<string, unknown>> };
+      };
+      const planId = input.planId as string;
+      const row = {
+        __typename: "ChatMessage",
+        id: `msg-${planId}-${(planThreads.get(planId) ?? []).length + 1}`,
+        role: input.message.role,
+        text: input.message.text,
+        createdAt: NOW,
+        citations: input.message.citations.map((c) => ({
+          __typename: "ReadingLocator",
+          kind: c.kind,
+          page: c.page ?? null,
+          sectionId: c.sectionId ?? null,
+        })),
+      };
+      planThreads.set(planId, [...(planThreads.get(planId) ?? []), row]);
+      return { message: row };
+    },
   };
 }
 
@@ -118,7 +155,13 @@ describe("AITutorPage — the plan-grounded re-point (FR-46, delta decision 2)",
     const picker = screen.getByDisplayValue("软工备考") as HTMLSelectElement;
     fireEvent.change(picker, { target: { value: "plan-2" } });
 
-    fireEvent.click(screen.getByText(zh("tutor.suggestSummary")));
+    // epic-25 T2: send gates on the plan thread's hydration (a pre-hydration
+    // ask would be clobbered when the thread lands) — wait for the chip to go
+    // live on the PICKED plan before asking.
+    const summaryChip = () =>
+      screen.getByText(zh("tutor.suggestSummary")).closest("button") as HTMLButtonElement;
+    await waitFor(() => expect(summaryChip().disabled).toBe(false));
+    fireEvent.click(summaryChip());
     await screen.findAllByText(fixtureReply.text);
     expect(planChatInputs).toHaveLength(1);
     expect(planChatInputs[0].planId).toBe("plan-2");

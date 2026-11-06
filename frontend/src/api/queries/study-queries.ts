@@ -11,6 +11,7 @@ import {
   ChatThreadDocument,
   CreateTaskDocument,
   MaterialsDocument,
+  PlanChatThreadDocument,
   PlansDocument,
   PromoteTaskToPlanDocument,
   ReadingProgressDocument,
@@ -102,6 +103,17 @@ export function useChatThreadQuery(materialId: string) {
   return { data: result.data !== undefined ? thread : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
 }
 
+/**
+ * The plan scope's thread read (epic-25 T2): the tutor page's transcript,
+ * hydrated once per plan by use-plan-companion-chat. The material read above
+ * stays frozen — this rides T1's NEW planChatThread field.
+ */
+export function usePlanChatThreadQuery(planId: string) {
+  const result = useQuery(PlanChatThreadDocument, { variables: { planId }, skip: !planId });
+  const thread: ChatThread | undefined = result.data?.planChatThread ? mapChatThread(result.data.planChatThread) : undefined;
+  return { data: result.data !== undefined ? thread : undefined, loading: result.loading && !result.data, error: result.error, refetch: result.refetch };
+}
+
 export function useAppendChatMessageMutation() {
   const { t } = useLanguage();
   const [mutate, result] = useMutation(AppendChatMessageDocument, {
@@ -110,6 +122,26 @@ export function useAppendChatMessageMutation() {
     onError: () => {
       // Same neutral persistence-failure toast — the transcript itself stays
       // honest (use-companion-chat's persistence rule).
+      toast.error(t("errors.persistFailed"));
+    },
+  });
+  return { mutate, result };
+}
+
+/**
+ * The plan-scoped append (epic-25 T2): the SAME mutation document as the
+ * material append (AppendMessageInput takes materialId OR planId — exactly
+ * one; call sites pass planId), but the refetch sweep re-reads the PLAN
+ * thread, never the material one.
+ */
+export function useAppendPlanChatMessageMutation() {
+  const { t } = useLanguage();
+  const [mutate, result] = useMutation(AppendChatMessageDocument, {
+    // the message returns, but the plan thread's messages array needs the sweep.
+    refetchQueries: [PlanChatThreadDocument],
+    onError: () => {
+      // Same neutral persistence-failure toast — the transcript itself stays
+      // honest (use-plan-companion-chat's persistence rule).
       toast.error(t("errors.persistFailed"));
     },
   });

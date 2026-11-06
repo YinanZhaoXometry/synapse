@@ -523,7 +523,10 @@ function PlanCompanionSurface({ planId, materials, mistakeEntries }: PlanCompani
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const sendReady = !chat.busy;
+  // Send gate (epic-25 T2): hydrated AND idle — a pre-hydration turn would be
+  // clobbered when this plan's server thread lands (the material hook's same
+  // discipline; the reading surface gates on chat.hydrated too).
+  const sendReady = chat.hydrated && !chat.busy;
   const idle = chat.entries.length === 0 && !chat.busy;
 
   /** The material a turn's citation names: the picked mistake entry's source. */
@@ -639,7 +642,7 @@ function PlanCompanionSurface({ planId, materials, mistakeEntries }: PlanCompani
         </div>
       )}
 
-      {/* composer — plan scope has no document gate; busy is the only disable */}
+      {/* composer — plan scope has no document gate; hydration + busy are the disables */}
       <div className="flex-none px-4 pb-4 pt-1">
         <Composer
           inputRef={inputRef}

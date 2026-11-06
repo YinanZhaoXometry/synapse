@@ -4,7 +4,11 @@
  * plan chat walk never opens a socket: the stub RECORDS the exact planChat
  * request (the observation point for the op/fields the driver sends) and
  * resolves a fixture CompanionReply whose citations ride a plan_companion
- * citation event shape ({locator, quote}).
+ * citation event shape ({locator, quote}). The Apollo persistence hooks are
+ * mocked at the module boundary (the reading-selection test's pattern) — the
+ * persistence walk is use-plan-companion-chat's own tests' concern (epic-25
+ * T2); a fixture thread rides the mocked plan-thread read to prove restored
+ * rows render.
  *
  * Pinned here: the four intent shortcuts (explain / quiz me / summarize /
  * analyze my mistakes per the scaffold tutor pattern — the chip text IS the
@@ -24,6 +28,25 @@ import type { CompanionReply, PlanChatRequest } from "@/ai/types";
 import type { Material } from "@/domain/entities";
 import type { PlanMistakeEntryView } from "@/api";
 import { CompanionPanel } from "./CompanionPanel";
+
+// the persistence walk is out of scope here — the plan thread hydrates from a
+// fixture (or stays empty) and appends no-op
+const appendMutate = vi.hoisted(() => vi.fn());
+const planThreadState = vi.hoisted(() => ({ fixture: undefined as Record<string, unknown> | undefined }));
+
+vi.mock("@/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api")>();
+  return {
+    ...actual,
+    usePlanChatThreadQuery: () => ({
+      data: planThreadState.fixture,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }),
+    useAppendPlanChatMessageMutation: () => ({ mutate: appendMutate, result: null }),
+  };
+});
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const zh = (key: string) => zhDict[key];
@@ -92,6 +115,7 @@ function renderPanel(overrides: { mistakeEntries?: PlanMistakeEntryView[] } = {}
 describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
   beforeEach(() => {
     planChatInputs.length = 0;
+    planThreadState.fixture = undefined;
     fixtureReply = {
       intent: "explain",
       rung: "hint",
@@ -175,7 +199,32 @@ describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
     expect((screen.getByLabelText(zh("companion.planPlaceholder")) as HTMLTextAreaElement).value).toBe("计划的重点？");
   });
 
-  it("switching plans resets the ephemeral transcript (a plan switch is the same cut as a reload — 2026-11-06)", async () => {
+  it("a restored plan thread renders as plain cited bubbles (epic-25 T2 — a reload hydrates, it never starts empty)", () => {
+    planThreadState.fixture = {
+      id: "thread-plan-1",
+      materialId: null,
+      planId: "plan-1",
+      updatedAt: "2026-11-07T00:00:00Z",
+      messages: [
+        { id: "srv-u1", role: "user", text: "集成测试和单元测试有什么区别？", citations: [], createdAt: "2026-11-07T00:00:00Z" },
+        {
+          id: "srv-c1",
+          role: "companion",
+          text: "先往这个方向想……",
+          citations: [{ kind: "pdf", page: 7 }],
+          createdAt: "2026-11-07T00:00:05Z",
+        },
+      ],
+    };
+    renderPanel();
+
+    expect(screen.getByText("集成测试和单元测试有什么区别？")).toBeTruthy();
+    expect(screen.getByText("先往这个方向想……")).toBeTruthy();
+    // the persisted citation locator renders its page chip (zh dict: 第 {n} 页)
+    expect(screen.getByText("第 7 页")).toBeTruthy();
+  });
+
+  it("switching plans cuts the transcript and re-hydrates from the new plan's server thread (epic-25 T2)", async () => {
     const view = renderPanel();
     fireEvent.click(screen.getByText(zh("tutor.suggestExplain")));
     await screen.findAllByText(fixtureReply.text);
