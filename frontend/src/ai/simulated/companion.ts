@@ -14,7 +14,6 @@ import type {
   MaterialRef,
   PlanChatRequest,
   PlanStructureProposal,
-  ProposedStage,
   QuizMode,
   UiLanguage,
 } from "@/ai/types";
@@ -206,17 +205,12 @@ export class SimulatedCompanion implements CompanionService {
     language: UiLanguage,
     onToken?: (chunk: string) => void,
   ): Promise<PlanStructureProposal> {
-    const template = planTemplateFor(topic, language);
-    const proposal: PlanStructureProposal = {
-      topic,
-      stages: template.stages as ProposedStage[],
-      language,
-    };
+    const { proposal, intro } = planTemplateFor(topic, language);
 
     // Streamed like chat: intro line, then one line per node.
     const lines = [
-      template.intro,
-      ...proposal.stages.flatMap((s) => [`## ${s.name}`, ...s.nodeTitles.map((t) => `- ${t}`)]),
+      intro,
+      ...proposal.stages.flatMap((s) => [`## ${s.name}`, ...s.nodes.map((n) => `- ${n.title}`)]),
     ].join("\n");
     await emit(lines, onToken);
     return proposal;

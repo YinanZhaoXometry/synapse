@@ -316,7 +316,8 @@ describe("ServerCompanionService — generatePlanStructure (the proposal stream)
     const proposal: PlanStructureProposal = {
       topic: "软件工程",
       language: "zh",
-      stages: [{ name: "阶段一：基础", nodeTitles: ["命令层", "ER 模型"] }],
+      stages: [{ name: "阶段一：基础", nodes: [{ title: "命令层" }, { title: "ER 模型" }] }],
+      edges: [],
     };
 
     const proposalPromise = adapter.generatePlanStructure(
@@ -710,7 +711,8 @@ describe("ServerCompanionService — the cap-counted restart notice (US2/AD-16 r
     const proposal: PlanStructureProposal = {
       topic: "软件工程",
       language: "zh",
-      stages: [{ name: "阶段一：基础", nodeTitles: ["命令层"] }],
+      stages: [{ name: "阶段一：基础", nodes: [{ title: "命令层" }] }],
+      edges: [],
     };
 
     const proposalPromise = adapter.generatePlanStructure("软件工程", "zh", undefined, null, {

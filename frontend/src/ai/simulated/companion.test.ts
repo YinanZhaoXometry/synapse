@@ -142,7 +142,7 @@ describe("plan structure proposal (creation chat, spec Q4)", () => {
   it("software-engineering topic → the SE template, 4 stages / 8–12 nodes", async () => {
     const p = await svc.generatePlanStructure("软件测试与质量保证", "zh");
     expect(p.stages.length).toBe(4);
-    const nodeCount = p.stages.reduce((sum, s) => sum + s.nodeTitles.length, 0);
+    const nodeCount = p.stages.reduce((sum, s) => sum + s.nodes.length, 0);
     expect(nodeCount).toBeGreaterThanOrEqual(8);
     expect(nodeCount).toBeLessThanOrEqual(12);
     // stage names are non-empty and distinct — the exact copy stays in templates.ts
@@ -154,9 +154,21 @@ describe("plan structure proposal (creation chat, spec Q4)", () => {
   it("non-SE topic → generic 4-stage fallback with topic-derived nodes", async () => {
     const p = await svc.generatePlanStructure("陶艺入门", "zh");
     expect(p.stages.length).toBe(4);
-    expect(p.stages[0].nodeTitles[0]).toContain("陶艺入门");
-    const nodeCount = p.stages.reduce((sum, s) => sum + s.nodeTitles.length, 0);
+    expect(p.stages[0].nodes[0].title).toContain("陶艺入门");
+    const nodeCount = p.stages.reduce((sum, s) => sum + s.nodes.length, 0);
     expect(nodeCount).toBeGreaterThanOrEqual(8);
+  });
+
+  it("proposes stage-forward title-paired edges (epic-16 shape)", async () => {
+    const p = await svc.generatePlanStructure("软件测试与质量保证", "zh");
+    // the double edges each stage's head off the previous stage's head —
+    // resolvable, unique titles only
+    expect(p.edges.length).toBe(p.stages.length - 1);
+    const titles = new Set(p.stages.flatMap((s) => s.nodes.map((n) => n.title)));
+    for (const [from, to] of p.edges) {
+      expect(titles.has(from)).toBe(true);
+      expect(titles.has(to)).toBe(true);
+    }
   });
 
   it("streams the proposal like chat before resolving", async () => {

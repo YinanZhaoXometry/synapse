@@ -97,15 +97,35 @@ export interface PlanChatRequest {
   onNotice?: (messageKey: string) => void;
 }
 
-/** Plan-structure proposal (creation chat): stage-grouped node titles. */
-export interface ProposedStage {
-  name: string;
-  nodeTitles: string[];
+/**
+ * One proposed node with its roadmap metadata (epic-16, FR-5): edges address
+ * nodes by title, so titles must be unique across the proposal — a repeated
+ * title makes its edges unresolvable (dropped, never blocking).
+ */
+export interface ProposedNode {
+  title: string;
+  /** One-line description; absent/null on a metadata-less node. */
+  description?: string | null;
+  /** May be skipped without losing the thread (dashed-node vocabulary). */
+  optional?: boolean;
 }
 
+/** Plan-structure proposal stage (creation chat): a named stage's nodes. */
+export interface ProposedStage {
+  name: string;
+  nodes: ProposedNode[];
+}
+
+/**
+ * Plan-structure proposal (creation chat; epic-16 wire shape): stage-grouped
+ * nodes with their roadmap metadata + top-level title-paired prerequisite
+ * edges [fromTitle, toTitle] — stage-forward on the server's authority;
+ * unresolvable/invalid pairs drop silently, never blocking creation.
+ */
 export interface PlanStructureProposal {
   topic: string;
   stages: ProposedStage[];
+  edges: [string, string][];
   language: UiLanguage;
 }
 

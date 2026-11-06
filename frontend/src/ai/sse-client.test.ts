@@ -169,9 +169,10 @@ const okProposal = {
     topic: "软件工程",
     language: "zh",
     stages: [
-      { name: "阶段一：基础", nodeTitles: ["命令层", "ER 模型"] },
-      { name: "阶段二：实践", nodeTitles: ["集成走查"] },
+      { name: "阶段一：基础", nodes: [{ title: "命令层" }, { title: "ER 模型" }] },
+      { name: "阶段二：实践", nodes: [{ title: "集成走查" }] },
     ],
+    edges: [["命令层", "集成走查"]],
   },
 };
 

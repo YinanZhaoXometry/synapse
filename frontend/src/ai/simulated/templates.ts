@@ -3,8 +3,12 @@
  * a family; the SE default covers the COMP5241 demo; a generic 4-stage fallback
  * derives node names from the topic string. Deterministic per input. zh+en
  * parity per AD-9 — the generated structure localizes with the request.
+ * epic-16: stages carry nodes (metadata-less here — the double proposes bare
+ * titles) + a deterministic stage-forward edge chain (each stage's head node
+ * hangs off the previous stage's head), so the double's drafts exercise the
+ * same title-paired edge shape the server's proposals carry.
  */
-import type { ProposedStage, UiLanguage } from "@/ai/types";
+import type { PlanStructureProposal, ProposedStage, UiLanguage } from "@/ai/types";
 
 const SE_FAMILY = /软件|工程|测试|需求|架构|agile|software|engineer|testing|requirement|architect|design pattern|scrum/i;
 
@@ -33,11 +37,23 @@ const INTRO: Record<UiLanguage, string> = {
   en: "Done — here's the staged skeleton. Confirm it, then attach your materials.",
 };
 
+function headChainEdges(stages: ProposedStage[]): [string, string][] {
+  // Stage-forward by construction: each later stage's head node depends on the
+  // previous stage's head node (titles are unique within the template).
+  const edges: [string, string][] = [];
+  for (let i = 1; i < stages.length; i += 1) {
+    const from = stages[i - 1].nodes[0];
+    const to = stages[i].nodes[0];
+    if (from && to) edges.push([from.title, to.title]);
+  }
+  return edges;
+}
+
 function seStages(topic: string, language: UiLanguage): ProposedStage[] {
   const t = topic.trim();
   return STAGE_NAMES[language].se.map((name, i) => ({
     name,
-    nodeTitles: SE_NODES[language][i].map((title) => (i === 0 ? `${t} · ${title}` : title)),
+    nodes: SE_NODES[language][i].map((title) => ({ title: i === 0 ? `${t} · ${title}` : title })),
   }));
 }
 
@@ -57,14 +73,20 @@ function genericStages(topic: string, language: UiLanguage): ProposedStage[] {
       [`Applying ${t}`, `Self-test & consolidation`],
     ],
   };
-  return STAGE_NAMES[language].generic.map((name, i) => ({ name, nodeTitles: nodeTitles[language][i] }));
+  return STAGE_NAMES[language].generic.map((name, i) => ({
+    name,
+    nodes: nodeTitles[language][i].map((title) => ({ title })),
+  }));
 }
 
 /** 8–12 nodes across 3–4 stages, deterministic per topic (spec Q4). */
 export function planTemplateFor(
   topic: string,
   language: UiLanguage,
-): { stages: ProposedStage[]; intro: string } {
+): { proposal: PlanStructureProposal; intro: string } {
   const stages = SE_FAMILY.test(topic) ? seStages(topic, language) : genericStages(topic, language);
-  return { stages, intro: INTRO[language] };
+  return {
+    proposal: { topic: topic.trim(), stages, edges: headChainEdges(stages), language },
+    intro: INTRO[language],
+  };
 }
