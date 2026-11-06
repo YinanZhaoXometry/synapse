@@ -78,51 +78,30 @@ RSpec.configure do |config|
   # triggering implicit auto-inclusion in groups with matching metadata.
   config.shared_context_metadata_behavior = :apply_to_host_groups
 
-# The settings below are suggested to provide a good initial experience
-# with RSpec, but feel free to customize to your heart's content.
-=begin
-  # This allows you to limit a spec run to individual examples or groups
-  # you care about by tagging them with `:focus` metadata. When nothing
-  # is tagged with `:focus`, all examples get run. RSpec also provides
-  # aliases for `it`, `describe`, and `context` that include `:focus`
-  # metadata: `fit`, `fdescribe` and `fcontext`, respectively.
+  # Only run examples tagged with `fit`/`fdescribe`/`focus: true` when such a
+  # tag exists; full runs stay full (epic P3-17 ticket 03).
   config.filter_run_when_matching :focus
 
-  # Allows RSpec to persist some state between runs in order to support
-  # the `--only-failures` and `--next-failure` CLI options. We recommend
-  # you configure your source control system to ignore this file.
+  # Persist pass/fail state so `--only-failures` and `--next-failure` work
+  # across runs; the file is gitignored (backend/.gitignore).
   config.example_status_persistence_file_path = "spec/examples.txt"
 
-  # Limits the available syntax to the non-monkey patched syntax that is
-  # recommended. For more details, see:
-  # https://rspec.info/features/3-12/rspec-core/configuration/zero-monkey-patching-mode/
+  # Zero monkey-patching: the suite is expect/allow-only (pre-checked in
+  # ticket 03 — no `.should`, no bare `.stub`/`.mock` anywhere).
   config.disable_monkey_patching!
 
-  # Many RSpec users commonly either run the entire suite or an individual
-  # file, and it's useful to allow more verbose output when running an
-  # individual spec file.
+  # Single-file runs print the documentation formatter for readable output,
+  # unless a formatter was already given on the command line.
   if config.files_to_run.one?
-    # Use the documentation formatter for detailed output,
-    # unless a formatter has already been configured
-    # (e.g. via a command-line flag).
     config.default_formatter = "doc"
   end
 
-  # Print the 10 slowest examples and example groups at the
-  # end of the spec run, to help surface which specs are running
-  # particularly slow.
+  # Surface the slowest examples/groups after each run.
   config.profile_examples = 10
 
-  # Run specs in random order to surface order dependencies. If you find an
-  # order dependency and want to debug it, you can fix the order by providing
-  # the seed, which is printed after each run.
-  #     --seed 1234
+  # Random order surfaces order dependencies (file order hid them for the
+  # suite's entire life before epic P3-17 ticket 03). A failure prints the
+  # seed so `--seed N` reproduces it exactly.
   config.order = :random
-
-  # Seed global randomization in this process using the `--seed` CLI option.
-  # Setting this allows you to use `--seed` to deterministically reproduce
-  # test failures related to randomization by passing the same `--seed` value
-  # as the one that triggered the failure.
   Kernel.srand config.seed
-=end
 end
