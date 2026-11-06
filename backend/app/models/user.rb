@@ -10,6 +10,7 @@ class User < ApplicationRecord
   has_many :study_plans
   has_many :materials
   has_many :knowledge_nodes
+  has_many :knowledge_node_edges
   has_many :study_tasks
   has_many :quiz_sessions
   has_many :questions

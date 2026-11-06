@@ -18,6 +18,7 @@ class StudyPlan < ApplicationRecord
   # the demo-seed spec drove the association for the first time (epic P2-2
   # ticket 03) and surfaced PG::UndefinedColumn on all three.
   has_many :knowledge_nodes, foreign_key: :plan_id
+  has_many :knowledge_node_edges, foreign_key: :plan_id
   has_many :materials, foreign_key: :plan_id
   has_many :quiz_sessions, foreign_key: :plan_id
 

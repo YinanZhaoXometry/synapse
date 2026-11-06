@@ -30,6 +30,13 @@ module Mutations
                required: true,
                description: "The plan's nodes in order — order is derived from the list position."
 
+      # The roadmap edges (epic-16 T1): id pairs over the nodes above.
+      # Server-validated (membership / stage-forward / dedupe) — an invalid
+      # edge drops silently, never blocking the create.
+      argument :edges, [ Types::PlanEdgeInput ],
+               required: false,
+               description: "The plan's prerequisite edges as endpoint id pairs over the nodes input (epic-16). Invalid edges drop silently — they never block the create."
+
       field :plan, Types::StudyPlanType,
             null: false,
             description: "The created (or replayed) plan."
@@ -38,14 +45,15 @@ module Mutations
             null: false,
             description: "The plan's nodes, in order."
 
-      def resolve(client_uuid:, topic:, nodes:, goal: nil, visibility: nil)
+      def resolve(client_uuid:, topic:, nodes:, edges: nil, goal: nil, visibility: nil)
         command_result(::Plans::CreatePlanCommand.call(
           current_user: current_user!,
           client_uuid: client_uuid,
           topic: topic,
           goal: goal,
           visibility: visibility,
-          nodes: nodes.map(&:to_h)
+          nodes: nodes.map(&:to_h),
+          edges: (edges || []).map(&:to_h)
         ))
       end
     end
