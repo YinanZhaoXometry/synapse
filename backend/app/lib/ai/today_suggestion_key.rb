@@ -37,13 +37,13 @@ module Ai
     # command validates the plan id and the user id is a uuid PK before
     # this is ever reached).
     def uuid5(namespace:, name:)
-      namespace_bytes = [namespace.to_s.delete("-")].pack("H32")
+      namespace_bytes = [ namespace.to_s.delete("-") ].pack("H32")
       digest = Digest::SHA1.digest(namespace_bytes + name.to_s)[0, 16]
       bytes = digest.unpack("C16")
       bytes[6] = (bytes[6] & 0x0F) | 0x50 # version 5
       bytes[8] = (bytes[8] & 0x3F) | 0x80 # RFC-4122 variant (10xx)
       octets = bytes.pack("C16").unpack1("H32")
-      [octets[0, 8], octets[8, 4], octets[12, 4], octets[16, 4], octets[20, 12]].join("-")
+      [ octets[0, 8], octets[8, 4], octets[12, 4], octets[16, 4], octets[20, 12] ].join("-")
     end
   end
 end

@@ -165,7 +165,7 @@ RSpec.describe Ai::GenerateTodaySuggestionCommand do
 
       aggregate_failures do
         expect(replayed).to be_success
-        expect(replayed.value![:suggestion].id).to eq(first.value![:suggestion].id)
+        expect(replayed.value![:today_suggestion].id).to eq(first.value![:today_suggestion].id)
         expect(Ai::DailyCap.count_for(user)).to eq(counter_after_first) # the counter did not move
         expect(adapter).to have_received(:complete).exactly(:once)
         expect(TodaySuggestion.count).to eq(1)
@@ -180,7 +180,7 @@ RSpec.describe Ai::GenerateTodaySuggestionCommand do
       replayed = call
 
       expect(replayed).to be_success
-      expect(replayed.value![:suggestion].id).to eq(first.value![:suggestion].id)
+      expect(replayed.value![:today_suggestion].id).to eq(first.value![:today_suggestion].id)
       expect(adapter).to have_received(:complete).exactly(:once)
     end
 
@@ -283,7 +283,7 @@ RSpec.describe Ai::GenerateTodaySuggestionCommand do
 
       result = call
 
-      suggestion = result.value![:suggestion]
+      suggestion = result.value![:today_suggestion]
       aggregate_failures do
         expect(result).to be_success
         expect(suggestion.user_id).to eq(user.id)

@@ -107,6 +107,13 @@ module Types
     # the one active set per user+material.
     field :generate_study_focus, mutation: Mutations::Ai::GenerateStudyFocus
 
+    # The generation-backed Today suggestion (epic-18 T2, spec decisions
+    # 7–11): the study-focus posture again — one cap-counted provider call,
+    # replay-safe on the DETERMINISTIC per-(user, plan, UTC day) client
+    # uuid. The todayHub heuristic v1 card is untouched (addition, not
+    # replacement; the v1 card stays the always-present fallback).
+    field :generate_today_suggestion, mutation: Mutations::Ai::GenerateTodaySuggestion
+
     # The weekly goal setter (FR-25's Phase-2 half, epic P2-09 T1; delta
     # decision 3): the target's home is users.weekly_goal_target; the
     # Settings UI lands with T5.

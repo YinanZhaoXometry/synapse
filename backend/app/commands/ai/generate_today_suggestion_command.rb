@@ -70,7 +70,7 @@ module Ai
       # its original attempt succeeded.
       existing = TodaySuggestion.find_by(client_uuid: client_uuid.to_s)
       return cross_user_uuid_failure if existing && existing.user_id != current_user.id
-      return Success(suggestion: existing) if existing
+      return Success(today_suggestion: existing) if existing
 
       now = Time.current
       day = now.utc.to_date
@@ -86,7 +86,7 @@ module Ai
       chosen = normalize_reply(provider.value!, candidates)
       return internal_payload_failure unless chosen
 
-      Success(suggestion: persist_suggestion(plan, chosen, day))
+      Success(today_suggestion: persist_suggestion(plan, chosen, day))
     end
 
     private
