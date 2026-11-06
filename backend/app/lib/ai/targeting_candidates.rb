@@ -21,6 +21,16 @@ module Ai
     class << self
       # The plan's nodes as Candidates: id, the Mastery percent string, the
       # node's MistakeEntry count.
+      #
+      # The mistake bonus rides ANY entry — `resolved` included (epic-18
+      # ruling, spec decision 5): the lifecycle flag landed with epic-18 T1
+      # (`mistake_entries.resolved` + SetMistakeEntryResolvedCommand) is
+      # display/lifecycle only and does NOT feed targeting; epic-10-T5's
+      # recorded revisit hook ("Revisit if epic-09's Mistakes hub introduces
+      # resolution") is honored by this explicit ruling, and the open-only
+      # variant (`where(resolved: false)`) is consciously deferred to
+      # epic-21, where generation-behavior changes are measured. Untouched
+      # here on purpose: quiz quotas do not change in epic-18.
       def for(user:, plan:)
         nodes = plan.knowledge_nodes.order(:order, :id)
         node_ids = nodes.map(&:id)
