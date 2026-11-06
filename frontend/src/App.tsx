@@ -8,28 +8,35 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { apolloClient, isLoggedIn } from "@/apollo";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
-import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entry-decision";
-import PlansHomePage from "@/features/plans/PlansHomePage";
-import PlanCreatePage from "@/features/plans/PlanCreatePage";
-import PlanHomePage from "@/features/plans/PlanHomePage";
-import SquarePlanPage from "@/features/plans/SquarePlanPage";
-import PlanQuizPage from "@/pages/PlanQuizPage";
-import PlanFlashcardsPage from "@/pages/PlanFlashcardsPage";
-import TaskQuizPage from "@/pages/TaskQuizPage";
-import TaskFlashcardsPage from "@/pages/TaskFlashcardsPage";
 import AppLayout from "@/components/layout/AppLayout";
-import OnboardingPage from "@/pages/OnboardingPage";
-import DashboardPage from "@/pages/DashboardPage";
-import AITutorPage from "@/pages/AITutorPage";
-import MaterialsPage from "@/pages/MaterialsPage";
-import QuizPage from "@/pages/QuizPage";
-import FlashcardsPage from "@/pages/FlashcardsPage";
-import MistakesPage from "@/pages/MistakesPage";
-import PlannerPage from "@/pages/PlannerPage";
-import AchievementsPage from "@/pages/AchievementsPage";
-import AnalyticsPage from "@/pages/AnalyticsPage";
-import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
+import { PLANS_HOME_ROUTE, resolveEntryDestination } from "@/features/plans/entry-decision";
+
+// Route-level code splitting (epic-19 T1): every in-shell route is lazy on the
+// ONE uniform idiom — `React.lazy(() => import(...))` at the declaration site,
+// an inline `<Suspense fallback={null}>` at the route element (the reader/task
+// trio's precedent, kept byte-identical). The wall (`/`, `/login`, `/register`,
+// NotFound) and the shell (AppLayout) stay eager: pre-login pages make no api
+// reads and the shell sits on every in-shell route (AD-15/AD-20, decisions 2–3).
+const PlansHomePage = lazy(() => import("@/features/plans/PlansHomePage"));
+const PlanCreatePage = lazy(() => import("@/features/plans/PlanCreatePage"));
+const PlanHomePage = lazy(() => import("@/features/plans/PlanHomePage"));
+const SquarePlanPage = lazy(() => import("@/features/plans/SquarePlanPage"));
+const PlanQuizPage = lazy(() => import("@/pages/PlanQuizPage"));
+const PlanFlashcardsPage = lazy(() => import("@/pages/PlanFlashcardsPage"));
+const TaskQuizPage = lazy(() => import("@/pages/TaskQuizPage"));
+const TaskFlashcardsPage = lazy(() => import("@/pages/TaskFlashcardsPage"));
+const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const AITutorPage = lazy(() => import("@/pages/AITutorPage"));
+const MaterialsPage = lazy(() => import("@/pages/MaterialsPage"));
+const QuizPage = lazy(() => import("@/pages/QuizPage"));
+const FlashcardsPage = lazy(() => import("@/pages/FlashcardsPage"));
+const MistakesPage = lazy(() => import("@/pages/MistakesPage"));
+const PlannerPage = lazy(() => import("@/pages/PlannerPage"));
+const AchievementsPage = lazy(() => import("@/pages/AchievementsPage"));
+const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 
 // The reader route is lazy (AD-8): pdfjs-dist loads only when someone reads.
 const ReaderPage = lazy(() => import("@/features/reader/ReaderPage"));
@@ -76,21 +83,70 @@ const App = () => (
               <Route path="/register" element={<RegisterPage />} />
               <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
-                <Route path="/plans" element={<PlansHomePage />} />
+                <Route
+                  path="/plans"
+                  element={
+                    <Suspense fallback={null}>
+                      <PlansHomePage />
+                    </Suspense>
+                  }
+                />
                 {/* The Square preview (epic P2-11 T3, delta decision 3): the
                     广场 card's addressable route — structure-only public
                     render + the adopt CTA; lives inside the shell. */}
-                <Route path="/square/:planId" element={<SquarePlanPage />} />
-                <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route path="/plan/new" element={<PlanCreatePage />} />
-                <Route path="/plan/:id" element={<PlanHomePage />} />
+                <Route
+                  path="/square/:planId"
+                  element={
+                    <Suspense fallback={null}>
+                      <SquarePlanPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/onboarding"
+                  element={
+                    <Suspense fallback={null}>
+                      <OnboardingPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/plan/new"
+                  element={
+                    <Suspense fallback={null}>
+                      <PlanCreatePage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/plan/:id"
+                  element={
+                    <Suspense fallback={null}>
+                      <PlanHomePage />
+                    </Suspense>
+                  }
+                />
                 {/* The plan-flow quiz session page (epic-6 T2; AD-8) — the
                     session id rides in the URL so a reload resumes. */}
-                <Route path="/plan/:id/quiz" element={<PlanQuizPage />} />
+                <Route
+                  path="/plan/:id/quiz"
+                  element={
+                    <Suspense fallback={null}>
+                      <PlanQuizPage />
+                    </Suspense>
+                  }
+                />
                 {/* The plan-flow flashcards study page (epic-6 T3; AD-8) —
                     deliberately stateless across reloads: ratings persist
                     per card as they happen, a refresh restarts the queue. */}
-                <Route path="/plan/:id/flashcards" element={<PlanFlashcardsPage />} />
+                <Route
+                  path="/plan/:id/flashcards"
+                  element={
+                    <Suspense fallback={null}>
+                      <PlanFlashcardsPage />
+                    </Suspense>
+                  }
+                />
                 <Route
                   path="/task/new"
                   element={
@@ -110,10 +166,24 @@ const App = () => (
                 {/* The task-flow quiz session page (epic-6 T4; AD-8) —
                     the plan twin's contract scoped to the task's single material
                     and its auto-owned node (AD-6: planId null, taskId set). */}
-                <Route path="/task/:id/quiz" element={<TaskQuizPage />} />
+                <Route
+                  path="/task/:id/quiz"
+                  element={
+                    <Suspense fallback={null}>
+                      <TaskQuizPage />
+                    </Suspense>
+                  }
+                />
                 {/* The task-flow flashcards study page (epic-6 T4; AD-8) —
                     the plan twin's contract over the task's single deck. */}
-                <Route path="/task/:id/flashcards" element={<TaskFlashcardsPage />} />
+                <Route
+                  path="/task/:id/flashcards"
+                  element={
+                    <Suspense fallback={null}>
+                      <TaskFlashcardsPage />
+                    </Suspense>
+                  }
+                />
                 <Route
                   path="/read/:materialId"
                   element={
@@ -122,16 +192,86 @@ const App = () => (
                     </Suspense>
                   }
                 />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/ai-tutor" element={<AITutorPage />} />
-                <Route path="/materials" element={<MaterialsPage />} />
-                <Route path="/quiz" element={<QuizPage />} />
-                <Route path="/flashcards" element={<FlashcardsPage />} />
-                <Route path="/mistakes" element={<MistakesPage />} />
-                <Route path="/planner" element={<PlannerPage />} />
-                <Route path="/achievements" element={<AchievementsPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <Suspense fallback={null}>
+                      <DashboardPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/ai-tutor"
+                  element={
+                    <Suspense fallback={null}>
+                      <AITutorPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/materials"
+                  element={
+                    <Suspense fallback={null}>
+                      <MaterialsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/quiz"
+                  element={
+                    <Suspense fallback={null}>
+                      <QuizPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/flashcards"
+                  element={
+                    <Suspense fallback={null}>
+                      <FlashcardsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/mistakes"
+                  element={
+                    <Suspense fallback={null}>
+                      <MistakesPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/planner"
+                  element={
+                    <Suspense fallback={null}>
+                      <PlannerPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/achievements"
+                  element={
+                    <Suspense fallback={null}>
+                      <AchievementsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/analytics"
+                  element={
+                    <Suspense fallback={null}>
+                      <AnalyticsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <Suspense fallback={null}>
+                      <SettingsPage />
+                    </Suspense>
+                  }
+                />
                 </Route>
               </Route>
               <Route path="*" element={<NotFound />} />

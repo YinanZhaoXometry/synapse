@@ -1,6 +1,6 @@
 # Epic 19 (Phase 3) — bundle split: measure, split the routes, wire the tripwire
 
-Status: ready-for-agent (spec'd + ticketed 2026-11-06, one pass under the standing decide-all delegation; grill round 1 self-answered — see spec decisions 1–8)
+Status: done (closed 2026-11-06; both tickets landed on `epic/p3-19-bundle-split`; entry 1,026,203 → 723,680 B min (−29.5%) / 275,799 → 202,315 B gzip (−26.6%); tripwire live (CI size-summary step + chunkSizeWarningLimit 800); baselines: rspec 1452 · vitest 920 · e2e 21)
 Milestone: Phase 3 — optimization season
 
 ## Parent
@@ -23,6 +23,7 @@ Every in-shell route loads via the uniform React.lazy idiom (wall + shell stay e
 - Recon: /tmp/synapse-phase3-notes/epic-19-recon.md (route table, existing lazy inventory, measured baseline, NFR-6 wording).
 - The measured baseline in the recon came from an untracked `frontend/dist/assets/` build — T1 RE-measures from a clean build and pins it (the recon numbers are orientation, not the record).
 - epic-23 (flashcard-motion, owner-commissioned via the other session) is queued after this epic's lane completes; no file overlap expected either way.
+- Closed 2026-11-06: the route split delivered −29.5% min / −26.6% gzip off the entry with zero behavioral change (e2e 21 green on the identical tree); vendor manualChunks + skeleton fallback stay consciously deferred (spec decisions 4/6).
 
 ## Kickoff delta review — 2026-11-06 (grill round 1 self-answered)
 

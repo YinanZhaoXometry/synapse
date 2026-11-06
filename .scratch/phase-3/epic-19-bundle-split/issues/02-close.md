@@ -4,7 +4,7 @@
 
 **Blocked by:** 1.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; spine Deferred row closed with the measured numbers + the live tripwire, board row 19 done with baselines, epic record closed; web gates green on the records-only diff — backend untouched, e2e not re-run (21 green at T1 on the identical tree; this ticket edits records only))
 
 **Bound by:** scope exception: THIS ticket edits `.scratch/phase-3/` + the ONE spine row ("Bundle code-splitting beyond lazy pdfjs") in `docs/architecture/architecture-synapse/architecture-synapse.md` only.
 

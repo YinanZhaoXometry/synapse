@@ -70,6 +70,42 @@ jobs:
       - name: Build
         run: pnpm exec vite build
 
+      # Dist size visibility (epic-19 T1, spec decision 5): the permanent,
+      # zero-dep companion to the pinned before/after report
+      # (.scratch/phase-3/epic-19-bundle-split/bundle-report.md) — every CI
+      # run publishes the built asset sizes to the job summary, so bundle
+      # drift is visible in the PR without a charting plugin. Mirrors the
+      # coverage-summary step's shape below; shell builtins + coreutils only
+      # (ls/stat/sort — the same gzip+ls method the report pins).
+      - name: Dist size summary
+        if: always()
+        run: |
+          dir=dist/assets
+          if [ -d "$dir" ] && [ -n "$(ls "$dir" 2>/dev/null)" ]; then
+            {
+              echo "## Frontend dist assets"
+              echo ""
+              echo "| asset | bytes |"
+              echo "| --- | --- |"
+              total=0
+              : > sizes.tmp
+              for f in "$dir"/*; do
+                size=$(stat -c%s "$f")
+                total=$((total + size))
+                printf '%s %s\n' "$size" "${f##*/}" >> sizes.tmp
+              done
+              sort -rn sizes.tmp | while read -r size name; do
+                printf '| %s | %s |\n' "$name" "$size"
+              done
+              echo "| total | $total |"
+              rm -f sizes.tmp
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Frontend dist assets" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "dist/assets missing — did the Build step run?" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # Coverage (epic P3-17 ticket 02): vitest's json-summary reporter writes
       # coverage/coverage-summary.json; publish the totals to the job summary
       # and keep the HTML report as an artifact. Thresholds (the ratchet floor)
