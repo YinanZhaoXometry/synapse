@@ -90,6 +90,7 @@ const STUB_PROPOSAL_STAGES = [
       { title: "动态规划入门", description: "状态、转移与初始化三板斧", optional: false },
       { title: "回溯与剪枝", description: "排列组合子集的搜索框架", optional: false },
       { title: "字符串匹配", description: "双指针与滑动窗口应用", optional: false },
+      { title: "手写代码训练", description: "白板无提示的限时编码练习", optional: false },
       { title: "并查集", description: "连通性判定与路径压缩", optional: false },
     ],
   },
@@ -97,27 +98,27 @@ const STUB_PROPOSAL_STAGES = [
     name: "面试实战",
     nodes: [
       { title: "高频题精练", description: "按题型分类的真题串讲", optional: false },
-      { title: "手写代码训练", description: "白板无提示的限时编码练习", optional: false },
       { title: "模拟面试复盘", description: "限时模拟与错因归纳", optional: false },
     ],
   },
 ];
 
 const STUB_PROPOSAL_EDGES = [
-  // 12 valid forward pairs (the rendered roadmap's arrows).
-  ["复杂度分析", "二叉树遍历"],
-  ["数组与链表", "排序算法"],
-  ["数组与链表", "二分查找"],
-  ["栈与队列", "堆与优先队列"],
-  ["哈希表原理", "图的表示"],
-  ["排序算法", "动态规划入门"],
-  ["二叉树遍历", "回溯与剪枝"],
-  ["二分查找", "字符串匹配"],
-  ["图的表示", "并查集"],
-  ["动态规划入门", "高频题精练"],
-  ["回溯与剪枝", "手写代码训练"],
-  ["高频题精练", "模拟面试复盘"],
-  // The one invalid pair: backward (面试实战 → 基础奠基) — the server drops it.
+  // 12 valid forward pairs (the rendered roadmap's arrows; 4/5/5/2 nodes
+  // across the four stages — stage indices verified per pair below).
+  ["复杂度分析", "二叉树遍历"], // S1→S2
+  ["数组与链表", "排序算法"], // S1→S2
+  ["数组与链表", "二分查找"], // S1→S2
+  ["栈与队列", "堆与优先队列"], // S1→S2
+  ["哈希表原理", "图的表示"], // S1→S2
+  ["排序算法", "动态规划入门"], // S2→S3
+  ["二叉树遍历", "回溯与剪枝"], // S2→S3
+  ["二分查找", "字符串匹配"], // S2→S3
+  ["堆与优先队列", "手写代码训练"], // S2→S3
+  ["图的表示", "并查集"], // S2→S3
+  ["动态规划入门", "高频题精练"], // S3→S4
+  ["手写代码训练", "模拟面试复盘"], // S3→S4
+  // The one invalid pair: backward (S4 → S1) — the server drops it.
   ["模拟面试复盘", "复杂度分析"],
 ];
 

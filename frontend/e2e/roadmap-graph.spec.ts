@@ -36,10 +36,11 @@ async function registerOrLogin(page: Page) {
   await expect(page).toHaveURL(/\/plans/);
 }
 
-async function nodeBox(page: Page, title: string) {
-  const box = page.getByTestId("roadmap-node").filter({ hasText: title });
-  await expect(box).toHaveCount(1, { timeout: 15_000 });
-  return box;
+/** One node box by title — the title lives in the g's aria-label (SVG <text>
+ * content is not matchable by text filters, the harness lesson), and titles
+ * are unique across the proposal, so the substring match is exact in practice. */
+function nodeBox(page: Page, title: string) {
+  return page.locator(`[data-testid="roadmap-node"][aria-label*="${title}"]`);
 }
 
 test.describe.configure({ mode: "serial" });
@@ -149,11 +150,23 @@ test.describe("the roadmap graph surface", () => {
     await expect(sheet).toBeVisible({ timeout: 15_000 });
     await expect(sheet.getByRole("heading", { name: BACKWARD_EDGE.from })).toBeVisible();
 
-    // Selected AND roving-focused: the box carries the focus state and holds
-    // real DOM focus (the keyboard contract's precondition).
+    // Selected AND roving-focused state on the box. (DOM focus itself moves
+    // INTO the opened sheet — Radix's modal focus trap, the correct a11y
+    // posture for a dialog — so document.activeElement is the sheet, not
+    // the node behind it.)
     await expect(target).toHaveAttribute("data-focused", "true", { timeout: 15_000 });
-    const activeId = await page.evaluate(() => document.activeElement?.getAttribute("data-node-id"));
-    expect(activeId).toBe(nodeId);
+
+    // Pan proof: the off-view stage-4 node is fully inside the measured
+    // canvas after the deep-link — the keyboard's ensureBoxVisible path ran.
+    const visible = await page.evaluate((id) => {
+      const canvas = document.querySelector('[data-testid="roadmap-canvas"]');
+      const el = document.querySelector(`[data-node-id="${id}"]`);
+      if (!canvas || !el) return false;
+      const c = canvas.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom;
+    }, nodeId);
+    expect(visible).toBe(true);
   });
 
   test("Graph stays the default view and the List toggle keeps working", async ({ page }) => {

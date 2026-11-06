@@ -33,7 +33,10 @@ test("S2: an unauthenticated visit bounces to the login wall, and the demo entry
 
   await page.getByRole("button", { name: "用演示账号体验" }).click();
   await expect(page).toHaveURL(/\/plans/);
-  await expect(page.getByText("Software engineering interview prep")).toBeVisible();
+  // On a clean database the demo plan appears in BOTH zones of Plans Home
+  // (the continue-learning hero card and the plan list) — first() is the
+  // "visible somewhere" assertion; the zones are not the scenario.
+  await expect(page.getByText("Software engineering interview prep").first()).toBeVisible();
 });
 
 test("S3: the demo account opens its seeded plan — nodes and the server-computed mastery ring render", async ({
@@ -43,13 +46,15 @@ test("S3: the demo account opens its seeded plan — nodes and the server-comput
   await page.getByRole("button", { name: "用演示账号体验" }).click();
   await expect(page).toHaveURL(/\/plans/);
 
-  // The DemoSeed shape stub: one private plan, two knowledge nodes. Node
-  // titles render in BOTH the list view and the roadmap graph — first() is
-  // the assertion (visible somewhere), the views are not the scenario.
+  // The DemoSeed shape stub: one private plan, three knowledge nodes with two
+  // stage-forward edges (epic-16 T1 seed). Since T3 the plan home renders the
+  // roadmap GRAPH by default — node titles are SVG <text> truncated at 18
+  // chars, so the FULL title lives in the node's aria-label (the accessible
+  // name), which is the honest render assertion for the graph era.
   await page.getByText("Software engineering interview prep").first().click();
   await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
-  await expect(page.getByText("Read the architecture spine").first()).toBeVisible();
-  await expect(page.getByText("Drill one GraphQL mutation end-to-end").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Read the architecture spine/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Drill one GraphQL mutation end-to-end/ }).first()).toBeVisible();
 
   // The mastery display is server-computed (AD-14) — it renders a value; the
   // test never asserts a hand-set score.
