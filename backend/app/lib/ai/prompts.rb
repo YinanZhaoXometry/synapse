@@ -269,11 +269,19 @@ module Ai
       end
 
       # Plan-creation proposal (FR-1/AD-5): topic (+ optional goal) → a
-      # staged node proposal. The reply format is the frozen tag contract
+      # staged roadmap proposal. The reply format is the frozen tag contract
       # (ticket 04): a readable outline between the outline tags (what the
       # client streams as tokens) and the strict proposal JSON between the
       # proposal tags (what the terminal event carries — the client's
-      # follow-up confirmProposal consumes it verbatim).
+      # follow-up confirm consumes it verbatim). epic-16 T1 upgraded the
+      # JSON: stages carry full nodes ({title, description, optional}) and
+      # top-level title-paired prerequisite edges, under four pinned
+      # constraints — at most 16 nodes (the scale cap, grill decision 3),
+      # unique titles (edges address nodes by title), forward-only edges
+      # (the from node's stage strictly before the to node's — cycles
+      # impossible by construction), and an inbound edge for every node
+      # outside the first stage. Nothing downstream trusts the constraints:
+      # unresolvable/invalid edges drop at confirm (silent-but-logged).
       def proposal(topic:, goal:, language:)
         goal_line = goal.to_s.strip.empty? ? "" : "\nThe learner's goal: #{goal}"
         [ system,
@@ -285,10 +293,12 @@ module Ai
             A short readable outline of the plan: one line per stage ("第 1 阶段：…" / "Stage 1: …"), then its node titles as "- …" lines.
             </outline>
             <proposal>
-            {"topic":"#{topic}","stages":[{"name":"…","nodeTitles":["…","…"]}]}
+            {"topic":"#{topic}","stages":[{"name":"…","nodes":[{"title":"…","description":"…","optional":false}]}],"edges":[["…","…"]]}
             </proposal>
 
-            2–5 stages, 3–8 nodes total, ordered from foundations to practice.
+            2–5 stages, at most 16 nodes total, ordered from foundations to practice.
+            Every node carries "description" (one short line saying what the node covers) and "optional" (true only for a node the learner may skip without losing the thread; otherwise false).
+            "edges" are prerequisite pairs [fromTitle, toTitle] — address each node by its title EXACTLY as written (titles are unique), and the from node's stage must come strictly BEFORE the to node's stage (forward-only). Give every node outside the first stage at least one inbound edge.
             Write the outline lines AND the JSON's strings in #{language_word(language)}.
           PROMPT
         ]

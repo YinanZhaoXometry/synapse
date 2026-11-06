@@ -4,9 +4,12 @@ require "digest"
 
 # The idempotent demo-account seed (AD-15 / NFR-6, epic P2-2 ticket 03):
 # creates the demo user from DEMO_EMAIL/DEMO_PASSWORD plus a small
-# shape-stub dataset owned by that user — one private StudyPlan + two
-# KnowledgeNodes, demo garnish only (real demo content is seeded closer to
-# the graded window per AD-20). db/seeds.rb is a one-line caller.
+# shape-stub dataset owned by that user — one private StudyPlan, its
+# KnowledgeNodes, and (since epic-16 T1) a truthful prerequisite-edge set:
+# every node described, one optional garnish node, both prerequisites
+# pointing stage-forward into the practice drill (real demo content is
+# seeded closer to the graded window per AD-20). db/seeds.rb is a one-line
+# caller.
 #
 # Idempotency (the rerun-safe AC): every content row is keyed by a STABLE
 # uuid — RFC 4122 v5 (SHA-1 over a 16-byte namespace + name) derived from
@@ -57,13 +60,26 @@ module DemoSeed
   # same credential rules the mutations enforce.
   ShortDemoPasswordError = Class.new(StandardError)
 
-  # The shape-stub dataset. A node's `order` doubles as its stable-name
-  # suffix (synapse-demo-node-1 / -2).
+  # The shape-stub dataset — a truthful mini-roadmap (epic-16 T1). A node's
+  # `order` doubles as its stable-name suffix (synapse-demo-node-1/-2/-3);
+  # an edge's position doubles as its own (synapse-demo-edge-1/-2), with
+  # `from`/`to` naming endpoint nodes by their order. The optional node is
+  # skippable garnish — the drill works from the spine alone, so the edges
+  # read honestly.
   PLAN_TOPIC = "Software engineering interview prep"
   PLAN_GOAL = "Reach 100% mastery on the core plan before the graded window"
   DEMO_NODES = [
-    { stage: "foundations", title: "Read the architecture spine", order: 1 },
-    { stage: "practice", title: "Drill one GraphQL mutation end-to-end", order: 2 }
+    { stage: "foundations", title: "Read the architecture spine",
+      description: "The spine's command-layer-first law and where every rule lives", order: 1 },
+    { stage: "foundations", title: "Skim the command exemplar",
+      description: "A quick pass over System::PingCommand before drilling", order: 2,
+      optional: true },
+    { stage: "practice", title: "Drill one GraphQL mutation end-to-end",
+      description: "Create one plan through the real mutation to feel the flow", order: 3 }
+  ].freeze
+  DEMO_EDGES = [
+    { from: 1, to: 3 },
+    { from: 2, to: 3 }
   ].freeze
 
   class << self
@@ -77,6 +93,7 @@ module DemoSeed
       user = seed_user!(email, password)
       plan = seed_plan!(user)
       seed_nodes!(user, plan)
+      seed_edges!(user, plan)
 
       { user: user, plan: plan }
     end
@@ -162,7 +179,19 @@ module DemoSeed
                     plan_id: plan.id,
                     stage: node[:stage],
                     title: node[:title],
-                    order: node[:order])
+                    order: node[:order],
+                    description: node[:description],
+                    optional: node[:optional] == true)
+      end
+    end
+
+    def seed_edges!(user, plan)
+      DEMO_EDGES.each_with_index do |edge, index|
+        upsert_row!(KnowledgeNodeEdge, stable_uuid("synapse-demo-edge-#{index + 1}"),
+                    user_id: user.id,
+                    plan_id: plan.id,
+                    from_node_id: stable_uuid("synapse-demo-node-#{edge[:from]}"),
+                    to_node_id: stable_uuid("synapse-demo-node-#{edge[:to]}"))
       end
     end
 

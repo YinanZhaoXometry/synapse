@@ -44,13 +44,15 @@ RSpec.describe "the seeded demo account logs in over HTTP (epic P2-2 ticket 03)"
     expect(payload["user"]["email"]).to eq("seeded-demo@example.com")
 
     # The seed ↔ mutations interlock: the token names the seeded row, and
-    # that row owns exactly the shape-stub dataset (AD-13 scoping).
+    # that row owns exactly the shape-stub dataset (AD-13 scoping) — three
+    # described nodes and their two prerequisite edges since epic-16 T1.
     decoded = Accounts::TokenCodec.decode(payload["token"])
     expect(decoded).to be_ok
     user = User.find(decoded.user_uuid)
     expect(user.email).to eq("seeded-demo@example.com")
     expect(user.study_plans.count).to eq(1)
     expect(user.study_plans.first.visibility).to eq("private")
-    expect(user.study_plans.first.knowledge_nodes.count).to eq(2)
+    expect(user.study_plans.first.knowledge_nodes.count).to eq(3)
+    expect(user.study_plans.first.knowledge_node_edges.count).to eq(2)
   end
 end
