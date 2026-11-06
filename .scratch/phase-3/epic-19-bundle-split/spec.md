@@ -51,9 +51,13 @@ nothing has ever recorded a bundle number), and the 500 KiB chunk warning fires 
    derivation in the config comment) — it warns, it gates nothing.
 6. **Suspense idiom = the existing inline `fallback={null}`** (ReaderPage/TaskCreate/TaskHome
    precedent). A shared skeleton fallback is design work and a deferred candidate, not scope.
-7. **Dead deps are out of scope.** `recharts` (imported only by an orphaned chart.tsx) and
-   `framer-motion` (zero src imports) are absent from the bundle — pruning them is lockfile churn
-   with zero bundle effect. Noted once in the epic record as a future hygiene candidate.
+7. **Dead deps: framer-motion is REMOVED (amended 2026-11-06 at epic-23's handoff); recharts
+   stays.** epic-23's memory explicitly hands the framer-motion residue to this epic ("留给
+   epic-19 删") — the motion epic is pure CSS and wants the unused dep gone so nobody is tempted
+   back onto it. Removal = `pnpm remove framer-motion` + lockfile regen (zero bundle effect — it
+   was already absent from dist; this is hygiene-by-handoff, not bundle work). `recharts` STAYS:
+   its import site lives in the scaffold's `src/components/ui/chart.tsx` (ui/* is generated-code
+   territory); noted once in the epic record as a future hygiene candidate.
 8. **NFR-6 unchanged:** zero new dependencies (the size report uses gzip + ls; the CI step uses
    shell built-ins).
 

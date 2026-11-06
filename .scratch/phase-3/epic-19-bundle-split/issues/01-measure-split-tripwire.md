@@ -13,6 +13,7 @@
 - [ ] Post-split clean build → AFTER table in `bundle-report.md` (same columns; entry delta + the largest new route chunks called out)
 - [ ] `chunkSizeWarningLimit` set from the measured post-split entry (ceil to a sane ceiling, ~10% headroom; derivation documented in the config comment)
 - [ ] CI step in `.github/workflows/ci.yml` frontend job (after Build, mirroring the coverage-summary pattern): dist assets listing → `$GITHUB_STEP_SUMMARY`; keep it shell-builtins only
+- [ ] `pnpm remove framer-motion` + lockfile regen (epic-23's handoff — spec decision 7 amendment; zero source imports exist, verify with grep); `recharts` stays (import site lives in the scaffold's chart.tsx — noted, not removed)
 - [ ] Gates: codegen zero-diff (no schema change) · `tsc -b` · eslint · vitest ≥ 920 · `vite build` · the full e2e suite green (21 specs — no new ones; the suite already rides a lazy route)
 - [ ] web gates green is the review artifact; the report diff tells the story
 
