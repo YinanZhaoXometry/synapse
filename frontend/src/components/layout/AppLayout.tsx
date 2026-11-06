@@ -51,6 +51,12 @@ export default function AppLayout() {
   const swipeRef = useRef<{ pointerId: number; startX: number; width: number } | null>(null);
   const [dragDx, setDragDx] = useState<number | null>(null);
   const [springBack, setSpringBack] = useState(false);
+  // The entrance animation must run exactly ONCE per open session: the swipe
+  // postures drop its classes (its fill pins the transform), and RE-ADDING
+  // them after a spring-back would replay the slide-in mid-session — the
+  // panel teleports off-screen on the next tap's pointerdown and eats the
+  // tap (found by the T3 real-browser smoke; jsdom has no animation engine).
+  const swipedOnceRef = useRef(false);
   // One posture flag for the two swipe render states (drag / spring-back) —
   // the entrance animation and the click guard both key off it.
   const swipeActive = dragDx !== null || springBack;
@@ -79,6 +85,7 @@ export default function AppLayout() {
       // links, search pill, footer). A tap never moves, never engages, never
       // captures. From engage on, the capture carries a fast flick released
       // over the scrim/main area back to the panel.
+      swipedOnceRef.current = true;
       event.currentTarget.setPointerCapture?.(event.pointerId);
     }
     setSpringBack(false);
@@ -119,6 +126,7 @@ export default function AppLayout() {
     // entrance animation (springBack survives the drawer's unmount otherwise).
     setDragDx(null);
     setSpringBack(false);
+    swipedOnceRef.current = false;
     setDrawerOpen(true);
   };
 
@@ -352,8 +360,10 @@ export default function AppLayout() {
             "md:hidden fixed inset-y-0 left-0 z-50 w-[min(290px,84vw)] flex flex-col gap-2 glass-panel shadow-hover px-3 pt-3.5 pb-3",
             // The entrance animation's fill pins transform while it runs —
             // the moment a swipe posture takes over the transform (drag or
-            // spring-back) it must be gone for the inline style to win.
-            !swipeActive && "animate-in slide-in-from-left duration-300"
+            // spring-back) it must be gone for the inline style to win. It
+            // never comes back within the session (see swipedOnceRef): only
+            // a fresh OPEN replays it.
+            !swipeActive && !swipedOnceRef.current && "animate-in slide-in-from-left duration-300"
           )}
           role="dialog"
           aria-modal="true"

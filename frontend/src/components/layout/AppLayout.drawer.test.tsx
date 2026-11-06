@@ -241,6 +241,25 @@ describe("AppLayout drawer swipe-to-close (epic-20 T2)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("the entrance animation never replays mid-session: a tap after a spring-back does not restore its classes", () => {
+    renderLayout();
+    fireEvent.click(hamburger());
+    const el = screen.getByRole("dialog");
+    expect(el).toHaveClass("animate-in"); // a fresh open carries the entrance
+
+    swipe(-70);
+    expect(el).not.toHaveClass("animate-in"); // the swipe posture dropped it
+
+    // A tap's pointerdown resets the spring-back posture — restoring the
+    // entrance classes here would REPLAY the slide-in in a real browser
+    // (the panel teleports off-screen mid-tap and eats the pointerup; found
+    // by the T3 real-browser smoke, invisible to jsdom's animation-less
+    // engine). The classes come back only on the next fresh OPEN.
+    fireEvent.pointerDown(el, { pointerId: 7, clientX: 200, clientY: 40 });
+    fireEvent.pointerUp(el, { pointerId: 7, clientX: 200, clientY: 40 });
+    expect(el).not.toHaveClass("animate-in");
+  });
+
   it("a second finger's lift does not settle the gesture — only the swipe's own pointer can end it", () => {
     renderLayout();
     fireEvent.click(hamburger());

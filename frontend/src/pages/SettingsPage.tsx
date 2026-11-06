@@ -512,6 +512,7 @@ export default function SettingsPage() {
       <div className="mt-6 flex justify-center">
         <button
           type="button"
+          data-testid="settings-signout-page-end"
           onClick={signOut}
           className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-danger-ink hover:bg-[rgba(168,50,50,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
         >
