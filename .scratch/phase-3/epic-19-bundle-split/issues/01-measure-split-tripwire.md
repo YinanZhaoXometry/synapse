@@ -4,7 +4,7 @@
 
 **Blocked by:** None (epic gate; starts when epic-18 is merged to main).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06; landed on `epic/p3-19-bundle-split`: d42eaa8 BEFORE report · 7cf53c1 uniform route split · 578c4b0 framer-motion removal (epic-23 handoff) · 2488778 AFTER report + chunkSizeWarningLimit 800 · 8783b12 CI dist-summary step; gates green — codegen zero-diff / tsc / eslint / vitest 920 / build / e2e 21)
 
 **Bound by:** decisions 1–8 of the spec (uniform lazy incl. thin hubs; wall + shell eager; NO manualChunks; gzip+ls reporting — zero new deps; inline `fallback={null}` idiom), NFR-6 (zero new deps), the coverage-summary CI precedent (`ci.yml:77-98`).
 

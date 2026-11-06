@@ -162,3 +162,7 @@ Full per-chunk listing (every emitted file, sorted by minified size):
 | locale-COZdkMzF.js | 62 | 80 |
 
 (plus `dist/index.html` 1.57 kB / 0.72 kB gzip — not in `assets/`, listed for completeness.)
+
+---
+
+**Close-out (ticket 02, 2026-11-06):** epic-19 closed on the numbers above — entry −29.5% min / −26.6% gzip; tripwire live (CI dist-summary step + `chunkSizeWarningLimit: 800`); the residual ~707 KiB entry (vendor + shell + 106KB i18n) and a skeleton fallback stay consciously deferred follow-ups (spec decisions 4/6) — revisit if the CI size summary shows the entry regrowing.
