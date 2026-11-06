@@ -186,3 +186,37 @@ jobs:
         run: bundle exec rubocop
       - name: Test
         run: RAILS_ENV=test bundle exec rspec
+
+      # Coverage (epic P3-17 ticket 01): SimpleCov starts at the top of
+      # spec_helper and writes coverage/.last_run.json at exit. Publish the
+      # totals to the job summary and keep the HTML report as an artifact for
+      # the per-group picture (commands/graphql/models/lib/jobs/controllers).
+      # The line floor lives in spec_helper (minimum_coverage) — a red coverage
+      # gate is a red Test step, not a red summary.
+      - name: Coverage summary
+        if: always()
+        run: |
+          file=coverage/.last_run.json
+          if [ -f "$file" ]; then
+            line=$(jq -r '.result.line' "$file")
+            branch=$(jq -r '.result.branch' "$file")
+            {
+              echo "## Backend coverage"
+              echo ""
+              echo "| metric | covered |"
+              echo "| --- | --- |"
+              echo "| line | ${line}% |"
+              echo "| branch | ${branch}% |"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "coverage/.last_run.json missing — SimpleCov did not run?" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          retention-days: 7

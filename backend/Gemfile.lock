@@ -110,6 +110,7 @@ GEM
       irb (~> 1.10)
       reline (>= 0.3.8)
     diff-lcs (1.6.2)
+    docile (1.4.1)
     drb (2.2.3)
     dry-core (1.2.0)
       concurrent-ruby (~> 1.0)
@@ -316,6 +317,12 @@ GEM
       rubocop-rails (>= 2.30)
     ruby-progressbar (1.13.0)
     securerandom (0.4.1)
+    simplecov (0.22.0)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-html (0.13.2)
+    simplecov_json_formatter (0.1.4)
     solid_queue (1.7.2)
       activejob (>= 7.1)
       activerecord (>= 7.1)
@@ -368,6 +375,7 @@ DEPENDENCIES
   rails (= 8.1.4)
   rspec-rails (~> 8.0.4)
   rubocop-rails-omakase
+  simplecov (~> 0.22.0)
   solid_queue (~> 1.7.2)
   strong_migrations (~> 2.8.0)
   tzinfo-data
