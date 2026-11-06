@@ -16,7 +16,7 @@ Who owns which stage of idea → code in this repo. **BMAD owns product thinking
 
 1. **BMAD planning first.** Run brief → UX → architecture in order for a new product or meaningful feature, each consuming the previous artifacts plus the existing codebase.
 2. **Hand the artifacts to Matt's workflow.** Give the brief, UX docs, and architecture spine to `/grill-with-docs` to challenge assumptions and fix domain language, then `/to-spec` and `/to-tickets`.
-3. **Build** with `/tdd` / `/implement` and review with `/code-review`.
+3. **Build** with `/tdd` / `/implement` and review with `/code-review` — implementation happens in a dedicated worktree (see [Implementation worktree discipline](#implementation-worktree-discipline)).
 
 ## Pick the path by scale
 
@@ -64,8 +64,17 @@ After epic 1 lands, epics 2–6 can run two lanes in parallel (that's what AD-2'
 
 **Phase 2 is planned (2026-11-03).** The full board — 15 epics (00 monorepo through 14 small-tail), each with spec + tickets — lives under `.scratch/phase-2/`, indexed by [`.scratch/phase-2/roadmap.md`](../../.scratch/phase-2/roadmap.md) (dependency graph, parallel lanes, owner-side windows, kickoff checklist). The spine's Deferred table remains the trigger registry for anything *not* on the board; the hub stand-ins (`/quiz` `/flashcards` `/mistakes` `/planner` scaffold pages) stand until epic-09 re-points them. Feature epics (09–14) carry a **delta-grill at kickoff** line — a light re-validation of their specs' open assumptions, honoring one-spec-chain-per-epic without re-running the pipeline.
 
+## Implementation worktree discipline
+
+(Owner ruling, 2026-11-06 — codifying what every epic since the cutover already does.) **Epic/ticket implementation always runs in a dedicated git worktree — never on the main checkout.** The main checkout stays reserved for the owner's manual testing plus doc/board commits (spec, tickets, roadmap still land straight on `main`); the rule kicks in when code starts.
+
+- **One worktree + branch per epic or per ticket**, following the existing naming: `epic/p<N>-<nn>-<slug>` at epic level (e.g. `epic/p3-16-roadmap`) or `p<N>-<nn>/t<NN>-<slug>` at ticket level (e.g. `p3-18/t01-mistake-lifecycle`); worktree dir sits beside the repo (`project-new-<short-name>`).
+- **Cleanup on merge.** Once the branch is merged into `main` (verified — merge commit exists / branch shows merged), remove the worktree (`git worktree remove <dir>`) and delete the branch, local and remote. A worktree or branch stays alive only for an explicit owner-stated reason (precedent: the transcript-v2 branch retention, epic-4).
+- **Each worktree bootstraps from zero** (fresh checkout): pnpm install in `frontend/` (`pnpm install --frozen-lockfile` — node_modules is not shared across checkouts); backend test DB via `db:drop db:create db:migrate`, not `db:prepare`; parallel worktrees must override ports (compose override in /tmp) and compose project names (`-p synapse-t<NN>`) so they never collide with the demo stack on 8080/3000 — the owner may be manually testing on `main` at the same time.
+
 ## Rules
 
+- **Implementation runs in a worktree** (see [Implementation worktree discipline](#implementation-worktree-discipline) above) — never build epic code on the main checkout, and delete worktree + branch once merged.
 - Do not run `/bmad-prd` and `/to-spec` over the same feature unless one is explicitly updating the other. One spec pipeline per feature.
 - **Reference architecture-spine decision IDs inside tickets**, so implementation stays aligned with the agreed boundaries and rules.
 - Before implementation planning, read the brief, `docs/design/`, and the `docs/architecture/` spine for the area you're about to work in. If your output contradicts a spine decision, surface it explicitly rather than silently overriding (same rule as ADR conflicts in [domain.md](domain.md)).

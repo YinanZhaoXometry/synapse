@@ -119,3 +119,7 @@ Single-context: root `GLOSSARY.md` + `docs/adr/`, read per the consumer rules in
 ### Planning workflow
 
 BMAD owns product thinking: `/bmad-product-brief` → `docs/product/`, `/bmad-ux` → `docs/design/`, `/bmad-architecture` → `docs/architecture/` (spine with stable decision IDs). Matt Pocock skills own implementation: `/grill-with-docs` → `/to-spec` → `/to-tickets`, then `/tdd` / `/implement` / `/code-review`. One spec pipeline per feature; tickets reference spine decision IDs. See `docs/agents/workflow.md`.
+
+### Implementation worktrees (owner ruling, 2026-11-06)
+
+Epic/ticket **implementation always runs in a dedicated git worktree** (`project-new-<name>` beside the repo) — never on the main checkout, which stays free for the owner's manual testing and doc/board commits. Branch naming: `epic/p<N>-<nn>-<slug>` (epic) or `p<N>-<nn>/t<NN>-<slug>` (ticket). **Merging to `main` is the delete trigger**: once merged (verified), remove the worktree and delete the branch, local + remote; keep one alive only for an explicit owner-stated reason. New worktrees bootstrap from zero (pnpm install; backend test DB via `db:drop db:create db:migrate`; parallel worktrees override ports + compose `-p`). Full rule: `docs/agents/workflow.md` § Implementation worktree discipline.
