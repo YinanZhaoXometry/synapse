@@ -8,6 +8,10 @@
 # The api is not user-facing (AD-9): codes travel as-is; human-readable
 # English context is carried alongside in ApplicationErrors::Failure#context.
 module ApplicationErrors
+  # FORBIDDEN is RESERVED, never produced: foreign ids answer uniform
+  # NOT_FOUND ("never reveals existence", AD-13) — the one exception a
+  # comment in update_plan_command documents explicitly. It stays in the
+  # closed enum so the web mirror's vocabulary is stable (epic-17 T10).
   CODES = %i[
     UNAUTHORIZED
     FORBIDDEN

@@ -6,6 +6,8 @@ RSpec.describe ApplicationErrors do
   # The closed error enum (AD-12), verbatim and in contract order — the web's
   # AppError.code (frontend/src/data/errors.ts) mirrors it 1:1 via
   # extensions.code. Adding a code touches both sides in the same change.
+  # FORBIDDEN stays reserved-but-unproduced: foreign ids answer uniform
+  # NOT_FOUND (AD-13's never-reveals-existence) — see application_errors.rb.
   it "defines exactly the seven closed-enum codes, in contract order" do
     expect(ApplicationErrors::CODES).to eq(
       %i[UNAUTHORIZED FORBIDDEN NOT_FOUND VALIDATION_FAILED RATE_LIMITED CAP_REACHED INTERNAL]

@@ -33,10 +33,14 @@ test("S2: an unauthenticated visit bounces to the login wall, and the demo entry
 
   await page.getByRole("button", { name: "用演示账号体验" }).click();
   await expect(page).toHaveURL(/\/plans/);
-  // On a clean database the demo plan appears in BOTH zones of Plans Home
-  // (the continue-learning hero card and the plan list) — first() is the
-  // "visible somewhere" assertion; the zones are not the scenario.
-  await expect(page.getByText("Software engineering interview prep").first()).toBeVisible();
+  // The topic renders TWICE on a fresh account's Plans Home — the resume-hero
+  // card AND the plan row are both the demo plan there. Anchor on the row
+  // button (its accessible name STARTS with the topic; the hero's starts with
+  // 掌握度). Epic-17 caught this on CI; the graph era (epic-16) keeps the same
+  // Plans Home zones, so the row-button anchor holds there too.
+  await expect(
+    page.getByRole("button", { name: /^Software engineering interview prep/ })
+  ).toBeVisible();
 });
 
 test("S3: the demo account opens its seeded plan — nodes and the server-computed mastery ring render", async ({

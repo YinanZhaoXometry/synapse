@@ -72,7 +72,7 @@ spec:
     git diff --exit-code -- frontend/src/types/graphql.ts
     pnpm --dir frontend exec tsc -b
     pnpm --dir frontend exec eslint .
-    pnpm --dir frontend exec vitest run
+    pnpm --dir frontend exec vitest run --coverage
     pnpm --dir frontend exec vite build
     # Mastery-vector anti-drift (AD-14): the TS domain (frontend/src/domain/
     # mastery.ts + streak.ts) is the golden-vector source of truth until the
@@ -121,6 +121,13 @@ e2e:
       docker compose $restore_files up -d --wait
     }
     trap restore EXIT
+    # A stub generation left over from a previous run (its process lingered
+    # past playwright's cleanup) answers the new run's healthz probe, then
+    # dies mid-suite — the api's stream then faults to terminal INTERNAL and
+    # every creation-flow spec dies with it (proved 2026-11-06). Sweep the
+    # port so playwright always starts a fresh, healthy generation.
+    lsof -tiTCP:8791 | xargs kill 2>/dev/null || true
+    sleep 1
     # shellcheck disable=SC2086
     docker compose $e2e_files up -d --wait
     pnpm --dir frontend exec playwright test

@@ -1,6 +1,6 @@
 # Epic 17 (Phase 3) — Test hardening: measure what you assert (backend + frontend + e2e/CI)
 
-Status: ready-for-agent (spec'd + ticketed 2026-11-06 under the standing decide-all delegation; born from a full-stack test-completeness audit — five scout tracks condensed below)
+Status: done (2026-11-06 — all 10 tickets landed on PR #17; rspec 1290 → 1348, vitest 836 → 854, coverage measured + floored both stacks, e2e now a CI gate)
 Milestone: Phase 3 — optimization season
 
 ## Parent

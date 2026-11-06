@@ -12,21 +12,24 @@ are userEvent-first; legacy fireEvent is not mass-migrated.
 
 **Blocked by:** —.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-06)
 
 **Bound by:** i18n mandatory rule (AGENTS.md Conventions), the existing parity-test idiom
 (`src/contexts/i18n-dictionary.test.ts`, `i18n-t5-parity.test.ts` — bidirectional set equality +
 truthiness + anti-vacuity check), NFR-6 (zero new dependencies).
 
-- [ ] `src/test/example.test.ts` and `frontend/playwright-fixture.ts` deleted (re-verified zero references)
-- [ ] setup.ts: `ResizeObserver`/`IntersectionObserver` class stubs (observe/unobserve/disconnect
+- [x] `src/test/example.test.ts` and `frontend/playwright-fixture.ts` deleted (re-verified zero references)
+- [x] setup.ts: `ResizeObserver`/`IntersectionObserver` class stubs (observe/unobserve/disconnect
       no-ops), assigned only when undefined
-- [ ] `src/contexts/i18n-full-parity.test.ts`: every key has non-empty zh AND en; key sets equal
+- [x] `src/contexts/i18n-full-parity.test.ts`: every key has non-empty zh AND en; key sets equal
       both directions; anti-vacuity assertion (a planted one-sided key fails)
-- [ ] Every one-sided key the new test catches → fixed in the dictionary (zh+en both), counted in Comments
-- [ ] AGENTS.md gains the userEvent-first convention line (frontend tests section)
-- [ ] web gates green
+- [x] One-sided keys caught: **none** — see Comments
+- [x] AGENTS.md gains the userEvent-first convention line (frontend tests section)
+- [x] web gates green (tsc, eslint, vitest 837/837)
 
 ## Comments
 
-- (none yet)
+- **The dictionary passed full parity first try** — no one-sided keys to fix. The namespace-walk
+  discipline plus the i18n-mandatory rule had kept the table honest; the new walk makes that a
+  standing guarantee instead of an accident.
+- Suite count moved 836 → 837 (−1 placeholder, +2 parity tests).
