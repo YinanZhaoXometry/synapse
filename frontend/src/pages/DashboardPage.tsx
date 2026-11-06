@@ -141,7 +141,9 @@ export default function DashboardPage() {
       sub: t("dashboard.weeklyRing"),
     },
     {
-      testId: "kpi-streak", to: "/planner", tint: "tint-amber", icon: Flame,
+      // 连续记录 → /analytics (epic-25 T4, audit #12): one KPI, one hub —
+      // 本周学习 keeps /planner, the streak's trend lives in analytics.
+      testId: "kpi-streak", to: "/analytics", tint: "tint-amber", icon: Flame,
       label: t("dashboard.kpiStreak"), value: t("dashboard.kpiStreakValue", { n: streak }),
       sub: t("dashboard.streakRule"),
     },

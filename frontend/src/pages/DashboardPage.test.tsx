@@ -171,10 +171,11 @@ describe("DashboardPage — plan evidence re-point (FR-25, epic P2-09 T5)", () =
     expect(within(weekCard).getByText(zhVars("dashboard.kpiWeekValue", { done: 2, target: 5 }))).toBeTruthy();
     expect(weekCard.getAttribute("href")).toBe("/planner");
 
-    // 连续记录: the server streak
+    // 连续记录: the server streak — its hub is /analytics (one KPI, one hub;
+    // 本周学习 is the card that owns /planner, epic-25 T4 audit #12)
     const streakCard = screen.getByTestId("kpi-streak");
     expect(within(streakCard).getByText(zhVars("dashboard.kpiStreakValue", { n: 4 }))).toBeTruthy();
-    expect(streakCard.getAttribute("href")).toBe("/planner");
+    expect(streakCard.getAttribute("href")).toBe("/analytics");
 
     // 错题本: the mistakes-hub length
     const mistakesCard = screen.getByTestId("kpi-mistakes");
