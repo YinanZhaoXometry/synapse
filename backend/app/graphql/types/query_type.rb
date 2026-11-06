@@ -378,6 +378,22 @@ module Types
       current_user!.chat_threads.find_by(material_id: material.id)
     end
 
+    field :plan_chat_thread, Types::ChatThreadType, null: true,
+      description: "One plan's Companion transcript (epic-25 T1 — the tutor page's plan-grounded thread, the material chatThread's plan-scope sibling) — null when the conversation has not started yet. A foreign, unknown, or malformed plan id answers null: honest-empty (never the material thread, and no existence leak)." do
+      argument :plan_id, String, required: true, description: "The anchored plan's uuid."
+    end
+
+    def plan_chat_thread(plan_id:)
+      # The sanctioned bare read (the scoping IS the logic): the plan
+      # through the owner's association path, then the thread by its
+      # unique plan scope. A malformed id addresses no row — the same null
+      # an unknown or foreign one gets (the field is null: true, and the
+      # ticket's posture for the plan read is honest-empty, not the
+      # material path's NOT_FOUND raise).
+      plan = current_user!.study_plans.find_by(id: plan_id) if plan_id.to_s.match?(Accounts::UUID_REGEX)
+      current_user!.chat_threads.find_by(plan_id: plan&.id)
+    end
+
     field :reading_progress, Types::ReadingProgressType, null: true,
       description: "One material's reading position (the getReadingProgress mirror) — null when the material was never opened. A foreign or unknown material id is uniformly NOT_FOUND (kickoff delta 2 — never reveals existence)." do
       argument :material_id, String, required: true, description: "The read material's uuid."
