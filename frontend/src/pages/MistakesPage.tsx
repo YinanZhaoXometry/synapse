@@ -288,10 +288,10 @@ export default function MistakesPage() {
 
   // Filtering is rendering over the flat list: the state filter runs first,
   // then grouping, then the plan/task picker (the read model stays flat).
-  const entries = hubQuery.data ?? [];
+  const data = hubQuery.data;
   const stateFiltered = useMemo(
-    () => (stateFilter ? entries.filter((entry) => entry.resolved === (stateFilter === "resolved")) : entries),
-    [entries, stateFilter],
+    () => (stateFilter ? (data ?? []).filter((entry) => entry.resolved === (stateFilter === "resolved")) : data ?? []),
+    [data, stateFilter],
   );
   const groups = useMemo(() => groupMistakes(stateFiltered), [stateFiltered]);
   const visibleGroups = filter ? groups.filter((g) => `${g.kind}:${g.id}` === filter) : groups;
@@ -299,6 +299,8 @@ export default function MistakesPage() {
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
   if (hubQuery.loading || materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return null;
+
+  const entries = data ?? [];
 
   return (
     <div className="max-w-[984px] mx-auto px-6 py-8">
