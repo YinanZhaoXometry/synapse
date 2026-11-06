@@ -35,14 +35,21 @@ proven (the backend job already carries the same hosts-line pattern).
 
 - **Three Linux-CI realities the local mac flow hides, all fixed:**
   1. `minio/minio:RELEASE.2025-10-15T17-29-55Z` is not pullable (the documented registry
-     graveyard) — the e2e job builds the identical pinned source as an IMAGE before compose up
-     (the backend job builds the binary; compose needs the image).
+     graveyard) — and the first CI run exposed a SECOND grave: **the release's own Dockerfile
+     bases `FROM minio/minio:latest`** (the same dead repo), so a plain source docker-build
+     cannot resolve either. The working recipe: build the pinned server binary from source (the
+     backend job's provenance) + the mc client the minio-init one-shot needs, into a minimal
+     ubuntu:24.04 runtime image carrying curl (the compose healthcheck) — tagged as what compose
+     expects.
   2. `host.docker.internal` is Docker-Desktop built-in and does not resolve on Linux —
      `compose.e2e.yaml` now adds `extra_hosts: ["host.docker.internal:host-gateway"]` to the
      backend service (redundant-but-harmless on macOS, load-bearing on CI).
   3. The stub binds loopback — with host-gateway the api container arrives via the docker bridge,
      so `stub-provider.mjs` gained `E2E_PROVIDER_HOST` (default 127.0.0.1 unchanged; CI sets
      0.0.0.0 at the job level).
+- First-CI-run repair (2026-11-06): the job's original insertion point accidentally orphaned the
+  backend job's two coverage steps into the e2e job (it still green-lit everything else) — the
+  steps are back in the backend job, e2e ends at its own artifact upload.
 - **CORS is a server default, not per-bucket provisioning** (empirically probed): a FRESH bucket
   with zero configuration passes the browser preflight (`OPTIONS PUT` → 204 + origin echo) on the
   current minio — so CI's fresh stack needs no bucket CORS step. The old "provisioning item"

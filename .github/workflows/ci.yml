@@ -221,6 +221,40 @@ jobs:
       - name: Test
         run: RAILS_ENV=test bundle exec rspec
 
+      # Coverage (epic P3-17 ticket 01): SimpleCov starts at the top of
+      # spec_helper and writes coverage/.last_run.json at exit. Publish the
+      # totals to the job summary and keep the HTML report as an artifact for
+      # the per-group picture (commands/graphql/models/lib/jobs/controllers).
+      # The line floor lives in spec_helper (minimum_coverage) — a red coverage
+      # gate is a red Test step, not a red summary.
+      - name: Coverage summary
+        if: always()
+        run: |
+          file=coverage/.last_run.json
+          if [ -f "$file" ]; then
+            line=$(jq -r '.result.line' "$file")
+            branch=$(jq -r '.result.branch' "$file")
+            {
+              echo "## Backend coverage"
+              echo ""
+              echo "| metric | covered |"
+              echo "| --- | --- |"
+              echo "| line | ${line}% |"
+              echo "| branch | ${branch}% |"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "coverage/.last_run.json missing — SimpleCov did not run?" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          retention-days: 7
+
   # The critical-flow suite becomes a merge gate (epic P3-17 ticket 05): the
   # exact `just e2e` flow — demo stack booted with compose.e2e.yaml merged
   # (the api talks to the host-run deterministic stub provider, never live
@@ -259,14 +293,32 @@ jobs:
       - name: Point "minio" at loopback
         run: sudo sh -c 'echo "127.0.0.1 minio" >> /etc/hosts'
 
-      # compose.yaml pins minio/minio:RELEASE.2025-10-15T17-29-55Z — not
-      # pullable since the community archive died (the backend job documents
-      # the full registry graveyard). Build the identical pinned source as an
-      # IMAGE, the same provenance as the dev machine's local tag.
-      - name: Build the pinned minio image (no registry carries it)
+      # compose.yaml pins minio/minio:RELEASE.2025-10-15T17-29-55Z — and the
+      # grave is deeper than the backend job's: that release's OWN Dockerfile
+      # bases `FROM minio/minio:latest` (the same dead repo), so even a plain
+      # source docker-build cannot resolve (first CI run proved it). Build the
+      # pinned server binary from source (the backend job's provenance) plus
+      # the mc client the minio-init one-shot needs, into a minimal runtime
+      # image that also carries curl (the compose healthcheck) — the tag is
+      # what compose expects.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build the pinned minio image from source binaries (no registry, no upstream Dockerfile)
         run: |
           git clone --depth 1 --branch RELEASE.2025-10-15T17-29-55Z https://github.com/minio/minio.git /tmp/minio-src
-          docker build -t minio/minio:RELEASE.2025-10-15T17-29-55Z /tmp/minio-src
+          git clone --depth 1 https://github.com/minio/mc.git /tmp/mc-src
+          GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /tmp/minio-bin/minio /tmp/minio-src
+          GOTOOLCHAIN=auto CGO_ENABLED=0 go build -o /tmp/minio-bin/mc /tmp/mc-src
+          printf '%s\n' \
+            'FROM ubuntu:24.04' \
+            'RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*' \
+            'COPY minio /usr/bin/minio' \
+            'COPY mc /usr/bin/mc' \
+            'RUN chmod +x /usr/bin/minio /usr/bin/mc' \
+            'EXPOSE 9000' \
+            'ENTRYPOINT ["/usr/bin/minio"]' \
+            | docker build -t minio/minio:RELEASE.2025-10-15T17-29-55Z -f - /tmp/minio-bin
 
       # The `just e2e` boot, step for step: demo stack + compose.e2e.yaml
       # (compose merges only listed files — deploy.md §1). Playwright's
@@ -294,38 +346,4 @@ jobs:
           path: |
             frontend/playwright-report
             frontend/test-results
-          retention-days: 7
-
-      # Coverage (epic P3-17 ticket 01): SimpleCov starts at the top of
-      # spec_helper and writes coverage/.last_run.json at exit. Publish the
-      # totals to the job summary and keep the HTML report as an artifact for
-      # the per-group picture (commands/graphql/models/lib/jobs/controllers).
-      # The line floor lives in spec_helper (minimum_coverage) — a red coverage
-      # gate is a red Test step, not a red summary.
-      - name: Coverage summary
-        if: always()
-        run: |
-          file=coverage/.last_run.json
-          if [ -f "$file" ]; then
-            line=$(jq -r '.result.line' "$file")
-            branch=$(jq -r '.result.branch' "$file")
-            {
-              echo "## Backend coverage"
-              echo ""
-              echo "| metric | covered |"
-              echo "| --- | --- |"
-              echo "| line | ${line}% |"
-              echo "| branch | ${branch}% |"
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "coverage/.last_run.json missing — SimpleCov did not run?" >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage
-          path: backend/coverage
           retention-days: 7
