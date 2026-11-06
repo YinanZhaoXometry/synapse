@@ -71,9 +71,11 @@ test.describe("the square fork journey (publish → adopt)", () => {
     await card.getByTestId("square-card-adopt").click();
 
     // The fork lands on the adopter's own plan home, attributed to the source.
+    // The stub proposal (epic-16) carries 复杂度分析 as its first node; the
+    // plan home renders the roadmap graph by default, so the title is SVG text.
     await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
     await expect(page.getByTestId("fork-attribution")).toHaveText(new RegExp(SQUARE_TOPIC));
-    await expect(page.getByText("概念地图")).toBeVisible();
+    await expect(page.getByText("复杂度分析")).toBeVisible();
   });
 });
 

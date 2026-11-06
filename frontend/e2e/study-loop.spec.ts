@@ -22,7 +22,11 @@ const MATERIAL_PATH = path.join(here, "fixtures", "study-notes.md");
 const PASSWORD = "e2e-password-123";
 const EMAIL = `e2e-loop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@synapse.test`;
 const TOPIC = "E2E 学习闭环验证";
-const STUB_NODE_TITLES = ["概念地图", "练习闭环"];
+// The stub proposal's first two titles (epic-16's fixed 16-node graph —
+// e2e/stub-provider.mjs). After confirm the plan home renders the roadmap
+// GRAPH by default, so these live in SVG <text>; both stay on-canvas at the
+// identity view (columns 0–1, row 0).
+const STUB_NODE_TITLES = ["复杂度分析", "二叉树遍历"];
 
 async function registerOrLogin(page: import("@playwright/test").Page) {
   await page.goto("/login");

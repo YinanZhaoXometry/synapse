@@ -7,7 +7,9 @@
  * Deterministic replies per prompt shape (the Ai::Prompts builders are the
  * contract — this stub matches on their stable opening lines):
  *   - plan proposal  → the frozen <outline>/<proposal> tag contract, echoing
- *     the topic the prompt carried.
+ *     the topic the prompt carried — the fixed 16-node roadmap proposal
+ *     (epic-16 wire shape, one deliberately invalid backward edge; see
+ *     proposalReply below).
  *   - quiz           → {"questions":[…]} citing REAL ids regexed out of the
  *     assembled context ([material id=…], [section id=…], [node id=…]) — the
  *     server's normalization would drop questions citing ids the context does
@@ -48,18 +50,91 @@ function quizReply(text) {
   });
 }
 
+/**
+ * The fixed 16-node proposal (epic-16 T4, ticket 04): the epic-16 wire shape —
+ * stages carry full nodes ({title, description, optional}) and top-level
+ * title-paired edges [[fromTitle, toTitle]] — at the schema cap (16 nodes,
+ * grill decision 3), four stages, every node described, one optional node,
+ * and every node outside the first stage carrying ≥1 inbound edge.
+ *
+ * Exactly ONE deliberately invalid edge rides along — ["模拟面试复盘",
+ * "复杂度分析"], a BACKWARD pair (stage 4 → stage 1). Its titles resolve
+ * cleanly (so the client flatten seam forwards it), and the server's
+ * stage-forward validity drops it silently-but-logged
+ * (Plans::PlanCreation#drop_edge) — the e2e roadmap spec asserts the pair is
+ * absent from the rendered graph while all 12 valid forward arrows render.
+ */
+const STUB_PROPOSAL_STAGES = [
+  {
+    name: "基础奠基",
+    nodes: [
+      { title: "复杂度分析", description: "大 O、均摊分析与常见代价模型", optional: false },
+      { title: "数组与链表", description: "线性结构的取舍与操作代价", optional: false },
+      { title: "栈与队列", description: "受限访问顺序与典型套路", optional: false },
+      { title: "哈希表原理", description: "散列、冲突处理与负载因子", optional: false },
+    ],
+  },
+  {
+    name: "核心结构",
+    nodes: [
+      { title: "二叉树遍历", description: "前中后序与层序的递归迭代写法", optional: false },
+      { title: "排序算法", description: "比较排序家族与稳定性", optional: false },
+      { title: "二分查找", description: "边界写法与常见变形", optional: true },
+      { title: "堆与优先队列", description: "堆序性质与 Top-K 套路", optional: false },
+      { title: "图的表示", description: "邻接表、矩阵与遍历框架", optional: false },
+    ],
+  },
+  {
+    name: "进阶专题",
+    nodes: [
+      { title: "动态规划入门", description: "状态、转移与初始化三板斧", optional: false },
+      { title: "回溯与剪枝", description: "排列组合子集的搜索框架", optional: false },
+      { title: "字符串匹配", description: "双指针与滑动窗口应用", optional: false },
+      { title: "并查集", description: "连通性判定与路径压缩", optional: false },
+    ],
+  },
+  {
+    name: "面试实战",
+    nodes: [
+      { title: "高频题精练", description: "按题型分类的真题串讲", optional: false },
+      { title: "手写代码训练", description: "白板无提示的限时编码练习", optional: false },
+      { title: "模拟面试复盘", description: "限时模拟与错因归纳", optional: false },
+    ],
+  },
+];
+
+const STUB_PROPOSAL_EDGES = [
+  // 12 valid forward pairs (the rendered roadmap's arrows).
+  ["复杂度分析", "二叉树遍历"],
+  ["数组与链表", "排序算法"],
+  ["数组与链表", "二分查找"],
+  ["栈与队列", "堆与优先队列"],
+  ["哈希表原理", "图的表示"],
+  ["排序算法", "动态规划入门"],
+  ["二叉树遍历", "回溯与剪枝"],
+  ["二分查找", "字符串匹配"],
+  ["图的表示", "并查集"],
+  ["动态规划入门", "高频题精练"],
+  ["回溯与剪枝", "手写代码训练"],
+  ["高频题精练", "模拟面试复盘"],
+  // The one invalid pair: backward (面试实战 → 基础奠基) — the server drops it.
+  ["模拟面试复盘", "复杂度分析"],
+];
+
 function proposalReply(text) {
   const topic = (text.match(/Topic: (.+?)\./) ?? [])[1] ?? "Stub plan";
-  return [
+  const outline = [
     "<outline>",
-    "Stage 1: 打地基",
-    "- 概念地图",
-    "- 练习闭环",
+    ...STUB_PROPOSAL_STAGES.map((stage, index) => {
+      const titles = stage.nodes
+        .map((node) => (node.optional ? `${node.title}（可选）` : node.title))
+        .join("、");
+      return `第 ${index + 1} 阶段 ${stage.name}：${titles}`;
+    }),
     "</outline>",
-    "<proposal>",
-    JSON.stringify({ topic, stages: [{ name: "打地基", nodeTitles: ["概念地图", "练习闭环"] }] }),
-    "</proposal>",
-  ].join("\n");
+  ];
+  const proposal = { topic, stages: STUB_PROPOSAL_STAGES, edges: STUB_PROPOSAL_EDGES };
+  return [...outline, "<proposal>", JSON.stringify(proposal), "</proposal>"].join("\n");
 }
 
 function replyFor(messages) {
