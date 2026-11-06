@@ -128,4 +128,104 @@ RSpec.describe Plans::CreatePlanCommand do
       expect(result.value![:plan].visibility).to eq("public")
     end
   end
+
+  describe "the roadmap surface (epic-16 T1): node metadata + id-paired edges" do
+    it "persists node metadata and builds the edges from client-supplied id pairs" do
+      first_id = SecureRandom.uuid
+      second_id = SecureRandom.uuid
+
+      result = call(
+        nodes: [
+          { id: first_id, title: "Command layer", stage: "基础", description: "  start here  " },
+          { id: second_id, title: "Spine ER", stage: "核心", optional: true }
+        ],
+        edges: [ { from_node_id: first_id, to_node_id: second_id } ]
+      )
+
+      plan = result.value![:plan]
+      nodes = plan.knowledge_nodes.order(:order).to_a
+      edges = plan.knowledge_node_edges.order(:created_at, :id).to_a
+
+      aggregate_failures do
+        expect(nodes.map(&:id)).to eq([ first_id, second_id ])
+        expect(nodes.map(&:description)).to eq([ "start here", nil ])
+        expect(nodes.map(&:optional)).to eq([ false, true ])
+        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] })
+          .to eq([ [first_id, second_id] ])
+      end
+    end
+
+    it "honors the AD-12 id-supply law on client node ids" do
+      foreign_owner = create(:user)
+      foreign = create(:knowledge_node, user: foreign_owner, stage: "基础")
+      other_plan = create(:study_plan, user: user)
+
+      malformed = call(nodes: [ { id: "not-a-uuid", title: "n", stage: nil } ])
+      stolen = call(nodes: [ { id: foreign.id, title: "n", stage: nil } ])
+      colliding = call(nodes: [ { id: client_uuid, title: "n", stage: nil } ])
+
+      aggregate_failures do
+        # malformed → shape refusal
+        expect(malformed.failure?).to be(true)
+        expect(malformed.failure.code).to eq(:VALIDATION_FAILED)
+        # foreign-owned → ownership verification
+        expect(stolen.failure?).to be(true)
+        expect(stolen.failure.code).to eq(:VALIDATION_FAILED)
+        # plan-uuid collision → shape refusal
+        expect(colliding.failure?).to be(true)
+        expect(colliding.failure.code).to eq(:VALIDATION_FAILED)
+        expect(user.study_plans.count).to eq(1) # only other_plan
+      end
+    end
+
+    it "skips a same-user-conflicting node id (retry-safe) and drops edges addressing it" do
+      other_plan = create(:study_plan, user: user)
+      own = create(:knowledge_node, user: user, plan: other_plan, stage: "基础")
+      fresh_id = SecureRandom.uuid
+
+      result = call(
+        nodes: [
+          { id: own.id, title: "skip me", stage: "基础" },
+          { id: fresh_id, title: "keep me", stage: "核心" }
+        ],
+        edges: [ { from_node_id: own.id, to_node_id: fresh_id } ]
+      )
+
+      plan = result.value![:plan]
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(plan.knowledge_nodes.order(:order).map(&:title)).to eq([ "keep me" ])
+        expect(own.reload.plan_id).to eq(other_plan.id) # the row stays untouched
+        expect(plan.knowledge_node_edges).to be_empty
+      end
+    end
+
+    it "drops invalid edges silently (same-stage / unknown endpoint / duplicate) — creation succeeds" do
+      first = SecureRandom.uuid
+      second = SecureRandom.uuid
+      third = SecureRandom.uuid
+
+      result = call(
+        nodes: [
+          { id: first, title: "first", stage: "基础" },
+          { id: second, title: "second", stage: "基础" },
+          { id: third, title: "third", stage: "核心" }
+        ],
+        edges: [
+          { from_node_id: first, to_node_id: second },            # same-stage → drop
+          { from_node_id: SecureRandom.uuid, to_node_id: third }, # unknown member → drop
+          { from_node_id: first, to_node_id: third },             # valid
+          { from_node_id: first, to_node_id: third }              # duplicate → drop
+        ]
+      )
+
+      plan = result.value![:plan]
+      edges = plan.knowledge_node_edges.order(:created_at, :id).to_a
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] }).to eq([ [first, third] ])
+      end
+    end
+  end
 end

@@ -412,6 +412,26 @@ RSpec.describe "GraphQL plans + nodes operations (epic P2-3 ticket 01)", type: :
       expect(ReadingProgress.exists?(progress.id)).to be(false)
     end
 
+    it "deletes the plan's prerequisite edges with it (epic-16 — the FK sweep before the node sweep)" do
+      user, token = user_with_token("edge-deleter@example.com")
+      plan = create(:study_plan, user: user)
+      first = create(:knowledge_node, user: user, plan: plan, stage: "基础", order: 0)
+      second = create(:knowledge_node, user: user, plan: plan, stage: "核心", order: 1)
+      create(:knowledge_node_edge, user: user, plan: plan, from_node: first, to_node: second)
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { id: plan.id } }, token: token
+          mutation DeletePlan($input: DeletePlanInput!) {
+            deletePlan(input: $input) { deletedPlanId }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "deletePlan", "deletedPlanId")).to eq(plan.id)
+      expect(user.knowledge_node_edges.count).to eq(0)
+      expect(KnowledgeNodeEdge.exists?(plan_id: plan.id)).to be(false)
+    end
+
     it "answers NOT_FOUND for another user's plan id and deletes nothing" do
       owner, _owner_token = user_with_token("delete-owner@example.com")
       _attacker, attacker_token = user_with_token("delete-attacker@example.com")

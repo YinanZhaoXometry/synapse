@@ -96,6 +96,27 @@ RSpec.describe "GraphQL forkSquarePlan (epic P2-11 T3)", type: :request do
       list = graphql("query { plans { id topic } }", token: token)
       expect(list.dig("data", "plans").map { |p| p["id"] }).to include(payload["id"])
     end
+
+    it "carries the source's edges onto the forked plan, over the fork's own node ids (epic-16)" do
+      owner = create(:user)
+      source = create(:study_plan, user: owner, topic: "edge-carrying", visibility: "public")
+      first = create(:knowledge_node, user: owner, plan: source, title: "fundamentals", stage: "基础", order: 0)
+      second = create(:knowledge_node, user: owner, plan: source, title: "hooks deep dive", stage: "核心", order: 1)
+      create(:knowledge_node_edge, user: owner, plan: source, from_node: first, to_node: second)
+
+      payload = call_fork(source.id, SecureRandom.uuid).dig("data", "forkSquarePlan", "plan")
+
+      # Read the fork through the caller's own plan read: the edges' endpoints
+      # are the fork's OWN nodes' uuids, in source position order.
+      detail = graphql(
+        "query($id: String!) { plan(id: $id) { nodes { id order } edges { fromNodeId toNodeId } } }",
+        variables: { id: payload["id"] }, token: token
+      )
+      forked = detail.dig("data", "plan", "nodes").sort_by { |node| node["order"] }
+      expect(detail.dig("data", "plan", "edges")).to eq([
+        { "fromNodeId" => forked[0]["id"], "toNodeId" => forked[1]["id"] }
+      ])
+    end
   end
 
   describe "the refusal matrix" do

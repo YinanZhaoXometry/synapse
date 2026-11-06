@@ -66,6 +66,40 @@ RSpec.describe Plans::ForkPlanCommand do
       expect(plan.forked_from_topic).to eq("雅思口语 6.5")
     end
 
+    it "copies node metadata verbatim (the roadmap description + optional flag, epic-16)" do
+      source_nodes.first.update!(description: "从语音开始", optional: false)
+      source_nodes.second.update!(description: "一人一题的素材库", optional: true)
+
+      nodes = call.value![:nodes]
+
+      aggregate_failures do
+        expect(nodes.map(&:description)).to eq([ "从语音开始", "一人一题的素材库", nil ])
+        expect(nodes.map(&:optional)).to eq([ false, true, false ])
+      end
+    end
+
+    it "copies the edges alongside the nodes, remapped onto the fork's own node ids (epic-16)" do
+      create(:knowledge_node_edge, user: owner, plan: source,
+                                   from_node: source_nodes[0], to_node: source_nodes[1])
+      create(:knowledge_node_edge, user: owner, plan: source,
+                                   from_node: source_nodes[1], to_node: source_nodes[2])
+
+      plan = call.value![:plan]
+      forked_nodes = plan.knowledge_nodes.order(:order).to_a
+
+      # The fork's edges carry the fork's OWN node ids (by source position),
+      # in the source's insertion order, owned by the adopter.
+      edges = plan.knowledge_node_edges.order(:created_at, :id).to_a
+      aggregate_failures do
+        expect(edges.map { |edge| [edge.from_node_id, edge.to_node_id] }).to eq([
+          [forked_nodes[0].id, forked_nodes[1].id],
+          [forked_nodes[1].id, forked_nodes[2].id]
+        ])
+        expect(edges.map(&:user_id).uniq).to eq([ adopter.id ])
+        expect(edges.map(&:plan_id).uniq).to eq([ plan.id ])
+      end
+    end
+
     it "keeps the attribution snapshot when the source later renames (copied, not referenced)" do
       call
       source.update!(topic: "renamed later")

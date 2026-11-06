@@ -8,13 +8,17 @@ module Plans
   # answers the uniform NOT_FOUND; no existence leak). STRUCTURE ONLY is
   # copied into a new plan owned by current_user: topic + goal verbatim, the
   # nodes' title/stage/order verbatim (order is the source's stored key, not
-  # re-derived from the copy position); the adopter's copy starts PRIVATE —
-  # publishing it is theirs alone (FR-38). The attribution row lands in the
-  # same transaction: forked_from_plan_id (FK SET NULL — the source's
-  # deletion never breaks the fork) + forked_from_topic (the fork-time
-  # snapshot, delta decision 4). Materials/annotations/evidence/mappings/
-  # markings/progress are never touched on either side: nothing writes back
-  # to the source, nothing carries over.
+  # re-derived from the copy position) plus the roadmap metadata
+  # (description/optional, epic-16 T1 — structure now includes it); the
+  # adopter's copy starts PRIVATE — publishing it is theirs alone (FR-38).
+  # The source's prerequisite edges copy alongside the nodes, remapped onto
+  # the fork's own node ids by source position (epic-16 T1: the copy stays
+  # faithful to the source structure — user story 11). The attribution row
+  # lands in the same transaction: forked_from_plan_id (FK SET NULL — the
+  # source's deletion never breaks the fork) + forked_from_topic (the
+  # fork-time snapshot, delta decision 4). Materials/annotations/evidence/
+  # mappings/markings/progress are never touched on either side: nothing
+  # writes back to the source, nothing carries over.
   #
   # The pinned empty-source ruling (recorded 2026-11-05): a ZERO-NODE source
   # refuses the fork with VALIDATION_FAILED — adopting an empty shell is
@@ -69,9 +73,11 @@ module Plans
         )
         nodes = source_nodes.map do |node|
           current_user.knowledge_nodes.create!(
-            plan: plan, title: node.title, stage: node.stage, order: node.order
+            plan: plan, title: node.title, stage: node.stage, order: node.order,
+            description: node.description, optional: node.optional
           )
         end
+        copy_plan_edges(source, plan, source_nodes, nodes)
       end
       Success(plan: plan, nodes: nodes)
     rescue ActiveRecord::RecordNotUnique
@@ -84,6 +90,21 @@ module Plans
     end
 
     private
+
+    # The source's edges, remapped onto the fork's own nodes by source
+    # position (both lists are order-sorted, so position ↔ position). The
+    # source's stored edges are already valid for the copied stages — they
+    # copy verbatim, no re-validation (faithful structure, not a re-derive).
+    def copy_plan_edges(source, plan, source_nodes, forked_nodes)
+      new_by_old = source_nodes.zip(forked_nodes).to_h { |old, fresh| [old.id, fresh] }
+      source.knowledge_node_edges.order(:created_at, :id).each do |edge|
+        from = new_by_old[edge.from_node_id]
+        to = new_by_old[edge.to_node_id]
+        next if from.nil? || to.nil?
+
+        plan.knowledge_node_edges.create!(user_id: plan.user_id, from_node: from, to_node: to)
+      end
+    end
 
     # The stricter public-path addressing (the P2-4 review posture): the
     # source answers only through the explicit publicly_visible scope, after

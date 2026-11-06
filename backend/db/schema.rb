@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_180001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_06_090002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -107,6 +107,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_180001) do
     t.check_constraint "difficulty IS NULL OR (difficulty::text = ANY (ARRAY['hard'::character varying::text, 'medium'::character varying::text, 'easy'::character varying::text]))", name: "flashcards_difficulty_check"
   end
 
+  create_table "knowledge_node_edges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "plan_id", null: false
+    t.uuid "from_node_id", null: false
+    t.uuid "to_node_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_node_id", "to_node_id"], name: "index_knowledge_node_edges_on_from_node_and_to_node", unique: true
+    t.index ["from_node_id"], name: "index_knowledge_node_edges_on_from_node_id"
+    t.index ["plan_id"], name: "index_knowledge_node_edges_on_plan_id"
+    t.index ["to_node_id"], name: "index_knowledge_node_edges_on_to_node_id"
+    t.index ["user_id"], name: "index_knowledge_node_edges_on_user_id"
+  end
+
   create_table "knowledge_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "user_id", null: false
     t.uuid "plan_id"
@@ -116,6 +130,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_180001) do
     t.integer "order", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "description"
+    t.boolean "optional", default: false, null: false
     t.index ["plan_id"], name: "index_knowledge_nodes_on_plan_id"
     t.index ["task_id"], name: "index_knowledge_nodes_on_task_id", unique: true
     t.index ["user_id"], name: "index_knowledge_nodes_on_user_id"
@@ -513,6 +529,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_180001) do
   add_foreign_key "flashcards", "knowledge_nodes", column: "node_id"
   add_foreign_key "flashcards", "materials"
   add_foreign_key "flashcards", "users"
+  add_foreign_key "knowledge_node_edges", "knowledge_nodes", column: "from_node_id"
+  add_foreign_key "knowledge_node_edges", "knowledge_nodes", column: "to_node_id"
+  add_foreign_key "knowledge_node_edges", "study_plans", column: "plan_id"
+  add_foreign_key "knowledge_node_edges", "users"
   add_foreign_key "knowledge_nodes", "study_plans", column: "plan_id"
   add_foreign_key "knowledge_nodes", "study_tasks", column: "task_id"
   add_foreign_key "knowledge_nodes", "users"
