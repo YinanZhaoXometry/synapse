@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { previousNavPathname, sourceBackTarget } from "@/lib/nav-history";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useViewportTier } from "@/hooks/use-mobile";
 import {
@@ -587,6 +588,11 @@ export default function ReaderPage() {
   }
 
   const pagerVisible = totalPages !== null;
+  // Source-aware back (2026-11-06): the reader has 8+ inbound origins (materials
+  // hub, mistakes citations, tutor citations, task/plan homes) — a hub/task
+  // origin returns there instead of the hardcoded plan spine (the plan origin
+  // keeps the topic-labeled spine default, now with the topic query answered).
+  const sourceBack = sourceBackTarget(previousNavPathname());
   const step = (delta: number) => {
     if (totalPages === null) return;
     flowRef.current?.scrollToPage(stepPage(currentPage, delta, totalPages));
@@ -614,12 +620,16 @@ export default function ReaderPage() {
         <header className="flex-none flex items-center gap-3 min-h-[52px] px-4 md:px-5 bg-card border-b border-border-soft">
           <button
             type="button"
-            onClick={() => navigate(material.planId ? `/plan/${material.planId}` : "/plans")}
+            onClick={() => navigate(sourceBack?.to ?? (material.planId ? `/plan/${material.planId}` : "/plans"))}
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer flex-none min-w-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="truncate max-w-[180px]">
-              {material.planId ? (planQuery.data?.plan.topic ?? t("reader.backToPlan")) : t("plans.backToPlans")}
+              {sourceBack
+                ? t(sourceBack.labelKey)
+                : material.planId
+                  ? (planQuery.data?.plan.topic ?? t("reader.backToPlan"))
+                  : t("plans.backToPlans")}
             </span>
           </button>
           <span className="text-sm font-semibold truncate min-w-0 flex-1" title={material.title}>

@@ -174,4 +174,24 @@ describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
     expect(screen.getByText(zh("companion.retry"))).toBeTruthy();
     expect((screen.getByLabelText(zh("companion.planPlaceholder")) as HTMLTextAreaElement).value).toBe("计划的重点？");
   });
+
+  it("switching plans resets the ephemeral transcript (a plan switch is the same cut as a reload — 2026-11-06)", async () => {
+    const view = renderPanel();
+    fireEvent.click(screen.getByText(zh("tutor.suggestExplain")));
+    await screen.findAllByText(fixtureReply.text);
+
+    view.rerender(
+      <MemoryRouter>
+        <LanguageProvider>
+          <div className="h-[480px]">
+            <CompanionPanel mode="plan" planId="plan-2" materials={[material]} mistakeEntries={[mistakeEntry]} />
+          </div>
+        </LanguageProvider>
+      </MemoryRouter>,
+    );
+
+    // plan-1's turns never render under plan-2; the composer is alive again.
+    expect(screen.queryByText(fixtureReply.text)).toBeNull();
+    expect(screen.getByText(zh("tutor.suggestExplain"))).toBeTruthy();
+  });
 });

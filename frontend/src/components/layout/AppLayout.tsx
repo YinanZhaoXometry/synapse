@@ -7,6 +7,7 @@ import { useStreakQuery } from "@/api";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import UserMenuButton from "@/components/shared/UserMenuButton";
+import { recordNavPathname } from "@/lib/nav-history";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,11 @@ export default function AppLayout() {
   // only on the Settings page and nobody found it) + name + settings gear.
   const streakQuery = useStreakQuery();
   const location = useLocation();
+  // One-deep origin recorder (nav-history): spine-owned surfaces derive their
+  // source-aware back from this. Render-body call on purpose — a route's first
+  // render must already see the route it came from (an effect would run after
+  // the children rendered). Same-path calls dedupe inside the recorder.
+  recordNavPathname(location.pathname);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 

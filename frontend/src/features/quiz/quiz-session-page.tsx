@@ -24,6 +24,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CircleAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { previousNavPathname, sourceBackTarget } from "@/lib/nav-history";
 import { useAllEvidenceQuery, useQuizSessionQuery } from "@/api";
 import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { QuizLauncher } from "./QuizLauncher";
@@ -90,14 +91,34 @@ export function QuizSessionPage({ context }: { context: QuizSessionContext }) {
 
   const evidence = evidenceQuery.data ?? [];
 
+  // Source-aware back (2026-11-06): a session entered from the /quiz hub (or
+  // any non-spine origin) returns THERE — the hub is a one-way door no more.
+  // A spine origin (plan/task home) keeps the owner's home target; the lost
+  // case keeps the honest lostHref.
+  const sourceBack = context.exists ? sourceBackTarget(previousNavPathname()) : null;
+  const useSourceBack = !!sourceBack && sourceBack.to !== context.homeHref;
   const backLink = (
     <button
       type="button"
-      onClick={() => navigate(context.exists ? context.homeHref : context.lostHref)}
+      onClick={() =>
+        navigate(
+          useSourceBack && sourceBack
+            ? sourceBack.to
+            : context.exists
+              ? context.homeHref
+              : context.lostHref,
+        )
+      }
       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
     >
       <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-      {t(context.exists ? context.homeLabelKey : context.lostLabelKey)}
+      {t(
+        useSourceBack && sourceBack
+          ? sourceBack.labelKey
+          : context.exists
+            ? context.homeLabelKey
+            : context.lostLabelKey,
+      )}
     </button>
   );
 

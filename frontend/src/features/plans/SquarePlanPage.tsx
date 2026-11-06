@@ -34,7 +34,7 @@ export default function SquarePlanPage() {
   const backLink = (
     <button
       type="button"
-      onClick={() => navigate("/plans")}
+      onClick={() => navigate("/plans?tab=square")}
       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
     >
       <ArrowLeft className="w-3.5 h-3.5" /> {t("square.previewBack")}

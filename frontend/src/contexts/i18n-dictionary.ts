@@ -64,6 +64,7 @@ export const translations = {
       'common.notFoundTitle': '这里没有页面。',
       'common.notFoundBody': '换一个入口继续。',
       'common.goDashboard': '回到仪表盘',
+      'common.goPlans': '回到学习计划',
 
       'nav.group.overview': '总览',
       'nav.group.learn': '学习',
@@ -1020,6 +1021,7 @@ export const translations = {
       'common.notFoundTitle': 'Nothing here.',
       'common.notFoundBody': 'Pick another starting point.',
       'common.goDashboard': 'Back to dashboard',
+      'common.goPlans': 'Back to Study Plans',
 
       'nav.group.overview': 'Overview',
       'nav.group.learn': 'Learn',

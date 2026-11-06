@@ -68,6 +68,19 @@ export function usePlanCompanionChat(planId: string) {
     [],
   );
 
+  // Scope switch (2026-11-06): the tutor's plan picker changes planId without
+  // remounting — the transcript (and any mid-flight stream state) MUST reset,
+  // or plan A's turns render under plan B. The ephemeral-transcript rule
+  // above already says a reload starts empty; a plan switch is the same cut.
+  // A mid-flight turn self-abandons (the startedPlanId guard in runTurn), so
+  // dropping busy here cannot resurrect it.
+  useEffect(() => {
+    setEntries([]);
+    setStreamText(null);
+    setStreamMistakeEntryId(null);
+    setBusy(false);
+  }, [planId]);
+
   const runTurn = useCallback(
     (request: PlanTurnRequest, displayText: string, existingEntryId?: string) => {
       if (busy) return;

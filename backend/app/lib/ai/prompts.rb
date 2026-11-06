@@ -271,6 +271,7 @@ module Ai
             #{escalated ? "The learner explicitly asked for the direct answer — give it, grounded and cited." : "Stay hint-first: guide toward the answer rather than dumping it (the ladder rule — the learner can escalate with one click)."}
             Answer ONLY from the material above; if it does not cover the question, say so honestly.
             Write your entire reply in #{language_word(language)}.
+            Reply in flowing prose — never JSON, never code fences; the learner reads your words as a chat message.
           PROMPT
         ]
       end
@@ -297,6 +298,7 @@ module Ai
             Stay hint-first: guide toward the answer rather than dumping it (the ladder rule).
             Answer ONLY from the material above; if it does not cover the question, say so honestly.
             Write your entire reply in #{language_word(language)}.
+            Reply in flowing prose — never JSON, never code fences; the learner reads your words as a chat message.
           PROMPT
         ]
       end
