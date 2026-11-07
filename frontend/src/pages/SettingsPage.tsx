@@ -24,6 +24,7 @@ import {
 import { apiErrorCode } from "@/api";
 import { clearToken, logout, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
+import { useReaderMdTheme } from "@/lib/reader-md-theme";
 import { cn } from "@/lib/utils";
 import { useSessionIdentity } from "@/components/shared/session-identity";
 
@@ -240,6 +241,33 @@ function ExportDataRow() {
 /** The AI-usage row (FR-34): today's cap-counter count + the enforced daily
  * limit, straight from the server — an honest neutral read, no progress-bar
  * theatrics (the display consequence, never enforcement). */
+/** The reader's markdown content theme (epic-24 T3): the claudette paper
+ * skin, off by default. OFF is the absent key — lazy-write, nothing persists
+ * until the first enable. */
+function ReaderThemeRow() {
+  const { t } = useLanguage();
+  const [readerMdTheme, setReaderMdTheme] = useReaderMdTheme();
+  const on = readerMdTheme === "claudette";
+
+  return (
+    <div className="setting-row">
+      <div className="flex-1 min-w-0">
+        <div className="setting-label">{t("settings.readerTheme")}</div>
+        <div className="setting-help mt-0.5">{t("settings.readerThemeHelp")}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        data-testid="reader-md-theme-switch"
+        aria-label={t("settings.readerTheme")}
+        onClick={() => setReaderMdTheme(on ? "default" : "claudette")}
+        className="switch shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    </div>
+  );
+}
+
 function AiUsageRow() {
   const { t } = useLanguage();
   const usageQuery = useAiUsageTodayQuery();
@@ -409,6 +437,8 @@ export default function SettingsPage() {
             className="switch shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
+
+        <ReaderThemeRow />
       </section>
 
       {/* Group 3 — study goal (the simple half of FR-25; the setter landed
@@ -518,6 +548,7 @@ export default function SettingsPage() {
       <div className="mt-6 flex justify-center">
         <button
           type="button"
+          data-testid="settings-signout-page-end"
           onClick={signOut}
           className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-danger-ink hover:bg-[rgba(168,50,50,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
         >

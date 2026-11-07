@@ -38,12 +38,14 @@ import { useEffect, useRef, useState, type MutableRefObject, type RefObject } fr
 import { useNavigate } from "react-router-dom";
 import { BookmarkMinus, Check, RotateCw, Send, Sparkles } from "lucide-react";
 import type { CompanionReply } from "@/ai/types";
+import { splitQuizBlock, leadBeforeQuiz, QUIZ_FENCE_MARKER } from "@/ai/quiz";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { PlanMistakeEntryView } from "@/api";
 import type { Material, ReadingLocator, ReadingPosition } from "@/domain/entities";
 import { cn } from "@/lib/utils";
 import { CitationChip } from "./citation-chip";
+import { QuizBlock } from "./quiz-block";
 import { locatorDisplayTarget, type BubbleEntry, type CompanionEntry } from "./message-shaping";
 import { useCompanionChat } from "./use-companion-chat";
 import { usePlanCompanionChat, type PlanCompanionEntry } from "./use-plan-companion-chat";
@@ -131,7 +133,11 @@ function UserBubble({ entry, onRetry }: { entry: ChatEntry; onRetry(): void }) {
   );
 }
 
-/** The Companion's row — rung label, CitationChips, escalation, honest fallback. */
+/** The Companion's row — rung label, CitationChips, escalation, honest fallback.
+ * The reply text may carry a ```synapse-quiz block (epic-24 T4): the lead
+ * renders as the bubble text and the block renders interactive beneath it —
+ * the SAME path for in-session turns and restored threads (the fence rides
+ * the persisted text, so the block rehydrates after reload). */
 function CompanionBubble({
   entry,
   material,
@@ -146,6 +152,7 @@ function CompanionBubble({
   const { t } = useLanguage();
   const reply = entry.reply;
   const rungLabel = reply ? replyLabel(reply, t) : null;
+  const { lead, quiz } = splitQuizBlock(entry.text);
   return (
     <div className="flex gap-2.5 max-w-[88%] self-start">
       <span
@@ -155,7 +162,8 @@ function CompanionBubble({
         S
       </span>
       <div className="chat-body leading-[1.7] rounded-[14px] rounded-tl-[4px] bg-card border border-border-soft shadow-soft px-[15px] py-3 min-w-0">
-        <p className="whitespace-pre-wrap">{entry.text}</p>
+        <p className="whitespace-pre-wrap">{lead}</p>
+        {quiz && <QuizBlock quiz={quiz} />}
         {entry.citations.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {entry.citations.map((locator, i) => (
@@ -200,7 +208,9 @@ function CompanionBubble({
  * chips render alongside their claims mid-stream — the locator is known at
  * request time, so the chip is here and jumpable the whole turn) + the subtle
  * grounding line. CompanionReply.citations exist on the final reply only, so
- * the reply's full citation list swaps in below when it resolves. */
+ * the reply's full citation list swaps in below when it resolves. A quiz
+ * reply's fence (epic-24 T4) never flashes its raw JSON: only the lead shows
+ * mid-stream, with an honest 出题中 line once the marker arrives. */
 function StreamingBubble({
   text,
   target,
@@ -216,6 +226,9 @@ function StreamingBubble({
   material: Material | null;
   onJump(locator: ReadingLocator): void;
 }) {
+  const { t } = useLanguage();
+  const quizPending = text !== null && text.includes(QUIZ_FENCE_MARKER);
+  const shown = text !== null ? leadBeforeQuiz(text) : null;
   return (
     <div className="flex gap-2.5 max-w-[88%] self-start">
       <span
@@ -225,7 +238,12 @@ function StreamingBubble({
         S
       </span>
       <div className="chat-body leading-[1.7] rounded-[14px] rounded-tl-[4px] bg-card border border-border-soft shadow-soft px-[15px] py-3 min-w-0">
-        {text !== null && text.length > 0 && <p className="whitespace-pre-wrap">{text}</p>}
+        {shown !== null && shown.length > 0 && <p className="whitespace-pre-wrap">{shown}</p>}
+        {quizPending && (
+          <p className="text-[11px] text-muted-foreground" data-testid="companion-quiz-generating">
+            {t("companion.quizGenerating")}
+          </p>
+        )}
         {locator && (
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             <CitationChip material={material} locator={locator} onJump={onJump} />
@@ -400,7 +418,6 @@ function ReadingCompanionSurface({
   const badgeTarget = displayLocator ? locatorTargetText(displayLocator) : null;
   const streamTarget = chat.streamPosition ? locatorTargetText(chat.streamPosition.locator) : null;
 
-  const idle = canChat && chat.entries.length === 0 && !chat.busy;
   const starters = [
     t("companion.starterExplain"),
     t("companion.starterQuiz"),
@@ -460,8 +477,10 @@ function ReadingCompanionSurface({
         )}
       </div>
 
-      {/* idle starters (FR-11) */}
-      {idle && !parseFailed && (
+      {/* intent starters (FR-11; epic-24 T4 — ALWAYS visible once the surface
+          can chat, not just on an empty thread; disabled while a turn runs or
+          the send gate holds — visible, never silently gone) */}
+      {canChat && (
         <div className="flex-none flex flex-wrap gap-2 px-4 pb-2">
           {starters.map((question) => (
             <StarterChip key={question} label={question} disabled={!sendReady} onClick={() => chat.send(question)} Icon={Sparkles} />
@@ -620,27 +639,26 @@ function PlanCompanionSurface({ planId, materials, mistakeEntries }: PlanCompani
         )}
       </div>
 
-      {/* idle intent shortcuts (FR-46: explain / quiz me / summarize / analyze my mistakes) */}
-      {idle && (
-        <div className="flex-none flex flex-wrap gap-2 px-4 pb-2">
-          {PLAN_INTENT_KEYS.map((key) => (
-            <StarterChip
-              key={key}
-              label={t(key)}
-              onClick={() => chat.send(t(key))}
-              disabled={!sendReady}
-              Icon={Sparkles}
-            />
-          ))}
+      {/* intent shortcuts (FR-46: explain / quiz me / summarize / analyze my
+          mistakes; epic-24 T4 — always visible, disabled while a turn runs) */}
+      <div className="flex-none flex flex-wrap gap-2 px-4 pb-2">
+        {PLAN_INTENT_KEYS.map((key) => (
           <StarterChip
-            label={t(PLAN_MISTAKE_INTENT_KEY)}
-            onClick={() => setPickerOpen(true)}
-            disabled={mistakeEntries.length === 0}
-            title={mistakeEntries.length === 0 ? t("companion.mistakePickerEmpty") : undefined}
-            Icon={BookmarkMinus}
+            key={key}
+            label={t(key)}
+            onClick={() => chat.send(t(key))}
+            disabled={!sendReady}
+            Icon={Sparkles}
           />
-        </div>
-      )}
+        ))}
+        <StarterChip
+          label={t(PLAN_MISTAKE_INTENT_KEY)}
+          onClick={() => setPickerOpen(true)}
+          disabled={!sendReady || mistakeEntries.length === 0}
+          title={mistakeEntries.length === 0 ? t("companion.mistakePickerEmpty") : undefined}
+          Icon={BookmarkMinus}
+        />
+      </div>
 
       {/* composer — plan scope has no document gate; hydration + busy are the disables */}
       <div className="flex-none px-4 pb-4 pt-1">

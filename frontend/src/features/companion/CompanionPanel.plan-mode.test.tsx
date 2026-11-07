@@ -134,7 +134,7 @@ describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
   it("renders the four intent shortcuts (explain / quiz me / summarize / analyze my mistakes)", () => {
     renderPanel();
     expect(screen.getByText(zh("tutor.suggestExplain"))).toBeTruthy();
-    expect(screen.getByText(zh("tutor.suggestQuiz"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: zh("tutor.suggestQuiz") })).toBeTruthy();
     expect(screen.getByText(zh("tutor.suggestSummary"))).toBeTruthy();
     expect(screen.getByText(zh("tutor.suggestMistake"))).toBeTruthy();
     // the plan-scope badge, never a reading-position badge
@@ -143,7 +143,9 @@ describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
 
   it("an intent shortcut sends the chip text as the plan-grounded question (no mistake input)", async () => {
     renderPanel();
-    fireEvent.click(screen.getByText(zh("tutor.suggestQuiz")));
+    // the chip is the BUTTON (the transcript also carries 考考我 now that
+    // starters are always visible — epic-24 T4)
+    fireEvent.click(screen.getByRole("button", { name: zh("tutor.suggestQuiz") }));
 
     await screen.findAllByText(fixtureReply.text);
     expect(planChatInputs).toHaveLength(1);
@@ -151,7 +153,7 @@ describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
     expect(planChatInputs[0].question).toBe(zh("tutor.suggestQuiz"));
     expect(planChatInputs[0].mistakeEntryId).toBeUndefined();
     // the user's turn renders above the reply
-    expect(screen.getByText(zh("tutor.suggestQuiz"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: zh("tutor.suggestQuiz") })).toBeTruthy();
   });
 
   it("the mistake shortcut opens the picker; picking a row sends THAT entry id as mistakeEntryId", async () => {

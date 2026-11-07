@@ -1,7 +1,15 @@
 # Epic 20 (Phase 3) — touch batch: canvas pinch-zoom + drawer swipe-to-close
 
-Status: ready-for-agent (spec'd + ticketed 2026-11-06, one pass under the standing decide-all delegation; grill round 1 self-answered — see spec decisions 1–7)
+Status: **done** (closed 2026-11-07; T1 @ 5fb9934 2026-11-06, T2 @ 5f494b9 + T3 close-out 2026-11-07, all on `epic/p3-20-touch-batch`; final baselines vitest 949 · e2e 21 @ workers=2 · touch smoke 2/2 · rspec untouched)
 Milestone: Phase 3 — optimization season
+
+## Close-out (2026-11-07)
+
+- The epic's one cross-cutting discovery: **pointer capture must ride the ENGAGE moment, never pointerdown** — an active capture retargets the subsequent click to the capturing surface (W3C pointerevents#356, spec behavior), so T1's pointerdown capture would have swallowed every real-browser node tap and T2's would have bricked every tap-close path. jsdom doesn't model capture retargeting; only the real-Chromium smoke could see it. Both surfaces fixed + smoke-verified.
+- The T3 smoke's second catch: restoring the drawer's entrance-animation classes after a spring-back REPLAYS the slide-in (the panel teleports off-screen mid-tap and eats the pointerup). The entrance now runs exactly once per open session (`swipedOnceRef`), vitest-pinned.
+- e2e caught a pre-existing main regression on its first post-72f818a run: two same-name sign-out buttons on /settings (strict violation) — fixed by testid + re-pointed specs.
+- Isolation recipe for parallel e2e/smoke runs beside a live demo stack (this worktree's gitignored `backend/.dockerdev/compose.override.yaml`): dedicated compose project + ports 13000/19000 + a throwaway Vite proxy override (the host :3000 is an unrelated ssh tunnel on this machine).
+- Honest scope notes: drawer `touch-action: pan-y` (canvas-scoped `none` in decision 4); no physical-device smoke (CDP touch + mouse-pointer fidelity notes in ticket 03); focus trap/body-scroll lock stays recorded out of scope.
 
 ## Parent
 

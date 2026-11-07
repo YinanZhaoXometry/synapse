@@ -24,10 +24,11 @@
  * heading's right edge and the claimed section's green start (tint overlay +
  * mastered edge bar, the flash overlay's positioning precedent).
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeSlug from "rehype-slug";
-import { Bookmark, BookmarkCheck, ListChecks } from "lucide-react";
+import remarkGfm from "remark-gfm";
+import { Bookmark, BookmarkCheck, ListChecks, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
@@ -37,6 +38,7 @@ import {
   type AnnotationApplyResult,
   type AnnotationRenderItem,
 } from "./annotation-engine";
+import { attachAnnotationHover, type AnnotationHoverAnchor } from "./annotation-hover";
 import type { QuickTestGateState } from "./quick-test-gate";
 
 interface MarkdownViewProps {
@@ -54,6 +56,12 @@ interface MarkdownViewProps {
   staleTitle?: string;
   /** The engine's per-application results (the list panel's stale/missing honesty). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
+  /**
+   * Remove one annotation (epic-24 T2 — the hover popover's back end). Absent
+   * = the hover affordance is off entirely (no bridge, no popover). The
+   * mounter owns the mutation; the view only reports the id.
+   */
+  onRemoveAnnotation?(id: string): void;
   /**
    * The Mastery Marking open-claim section ids (FR-15, epic-15 T3). The
    * mounter passes it ONLY once the claim read has landed — undefined means
@@ -215,12 +223,16 @@ export default function MarkdownView({
   introSectionId,
   staleTitle,
   onAnnotationsApplied,
+  onRemoveAnnotation,
   claimedSectionIds,
   onToggleClaim,
   onConfirmQuiz,
   quickTestGate = "ready",
 }: MarkdownViewProps) {
   const docRef = useRef<HTMLDivElement>(null);
+  // The hover-to-remove popover's anchor (epic-24 T2) — null = hidden.
+  const [hover, setHover] = useState<AnnotationHoverAnchor | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   // Report the rendered anchors straight from the DOM — the most authoritative
   // statement of which section ids exist (and in what order). Fires per text
@@ -250,6 +262,52 @@ export default function MarkdownView({
     if (doc) clearMarkdownAnnotations(doc);
   }, []);
 
+  // The hover bridge (epic-24 T2): only with a remove handler AND something
+  // painted. Re-attached per fresh list — the bridge closes over the items the
+  // hit-test answers from. Clearing the hover on list change keeps a removed
+  // annotation's popover from outliving its range.
+  useEffect(() => {
+    const doc = docRef.current;
+    if (!doc || !onRemoveAnnotation || (annotations?.length ?? 0) === 0) {
+      setHover(null);
+      return;
+    }
+    setHover(null);
+    return attachAnnotationHover(doc, {
+      items: annotations ?? [],
+      introSectionId: introSectionId ?? null,
+      onAnchor: setHover,
+    });
+  }, [annotations, introSectionId, onRemoveAnnotation]);
+
+  // Popover dismissal: Escape, any pointerdown outside the popover, and the
+  // fresh-list clear above. Leaving the article entirely is the bridge's
+  // pointerleave; the popover lives INSIDE the article subtree, so moving
+  // onto it never fires that leave.
+  // Popover dismissal: Escape, any press outside the popover (pointerdown +
+  // the mouse twin for pointer-less hosts), and the fresh-list clear above.
+  // Leaving the article entirely is the bridge's pointerleave; the popover
+  // lives INSIDE the article subtree, so moving onto it never fires that
+  // leave.
+  useEffect(() => {
+    if (!hover) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHover(null);
+    };
+    const onPress = (event: Event) => {
+      if (popoverRef.current && event.target instanceof Node && popoverRef.current.contains(event.target)) return;
+      setHover(null);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPress);
+    window.addEventListener("mousedown", onPress);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPress);
+      window.removeEventListener("mousedown", onPress);
+    };
+  }, [hover]);
+
   // The marking wiring rides the heading factory only when the mounter's
   // claim handler is present — absent = feature off (no controls, no green).
   const marking: HeadingMarking | null =
@@ -266,14 +324,93 @@ export default function MarkdownView({
     h6: headingComponent("h6", flashSection, marking),
   };
 
+  const hoverItem = hover ? annotations?.find((item) => item.id === hover.id) : undefined;
+  // The anchor rides viewport coords; the popover is a child of the (relative)
+  // article, so convert once per render. Near the article's top the popover
+  // flips below the range instead of clipping above the scroll container.
+  const docRect = hover ? docRef.current?.getBoundingClientRect() : null;
+  const hoverLeft = hover && docRect ? hover.x - docRect.left : (hover?.x ?? 0);
+  const hoverTopRaw = hover && docRect ? hover.y - docRect.top : (hover?.y ?? 0);
+  const hoverFlip = hoverTopRaw < 56;
+
   return (
-    <div ref={docRef} className="reader-prose">
+    <div ref={docRef} className="reader-prose relative">
       {/* Keyed by the document text: a text change remounts the prose
           subtree fresh, so React never diffs against the engine-mutated
           DOM (the marks are imperative decorations, not vdom). */}
-      <ReactMarkdown key={text} rehypePlugins={[rehypeSlug]} components={components}>
+      <ReactMarkdown key={text} rehypePlugins={[rehypeSlug]} remarkPlugins={[remarkGfm]} components={components}>
         {text}
       </ReactMarkdown>
+      {/* The popover mounts ONLY with a hover (it owns useLanguage — the
+          bare-MarkdownView renderers, e.g. the anchor-agreement tests, never
+          mount a language context). */}
+      {hover && onRemoveAnnotation && (
+        <AnnotationHoverPopover
+          popoverRef={popoverRef}
+          hover={hover}
+          body={hoverItem?.body}
+          flip={hoverFlip}
+          left={hoverLeft}
+          top={hoverFlip ? hoverTopRaw + 8 : hoverTopRaw}
+          onRemove={(id) => {
+            onRemoveAnnotation(id);
+            setHover(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The hover popover (epic-24 T2): note body when present + the remove
+ * button. Rendered only while an annotation answers the pointer. */
+function AnnotationHoverPopover({
+  popoverRef,
+  hover,
+  body,
+  flip,
+  left,
+  top,
+  onRemove,
+}: {
+  popoverRef: RefObject<HTMLDivElement | null>;
+  hover: AnnotationHoverAnchor;
+  body?: string;
+  flip: boolean;
+  left: number;
+  top: number;
+  onRemove(id: string): void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div
+      ref={popoverRef}
+      data-testid="annotation-hover-popover"
+      data-anno-popover=""
+      role="group"
+      aria-label={t("reader.annotationRemove")}
+      className={cn(
+        "absolute z-40 flex max-w-[260px] items-center gap-1.5 rounded-xl border border-border-soft bg-[var(--glass-4)] px-2 py-1.5 shadow-raised backdrop-blur-sm",
+        flip ? "-translate-x-1/2" : "-translate-x-1/2 -translate-y-[calc(100%+8px)]",
+      )}
+      style={{ left, top }}
+    >
+      {body && (
+        <span className="min-w-0 flex-1 truncate text-[11px] leading-[1.4] text-muted-foreground" title={body}>
+          {body}
+        </span>
+      )}
+      <button
+        type="button"
+        data-testid="annotation-remove"
+        aria-label={t("reader.annotationRemove")}
+        title={t("reader.annotationRemove")}
+        onClick={() => onRemove(hover.id)}
+        className="inline-flex flex-none items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-[var(--glass-2)] hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+        {t("reader.annotationRemove")}
+      </button>
     </div>
   );
 }

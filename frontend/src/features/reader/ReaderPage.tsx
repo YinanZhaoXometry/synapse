@@ -758,6 +758,7 @@ export default function ReaderPage() {
                   introSectionId={introSectionId}
                   staleTitle={t("reader.annotationStale")}
                   onAnnotationsApplied={handleAnnotationsApplied}
+                  onRemoveAnnotation={handleRemoveAnnotation}
                   claimedSectionIds={claimedSectionIds}
                   onToggleClaim={claimedSectionIds === undefined ? undefined : handleToggleClaim}
                   onConfirmQuiz={claimedSectionIds === undefined ? undefined : handleConfirmQuiz}

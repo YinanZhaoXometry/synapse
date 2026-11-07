@@ -689,6 +689,25 @@
 .reader-prose hr { border: none; border-top: 1px solid hsl(var(--border-soft)); margin: 1.8em 0; }
 .reader-prose img { max-width: 100%; border-radius: 10px; margin: 1em 0; }
 .reader-prose strong { font-weight: 600; }
+/* GFM tables (epic-24 T1 — remark-gfm made pipe tables render at all): hairline
+   rows on semantic tokens, quiet header, del/strike and task-list checkboxes.
+   The claudette theme (below) re-skins these under .reader-claudette. */
+.reader-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.92em;
+}
+.reader-prose th, .reader-prose td {
+  border-bottom: 1px solid hsl(var(--border-soft));
+  padding: 0.55em 0.75em 0.55em 0;
+  text-align: left;
+  vertical-align: top;
+}
+.reader-prose th { font-weight: 600; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); }
+.reader-prose td:last-child, .reader-prose th:last-child { padding-right: 0; }
+.reader-prose del { color: hsl(var(--muted-foreground)); }
+.reader-prose input[type="checkbox"] { accent-color: var(--accent-ink); margin-right: 0.45em; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -733,3 +752,206 @@ svg.lucide {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
 }
+
+/* ======================================================================
+   Claudette reader theme (epic-24 T3) — the markdown reader's optional
+   content skin, ported from the MIT-licensed Typora theme "Claudette"
+   (CookPiu, github.com/CookPiu/typora-theme-claudette, MIT). Token values
+   and editorial rules only — no Typora selector machinery. Scope: the
+   .reader-claudette element is MarkdownFlow's scroll container (ivory
+   page), its .reader-prose article becomes the paper sheet. The app shell,
+   palettes and the annotation/marking/flash overlays are untouched —
+   annotation marks keep their own palette (mark[data-annotation-id]
+   excluded below). Dark mode rides claudette-dark's own tokens.
+   ====================================================================== */
+.reader-claudette {
+  --cl-page: #faf9f5;
+  --cl-paper: #ffffff;
+  --cl-ink: #141413;
+  --cl-ink-2: #52514e;
+  --cl-ink-3: #73726c;
+  --cl-muted: #87867f;
+  --cl-line: rgba(31, 30, 29, 0.12);
+  --cl-line-strong: rgba(31, 30, 29, 0.22);
+  --cl-clay: #d97757;
+  --cl-clay-2: #c6613f;
+  --cl-accent-soft: rgba(217, 119, 87, 0.1);
+  --cl-fill: #ece9df;
+  --cl-code-bg: #f5f4ed;
+  --cl-ring: rgba(0, 0, 0, 0.1);
+  background: var(--cl-page);
+}
+.dark .reader-claudette {
+  --cl-page: #262625;
+  --cl-paper: #2a2a28;
+  --cl-ink: #f2f0e9;
+  --cl-ink-2: #d6d3c8;
+  --cl-ink-3: #b8b6a9;
+  --cl-muted: #9c9a90;
+  --cl-line: rgba(255, 255, 255, 0.1);
+  --cl-line-strong: rgba(255, 255, 255, 0.2);
+  --cl-clay: #d97757;
+  --cl-clay-2: #e6906f;
+  --cl-accent-soft: rgba(217, 119, 87, 0.14);
+  --cl-fill: #34332e;
+  --cl-code-bg: #2c2c2a;
+  --cl-ring: rgba(255, 255, 255, 0.08);
+  background: var(--cl-page);
+}
+/* The paper sheet: the article becomes a card on the ivory page. */
+.reader-claudette .reader-prose {
+  background: var(--cl-paper);
+  color: var(--cl-ink);
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px var(--cl-ring), 0 2px 12px rgba(0, 0, 0, 0.06);
+  padding: 2.5rem 2rem 3.5rem;
+}
+@media (min-width: 768px) {
+  .reader-claudette .reader-prose { padding: 3.5rem 3.5rem 4.5rem; }
+}
+/* Typography: serif 400 headings (the app's font-display IS Source Serif 4),
+   the h1 accent underline + lead paragraph, the h2 hairline, the h3 dot. */
+.reader-claudette .reader-prose h1,
+.reader-claudette .reader-prose h2,
+.reader-claudette .reader-prose h3,
+.reader-claudette .reader-prose h4 {
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--cl-ink);
+}
+.reader-claudette .reader-prose h1 {
+  font-size: 2em;
+  line-height: 1.15;
+  padding-bottom: 0.4em;
+  position: relative;
+}
+.reader-claudette .reader-prose h1::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 2.5rem;
+  height: 2px;
+  background: var(--cl-clay);
+  border-radius: 1px;
+}
+.reader-claudette .reader-prose h1 + p {
+  font-size: 1.08em;
+  line-height: 1.6;
+  color: var(--cl-ink-2);
+}
+.reader-claudette .reader-prose h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--cl-line);
+}
+.reader-claudette .reader-prose h3::before {
+  content: "";
+  display: inline-block;
+  width: 0.32em;
+  height: 0.32em;
+  margin-right: 0.5em;
+  margin-bottom: 0.18em;
+  border-radius: 50%;
+  background: var(--cl-clay);
+  vertical-align: middle;
+}
+.reader-claudette .reader-prose p, .reader-claudette .reader-prose li { color: var(--cl-ink); }
+.reader-claudette .reader-prose li::marker { color: var(--cl-clay); }
+.reader-claudette .reader-prose ol > li::marker { color: var(--cl-ink-3); }
+/* Links: quiet underline in soft clay, deepening on hover. */
+.reader-claudette .reader-prose a {
+  color: inherit;
+  text-decoration-color: rgba(217, 119, 87, 0.45);
+}
+.reader-claudette .reader-prose a:hover { color: var(--cl-clay-2); text-decoration-color: var(--cl-clay-2); }
+/* Blockquote: clay hairline + the quiet quote mark. */
+.reader-claudette .reader-prose blockquote {
+  position: relative;
+  border-left: 2px solid rgba(217, 119, 87, 0.55);
+  padding-left: 1.75em;
+  font-family: var(--font-display), Georgia, serif;
+  color: var(--cl-ink-2);
+}
+.reader-claudette .reader-prose blockquote::before {
+  content: "\201C";
+  position: absolute;
+  left: 0.45em;
+  top: -0.1em;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 2em;
+  line-height: 1;
+  color: var(--cl-clay);
+  opacity: 0.35;
+}
+.reader-claudette .reader-prose blockquote p { color: inherit; }
+/* Code: warm inline chips, ivory fences. */
+.reader-claudette .reader-prose code {
+  background: var(--cl-accent-soft);
+  border: none;
+  color: #9c4a21;
+  border-radius: 4px;
+}
+.dark .reader-claudette .reader-prose code { color: #e5b07e; }
+.reader-claudette .reader-prose pre {
+  background: var(--cl-code-bg);
+  border: 1px solid var(--cl-line);
+  border-radius: 12px;
+}
+.reader-claudette .reader-prose pre code { background: transparent; color: var(--cl-ink-2); }
+/* Tables (the T1 defaults re-skinned): rounded hairline card, uppercase th. */
+.reader-claudette .reader-prose table {
+  border: 1px solid var(--cl-line);
+  border-radius: 8px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+.reader-claudette .reader-prose th, .reader-claudette .reader-prose td {
+  padding: 0.6em 0.75em;
+  border-bottom: 1px solid var(--cl-line);
+}
+.reader-claudette .reader-prose th {
+  background: var(--cl-code-bg);
+  color: var(--cl-ink-3);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cl-line);
+}
+.reader-claudette .reader-prose tbody tr:last-child td { border-bottom: none; }
+.reader-claudette .reader-prose tbody tr:hover td { background: rgba(31, 30, 29, 0.04); }
+.dark .reader-claudette .reader-prose tbody tr:hover td { background: rgba(255, 255, 255, 0.04); }
+/* hr with the centered asterisk (the Claude nod); images get the hairline. */
+.reader-claudette .reader-prose hr {
+  position: relative;
+  overflow: visible;
+  height: 1px;
+  border: none;
+  background: var(--cl-line);
+}
+.reader-claudette .reader-prose hr::after {
+  content: "\2733";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 0.75em;
+  background: var(--cl-paper);
+  color: var(--cl-clay);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.reader-claudette .reader-prose img { box-shadow: 0 0 0 1px var(--cl-line); border-radius: 8px; }
+/* Marked text goes manilla — but the annotation engine's marks keep their own
+   palette (they carry data-annotation-id). */
+.reader-claudette .reader-prose mark:not([data-annotation-id]) {
+  background: rgba(249, 224, 176, 0.65);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 0.15em;
+}
+.dark .reader-claudette .reader-prose mark:not([data-annotation-id]) { background: rgba(227, 192, 123, 0.32); }
+/* Task-list checkboxes in clay. */
+.reader-claudette .reader-prose input[type="checkbox"] { accent-color: var(--cl-clay-2); }

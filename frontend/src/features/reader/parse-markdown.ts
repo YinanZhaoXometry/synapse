@@ -27,14 +27,28 @@ let processorPromise: Promise<{
 
 function loadProcessor() {
   processorPromise ??= (async () => {
-    const [{ unified }, { default: remarkParse }, { default: remarkRehype }, { default: rehypeSlug }] =
-      await Promise.all([
-        import("unified"),
-        import("remark-parse"),
-        import("remark-rehype"),
-        import("rehype-slug"),
-      ]);
-    return unified().use(remarkParse).use(remarkRehype, { allowDangerousHtml: true }).use(rehypeSlug);
+    const [
+      { unified },
+      { default: remarkParse },
+      { default: remarkRehype },
+      { default: rehypeSlug },
+      { default: remarkGfm },
+    ] = await Promise.all([
+      import("unified"),
+      import("remark-parse"),
+      import("remark-rehype"),
+      import("rehype-slug"),
+      import("remark-gfm"),
+    ]);
+    // remark-gfm (epic-24 T1) rides BOTH pipelines — the renderer's
+    // (markdown-view) and this mirror's — so tables/strikethrough/task lists
+    // parse identically on both sides and the anchor invariant holds (GFM
+    // leaves heading parsing untouched).
+    return unified()
+      .use(remarkParse)
+      .use(remarkGfm)
+      .use(remarkRehype, { allowDangerousHtml: true })
+      .use(rehypeSlug);
   })();
   return processorPromise;
 }

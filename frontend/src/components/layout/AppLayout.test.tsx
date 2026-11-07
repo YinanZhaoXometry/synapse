@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApolloProvider } from "@apollo/client/react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { createHarnessState, createStubClient, makeStubWrapper } from "@/test/apollo-harness";
 import AppLayout from "./AppLayout";
@@ -33,11 +34,13 @@ const renderLayout = (email: string | null) => {
   return render(
     <MemoryRouter initialEntries={["/dashboard"]}>
       <LanguageProvider>
-        <Wrapper>
-          <TooltipProvider>
-            <AppLayout />
-          </TooltipProvider>
-        </Wrapper>
+        <ThemeProvider>
+          <Wrapper>
+            <TooltipProvider>
+              <AppLayout />
+            </TooltipProvider>
+          </Wrapper>
+        </ThemeProvider>
       </LanguageProvider>
     </MemoryRouter>,
   );
