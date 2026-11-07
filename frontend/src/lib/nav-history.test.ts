@@ -40,6 +40,14 @@ describe("sourceBackTarget — the hub/task origins that need the override", () 
     expect(sourceBackTarget("/task/task-1")).toEqual({ to: "/task/task-1", labelKey: "tasks.backToTask" });
   });
 
+  it("does NOT treat the creation surface as a task home — /task/new falls to the spine default", () => {
+    // A just-created task's reader "back" must reach the plans home (where the
+    // new task's card lives), never the emptied creation form — pinned when
+    // the destinations.spec task-promotion e2e timed out on the 所有计划
+    // locator this over-match had renamed to 返回任务.
+    expect(sourceBackTarget("/task/new")).toBeNull();
+  });
+
   it("returns null for the spine defaults the callers already own", () => {
     expect(sourceBackTarget("/plan/plan-1")).toBeNull(); // reader default: topic-labeled plan back
     expect(sourceBackTarget("/plan/plan-1/quiz")).toBeNull(); // quiz-session default: homeHref
