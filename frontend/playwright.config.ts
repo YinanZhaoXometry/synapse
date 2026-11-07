@@ -18,14 +18,14 @@ import { defineConfig, type PlaywrightTestConfig } from "@playwright/test";
  *
  *      (drop the override file from the command when it does not exist;
  *      compose.e2e.yaml points PROVIDER_BASE_URL at the local stub, so no live
- *      AI is ever called and no GLM key is needed).
+ *      AI is ever called and no provider key is needed).
  *   2. The Vite dev server on :8080 — `just dev`, or let Playwright start it
  *      (reuseExistingServer keeps an already-running one).
  *   3. The dev upload prerequisites from compose.yaml's comment: a
  *      `127.0.0.1 minio` /etc/hosts entry + bucket CORS (the demo boot on
  *      this machine already has both).
  *
- * Run:  pnpm exec playwright test   (or: pnpm run test:e2e, from frontend/)
+ * Run:  npx playwright test   (or: npm run test:e2e, from frontend/)
  */
 const stubPort = Number(process.env.E2E_PROVIDER_PORT || 8791);
 
@@ -64,7 +64,7 @@ const config: PlaywrightTestConfig = {
       timeout: 15_000,
     },
     {
-      command: "pnpm dev",
+      command: "npm run dev",
       url: "http://localhost:8080",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

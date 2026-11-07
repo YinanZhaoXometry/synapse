@@ -21,21 +21,21 @@ docs/     product/design/architecture/agents docs (stays at root)
 
 ## Commands
 
-**The frontend toolchain is pnpm-only** (the only lockfile is `frontend/pnpm-lock.yaml`; `packageManager` pins pnpm 10.9.0). **Never run bare `npm`/`npx`/`node`** — see the nvm-shim gotcha below.
+**The frontend toolchain is npm** (2026-11-07 owner decision, reverting the pnpm-only amendment — the only lockfile is `frontend/package-lock.json`; `npm ci` is the frozen install; matches the spine's AD-17 "incumbent toolchain" note). **In agent/non-interactive shells never invoke `npm`/`npx`/`node` by name** — see the nvm-shim gotcha below (interactive shells are fine).
 
 ```bash
 # Repo-level entrypoints (root justfile):
-just setup   # web install + api image build/pull
-just dev     # web Vite dev server (api has no web-facing behavior until the Apollo cutover)
-just up      # compose: postgres 17 + api (api on port 3000)
+just setup   # web install + minio image bootstrap (fresh machines — see Dockerfile.minio) + api image build/pull
+just dev     # web Vite dev server (proxies /graphql to :3000 — bring the stack up first)
+just up      # compose: postgres 17 + minio + api (api on port 3000)
 just spec    # web gates + api gates
 
 # Frontend gates (from frontend/ — two true invocation forms):
 # (sequence kept in sync with the justfile spec recipe + ci.yml web job)
-pnpm run codegen                            # GraphQL documents (freshness-gated — see below)
+npm run codegen                             # GraphQL documents (freshness-gated — see below)
 cd frontend && node_modules/.bin/tsc -b     # typecheck (no `typecheck` script exists)
 cd frontend && node_modules/.bin/eslint .   # eslint 9 flat config
-cd frontend && node_modules/.bin/vitest run --coverage  # tests + coverage (epic P3-17; watch: pnpm run test:watch; plain `vitest run` stays fine for iteration)
+cd frontend && node_modules/.bin/vitest run --coverage  # tests + coverage (epic P3-17; watch: npm run test:watch; plain `vitest run` stays fine for iteration)
 cd frontend && node_modules/.bin/vite build # build only — does NOT typecheck
 # Mastery-vector anti-drift (after build; part of just spec + ci.yml's web job,
 # not a standalone command): regenerate backend/spec/fixtures/mastery_vectors.json
@@ -45,7 +45,7 @@ cd frontend && node_modules/.bin/vite build # build only — does NOT typecheck
 # Coverage: both stacks measure it (SimpleCov backend / @vitest/coverage-v8
 # frontend, epic P3-17 T01/T02); backend's `minimum_coverage line: 95` floor
 # lives in backend/spec/spec_helper.rb — a red floor is a red rspec run.
-# …or through pnpm directly: ~/Library/pnpm/pnpm --dir frontend run <script>
+# …or through npm directly: cd frontend && npm run <script>
 
 # Api gates (dev containers only — your local Ruby is irrelevant):
 # the api's compose command forms, gate notes, and architecture contract all
@@ -55,7 +55,7 @@ cd frontend && node_modules/.bin/vite build # build only — does NOT typecheck
 
 Tests (frontend): Vitest, jsdom env, globals on, setup in `frontend/src/test/setup.ts` (jest-dom + `matchMedia` mock + `ResizeObserver`/`IntersectionObserver` stubs — jsdom 20 ships neither); place tests as `frontend/src/**/*.{test,spec}.{ts,tsx}`. Interaction tests are **userEvent-first** (epic-17 convention, 2026-11-06): new tests use `@testing-library/user-event`, not `fireEvent` — the 400+ legacy `fireEvent` calls stay as-is, migrate opportunistically when a test is already being touched. The i18n dictionary's zh/en parity is enforced over the FULL table by `src/contexts/i18n-full-parity.test.ts` — a one-sided key fails CI.
 
-Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the backend to the stub provider, runs the suite, restores the demo stack; 2026-11-06): the critical-flow suite (auth wall, demo plan, creation chat, material→reader→claim honesty, quiz→mastery loop, mistakes hub, square fork, task promotion, settings, hubs) runs against the live local stack with a deterministic **stub AI provider** (`frontend/e2e/stub-provider.mjs`, auto-started by the config) — no GLM key, no live AI. AI-gated surfaces (companion, quick test, open/mix quiz, notes, flashcard generation) are deliberately uncovered. Upload prerequisites: `127.0.0.1 minio` /etc/hosts entry + bucket CORS (the demo boot has both). Tests self-isolate via fresh registered users; the dev DB accumulates e2e rows. The old `lovable-agent-playwright-config` import (never installed) was removed with this harness.
+Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the backend to the stub provider, runs the suite, restores the demo stack; 2026-11-06): the critical-flow suite (auth wall, demo plan, creation chat, material→reader→claim honesty, quiz→mastery loop, mistakes hub, square fork, task promotion, settings, hubs) runs against the live local stack with a deterministic **stub AI provider** (`frontend/e2e/stub-provider.mjs`, auto-started by the config) — no provider key, no live AI. AI-gated surfaces (companion, quick test, open/mix quiz, notes, flashcard generation) are deliberately uncovered. Upload prerequisites: `127.0.0.1 minio` /etc/hosts entry + bucket CORS (the demo boot has both). Tests self-isolate via fresh registered users; the dev DB accumulates e2e rows. The old `lovable-agent-playwright-config` import (never installed) was removed with this harness.
 
 ## Architecture
 
@@ -64,7 +64,7 @@ Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the b
 - `src/App.tsx` — all routes. `/` = `EntryGate` (first run → onboarding wizard; returning users → Plans Home, AD-8). Plan/task study flows nest under `AppLayout` (sidebar shell): `/plans`, `/plan/:id` (+ `/quiz`, `/flashcards`), `/task/new`, `/task/:id` (+ `/quiz`, `/flashcards`), `/read/:materialId`, plus the retained ten destinations (`/dashboard`, `/ai-tutor`, `/materials`, `/quiz`, `/flashcards`, `/mistakes`, `/planner`, `/achievements`, `/analytics`, `/settings`).
 - `src/contexts/` — `LanguageProvider` → `ThemeProvider`, nested inside `ApolloProvider` + `TooltipProvider` in App.tsx. Consume via `useLanguage()` / `useTheme()` (hooks throw outside their provider). The translations table (`i18n-dictionary.ts`) lives beside them. (`UserProgressContext` was deleted in epic P2-09 T6 — the demo progress context's retirement completed there; domain data comes from the typed hooks layer, and the architecture grep-guard keeps the name dead.)
 - `src/apollo/` — the Apollo Client 4 seam (AD-18, epic P2-8): the client singleton (auth link + relative `/graphql` uri, dev-proxied to :3000), the `synapse-token` auth seam, and `resetApiClient()` (cache wipe + SSE terminators) — the ONE seam login/logout/account switches funnel through.
-- `src/api/` — the typed hooks layer: the ONLY route features touch domain data. `src/lib/graphql/*.graphql` operations → `pnpm run codegen` → committed `src/types/graphql.ts` (TypedDocumentNodes; CI regenerates + diffs — never edit the output). Hooks return mapped domain views; plans/nodes carry SERVER mastery fields (`masteryScore`, `state`) — rendering reads them, never recomputes (AD-14). Conventions live in `src/api/index.ts`'s header.
+- `src/api/` — the typed hooks layer: the ONLY route features touch domain data. `src/lib/graphql/*.graphql` operations → `npm run codegen` → committed `src/types/graphql.ts` (TypedDocumentNodes; CI regenerates + diffs — never edit the output). Hooks return mapped domain views; plans/nodes carry SERVER mastery fields (`masteryScore`, `state`) — rendering reads them, never recomputes (AD-14). Conventions live in `src/api/index.ts`'s header.
 - `src/domain/` — pure domain logic: `mastery.ts` (ADR-0001 rules), `streak.ts`, `entities.ts`. Vitest coverage is mandatory here (AD-10).
 - `src/features/` — feature modules: `companion`, `flashcards`, `plans`, `quiz`, `reader`, `tasks`.
 - `src/ai/` — the simulated `CompanionService` (Phase-1 AI seam, AD-5) — since the cutover (epic P2-8) it runs as the dev/test double (deterministic offline tests); the server adapter rides ticket 05's seam swap.
@@ -92,13 +92,13 @@ Playwright e2e lives in `frontend/e2e/` (`just e2e` — one command: flips the b
 
 ## Gotchas
 
-- **nvm lazy-load shim hijacks `npm`/`npx`/`node`**: in non-interactive/agent shells they are shell functions whose `_nvm_lazy_load` helper isn't loaded — bare invocation crashes with exit 127 (`command not found: _nvm_lazy_load`). Use `~/Library/pnpm/pnpm`, `pnpm` (the standalone binary on PATH), or `frontend/node_modules/.bin/<tool>` (its `env node` shebang resolves fine). Don't "fix" this in shell config — invoke the tools honestly.
-- **pnpm node_modules layout**: `frontend/node_modules` is pnpm's symlinked store — npm/yarn commands misread it. Install only with pnpm (`pnpm install --frozen-lockfile` in `frontend/`); never prune or restructure by hand.
+- **nvm lazy-load shim hijacks `npm`/`npx`/`node`**: in non-interactive/agent shells they are shell functions whose `_nvm_lazy_load` helper isn't loaded — bare invocation crashes with exit 127 (`command not found: _nvm_lazy_load`), and the function wins over even a PATH-prepended real binary. Use absolute paths (`~/.nvm/versions/node/v24.22*/bin/npm` / `npx`), or `frontend/node_modules/.bin/<tool>` (its `env node` shebang resolves fine). Don't "fix" this in shell config — invoke the tools honestly.
+- **npm is the frontend package manager (2026-11-07)**: the lockfile is `frontend/package-lock.json`; install with `npm ci` (frozen) from `frontend/`. A leftover pnpm-style `node_modules` (symlinked store) must be wiped (`rm -rf node_modules`) first — npm cannot read it (arborist crashes). Never prune or restructure `node_modules` by hand.
 - **`vite build` passing ≠ types are fine.** The `build` script is `vite build` only; run `tsc -b` separately when type safety matters.
 - **HMR error overlay is disabled** (`frontend/vite.config.ts`), so dev errors only appear in the terminal — watch it, not just the browser.
 - **Web dev server binds host `::` on port 8080** (not Vite's default 5173). The api serves on port 3000 (compose).
 - **`frontend/tsconfig.app.tsbuildinfo` / `frontend/tsconfig.node.tsbuildinfo` are committed** (policy unchanged — A6). Their contents are relative paths, so they survive the move; a stale one self-heals on the next `tsc -b` (regen verified byte-identical) — commit the regenerated file if a legit path change lands.
-- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = pnpm frozen install → codegen (regenerate + diff — schema drift fails loudly) → `tsc -b` → eslint → vitest --coverage → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec (SimpleCov line floor lives in spec_helper); **e2e** (epic-17 T05) = compose demo stack + `compose.e2e.yaml` stub wiring → Playwright critical flows (retries 2 in CI, report/traces uploaded on failure). Keep local green before pushing.
+- **CI** runs the same gates on GitHub Actions (push/PR to `main` and `epic/**`): web = `npm ci` → codegen (regenerate + diff — schema drift fails loudly) → `tsc -b` → eslint → vitest --coverage → `vite build` → mastery-vector anti-drift (regenerate + stamp-insensitive diff — same step `just spec` runs); api = rubocop → rspec (SimpleCov line floor lives in spec_helper); **e2e** (epic-17 T05) = compose demo stack + `compose.e2e.yaml` stub wiring → Playwright critical flows (retries 2 in CI, report/traces uploaded on failure). Keep local green before pushing.
 - `backend/README.md` is still the Rails generator stub — the backend's real doc is `backend/AGENTS.md`.
 - ~~`lovable-tagger`~~ — the Lovable-scaffold residue was REMOVED 2026-11-06 (debt batch: devDependency + the dev-mode `componentTagger` Vite plugin + lockfile regen); `vite.config.ts` now carries only `react()`.
 
@@ -122,4 +122,4 @@ BMAD owns product thinking: `/bmad-product-brief` → `docs/product/`, `/bmad-ux
 
 ### Implementation worktrees (owner ruling, 2026-11-06)
 
-Epic/ticket **implementation always runs in a dedicated git worktree** (`project-new-<name>` beside the repo) — never on the main checkout, which stays free for the owner's manual testing and doc/board commits. Branch naming: `epic/p<N>-<nn>-<slug>` (epic) or `p<N>-<nn>/t<NN>-<slug>` (ticket). **Merging to `main` is the delete trigger**: once merged (verified), remove the worktree and delete the branch, local + remote; keep one alive only for an explicit owner-stated reason. New worktrees bootstrap from zero (pnpm install; backend test DB via `db:drop db:create db:migrate`; parallel worktrees override ports + compose `-p`). Full rule: `docs/agents/workflow.md` § Implementation worktree discipline.
+Epic/ticket **implementation always runs in a dedicated git worktree** (`project-new-<name>` beside the repo) — never on the main checkout, which stays free for the owner's manual testing and doc/board commits. Branch naming: `epic/p<N>-<nn>-<slug>` (epic) or `p<N>-<nn>/t<NN>-<slug>` (ticket). **Merging to `main` is the delete trigger**: once merged (verified), remove the worktree and delete the branch, local + remote; keep one alive only for an explicit owner-stated reason. New worktrees bootstrap from zero (`npm ci` in frontend/; backend test DB via `db:drop db:create db:migrate`; parallel worktrees override ports + compose `-p`). Full rule: `docs/agents/workflow.md` § Implementation worktree discipline.

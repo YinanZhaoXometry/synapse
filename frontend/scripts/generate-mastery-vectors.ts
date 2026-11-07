@@ -6,7 +6,7 @@
  * and writes backend/spec/fixtures/mastery_vectors.json for the Ruby port's RSpec
  * exact-equality suite (ticket 02).
  *
- * Run: pnpm run generate:mastery-vectors   (node 24+ native type stripping; no extra dep)
+ * Run: npm run generate:mastery-vectors   (node 24+ native type stripping; no extra dep)
  *
  * Self-checks run BEFORE any write (fail → exit 1, fixture untouched):
  *   1. Known-answer literals from ADR-0001 + the committed corpus tests (independent
@@ -588,7 +588,7 @@ function buildDocument(): FixtureDocument {
       note: "The TS implementation IS the source until the cutover retires it (AD-6/AD-14). The Ruby port pins itself to these vectors verbatim; ambiguities amend ADR-0001 first, both sides together.",
     },
     generatedAtSourceCommit: sourceCommit(),
-    generator: "frontend/scripts/generate-mastery-vectors.ts (pnpm run generate:mastery-vectors)",
+    generator: "frontend/scripts/generate-mastery-vectors.ts (npm run generate:mastery-vectors)",
     fixtureEncoding: {
       decimals:
         "Every mastery-derived numeric (scores, rollups, streaks, intermediate means) is a decimal STRING — parse on the Ruby side; never compare JSON number literals (AD-14).",

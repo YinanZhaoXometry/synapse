@@ -1,5 +1,5 @@
 # CI — the gates the project already trusts, made real (AD-17, Q2=a):
-# frontend: pnpm frozen install → tsc -b → eslint → vitest → vite build →
+# frontend: npm ci → tsc -b → eslint → vitest → vite build →
 #   mastery-vector anti-drift (regenerate + stamp-insensitive diff) (from frontend/)
 # backend: RuboCop → RSpec (from backend/)
 # (gate sequences: keep in sync with the root justfile spec recipe and the
@@ -38,37 +38,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Version pinned explicitly, not read from package.json's packageManager
-      # field (if the two ever disagree, this action fails loudly — that's
-      # the intended guardrail).
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.9.0
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: npm ci
       # Codegen + freshness (AD-17/AD-18, epic P2-8 T1): the committed typed
       # documents are runtime-load-bearing; regenerate and fail on drift —
       # a schema change must land with regenerated output. Mirrors the
       # justfile spec recipe.
       - name: Generate GraphQL documents
-        run: pnpm run codegen
+        run: npm run codegen
       - name: Codegen freshness (regenerate + diff)
         run: git diff --exit-code -- src/types/graphql.ts
       - name: Typecheck
-        run: pnpm exec tsc -b
+        run: npx tsc -b
       - name: Lint
-        run: pnpm exec eslint .
+        run: npx eslint .
       - name: Test
-        run: pnpm exec vitest run --coverage
+        run: npx vitest run --coverage
       - name: Build
-        run: pnpm exec vite build
+        run: npx vite build
 
       # Dist size visibility (epic-19 T1, spec decision 5): the permanent,
       # zero-dep companion to the pinned before/after report
@@ -161,7 +154,7 @@ jobs:
           trap 'rm -f "$snapshot" "$committed" "$regenerated"' EXIT
           cp "$fixture" "$snapshot"
           jq 'del(.meta.generatedAtSourceCommit)' "$fixture" > "$committed"
-          pnpm run generate:mastery-vectors
+          npm run generate:mastery-vectors
           jq 'del(.meta.generatedAtSourceCommit)' "$fixture" > "$regenerated"
           diff -u "$committed" "$regenerated"
           # The stripped forms matched: any rewrite the generator did above is
@@ -310,17 +303,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.9.0
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
         working-directory: frontend
 
       # Presigned upload URLs carry the minio:9000 hostname — the e2e browser
@@ -359,21 +349,19 @@ jobs:
             | docker build -t minio/minio:RELEASE.2025-10-15T17-29-55Z -f - /tmp/minio-bin
 
       # The `just e2e` boot, step for step: demo stack + compose.e2e.yaml
-      # (compose merges only listed files — deploy.md §1). Playwright's
-      # webServer starts the stub provider and the Vite dev server itself
-      # (reuseExistingServer: !CI keeps local reuse; CI always starts fresh).
+      # (compose merges only listed files). Playwright's webServer starts the
+      # stub provider and the Vite dev server itself (reuseExistingServer: !CI
+      # keeps local reuse; CI always starts fresh).
       - name: Boot the demo stack with the stub provider wired in
         run: |
-          files="-f backend/.dockerdev/compose.yaml"
-          [ -f backend/.dockerdev/compose.override.yaml ] && files="$files -f backend/.dockerdev/compose.override.yaml"
-          docker compose $files -f backend/.dockerdev/compose.e2e.yaml up -d --wait
+          docker compose -f backend/.dockerdev/compose.yaml -f backend/.dockerdev/compose.e2e.yaml up -d --wait
 
       - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
         working-directory: frontend
 
       - name: Run the critical-flow suite
-        run: pnpm exec playwright test
+        run: npx playwright test
         working-directory: frontend
 
       - name: Upload e2e report + traces

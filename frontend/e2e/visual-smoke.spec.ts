@@ -7,7 +7,7 @@ import path from "node:path";
  * The live visual smoke (epic-16 T4, ticket 04) — OPT-IN, not part of the
  * default suite: run with
  *
- *   E2E_VISUAL_SMOKE=1 pnpm --dir frontend exec playwright test e2e/visual-smoke.spec.ts
+ *   E2E_VISUAL_SMOKE=1 npx playwright test e2e/visual-smoke.spec.ts   (from frontend/)
  *
  * while a backend stack and the Vite dev server are up (the plan itself is
  * seeded through the createPlan mutation — no stub provider needed, so this
