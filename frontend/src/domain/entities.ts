@@ -181,8 +181,10 @@ export interface ChatMessage {
 }
 
 export interface ChatThread {
-  /** 1:1 anchor to a Material (spine ER); plan-creation transcripts are ephemeral (AD-5). */
-  materialId: string;
+  /** Exactly-one scope anchor (epic-25 T1): materialId set on reader threads,
+   * planId set on plan (tutor) threads — never both, never neither. */
+  materialId: string | null;
+  planId: string | null;
   messages: ChatMessage[];
   updatedAt: string;
 }

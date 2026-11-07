@@ -62,7 +62,12 @@ const SOURCES: Array<{ match: RegExp; labelKey: string }> = [
   { match: /^\/achievements/, labelKey: "nav.achievements" },
   { match: /^\/analytics/, labelKey: "nav.analytics" },
   { match: /^\/settings/, labelKey: "nav.settings" },
-  { match: /^\/task\/[^/]+$/, labelKey: "tasks.backToTask" },
+  // Task HOME only — /task/new is the creation surface: a fresh task id
+  // doesn't exist yet, and after the upload lands in the reader a "back" to
+  // the emptied form is a dead end. It falls to the callers' spine defaults
+  // (所有计划 → /plans, where the new task's card now lives) — the CI e2e
+  // journey rides exactly that path (destinations.spec task promotion).
+  { match: /^\/task\/(?!new$)[^/]+$/, labelKey: "tasks.backToTask" },
 ];
 
 /**

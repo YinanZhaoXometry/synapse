@@ -159,6 +159,168 @@ RSpec.describe "GraphQL chat + reading progress + section marking operations (ep
     end
   end
 
+  # The plan scope over the wire (epic-25 T1): planChatThread is a NEW
+  # query field (chatThread stays frozen — its typed clients untouched) and
+  # appendChatMessage grows the plan addressing mode (materialId
+  # required→optional is wire-compatible; the command's exactly-one rule is
+  # the gate).
+  describe "planChatThread query + appendChatMessage plan addressing (epic-25 T1)" do
+    def plan_append_input(plan_id, text, role: "user")
+      {
+        input: {
+          planId: plan_id,
+          message: { role: role, text: text, citations: [] }
+        }
+      }
+    end
+
+    it "appends to the plan thread and round-trips it off planChatThread (planId set, materialId null)" do
+      user, token = user_with_token("plan-chat@example.com")
+      plan = create(:study_plan, user: user)
+
+      first = graphql(
+        <<~GRAPHQL, variables: plan_append_input(plan.id, "Where should I start?"), token: token
+          mutation Append($input: AppendMessageInput!) {
+            appendChatMessage(input: $input) { message { id role text createdAt } }
+          }
+        GRAPHQL
+      )
+
+      payload = first.dig("data", "appendChatMessage", "message")
+      aggregate_failures do
+        expect(payload["role"]).to eq("user")
+        expect(payload["text"]).to eq("Where should I start?")
+        expect(payload["id"]).to match(Accounts::UUID_REGEX)
+        expect(payload["createdAt"]).to be_present
+      end
+
+      thread = graphql(
+        <<~GRAPHQL, variables: { planId: plan.id }, token: token
+          query($planId: String!) {
+            planChatThread(planId: $planId) {
+              id planId materialId updatedAt
+              messages { id role text createdAt }
+            }
+          }
+        GRAPHQL
+      )
+
+      data = thread.dig("data", "planChatThread")
+      aggregate_failures do
+        expect(data["planId"]).to eq(plan.id)
+        expect(data["materialId"]).to be_nil
+        expect(data["messages"].map { |m| m["text"] }).to eq([ "Where should I start?" ])
+      end
+
+      second = graphql(
+        <<~GRAPHQL, variables: plan_append_input(plan.id, "Start with node 1.", role: "companion"), token: token
+          mutation Append($input: AppendMessageInput!) {
+            appendChatMessage(input: $input) { message { role } }
+          }
+        GRAPHQL
+      )
+      expect(second.dig("data", "appendChatMessage", "message", "role")).to eq("companion")
+
+      expect(user.chat_threads.count).to eq(1)
+      expect(user.chat_threads.find_by!(plan_id: plan.id).messages.length).to eq(2)
+    end
+
+    it "answers null (honest-empty) for a thread that has not started and for a foreign, unknown, or malformed plan" do
+      user, token = user_with_token("plan-chat-empty@example.com")
+      foreign_plan = create(:study_plan, user: create(:user))
+
+      aggregate_failures do
+        none = graphql(
+          'query($planId: String!) { planChatThread(planId: $planId) { id } }',
+          variables: { planId: SecureRandom.uuid }, token: token
+        )
+        expect(error_code(none)).to be_nil
+        expect(none.dig("data", "planChatThread")).to be_nil
+
+        foreign = graphql(
+          'query($planId: String!) { planChatThread(planId: $planId) { id planId } }',
+          variables: { planId: foreign_plan.id }, token: token
+        )
+        expect(error_code(foreign)).to be_nil
+        expect(foreign.dig("data", "planChatThread")).to be_nil
+
+        malformed = graphql(
+          'query($planId: String!) { planChatThread(planId: $planId) { id } }',
+          variables: { planId: "garbage" }, token: token
+        )
+        expect(error_code(malformed)).to be_nil
+        expect(malformed.dig("data", "planChatThread")).to be_nil
+      end
+    end
+
+    it "never answers the material thread through a plan address (the scopes stay separate on the wire)" do
+      user, token = user_with_token("plan-chat-scope@example.com")
+      material = create(:material, user: user)
+      plan = create(:study_plan, user: user)
+      graphql(
+        <<~GRAPHQL, variables: append_input(material.id, "material-side message"), token: token
+          mutation Append($input: AppendMessageInput!) {
+            appendChatMessage(input: $input) { message { id } }
+          }
+        GRAPHQL
+      )
+
+      thread = graphql(
+        <<~GRAPHQL, variables: { planId: plan.id }, token: token
+          query($planId: String!) { planChatThread(planId: $planId) { id messages { text } } }
+        GRAPHQL
+      )
+
+      aggregate_failures do
+        expect(error_code(thread)).to be_nil
+        expect(thread.dig("data", "planChatThread")).to be_nil
+      end
+    end
+
+    it "fails VALIDATION_FAILED (field: scope) for both or neither of materialId / planId" do
+      user, token = user_with_token("plan-chat-scope-guard@example.com")
+      plan = create(:study_plan, user: user)
+      material = create(:material, user: user)
+      message = 'message: { role: "user", text: "hi", citations: [] }'
+
+      aggregate_failures do
+        both = graphql(
+          "mutation { appendChatMessage(input: { materialId: \"#{material.id}\", planId: \"#{plan.id}\", " \
+          "#{message} }) { message { id } } }",
+          token: token
+        )
+        expect(error_code(both)).to eq("VALIDATION_FAILED")
+        expect(both.dig("errors", 0, "message")).to include("exactly one of material_id / plan_id")
+
+        neither = graphql(
+          "mutation { appendChatMessage(input: { #{message} }) { message { id } } }",
+          token: token
+        )
+        expect(error_code(neither)).to eq("VALIDATION_FAILED")
+      end
+      expect(user.chat_threads.count).to eq(0)
+    end
+
+    it "answers NOT_FOUND for a foreign plan id on the append" do
+      user, token = user_with_token("plan-chat-scoper@example.com")
+      foreign_plan = create(:study_plan, user: create(:user))
+
+      result = graphql(
+        "mutation { appendChatMessage(input: { planId: \"#{foreign_plan.id}\", " \
+        "message: { role: \"user\", text: \"hi\", citations: [] } }) { message { id } } }",
+        token: token
+      )
+
+      expect(error_code(result)).to eq("NOT_FOUND")
+    end
+
+    it "answers UNAUTHORIZED without a token on the new query field" do
+      result = graphql('query { planChatThread(planId: "00000000-0000-0000-0000-000000000000") { id } }')
+
+      expect(error_code(result)).to eq("UNAUTHORIZED")
+    end
+  end
+
   describe "saveReadingProgress mutation + readingProgress/readingProgressList queries" do
     it "upserts the row and round-trips the position verbatim (locator + text, TS keys)" do
       user, token = user_with_token("progress-writer@example.com")

@@ -103,13 +103,14 @@ describe("entriesFromThread (restore path, AD-3/4)", () => {
   });
 
   it("an empty thread shapes to an empty transcript", () => {
-    const thread: ChatThread = { materialId: "m1", messages: [], updatedAt: "2026-11-03T00:00:00Z" };
+    const thread: ChatThread = { materialId: "m1", planId: null, messages: [], updatedAt: "2026-11-03T00:00:00Z" };
     expect(entriesFromThread(thread)).toEqual([]);
   });
 
   it("messages shape in order with citations carried; the reply contract is NOT restored", () => {
     const thread: ChatThread = {
       materialId: "m1",
+      planId: null,
       messages: [
         {
           id: "u1",

@@ -1,7 +1,7 @@
 # T2 — Web seam: plan thread hydration + persistence
 
 Milestone: Phase 2 — post-deadline
-Status: ready-for-agent
+Status: done
 Epic: epic-25-tutor-thread-tails
 Blocked by: T1
 

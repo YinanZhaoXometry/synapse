@@ -1,5 +1,14 @@
 # Auth operations (epic P2-8 T2, AD-15) — the login wall's only api touches.
 # The pre-login surface itself stays static (NFR-6): these fire only on submit.
+# epic-25 T3 adds the session identity read: the chrome (sidebar footers,
+# account-menu avatar, Settings profile row) derives its display identity
+# from the me email's local-part.
+
+query Me {
+  me {
+    email
+  }
+}
 
 mutation Login($input: LoginInput!) {
   login(input: $input) {

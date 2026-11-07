@@ -1,10 +1,14 @@
 # Companion transcript persistence (epic P2-8 T1) — the data half of the
 # Companion surface. The stream half rides the SSE ticket contract (ticket 05).
+# Since epic-25 T1 the thread is exactly-one-scoped (material OR plan), so both
+# reads carry both scope fields — new fields ride operations, never fragments
+# pinned elsewhere (the Apollo4 fixture-drift lesson).
 
 query ChatThread($materialId: String!) {
   chatThread(materialId: $materialId) {
     id
     materialId
+    planId
     updatedAt
     messages {
       ...ChatMessageParts
@@ -12,6 +16,24 @@ query ChatThread($materialId: String!) {
   }
 }
 
+# The plan scope's read (epic-25 T1/T2): the tutor page's transcript, hydrated
+# once per plan by use-plan-companion-chat. The material read above stays
+# frozen — this is a NEW field, not a widened one.
+query PlanChatThread($planId: String!) {
+  planChatThread(planId: $planId) {
+    id
+    materialId
+    planId
+    updatedAt
+    messages {
+      ...ChatMessageParts
+    }
+  }
+}
+
+# One append mutation serves both scopes: AppendMessageInput takes materialId
+# OR planId (exactly one — the server VALIDATEs), so the plan addressing rides
+# the same document as an optional input field (epic-25 T1).
 mutation AppendChatMessage($input: AppendMessageInput!) {
   appendChatMessage(input: $input) {
     message {

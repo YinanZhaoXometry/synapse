@@ -112,6 +112,19 @@ import { StudyFocusPanel } from "./study-focus-panel";
 const FOCUS_ERROR_KEYS: Record<string, string> = apiErrorKeys("ai.generate.");
 const FOCUS_FAILED_KEY = "reader.studyFocusGenerateFailed";
 
+/** The plan-origin back label settles ONCE (epic-25 T4, audit #11): the
+ * 返回计划 placeholder holds for the whole planQuery flight — query data
+ * (including a refetch's stale topic) never renders mid-flight — the topic
+ * lands only when the read has settled, and a failed/empty read keeps the
+ * placeholder as the honest permanent label. */
+export function planBackLabel(
+  planQuery: { loading: boolean; data?: { plan?: { topic?: string | null } } | null; error?: unknown },
+  fallback: string,
+): string {
+  if (planQuery.loading) return fallback;
+  return planQuery.data?.plan?.topic ?? fallback;
+}
+
 export default function ReaderPage() {
   const { materialId } = useParams();
   const { language, t } = useLanguage();
@@ -591,7 +604,8 @@ export default function ReaderPage() {
   // Source-aware back (2026-11-06): the reader has 8+ inbound origins (materials
   // hub, mistakes citations, tutor citations, task/plan homes) — a hub/task
   // origin returns there instead of the hardcoded plan spine (the plan origin
-  // keeps the topic-labeled spine default, now with the topic query answered).
+  // keeps the topic-labeled spine default, settling once the plan read lands —
+  // never mid-flight, epic-25 T4).
   const sourceBack = sourceBackTarget(previousNavPathname());
   const step = (delta: number) => {
     if (totalPages === null) return;
@@ -624,11 +638,14 @@ export default function ReaderPage() {
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer flex-none min-w-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className="truncate max-w-[180px]">
+            {/* The plan-origin label's min-w guard (epic-25 T4): the 返回计划
+                placeholder's width is reserved across the settle, so the button
+                never shrinks/jumps when a shorter topic lands. */}
+            <span className={cn("truncate max-w-[180px]", !sourceBack && material.planId && "min-w-[3rem]")}>
               {sourceBack
                 ? t(sourceBack.labelKey)
                 : material.planId
-                  ? (planQuery.data?.plan.topic ?? t("reader.backToPlan"))
+                  ? planBackLabel(planQuery, t("reader.backToPlan"))
                   : t("plans.backToPlans")}
             </span>
           </button>

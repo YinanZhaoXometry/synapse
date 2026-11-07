@@ -1,7 +1,7 @@
 # T4 — Nav riders (audit #11 + #12)
 
 Milestone: Phase 2 — post-deadline
-Status: ready-for-agent
+Status: done
 Epic: epic-25-tutor-thread-tails
 Blocked by: T3 (serial lane)
 

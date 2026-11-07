@@ -1,7 +1,7 @@
 # T3 — `me` query + real identity in the chrome
 
 Milestone: Phase 2 — post-deadline
-Status: ready-for-agent
+Status: done
 Epic: epic-25-tutor-thread-tails
 Blocked by: T2 (serial: schema.graphql movement)
 
