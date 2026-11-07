@@ -798,8 +798,11 @@ svg.lucide {
   --cl-ring: rgba(255, 255, 255, 0.08);
   background: var(--cl-page);
 }
-/* The paper sheet: the article becomes a card on the ivory page. */
-.reader-claudette .reader-prose {
+/* The paper sheet: the article becomes a card on the ivory page. Scoped to
+   the ARTICLE — the prose subtree nests a second .reader-prose div (the
+   annotation engine's doc root), and an unscoped selector painted BOTH as
+   paper sheets (a card inside the card — two visible boundaries). */
+.reader-claudette article.reader-prose {
   background: var(--cl-paper);
   color: var(--cl-ink);
   border-radius: 16px;
@@ -807,7 +810,7 @@ svg.lucide {
   padding: 2.5rem 2rem 3.5rem;
 }
 @media (min-width: 768px) {
-  .reader-claudette .reader-prose { padding: 3.5rem 3.5rem 4.5rem; }
+  .reader-claudette article.reader-prose { padding: 3.5rem 3.5rem 4.5rem; }
 }
 /* Typography: serif 400 headings (the app's font-display IS Source Serif 4),
    the h1 accent underline + lead paragraph, the h2 hairline, the h3 dot. */

@@ -456,8 +456,14 @@ export default function ReaderPage() {
     if (results.length === 0) return;
     setAnnotationStatuses((prev) => {
       const next = { ...prev };
-      for (const result of results) next[result.id] = result.status;
-      return next;
+      let changed = false;
+      for (const result of results) {
+        if (next[result.id] !== result.status) {
+          next[result.id] = result.status;
+          changed = true;
+        }
+      }
+      return changed ? next : prev; // unchanged → the same reference bails the re-render
     });
   }, []);
 

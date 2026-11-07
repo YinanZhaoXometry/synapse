@@ -4,6 +4,7 @@
  * carrying the list read-back sweep — the fresh list is the render truth
  * (the engine re-applies from it; nothing is appended client-side).
  */
+import { useMemo } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { AddAnnotationDocument, AnnotationsDocument, RemoveAnnotationDocument } from "@/types/graphql";
 import { mapAnnotation } from "../mappers";
@@ -11,7 +12,11 @@ import type { Annotation } from "@/domain/entities";
 
 export function useAnnotationsQuery(materialId: string) {
   const result = useQuery(AnnotationsDocument, { variables: { materialId }, skip: !materialId });
-  const rows = (result.data?.annotations ?? []).map(mapAnnotation);
+  // Referentially stable per cache generation: the mapped rows memoize on the
+  // raw data identity. This hook's data feeds the reader's annotation effects
+  // (re-apply → report → setState), so a fresh array per render once looped
+  // that cycle to "Maximum update depth exceeded" on any annotated material.
+  const rows = useMemo(() => (result.data?.annotations ?? []).map(mapAnnotation), [result.data]);
   return {
     data: result.data !== undefined ? rows : undefined,
     loading: result.loading && !result.data,
