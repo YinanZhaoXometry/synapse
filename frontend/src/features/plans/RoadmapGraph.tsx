@@ -30,7 +30,12 @@
  * node carries the semantic-token focus ring. Pan = pointer drag on the
  * canvas; zoom = buttons + WHEEL INSIDE THE CANVAS (epic-16 posture: plain
  * wheel zooms, ctrl/cmd+wheel kept as an alias — native non-passive listener,
- * the clamp/step unchanged from epic-10). The app's motion setting
+ * the clamp/step unchanged from epic-10). Touch (epic-20): one-finger drag
+ * pans as before, a two-finger pinch zooms CONTINUOUSLY within the same
+ * clamp, anchored at the gesture midpoint (the content under the fingers
+ * stays under the fingers; midpoint delta = two-finger pan); the canvas is
+ * touch-action: none and Safari's legacy gesture events are prevented. The
+ * app's motion setting
  * (ThemeContext, like every surface) and prefers-reduced-motion disable the
  * smooth transform transitions.
  */
@@ -74,6 +79,25 @@ const FIT_MARGIN = 24;
 const FIT_ZOOM_CAP = 1.15;
 
 const clampZoom = (zoom: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+
+/** A screen-space pointer position (clientX/clientY). */
+type PointerPoint = { x: number; y: number };
+const pointerDistance = (a: PointerPoint, b: PointerPoint) => Math.hypot(a.x - b.x, a.y - b.y);
+const pointerMidpoint = (a: PointerPoint, b: PointerPoint): PointerPoint => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+});
+/**
+ * The pinch gesture's anchor snapshot, taken when the SECOND finger lands:
+ * both finger positions are live in `pointersRef`, and these four numbers
+ * freeze the view the pinch starts from.
+ */
+type PinchAnchor = {
+  startDistance: number;
+  startMidpoint: PointerPoint;
+  startPan: PointerPoint;
+  startZoom: number;
+};
 
 /** The stage-group container band around one column (tinted group background). */
 function stageGroupRect(column: RoadmapColumn) {
@@ -125,6 +149,11 @@ export default function RoadmapGraph({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
+  // Touch posture (epic-20): every active pointer on the canvas, keyed by
+  // pointerId, with its latest position. One entry = the pan candidate;
+  // two entries = the pinch is live (its anchor rides `pinchRef`).
+  const pointersRef = useRef(new Map<number, PointerPoint>());
+  const pinchRef = useRef<PinchAnchor | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef(new Map<string, SVGElement>());
 
@@ -148,6 +177,26 @@ export default function RoadmapGraph({
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Safari's legacy GestureEvent stream (gesturestart/gesturechange) would
+  // zoom the PAGE on top of the pointer-driven pinch below, so it is
+  // prevented on the canvas — the same native non-passive add/remove
+  // lifecycle as the wheel effect above. The types are unknown outside
+  // Safari (and in jsdom); addEventListener with an arbitrary type is inert
+  // there, so no capability sniffing. The page's pinch-zoom stays enabled
+  // everywhere else — no user-scalable meta change (accessibility, AD-9
+  // posture); the canvas itself opts out via touch-action: none below.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const preventGesture = (event: Event) => event.preventDefault();
+    canvas.addEventListener("gesturestart", preventGesture, { passive: false });
+    canvas.addEventListener("gesturechange", preventGesture, { passive: false });
+    return () => {
+      canvas.removeEventListener("gesturestart", preventGesture);
+      canvas.removeEventListener("gesturechange", preventGesture);
+    };
   }, []);
 
   // The roving tabindex is seeded once at mount — if the focused node ever
@@ -265,17 +314,78 @@ export default function RoadmapGraph({
     }
   };
 
+  // Touch gesture arbitration (epic-20, spec decision 3): the FIRST pointer
+  // down is the existing one-finger pan candidate (byte-identical behavior).
+  // The SECOND pointer down kills that drag and enters the pinch, anchored at
+  // the current view. Either pointer up/cancel ends the WHOLE gesture — no
+  // mid-gesture handoff to one-finger pan (that revert is a rabbit hole);
+  // panning resumes on a fresh single-pointer drag. A third finger just
+  // records (the pinch math rides the first two tracked pointers). Single-
+  // pointer taps are never swallowed: the pinch path only activates on a
+  // second pointerdown.
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    dragRef.current = { x: event.clientX, y: event.clientY, originX: pan.x, originY: pan.y };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size === 2) {
+      // Second finger: the drag dies, the pinch anchors at the live view.
+      dragRef.current = null;
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        startDistance: pointerDistance(a, b),
+        startMidpoint: pointerMidpoint(a, b),
+        startPan: { x: pan.x, y: pan.y },
+        startZoom: zoom,
+      };
+    } else if (pointersRef.current.size === 1) {
+      // First finger: the pan candidate, exactly as before.
+      dragRef.current = { x: event.clientX, y: event.clientY, originX: pan.x, originY: pan.y };
+    }
+    // NOTE: no setPointerCapture here. A capture active at pointerup
+    // retargets the click to the canvas (W3C pointerevents#356 — spec
+    // behavior), which would swallow every node tap; the capture instead
+    // rides the FIRST DRAG MOVE (below), so taps — which never move — never
+    // capture.
   };
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const tracked = pointersRef.current.get(event.pointerId);
+    if (tracked) {
+      tracked.x = event.clientX;
+      tracked.y = event.clientY;
+    }
+    const pinch = pinchRef.current;
+    // A degenerate zero start-distance (fingers stacked) would divide by
+    // zero → NaN into the transform; skip the math for that gesture.
+    if (pinch && tracked && pinch.startDistance > 0 && pointersRef.current.size >= 2) {
+      // Midpoint-anchored pinch (spec decision 2): k grows by the distance
+      // ratio (continuous, clamped 0.5–2 — the wheel/buttons KEEP their 0.25
+      // steps), and `pan' = m − ((m_start − pan_start)/k_start)·k_now` keeps
+      // the content point under the start midpoint under the current
+      // midpoint. With the distance held constant the formula degrades to
+      // pan += midpoint delta — two-finger pan falls out of the same math.
+      const [a, b] = [...pointersRef.current.values()];
+      const nextZoom = clampZoom(pinch.startZoom * (pointerDistance(a, b) / pinch.startDistance));
+      const mid = pointerMidpoint(a, b);
+      const anchorX = (pinch.startMidpoint.x - pinch.startPan.x) / pinch.startZoom;
+      const anchorY = (pinch.startMidpoint.y - pinch.startPan.y) / pinch.startZoom;
+      setPan({ x: mid.x - anchorX * nextZoom, y: mid.y - anchorY * nextZoom });
+      setZoom(nextZoom);
+      return;
+    }
     const drag = dragRef.current;
     if (!drag) return;
+    // Capture rides the first drag move (see the pointerdown NOTE): from
+    // here on, a pan released outside the canvas still delivers its stream.
+    // Idempotent for every later move of the drag.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     setPan({ x: drag.originX + (event.clientX - drag.x), y: drag.originY + (event.clientY - drag.y) });
   };
-  const onPointerUp = () => {
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    // Any lift tears the gesture down: the pinch anchor dies with it and the
+    // drag candidate is dropped — the remaining finger cannot silently turn
+    // into a pan. Still-held pointers keep tracking, so a genuinely fresh
+    // pointerdown can re-enter a pinch against their live positions.
+    pointersRef.current.delete(event.pointerId);
     dragRef.current = null;
+    pinchRef.current = null;
   };
 
   // Fit-view: rescale + recenter so the WHOLE roadmap is visible (a small
@@ -366,6 +476,12 @@ export default function RoadmapGraph({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className="relative h-[440px] overflow-hidden rounded-2xl border border-border-soft bg-card shadow-raised cursor-grab active:cursor-grabbing select-none"
+        // touch-action: none hands the surface to the pointer handlers —
+        // the browser must not read a one-finger drag as page scroll or a
+        // two-finger pinch as PAGE zoom inside this bounded viewport. Inline
+        // (not a Tailwind utility) so the contract is purge-proof and
+        // jsdom-assertable.
+        style={{ touchAction: "none" }}
       >
         <div
           data-testid="roadmap-viewport"

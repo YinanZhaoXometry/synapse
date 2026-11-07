@@ -55,7 +55,9 @@ test.describe("the square fork journey (publish → adopt)", () => {
     // The owner leaves; the plan stays in the square.
     await page.getByRole("link", { name: "设置" }).click();
     await expect(page).toHaveURL(/\/settings/);
-    await page.getByRole("button", { name: "退出登录" }).click();
+    // Two sign-outs render on /settings since the 2026-11-06 discoverability
+    // round (account row + page-end) — pin the page-end entry explicitly.
+    await page.getByTestId("settings-signout-page-end").click();
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -120,7 +122,9 @@ test.describe("deterministic destinations", () => {
     await page.getByRole("button", { name: "更新密码" }).click();
     await expect(page.getByText("密码已更新")).toBeVisible();
 
-    await page.getByRole("button", { name: "退出登录" }).click();
+    // Two sign-outs render on /settings since the 2026-11-06 discoverability
+    // round (account row + page-end) — pin the page-end entry explicitly.
+    await page.getByTestId("settings-signout-page-end").click();
     await expect(page).toHaveURL(/\/login/);
 
     // The OLD password must now fail; the NEW one must land inside.

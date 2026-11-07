@@ -95,3 +95,33 @@ describe("MarkdownFlow pptx bytes (epic-13 T5)", () => {
     expect(ids).not.toContain("slide-1"); // persisted ids are not DOM anchors (honest no-op jump)
   });
 });
+
+/**
+ * epic-24 T1: GFM through the render pipeline — pipe tables (and
+ * strikethrough) parse as real elements now, and the flow's reported heading
+ * ids stay the section anchors (remark-gfm leaves heading parsing untouched,
+ * so the sectioner mirror stays in agreement).
+ */
+describe("MarkdownFlow GFM rendering (epic-24 T1)", () => {
+  it("a pipe table renders as a real table, strikethrough as del, headings unchanged", async () => {
+    const onHeadingsResolved = vi.fn();
+    const { container } = render(
+      <LanguageProvider>
+        <MarkdownFlow
+          blob={doc("# 算法对比\n\n| 算法 | 复杂度 |\n| --- | --- |\n| 快速排序 | O(n log n) |\n| 堆排序 | O(n log n) |\n\n~~过时结论~~")}
+          initialSection={null}
+          flashTarget={false}
+          onHeadingsResolved={onHeadingsResolved}
+        />
+      </LanguageProvider>,
+    );
+    await waitFor(() => expect(onHeadingsResolved).toHaveBeenCalled());
+    expect(onHeadingsResolved.mock.calls[0][0]).toEqual(["算法对比"]);
+    const table = container.querySelector("table");
+    expect(table).not.toBeNull();
+    expect(table?.querySelectorAll("thead th")).toHaveLength(2);
+    expect(table?.querySelectorAll("tbody td")).toHaveLength(4);
+    expect(table?.textContent).toContain("快速排序");
+    expect(container.querySelector("del")?.textContent).toBe("过时结论");
+  });
+});

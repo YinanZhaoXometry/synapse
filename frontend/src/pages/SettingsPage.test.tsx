@@ -459,3 +459,27 @@ describe("Settings — page-end sign-out (2026-11-06 logout discoverability fix)
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 });
+
+/** The reader's markdown content theme (epic-24 T3): the claudette toggle.
+ * Lazy-write contract — OFF is the ABSENT key; nothing persists until the
+ * first enable, disabling removes it again. */
+describe("Settings — the reader paper theme toggle (epic-24 T3)", () => {
+  it("renders off by default with no stored key (lazy-write: nothing until first enable)", async () => {
+    renderSettingsPage();
+    const on = await screen.findByRole("switch", { name: zh("settings.readerTheme") });
+    expect(on).toHaveAttribute("aria-checked", "false");
+    expect(localStorage.getItem("synapse-reader-md-theme")).toBeNull();
+  });
+
+  it("enabling writes claudette + turns the switch on; disabling removes the key again", async () => {
+    const user = userEvent.setup();
+    renderSettingsPage();
+    const on = await screen.findByRole("switch", { name: zh("settings.readerTheme") });
+    await user.click(on);
+    expect(on).toHaveAttribute("aria-checked", "true");
+    expect(localStorage.getItem("synapse-reader-md-theme")).toBe("claudette");
+    await user.click(on);
+    expect(on).toHaveAttribute("aria-checked", "false");
+    expect(localStorage.getItem("synapse-reader-md-theme")).toBeNull();
+  });
+});

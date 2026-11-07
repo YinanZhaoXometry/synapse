@@ -406,3 +406,78 @@ function unwrapMarks(root: HTMLElement): void {
   }
   root.normalize();
 }
+
+// ── hover hit-testing (epic-24 T2) ───────────────────────────────────────
+
+/**
+ * Which annotation covers a text position (the hover-to-remove popover's
+ * truth for the CSS Custom Highlight path — that path paints NO DOM, so the
+ * pointer bridge resolves the caret to a (text node, offset) pair and this
+ * answers which item — if any — covers it). The address math is the engine's
+ * own: the node's section region (nearest preceding direct-child heading of
+ * the article, else the intro contract) accumulates the offset, then the
+ * fresh list answers. A stale range never reports a hit — it paints nothing,
+ * so it must not be hoverable either. Text inside a heading is never
+ * annotated (regions start after headings) — null. Pure DOM walk:
+ * jsdom-testable; the caretRangeFromPoint/PositionFromPoint bridge lives in
+ * annotation-hover.ts (browser-only).
+ */
+export function hitTestMarkdownAnnotation(
+  article: HTMLElement,
+  items: readonly AnnotationRenderItem[],
+  introSectionId: string | null,
+  node: Node,
+  nodeOffset: number,
+): string | null {
+  if (node.nodeType !== Node.TEXT_NODE || !(article.contains(node))) return null;
+  // Climb to the text node's block-level ancestor that is a DIRECT child of
+  // the article (the react-markdown shape the region walks share).
+  let block: Element | null = node.parentElement;
+  while (block && block.parentElement !== article) block = block.parentElement;
+  if (!block) return null;
+
+  // The section this block belongs to: the nearest preceding heading with an
+  // id among the article's direct children (headings ARE the addresses); a
+  // heading itself never hosts annotations.
+  const children = Array.from(article.children);
+  const blockIndex = children.indexOf(block);
+  if (blockIndex < 0) return null;
+  let sectionId: string | null = null;
+  for (let i = blockIndex; i >= 0; i--) {
+    const child = children[i];
+    if (/^[Hh][1-6]$/.test(child.tagName)) {
+      const id = (child as HTMLElement).id;
+      if (!id) return null; // unaddressed heading — no annotation region
+      if (i === blockIndex) return null; // the caret sits IN a heading
+      sectionId = id;
+      break;
+    }
+  }
+  if (sectionId === null) {
+    // Before the first addressed heading — only the intro contract paints here.
+    if (introSectionId === null) return null;
+    sectionId = introSectionId;
+  }
+
+  const elements = markdownSectionElements(article, sectionId, introSectionId);
+  if (!elements) return null;
+  const nodes = collectTextNodes(elements);
+  let offset = 0;
+  let caret = -1;
+  for (const text of nodes) {
+    if (text === node) {
+      caret = offset + nodeOffset;
+      break;
+    }
+    offset += (text.nodeValue ?? "").length;
+  }
+  if (caret < 0) return null;
+  const regionText = textOfNodes(nodes);
+  for (const item of items) {
+    if (item.range.sectionId !== sectionId) continue;
+    if (!isValidAnnotationRange(item.range)) continue;
+    if (isStaleRange(item.range, regionText)) continue;
+    if (caret >= item.range.start && caret < item.range.end) return item.id;
+  }
+  return null;
+}
