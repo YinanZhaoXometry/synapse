@@ -12,7 +12,7 @@ Monorepo (two apps, one contract, one entrypoint):
 | ----------- | --------------------------------------------------------------------------------------------- |
 | `frontend/` | The Vite SPA — React 18 + TypeScript + shadcn/ui + Tailwind 3, Vitest tests                   |
 | `backend/`  | The Rails 8.1 API-only service (GraphQL) — minimal bootable scaffold; see `backend/AGENTS.md` |
-| `justfile`  | Root orchestrator: `just setup · up · dev · spec · e2e`                                       |
+| `justfile`  | Root orchestrator: `just setup · up · migrate · dev · spec · e2e`                             |
 | `docs/`     | Product brief + PRD, UX, architecture spine (AD-1…20), ADRs, agent handbooks                  |
 | `.scratch/` | Local issue tracker (specs + tickets per epic)                                                |
 
@@ -65,9 +65,36 @@ just up      # Postgres 17 + MinIO + API on http://localhost:3000 — returns on
 just dev     # Vite dev server on http://localhost:8080 (proxies /graphql to :3000)
 ```
 
+If a `git pull` brought new backend migrations, run `just migrate` once — a running container does not pick them up on its own (migrations apply at container boot, not on file change), and an unmigrated database makes every API call return 500.
+
 `just up` starts the containers **detached** — it returns to your prompt and the stack keeps running in the background; `just dev` is the only foreground process (your Ctrl-C / hot-reload loop). Restart Vite freely; the containers rarely need restarting. The SPA needs the API up, but they don't start together.
 
 **4. Open http://localhost:8080** — first run shows the onboarding wizard, or log in with the seeded demo account **`demo@synapse.test` / `demo-password`**.
+
+### Command cheat sheet — which `just` recipe, when
+
+| Command | What it does | When to reach for it |
+| ------- | ------------ | -------------------- |
+| `just setup` | Installs frontend deps, builds the MinIO image, builds the backend dev image | **Once per machine** (fresh clone / new teammate). Everything else assumes it has run. |
+| `just up` | Starts Postgres + MinIO + API detached; returns once the health query answers | **Start of every work session.** Safe to re-run while the stack is up — it just confirms health. |
+| `just dev` | Vite dev server on :8080 with hot reload | **Start of every work session**, in its own terminal. The only foreground recipe — Ctrl-C stops Vite, the containers keep running. |
+| `just migrate` | Applies pending migrations inside the running API container | **After a `git pull` that touched `backend/db/migrate/`** — a running container never picks up new migrations on its own; skipping this makes every API call return 500. Harmless no-op when there is nothing pending. The stack must be up. |
+| `just spec` | Every gate, both stacks: codegen freshness · tsc · eslint · vitest · build · mastery-vector anti-drift · rubocop · rspec | **Before every push / PR.** CI runs the same gates — keep local green first. |
+| `just e2e` | Playwright critical flows against a deterministic stub AI provider (no key needed); always restores the demo stack afterwards | **Before pushing** when you touched a critical flow (auth wall, plans, creation chat, reader, quiz→mastery, mistakes, hubs). |
+| `just logs` | Follows the backend stack's logs | **Debugging.** "Why is the API failing" usually answers itself here first. |
+| `just down` | Stops the stack (images and data volumes stay cached) | **End of the day**, or whenever you need ports 3000/9000 back. |
+| `just minio-image` | Builds the pinned MinIO server + client from source (no registry carries it anymore) | Almost never by hand — `just setup` calls it. Only when a fresh machine's setup fails at that step. |
+| `just` (bare) | Lists all recipes | Whenever the table above fades from memory. |
+
+A typical session:
+
+```bash
+just up && just dev          # two terminals — dev is the foreground one
+git pull && just migrate     # mid-session, when the pull brought migrations
+just spec                    # before pushing
+```
+
+New-teammate shortcut: clone → `just setup` → `cp backend/.env.example backend/.env` (+ your AI key) → `just up` → `just dev` → open http://localhost:8080. After that, the table above is the whole story.
 
 ### Notes & gotchas
 

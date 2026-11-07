@@ -28,6 +28,7 @@ docs/     product/design/architecture/agents docs (stays at root)
 just setup   # web install + minio image bootstrap (fresh machines — see Dockerfile.minio) + api image build/pull
 just dev     # web Vite dev server (proxies /graphql to :3000 — bring the stack up first)
 just up      # compose: postgres 17 + minio + api (api on port 3000)
+just migrate # db:migrate in the running api container — run after pulling migrations the stack booted before
 just spec    # web gates + api gates
 
 # Frontend gates (from frontend/ — two true invocation forms):

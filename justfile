@@ -79,6 +79,14 @@ up:
     echo "backend did not answer the health query within 60s" >&2
     exit 1
 
+# Apply pending migrations to the dev database (stack must be up — `just up`
+# first). Migrations landing via git pull do NOT touch the RUNNING container:
+# the dev entrypoint's db:prepare only fires at container boot, so a
+# pulled-but-unmigrated db 500s every GraphQL request with
+# ActiveRecord::PendingMigrationError (2026-11-07 incident).
+migrate:
+    {{compose}} exec backend bin/rails db:migrate
+
 # Every gate for both stacks; any failure exits nonzero (shebang recipe: one
 # bash script, `set -euo pipefail` — a failed step stops the run).
 # Frontend: tsc -b → eslint → vitest run → vite build → mastery-vector
