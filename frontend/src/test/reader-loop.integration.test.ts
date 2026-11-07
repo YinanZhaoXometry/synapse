@@ -161,7 +161,7 @@ type EchoHandler = (variables: EchoFixture, state: HarnessState) => unknown;
       },
       ChatThread: (variables) => {
         const messages = server.threads.get(variables.materialId as string) ?? [];
-        return { __typename: "ChatThread", id: `thread-${variables.materialId}`, materialId: variables.materialId, updatedAt: CREATED, messages };
+        return { __typename: "ChatThread", id: `thread-${variables.materialId}`, materialId: variables.materialId, planId: null, updatedAt: CREATED, messages };
       },
     };
     const client = createStubClient(handlers, state);

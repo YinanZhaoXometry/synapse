@@ -26,6 +26,7 @@ import { clearToken, logout, resetApiClient } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { useReaderMdTheme } from "@/lib/reader-md-theme";
 import { cn } from "@/lib/utils";
+import { useSessionIdentity } from "@/components/shared/session-identity";
 
 const PRIMARY_CTA =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-hero text-white shadow-brand px-4 py-2.5 text-sm font-semibold transition-all " +
@@ -295,6 +296,11 @@ export default function SettingsPage() {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme, mode, setMode, reduceMotion, setReduceMotion } = useTheme();
   const goalQuery = useWeeklyGoalQuery();
+  // The profile row is a session-identity site too (epic-25 T3): the email
+  // renders once the me read lands, the 学/S avatar letter keeps the chrome's
+  // shared derivation (local-part first grapheme; placeholder until then —
+  // the scaffold's hardcoded "Yinan Chen" was a wrong identity).
+  const identity = useSessionIdentity();
 
   const langCards: Array<{ lang: "zh" | "en"; labelKey: string; descKey: string }> = [
     { lang: "zh", labelKey: "settings.langZh", descKey: "settings.langZhDesc" },
@@ -325,10 +331,10 @@ export default function SettingsPage() {
             aria-hidden="true"
             className="w-[46px] h-[46px] rounded-full bg-[var(--accent-tint)] grid place-items-center text-accent-ink font-semibold text-[15px] shrink-0"
           >
-            {language === "zh" ? "学" : "S"}
+            {identity.letter}
           </span>
           <div className="min-w-0">
-            <div className="text-base font-semibold">Yinan Chen</div>
+            <div className="text-base font-semibold">{identity.email}</div>
           </div>
         </div>
         <p className="setting-note px-6 pb-3">{t("settings.profileNote")}</p>

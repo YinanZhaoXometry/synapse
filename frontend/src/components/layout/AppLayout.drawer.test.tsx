@@ -7,8 +7,13 @@ import { installPointerEventShim } from "@/test/pointer-event-shim";
 
 // AppLayout reads the server streak (AD-14) — the drawer contract has nothing
 // to do with the wire, so pin the hook to honest-empty instead of mounting
-// Apollo.
-vi.mock("@/api", () => ({ useStreakQuery: () => ({ data: undefined }) }));
+// Apollo. useMeQuery rides the same posture (epic-25 T3's session identity —
+// data: undefined keeps the footer name line empty while the drawer is under
+// test).
+vi.mock("@/api", () => ({
+  useStreakQuery: () => ({ data: undefined }),
+  useMeQuery: () => ({ data: undefined }),
+}));
 // The palette is mounted beside the drawer but is its own surface (⌘K tests
 // live elsewhere) — render it out so `role="dialog"` stays the drawer's alone.
 vi.mock("@/components/shared/CommandPalette", () => ({ CommandPalette: () => null }));

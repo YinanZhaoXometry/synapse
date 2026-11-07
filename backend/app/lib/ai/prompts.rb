@@ -294,6 +294,7 @@ module Ai
             #{QUIZ_RULE}
             Answer ONLY from the material above; if it does not cover the question, say so honestly.
             Write your entire reply in #{language_word(language)}.
+            Reply in flowing prose — never JSON, never code fences; the learner reads your words as a chat message.
           PROMPT
         ]
       end
@@ -321,6 +322,7 @@ module Ai
             #{QUIZ_RULE}
             Answer ONLY from the material above; if it does not cover the question, say so honestly.
             Write your entire reply in #{language_word(language)}.
+            Reply in flowing prose — never JSON, never code fences; the learner reads your words as a chat message.
           PROMPT
         ]
       end

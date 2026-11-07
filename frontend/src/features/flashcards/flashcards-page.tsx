@@ -13,6 +13,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { previousNavPathname, sourceBackTarget } from "@/lib/nav-history";
 import type { Flashcard, Material } from "@/domain/entities";
 import { FlashcardLauncher } from "./FlashcardLauncher";
 import { FlashcardStudy } from "./FlashcardStudy";
@@ -39,14 +40,33 @@ export function FlashcardsStudyPage({ context }: { context: FlashcardsPageContex
   const { t } = useLanguage();
   const navigate = useNavigate();
 
+  // Source-aware back (2026-11-06): a deck entered from the /flashcards hub
+  // returns THERE — same cut as the quiz session's (the hub is no one-way
+  // door); spine origins keep the owner's home target; lost keeps lostHref.
+  const sourceBack = context.exists ? sourceBackTarget(previousNavPathname()) : null;
+  const useSourceBack = !!sourceBack && sourceBack.to !== context.homeHref;
   const backLink = (
     <button
       type="button"
-      onClick={() => navigate(context.exists ? context.homeHref : context.lostHref)}
+      onClick={() =>
+        navigate(
+          useSourceBack && sourceBack
+            ? sourceBack.to
+            : context.exists
+              ? context.homeHref
+              : context.lostHref,
+        )
+      }
       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
     >
       <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-      {t(context.exists ? context.homeLabelKey : context.lostLabelKey)}
+      {t(
+        useSourceBack && sourceBack
+          ? sourceBack.labelKey
+          : context.exists
+            ? context.homeLabelKey
+            : context.lostLabelKey,
+      )}
     </button>
   );
 
@@ -59,7 +79,7 @@ export function FlashcardsStudyPage({ context }: { context: FlashcardsPageContex
     );
   }
 
-  const backHome = () => navigate(context.homeHref);
+  const backHome = () => navigate(useSourceBack && sourceBack ? sourceBack.to : context.homeHref);
 
   return (
     <div className="p-6 md:p-8 max-w-[784px] mx-auto" data-testid="flashcards-page">

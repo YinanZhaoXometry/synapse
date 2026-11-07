@@ -189,9 +189,10 @@ export function mapChatMessage(message: ChatMessagePartsFragment): ChatMessage {
   };
 }
 
-export function mapChatThread(thread: { id: string; materialId: string; updatedAt: string; messages: ChatMessagePartsFragment[] }): ChatThread {
+export function mapChatThread(thread: { id: string; materialId: string | null; planId: string | null; updatedAt: string; messages: ChatMessagePartsFragment[] }): ChatThread {
   return {
     materialId: thread.materialId,
+    planId: thread.planId,
     messages: thread.messages.map(mapChatMessage),
     updatedAt: thread.updatedAt,
     ...({ id: thread.id } as object),

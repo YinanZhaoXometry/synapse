@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_06_110001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_090001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -69,12 +69,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_06_110001) do
 
   create_table "chat_threads", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "user_id", null: false
-    t.uuid "material_id", null: false
+    t.uuid "material_id"
     t.jsonb "messages", default: [], null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "plan_id"
     t.index ["material_id"], name: "index_chat_threads_on_material_id", unique: true
+    t.index ["plan_id"], name: "index_chat_threads_on_plan_id", unique: true
     t.index ["user_id"], name: "index_chat_threads_on_user_id"
+    t.check_constraint "material_id IS NOT NULL AND plan_id IS NULL OR material_id IS NULL AND plan_id IS NOT NULL", name: "chat_threads_one_scope"
   end
 
   create_table "evidence_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -537,6 +540,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_06_110001) do
   add_foreign_key "annotations", "materials"
   add_foreign_key "annotations", "users"
   add_foreign_key "chat_threads", "materials"
+  add_foreign_key "chat_threads", "study_plans", column: "plan_id"
   add_foreign_key "chat_threads", "users"
   add_foreign_key "evidence_records", "knowledge_nodes", column: "node_id"
   add_foreign_key "evidence_records", "questions"

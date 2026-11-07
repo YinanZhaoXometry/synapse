@@ -5,6 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { logout } from "@/apollo";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SETTINGS_ROUTE } from "@/components/layout/nav-items";
+import { useSessionIdentity } from "@/components/shared/session-identity";
 
 /**
  * The user-footer account menu (2026-11-06 logout fix): sign-out used to live
@@ -13,6 +14,11 @@ import { SETTINGS_ROUTE } from "@/components/layout/nav-items";
  * now opens this popover — 设置 navigates, 退出登录 cuts the session through
  * the ONE logout seam (clearToken + resetApiClient, AD-15) and lands on the
  * login wall, the exact contract the Settings-page button pins.
+ *
+ * The avatar letter is the session identity (epic-25 T3): the me email's
+ * local-part first grapheme once the read lands, the 学/S placeholder until
+ * then — one useSessionIdentity call, never a props fork (the same seam the
+ * footers' name line and the Settings profile row render through).
  */
 export default function UserMenuButton({
   compact = false,
@@ -23,7 +29,8 @@ export default function UserMenuButton({
   /** Fired before the item action runs (the mobile drawer closes itself). */
   onAction?: () => void;
 }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
+  const identity = useSessionIdentity();
   const [open, setOpen] = useState(false);
 
   const close = () => {
@@ -45,7 +52,7 @@ export default function UserMenuButton({
           title={t("nav.userMenu")}
           className="w-9 h-9 shrink-0 rounded-full bg-[var(--accent-tint)] flex items-center justify-center font-semibold text-accent-ink text-[13px] cursor-pointer transition-transform hover:scale-[1.04] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {language === "zh" ? "学" : "S"}
+          {identity.letter}
         </button>
       </PopoverTrigger>
       <PopoverContent

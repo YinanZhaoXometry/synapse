@@ -353,6 +353,20 @@ module Types
       { document: JSON.generate(result.value![:document]) }
     end
 
+    # The session identity read (epic-25 T3, epic decision 4): the chrome's
+    # `me` — a bare sanctioned read over the caller (the scoping IS the
+    # logic: the identity IS the authenticated account, nothing to scope),
+    # answering the reduced MeType so no profile entity and no UserType
+    # credentials surface ride. Auth-guarded through the shared guard like
+    # every read here — unauthenticated is impossible on this field (the
+    # AD-13 exceptions stay health + the Square path only).
+    field :me, Types::MeType, null: false,
+      description: "The current session's identity (epic-25 T3): the authenticated account's email — the chrome derives its display name and avatar letter from the local-part. Deliberately minimal (email only, epic-25 decision 4); auth-guarded like every read here."
+
+    def me
+      { email: current_user!.email }
+    end
+
     field :ai_usage_today, Types::AiUsageType, null: false,
       description: "The current user's AI usage today (FR-34, epic-14 T1): the live cap-counter count (every provider call counted, midnight-UTC day key) and the enforced daily limit — server truth from the AD-16 cap seam, rendered honestly by the Settings display."
 
@@ -376,6 +390,22 @@ module Types
     def chat_thread(material_id:)
       material = scoped_material(material_id)
       current_user!.chat_threads.find_by(material_id: material.id)
+    end
+
+    field :plan_chat_thread, Types::ChatThreadType, null: true,
+      description: "One plan's Companion transcript (epic-25 T1 — the tutor page's plan-grounded thread, the material chatThread's plan-scope sibling) — null when the conversation has not started yet. A foreign, unknown, or malformed plan id answers null: honest-empty (never the material thread, and no existence leak)." do
+      argument :plan_id, String, required: true, description: "The anchored plan's uuid."
+    end
+
+    def plan_chat_thread(plan_id:)
+      # The sanctioned bare read (the scoping IS the logic): the plan
+      # through the owner's association path, then the thread by its
+      # unique plan scope. A malformed id addresses no row — the same null
+      # an unknown or foreign one gets (the field is null: true, and the
+      # ticket's posture for the plan read is honest-empty, not the
+      # material path's NOT_FOUND raise).
+      plan = current_user!.study_plans.find_by(id: plan_id) if plan_id.to_s.match?(Accounts::UUID_REGEX)
+      current_user!.chat_threads.find_by(plan_id: plan&.id)
     end
 
     field :reading_progress, Types::ReadingProgressType, null: true,

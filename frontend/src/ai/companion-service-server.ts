@@ -42,6 +42,7 @@ import type { ApolloClient } from "@apollo/client";
 import type { ReadingLocator } from "@/domain/entities";
 import { startStream } from "./sse-client";
 import type { StreamDeps, StreamRung, StreamSession, StreamTerminal } from "./sse-client";
+import { sanitizeCompanionReplyText } from "./reply-sanitize";
 import type { CompanionService } from "./companion-service";
 import type {
   Citation,
@@ -229,7 +230,9 @@ export class ServerCompanionService implements CompanionService {
     return {
       intent: posture.intent,
       rung: posture.rung,
-      text,
+      // Unwrap backstop (2026-11-06): the prompts forbid JSON replies, and a
+      // {"hint": …} answer must never render as the tutor's message.
+      text: sanitizeCompanionReplyText(text),
       citations,
       canEscalate: posture.canEscalate,
       language: posture.language,
@@ -287,7 +290,8 @@ export class ServerCompanionService implements CompanionService {
     return {
       intent: posture.intent,
       rung: posture.rung,
-      text,
+      // Same unwrap backstop — the tutor page rides this op (2026-11-06).
+      text: sanitizeCompanionReplyText(text),
       citations,
       canEscalate: posture.canEscalate,
       language: posture.language,

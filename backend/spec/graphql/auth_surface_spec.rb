@@ -29,7 +29,12 @@ require "rails_helper"
 # review flag on a logged mistake, spec decision 4); epic-18 T2 with the one
 # generation-backed Today suggestion mutation (the explicit, cap-counted,
 # replay-safe AI pick — the todayHub heuristic v1 card untouched, spec
-# decisions 7–11)
+# decisions 7–11); epic-25 T1 with NO new mutation but the plan-scope chat
+# surface: appendChatMessage grows the plan addressing mode (materialId
+# required→optional, planId optional — wire-compatible per epic-25 decision
+# 2) and QueryType gains the NEW planChatThread field (chatThread stays
+# frozen); epic-25 T3 with the one me query (the minimal MeType — email
+# only, the chrome's identity read beside the frozen UserType)
 # (byte-level idempotence against the committed schema.graphql
 # stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
 # surface shape itself).
@@ -64,6 +69,15 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
     expect(Types::UserType.fields.keys).to contain_exactly("id", "email", "createdAt")
   end
 
+  # epic-25 T3's surface shape: the me query answers the reduced MeType —
+  # email ONLY (epic-25 decision 4): no profile entity, and UserType stays
+  # frozen (register/login keep their payload). The chrome derives its
+  # display name + avatar letter from the email's local-part client-side.
+  it "exposes the me query (epic-25 T3) — a minimal MeType, email only" do
+    expect(Types::QueryType.fields.keys).to include("me")
+    expect(Types::MeType.fields.keys).to contain_exactly("email")
+  end
+
   # The query-side auth posture, recorded by the epic P2-11 T2 exception:
   # the domain reads stay auth-guarded per kickoff delta 8 (proven on the
   # wire per surface — e.g. spec/requests/graphql_plans_spec.rb answers
@@ -81,5 +95,20 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
     public_field_descriptions = Types::QueryType.fields
       .slice("squarePlans", "squarePlan").values.map(&:description).join(" ")
     expect(public_field_descriptions).to include("AD-13")
+  end
+
+  # epic-25 T1's surface shape: no new mutation (the roster above is
+  # unchanged — appendChatMessage grows in place), the NEW planChatThread
+  # query beside the frozen chatThread, and the widened appendChatMessage
+  # input (materialId required→optional wire-compatibly, planId added).
+  it "exposes the plan-scope chat surface (epic-25 T1) — planChatThread as a NEW query, appendChatMessage accepting either scope" do
+    expect(Types::QueryType.fields.keys).to include("chatThread", "planChatThread")
+    expect(Types::MutationType.fields.keys).to include("appendChatMessage")
+
+    append_input = Types::MutationType.fields["appendChatMessage"].arguments["input"].type.unwrap
+    expect(append_input.arguments.keys).to contain_exactly("clientMutationId", "materialId", "planId", "message")
+    expect(append_input.arguments["materialId"].type.non_null?).to be(false)
+    expect(append_input.arguments["planId"].type.non_null?).to be(false)
+    expect(append_input.arguments["message"].type.non_null?).to be(true)
   end
 end

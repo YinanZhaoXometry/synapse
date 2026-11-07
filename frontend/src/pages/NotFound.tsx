@@ -19,10 +19,10 @@ const NotFound = () => {
         <span>{t("common.notFoundBody")}</span>
         <div className="mt-4">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/plans")}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-hero text-white shadow-brand text-sm font-medium hover:shadow-brand-hover hover:brightness-[1.03] transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            {t("common.goDashboard")}
+            {t("common.goPlans")}
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { BookOpen, GitFork, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -52,7 +52,10 @@ export default function PlansHomePage() {
   const progressQuery = useAllReadingProgressQuery();
   // The Square tab (delta decision 3): the mine tab keeps every existing
   // surface; the Square tab swaps the body (public-plan discovery).
-  const [tab, setTab] = useState<"mine" | "square">("mine");
+  const [searchParams] = useSearchParams();
+  // Square deep-link (?tab=square — the square preview's back link restores
+  // the tab the user left); anything else opens on the mine tab.
+  const [tab, setTab] = useState<"mine" | "square">(searchParams.get("tab") === "square" ? "square" : "mine");
 
   if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return null;
   const plans = plansQuery.data ?? [];

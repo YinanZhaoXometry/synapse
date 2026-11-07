@@ -102,12 +102,17 @@ RSpec.describe Ai::Prompts do
       expect(hint).not_to include("explicitly asked for the direct answer")
       expect(answer).to include("explicitly asked for the direct answer")
       expect(answer).not_to include("Stay hint-first")
+      # The prose-only rule (2026-11-06): GLM answered a hint-first ask with a
+      # {"hint": …} JSON object once — both companion prompts now forbid it.
+      expect(hint).to include("never JSON")
+      expect(answer).to include("never JSON")
     end
 
     plan = described_class.plan_companion(question: "重点？", language: "en", context: context)[1][:content]
     aggregate_failures do
       expect(plan).to include("Stay hint-first")
       expect(plan).to include("cite them inline")
+      expect(plan).to include("never JSON")
     end
   end
 

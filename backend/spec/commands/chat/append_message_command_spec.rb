@@ -185,4 +185,135 @@ RSpec.describe Chat::AppendMessageCommand do
       end
     end
   end
+
+  # The plan scope (epic-25 T1): the tutor page's plan-grounded thread —
+  # the material path's sibling. The addressing rule, the jsonb append, the
+  # create-on-first-append, and the savepoint race backstop all carry over
+  # 1:1; only the anchor and its owner association path change.
+  describe "plan scope (epic-25 T1)" do
+    let(:plan) { create(:study_plan, user: user) }
+
+    def call(overrides = {})
+      described_class.call(
+        current_user: user,
+        plan_id: overrides.fetch(:plan_id, plan.id),
+        message: {
+          role: "user",
+          text: "Where should I start with this plan?",
+          citations: []
+        }.merge(overrides.except(:plan_id))
+      )
+    end
+
+    it "creates the thread on first append, anchored to the plan" do
+      result = call
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        thread = user.chat_threads.find_by!(plan_id: plan.id)
+        expect(thread.plan).to eq(plan)
+        expect(thread.material_id).to be_nil
+        expect(thread.messages.length).to eq(1)
+        expect(thread.messages.first["text"]).to eq("Where should I start with this plan?")
+        expect(result.value![:message]["id"]).to eq(thread.messages.first["id"])
+        expect(user.chat_threads.count).to eq(1)
+      end
+    end
+
+    it "appends to the existing plan thread on the next message (one thread per plan, order preserved)" do
+      call(text: "first")
+      result = call(role: "companion", text: "second")
+
+      thread = user.chat_threads.find_by!(plan_id: plan.id)
+      aggregate_failures do
+        expect(user.chat_threads.count).to eq(1)
+        expect(thread.messages.map { |row| row["text"] }).to eq([ "first", "second" ])
+        expect(result.value![:message]["text"]).to eq("second")
+      end
+    end
+
+    it "answers NOT_FOUND for a foreign, unknown, or malformed plan id (delta 2) and writes nothing" do
+      aggregate_failures do
+        foreign = call(plan_id: create(:study_plan, user: create(:user)).id)
+        expect(foreign.failure?).to be(true)
+        expect(foreign.failure.code).to eq(:NOT_FOUND)
+
+        unknown = call(plan_id: SecureRandom.uuid)
+        expect(unknown.failure?).to be(true)
+        expect(unknown.failure.code).to eq(:NOT_FOUND)
+
+        malformed = call(plan_id: "garbage")
+        expect(malformed.failure?).to be(true)
+        expect(malformed.failure.code).to eq(:NOT_FOUND)
+      end
+      expect(user.chat_threads.count).to eq(0)
+    end
+
+    it "fails VALIDATION_FAILED with field: :scope for both or neither of material_id / plan_id" do
+      aggregate_failures do
+        both = described_class.call(
+          current_user: user, material_id: material.id, plan_id: plan.id,
+          message: { role: "user", text: "hi", citations: [] }
+        )
+        expect(both.failure?).to be(true)
+        expect(both.failure.code).to eq(:VALIDATION_FAILED)
+        expect(both.failure.context[:field]).to eq(:scope)
+
+        neither = described_class.call(
+          current_user: user,
+          message: { role: "user", text: "hi", citations: [] }
+        )
+        expect(neither.failure?).to be(true)
+        expect(neither.failure.code).to eq(:VALIDATION_FAILED)
+        expect(neither.failure.context[:field]).to eq(:scope)
+      end
+      expect(user.chat_threads.count).to eq(0)
+    end
+
+    it "never lets a plan append land on (or create) a material thread — the scopes stay separate" do
+      material_thread = user.chat_threads.create!(material: material, messages: [])
+
+      call
+
+      aggregate_failures do
+        expect(user.chat_threads.count).to eq(2)
+        expect(user.chat_threads.find_by!(plan_id: plan.id).messages.length).to eq(1)
+        expect(material_thread.reload.messages).to eq([])
+      end
+    end
+
+    it "validates the message body on the plan path exactly as on the material path" do
+      result = call(role: "assistant")
+
+      aggregate_failures do
+        expect(result.failure?).to be(true)
+        expect(result.failure.code).to eq(:VALIDATION_FAILED)
+        expect(result.failure.context[:field]).to eq(:role)
+      end
+      expect(user.chat_threads.count).to eq(0)
+    end
+
+    it "settles a unique-plan_id race: the winner's thread takes the append (the savepoint backstop, mirrored)" do
+      # The material race's plan-scope mirror: the stale pre-check misses,
+      # the INSERT collides with the unique plan_id index, and the
+      # requires_new savepoint keeps the read-back alive — the winner's row
+      # takes the append.
+      winner = user.chat_threads.create!(plan: plan, messages: [])
+      pre_checks = 0
+      allow_any_instance_of(ChatThread.const_get(:ActiveRecord_Associations_CollectionProxy))
+        .to receive(:find_by).and_wrap_original do |orig, *args, &block|
+          pre_checks += 1
+          pre_checks == 1 ? nil : orig.call(*args, &block)
+        end
+
+      result = call(text: "the raced plan append")
+
+      aggregate_failures do
+        expect(result.success?).to be(true)
+        expect(user.chat_threads.count).to eq(1)
+        expect(result.value![:message]["text"]).to eq("the raced plan append")
+        expect(winner.reload.messages.map { |row| row["text"] }).to eq([ "the raced plan append" ])
+      end
+    end
+  end
 end
