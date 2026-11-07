@@ -27,10 +27,10 @@ module Ai
       # calls are possible. Garbage timeouts fall back to the default.
       def configuration
         {
-          base_url: ENV["PROVIDER_BASE_URL"].to_s.strip.presence || DEFAULT_BASE_URL,
-          api_key: ENV["PROVIDER_KEY"].to_s.strip,
-          model: ENV["PROVIDER_MODEL"].to_s.strip.presence || DEFAULT_MODEL,
-          timeout_seconds: positive_int(ENV["PROVIDER_TIMEOUT_SECONDS"]) || DEFAULT_TIMEOUT_SECONDS
+          base_url: ENV["AI_BASE_URL"].to_s.strip.presence || DEFAULT_BASE_URL,
+          api_key: ENV["AI_API_KEY"].to_s.strip,
+          model: ENV["AI_MODEL"].to_s.strip.presence || DEFAULT_MODEL,
+          timeout_seconds: positive_int(ENV["AI_TIMEOUT_SECONDS"]) || DEFAULT_TIMEOUT_SECONDS
         }
       end
 
@@ -65,7 +65,7 @@ module Ai
       def dispatch(user:)
         unless configured?
           return Failure(ApplicationErrors::Failure.new(
-            code: :INTERNAL, context: { message: "ai provider not configured (PROVIDER_KEY blank)" }
+            code: :INTERNAL, context: { message: "ai provider not configured (AI_API_KEY blank)" }
           ))
         end
 

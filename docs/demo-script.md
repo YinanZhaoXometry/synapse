@@ -11,7 +11,7 @@ just dev         # web dev server on :8080 (HMR overlay is off — watch the ter
 
 - Login: **demo@synapse.test / demo-password** (seeded, idempotent — a fresh volume seeds itself; the demo plan + nodes exist out of the box).
 - Terminal layout: keep `just dev`'s output visible — dev errors only appear there.
-- AI: the GLM key rides the gitignored compose override (deploy.md §1 recipe). **Concurrency ≈ 1 — pre-generate anything you cannot afford to wait on** (a queued AI call can take tens of seconds; don't let the demo stall on one).
+- AI: the provider key rides the gitignored `backend/.env` — the Rails process loads it itself, so bare `just up` carries it (deploy.md §1 recipe). **Concurrency ≈ 1 — pre-generate anything you cannot afford to wait on** (a queued AI call can take tens of seconds; don't let the demo stall on one).
 
 ## The walkthrough (≈10 minutes)
 
@@ -33,7 +33,7 @@ just dev         # web dev server on :8080 (HMR overlay is off — watch the ter
 ## Honesty lines (say them)
 
 - **Deployment:** the graded demo runs locally; the live stack (Render/Neon/R2/Pages) is provisioned-but-unverified — owner-gated per deploy.md §2/§2.5 (rollback rehearsal §9 pending). Don't claim a live URL.
-- **AI:** live through the GLM proxy with a per-user daily cap (FR-34); the Phase-1 simulator survives only as the test double.
+- **AI:** live through the OpenAI-compatible provider with a per-user daily cap (FR-34); the Phase-1 simulator survives only as the test double.
 - **Known-open (all trigger-recorded, all in the spine Deferred table):** roadmap.sh import (license), Google OAuth + password reset (need a console client / mail provider), Neon backups, production error visibility (free tier keeps no logs — deploy.md §11), MaterialsPage server backing, mistake lifecycle flags.
 - **Mastery honesty:** the score is evidence-only (ADR-0001: last-5 windowed mean, capped at 99 until ≥3 evidence records) — the demo claim-marking deliberately does NOT move it.
 

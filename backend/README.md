@@ -4,4 +4,4 @@ The Rails 8.1 API-only GraphQL service. **Its real documentation is [`AGENTS.md`
 
 - Dev containers: `just up` (postgres 17 + api on :3000) from the repo root; `just dev` for the web dev server (:8080).
 - Gates: `just spec` (web gates, then `rubocop` + `rspec` in dev containers).
-- Cross-stack contract: the committed [`schema.graphql`](schema.graphql) — the frontend's `pnpm run codegen` consumes it verbatim (CI freshness-gates both sides).
+- Cross-stack contract: the committed [`schema.graphql`](schema.graphql) — the frontend's `npm run codegen` consumes it verbatim (CI freshness-gates both sides).

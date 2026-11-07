@@ -87,8 +87,8 @@ Rails.application.configure do
   # surface from the web cutover (epic P2-8) — fail fast at boot instead of
   # answering every AI call with INTERNAL. Cap values stay optional with
   # defaults (Ai::DailyCap), matching the login rate-limit posture.
-  if ENV["PROVIDER_KEY"].blank?
-    raise "Missing PROVIDER_KEY — the Ai::Provider seam requires it in " \
+  if ENV["AI_API_KEY"].blank?
+    raise "Missing AI_API_KEY — the Ai::Provider seam requires it in " \
           "production (AD-16, backend/.env.example)"
   end
 end

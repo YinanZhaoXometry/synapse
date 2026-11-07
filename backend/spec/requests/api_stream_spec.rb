@@ -10,10 +10,10 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
   # minted directly through the command; the createStreamTicket mutation's
   # wire shape is pinned in spec/requests/graphql_ai_mutations_spec.rb.
   around do |example|
-    keys = %w[PROVIDER_KEY AI_DAILY_CALL_CAP]
+    keys = %w[AI_API_KEY AI_DAILY_CALL_CAP]
     originals = keys.to_h { |key| [ key, ENV[key] ] }
     keys.each { |key| ENV.delete(key) }
-    ENV["PROVIDER_KEY"] = "test-key"
+    ENV["AI_API_KEY"] = "test-key"
     example.run
   ensure
     originals.each do |key, value|

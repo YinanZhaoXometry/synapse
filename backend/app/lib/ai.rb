@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # The Ai context root (epic P2-5): everything server-side AI lives under
-# Ai::* — app/lib/ai/* (the seam, GLM transport, context assembly, prompts —
+# Ai::* — app/lib/ai/* (the seam, OpenAI-compatible transport, context assembly, prompts —
 # the sibling of Accounts::* per the app/lib convention) and the AI commands
 # under app/commands/ai/* (AD-16). This file is the namespace's ONLY root:
 # app/commands/ai.rb deliberately does NOT exist — two root files would map

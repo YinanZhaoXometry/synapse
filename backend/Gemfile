@@ -49,6 +49,19 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
 
+# Dev-local secrets (2026-11-06 owner decision — the qc-center-api posture):
+# the Rails process loads backend/.env itself in development, so live AI
+# config rides the plain single-file stack — no compose override file, and
+# bare `just up` carries PROVIDER_KEY. Deliberately development-ONLY:
+# test never loads .env, so provider-config-dependent specs stay
+# deterministic locally (CI has no .env either — parity by construction);
+# production injects ENV (Render) and must not see the file. dotenv never
+# overwrites vars already in ENV, so compose-injected infra values
+# (DATABASE_URL, RAILS_ENV, JWT_SECRET, DEMO_*) always win over the file.
+group :development do
+  gem "dotenv-rails", "~> 3.1"
+end
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"

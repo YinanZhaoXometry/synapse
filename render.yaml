@@ -87,16 +87,16 @@ services:
         sync: false
       - key: R2_SECRET_ACCESS_KEY
         sync: false
-      # AI provider (AD-16, GLM via the OpenAI-compatible seam). REQUIRED in
+      # AI provider (AD-16, OpenAI-compatible chat-completions seam). REQUIRED in
       # production (boot fail-fast). Terms verification is the owner's OQ-4
       # gate; live probe per config change: bin/rails ai:probe (never in CI).
-      - key: PROVIDER_KEY
+      - key: AI_API_KEY
         sync: false
 
       # --- optional tunables (code defaults shown; uncomment to override) --
-      # PROVIDER_BASE_URL:    https://open.bigmodel.cn/api/paas/v4
-      # PROVIDER_MODEL:       glm-4-flash
-      # PROVIDER_TIMEOUT_SECONDS: 120
+      # AI_BASE_URL:    <OpenAI-compatible endpoint>
+      # AI_MODEL:       <model id>
+      # AI_TIMEOUT_SECONDS: 120
       # AI_DAILY_CALL_CAP:    50          (per user per UTC day, FR-34)
       # AI_CONTEXT_BUDGET_TOKENS: 8000
       # AI_STREAM_TICKET_TTL_SECONDS: 60

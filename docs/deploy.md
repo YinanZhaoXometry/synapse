@@ -30,29 +30,29 @@ Local parity is `just up` (compose: postgres 17 + api + Vite + minio as the R2 s
 
 ### Local AI end-to-end (dev-only, no owner accounts needed)
 
-The provider key is a **local secret**: put it in `backend/.dockerdev/compose.override.yaml`
-(gitignored — never commit it), then bring the api up with BOTH files — this
-compose version does not auto-merge the override when `-f` is explicit:
+The provider key is a **local secret**: put it in `backend/.env`
+(gitignored — never commit it). The Rails process loads that file itself in
+development (dotenv-rails — the qc-center-api posture, 2026-11-06 owner
+decision), so the plain single-file stack carries live AI config — no
+compose override, no two-file invocation; bare `just up` suffices:
 
 ```bash
-cat > backend/.dockerdev/compose.override.yaml <<'YAML'
-services:
-  backend:
-    environment:
-      PROVIDER_KEY: "<your GLM key>"
-YAML
+cat > backend/.env <<'ENV'
+AI_API_KEY=<your OpenAI-compatible API key>
+ENV
 
-docker compose -f backend/.dockerdev/compose.yaml -f backend/.dockerdev/compose.override.yaml \
-  up -d --force-recreate backend
-docker compose -f backend/.dockerdev/compose.yaml -f backend/.dockerdev/compose.override.yaml \
-  exec backend bundle exec rake ai:probe   # expect: "ai:probe OK"
+just up
+docker compose -f backend/.dockerdev/compose.yaml exec backend \
+  bundle exec rake ai:probe   # expect: "ai:probe OK"
 ```
+(compose-injected ENV always wins over .env — dotenv never overwrites
+existing variables — so the infra defaults in compose.yaml are unaffected.)
 
 Verified locally 2026-11-05 (proposal stream, quiz generation, open-answer
 grading, evidence → server scores, flashcard ratings — see the epic tracker's
 smoke record). **The key carries a low concurrency limit**: one in-flight
 provider request at a time — overlapping requests queue until the 120s
-`PROVIDER_TIMEOUT_SECONDS` timeout surfaces as an honest `INTERNAL` (the UI
+`AI_TIMEOUT_SECONDS` timeout surfaces as an honest `INTERNAL` (the UI
 releases the question back to answering with the draft kept).
 
 ## 2. One-time provisioning ([owner]) — in this order
@@ -74,8 +74,8 @@ Pages comes **last** because its only env var needs the Render api URL.
 ### 2.3 Render — the api
 
 - [ ] **[owner]** Render dashboard → **New → Blueprint** → connect the repo → Render reads `render.yaml`.
-- [ ] **[owner]** Paste the `sync: false` values (§3 table): `DATABASE_URL` (Neon **direct** URL), `CORS_ORIGIN` (the Pages origin — §6; if Pages doesn't exist yet, use the planned `https://<project>.pages.dev` and correct it after §2.4), `DEMO_EMAIL`/`DEMO_PASSWORD`, the four `R2_*`, `PROVIDER_KEY`. `JWT_SECRET`/`SECRET_KEY_BASE` are generated on first apply — leave them.
-- [ ] **[owner]** Verify `PROVIDER_KEY`'s terms are the owner's OQ-4 gate outcome; run the one manual live probe after first deploy: Render Shell → `bin/rails ai:probe` (never in CI).
+- [ ] **[owner]** Paste the `sync: false` values (§3 table): `DATABASE_URL` (Neon **direct** URL), `CORS_ORIGIN` (the Pages origin — §6; if Pages doesn't exist yet, use the planned `https://<project>.pages.dev` and correct it after §2.4), `DEMO_EMAIL`/`DEMO_PASSWORD`, the four `R2_*`, `AI_API_KEY`. `JWT_SECRET`/`SECRET_KEY_BASE` are generated on first apply — leave them.
+- [ ] **[owner]** Verify `AI_API_KEY`'s terms are the owner's OQ-4 gate outcome; run the one manual live probe after first deploy: Render Shell → `bin/rails ai:probe` (never in CI).
 - [ ] **[owner]** Deploy → watch it go green. First boot auto-migrates + seeds the demo account (§5). Health: the service answers `GET /up` with 200.
 - [ ] **[owner]** Record the service URL (`https://<service>.onrender.com`) — it feeds §2.4's `VITE_API_URL`.
 
@@ -84,10 +84,10 @@ Pages comes **last** because its only env var needs the Render api URL.
 Wrangler is not used — the project is created once via git integration:
 
 - [ ] **[owner]** Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** tab → **Connect to Git** → authorize GitHub, pick the Synapse repo.
-- [ ] **[owner]** Build settings (pnpm-honest: the only lockfile is `frontend/pnpm-lock.yaml`):
+- [ ] **[owner]** Build settings (npm-honest: the only lockfile is `frontend/package-lock.json`):
   - **Root directory: `frontend`**
   - Framework preset: **None** (the fields below are the contract)
-  - Build command: `pnpm run build` (the `build` script is `vite build`)
+  - Build command: `npm run build` (the `build` script is `vite build`)
   - Build output directory: `dist` (i.e. `frontend/dist` relative to the repo)
   - **Environment variables (Production):** `VITE_API_URL` = `https://<service>.onrender.com/graphql` — **must end in `/graphql`**: `client.ts` uses it verbatim as the GraphQL URI and `sse-client.ts` derives the SSE endpoint by replacing that suffix with `/api/stream`. A wrong value fails loudly (login/network errors), not silently.
   - Node version: Pages default (vite 5 needs Node ≥ 18; the dev pin is `frontend/.nvmrc` = 24.22).
@@ -134,15 +134,15 @@ Backend reads ENV only (AD-12; source of truth: `backend/.env.example` + grep `E
 | `R2_BUCKET` | no | the materials bucket |
 | `R2_ACCESS_KEY_ID` | yes | R2 API token access key |
 | `R2_SECRET_ACCESS_KEY` | yes | R2 API token secret |
-| `PROVIDER_KEY` | yes | GLM key (AD-16); **required in production — boot fail-fast** |
+| `AI_API_KEY` | yes | OpenAI-compatible API key (AD-16); **required in production — boot fail-fast** |
 
 ### Api (Render) — optional tunables (code defaults; unset unless there is a named reason)
 
 | Name | Default | Read by |
 | --- | --- | --- |
-| `PROVIDER_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | `Ai::Provider` (AD-16; provider swap is config, not code) |
-| `PROVIDER_MODEL` | `glm-4-flash` | `Ai::Provider` |
-| `PROVIDER_TIMEOUT_SECONDS` | `120` | `Ai::Provider` |
+| `AI_BASE_URL` | built-in code default (OpenAI-compatible endpoint) | `Ai::Provider` (AD-16; provider swap is config, not code) |
+| `AI_MODEL` | built-in code default (model id) | `Ai::Provider` |
+| `AI_TIMEOUT_SECONDS` | `120` | `Ai::Provider` |
 | `AI_DAILY_CALL_CAP` | `50` | `Ai::DailyCap` (FR-34; counts stream restarts too) |
 | `AI_CONTEXT_BUDGET_TOKENS` | `8000` | `Ai::ContextAssembler` |
 | `AI_STREAM_TICKET_TTL_SECONDS` | `60` | stream ticket TTL (AD-16) |

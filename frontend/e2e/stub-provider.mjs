@@ -1,7 +1,7 @@
 /**
  * The e2e stub AI provider (harness-only; no product code). An
  * OpenAI-compatible POST /chat/completions double that the backend's
- * GlmClient talks to when backend/.dockerdev/compose.e2e.yaml points
+ * AI transport talks to when backend/.dockerdev/compose.e2e.yaml points
  * PROVIDER_BASE_URL here.
  *
  * Deterministic replies per prompt shape (the Ai::Prompts builders are the
@@ -17,7 +17,7 @@
  *   - anything else  → a plain-text reply; an unexpected AI surface fails its
  *     downstream JSON parse (INTERNAL) instead of being silently faked.
  *
- * stream:true rides the SSE wire GlmClient parses: `data: {json}` lines whose
+ * stream:true rides the SSE wire the backend transport parses: `data: {json}` lines whose
  * deltas live at choices[0].delta.content, closed by `data: [DONE]`.
  */
 import http from "node:http";

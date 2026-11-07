@@ -7,7 +7,7 @@ require "rails_helper"
 # stub-ability contract (specs override .adapter, never the transport).
 RSpec.describe Ai::Provider do
   around do |example|
-    keys = %w[PROVIDER_KEY PROVIDER_BASE_URL PROVIDER_MODEL PROVIDER_TIMEOUT_SECONDS AI_DAILY_CALL_CAP]
+    keys = %w[AI_API_KEY AI_BASE_URL AI_MODEL AI_TIMEOUT_SECONDS AI_DAILY_CALL_CAP]
     originals = keys.to_h { |key| [ key, ENV[key] ] }
     keys.each { |key| ENV.delete(key) }
     example.run
@@ -21,14 +21,14 @@ RSpec.describe Ai::Provider do
   let(:adapter) { double("client") }
 
   before do
-    ENV["PROVIDER_KEY"] = "k"
+    ENV["AI_API_KEY"] = "k"
     allow(described_class).to receive(:adapter).and_return(adapter)
   end
 
   describe ".configuration" do
-    it "falls back to the GLM-first defaults when ENV is unset" do
+    it "falls back to the built-in defaults when ENV is unset" do
       allow(described_class).to receive(:adapter).and_call_original
-      ENV.delete("PROVIDER_KEY")
+      ENV.delete("AI_API_KEY")
 
       expect(described_class.configuration).to eq(
         base_url: "https://open.bigmodel.cn/api/paas/v4",
@@ -40,31 +40,31 @@ RSpec.describe Ai::Provider do
 
     it "overrides from ENV and falls back on garbage values" do
       allow(described_class).to receive(:adapter).and_call_original
-      ENV["PROVIDER_KEY"] = " k "
-      ENV["PROVIDER_BASE_URL"] = "http://127.0.0.1:9/v1 "
-      ENV["PROVIDER_MODEL"] = "glm-x"
-      ENV["PROVIDER_TIMEOUT_SECONDS"] = "garbage"
+      ENV["AI_API_KEY"] = " k "
+      ENV["AI_BASE_URL"] = "http://127.0.0.1:9/v1 "
+      ENV["AI_MODEL"] = "model-x"
+      ENV["AI_TIMEOUT_SECONDS"] = "garbage"
 
       config = described_class.configuration
       expect(config[:api_key]).to eq("k")
       expect(config[:base_url]).to eq("http://127.0.0.1:9/v1")
-      expect(config[:model]).to eq("glm-x")
+      expect(config[:model]).to eq("model-x")
       expect(config[:timeout_seconds]).to eq(120) # garbage → default
     end
   end
 
   describe ".configured?" do
-    it "tracks PROVIDER_KEY presence" do
-      ENV.delete("PROVIDER_KEY")
+    it "tracks AI_API_KEY presence" do
+      ENV.delete("AI_API_KEY")
       expect(described_class).not_to be_configured
-      ENV["PROVIDER_KEY"] = "real-key"
+      ENV["AI_API_KEY"] = "real-key"
       expect(described_class).to be_configured
     end
   end
 
   describe ".complete" do
     it "fails INTERNAL before touching anything when unconfigured — and does not consume the cap" do
-      ENV.delete("PROVIDER_KEY")
+      ENV.delete("AI_API_KEY")
 
       result = described_class.complete(user: user, messages: [ { role: "user", content: "hi" } ])
       expect(result.failure.code).to eq(:INTERNAL)
@@ -131,7 +131,7 @@ RSpec.describe Ai::Provider do
     end
 
     it "fails INTERNAL when unconfigured, like .complete" do
-      ENV.delete("PROVIDER_KEY")
+      ENV.delete("AI_API_KEY")
 
       result = described_class.stream(user: user, messages: [ { role: "user", content: "hi" } ])
       expect(result.failure.code).to eq(:INTERNAL)

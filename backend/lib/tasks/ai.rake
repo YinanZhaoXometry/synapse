@@ -4,7 +4,7 @@ namespace :ai do
   desc "One live provider probe (S6 pattern) — manual, never in CI"
   task probe: :environment do
     config = Ai::Provider.configuration
-    abort "ai:probe — PROVIDER_KEY is blank; set it first (see backend/.env.example)" if config[:api_key].blank?
+    abort "ai:probe — AI_API_KEY is blank; set it first (see backend/.env.example)" if config[:api_key].blank?
 
     puts "probing #{config[:base_url]} model=#{config[:model]} …"
     client = Ai::GlmClient.new(**config)

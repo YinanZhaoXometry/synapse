@@ -72,7 +72,7 @@ flowchart LR
     end
     pg[("Neon Postgres 17\ndomain ER + evidence")]
     r2[("Cloudflare R2\nmaterial files")]
-    llm["LLM provider (GLM first)\nOpenAI-compatible adapter"]
+    llm["LLM provider\nOpenAI-compatible adapter"]
     schema["schema.graphql\ncommitted contract"]
 
     user --> spa
@@ -186,7 +186,7 @@ flowchart LR
 
 - **Binds:** FR-33, FR-34, NFR-4; resolves OQ-4's direction
 - **Prevents:** provider keys on the client; streaming hacked through GraphQL; uncapped spend
-- **Rule:** provider keys live only in backend config (ENV + `.env.example`, reference pattern). The provider sits behind an **OpenAI-compatible adapter** — **GLM first**, terms verified before build (OQ-4); a provider swap is config, not code. All AI operations are GraphQL mutations (quiz/flashcard generation, grading, plan proposals) **except token streams** (Companion chat, plan-creation chat): one Rails **SSE endpoint** (`/api/stream`) emits them. **Ticket contract:** an opaque single-use secret, TTL ~60s, minted by a `createStreamTicket` mutation, bound to `current_user` + the pending operation, carried as a query param (log exposure accepted); the endpoint never retries auth (401 on a bad ticket) and sits under the same CORS origin allowlist as GraphQL. The client wraps EventSource with auto-reconnect **disabled** — on drop it mints a fresh ticket and **restarts** the generation (deliberately counted against the cap; no server-side resume buffering v1). **Event vocabulary:** token, citation, rung, and terminal events carrying an error `code` — the AD-5 response contract (intent, rung, citations) is produced server-side and rides the stream, and the **reply language (zh/en) is a request parameter** following the UI toggle (EXPERIENCE). **Cost cap (FR-34, value set here per NFR-4): 50 AI calls/user/day + ~8k-token context-in bound per request**, enforced at the AI adapter boundary, values in server config. Generation is in-request (streamed) — no AI jobs.
+- **Rule:** provider keys live only in backend config (ENV + `.env.example`, reference pattern). The provider sits behind an **OpenAI-compatible adapter** — concrete vendor selected at build, terms-verified before build (OQ-4); a provider swap is config, not code. *(Phrasing amended 2026-11-07: provider-neutral docs posture — the vendor is deployment config, not part of the contract.)* All AI operations are GraphQL mutations (quiz/flashcard generation, grading, plan proposals) **except token streams** (Companion chat, plan-creation chat): one Rails **SSE endpoint** (`/api/stream`) emits them. **Ticket contract:** an opaque single-use secret, TTL ~60s, minted by a `createStreamTicket` mutation, bound to `current_user` + the pending operation, carried as a query param (log exposure accepted); the endpoint never retries auth (401 on a bad ticket) and sits under the same CORS origin allowlist as GraphQL. The client wraps EventSource with auto-reconnect **disabled** — on drop it mints a fresh ticket and **restarts** the generation (deliberately counted against the cap; no server-side resume buffering v1). **Event vocabulary:** token, citation, rung, and terminal events carrying an error `code` — the AD-5 response contract (intent, rung, citations) is produced server-side and rides the stream, and the **reply language (zh/en) is a request parameter** following the UI toggle (EXPERIENCE). **Cost cap (FR-34, value set here per NFR-4): 50 AI calls/user/day + ~8k-token context-in bound per request**, enforced at the AI adapter boundary, values in server config. Generation is in-request (streamed) — no AI jobs.
 
 ### AD-17 — Monorepo: two apps, one contract, one entrypoint
 
@@ -220,7 +220,7 @@ flowchart LR
 | Data & formats | ids = UUID strings (`crypto.randomUUID()` client-side; uuid columns server-side, client-suppliable on create); dates = ISO 8601 strings; store = single `synapse-db:v1` document with `version` field (Phase 1) |
 | State & mutation | Phase 1: domain data only via Query + repositories; UI-local state stays in components; mutations invalidate affected query keys. Post-cutover: Apollo cache owns domain data; same "no domain contexts" rule |
 | Errors | Phase 1: adapters throw typed `AppError { code, messageKey? }` → sonner toasts. Post-cutover: GraphQL `extensions.code` = `AppError.code` 1:1 (AD-12); SSE terminal event `{ code }`; web maps codes to `t()` keys — never silent, never fake success |
-| Config | Phase 1: none (simulated AI is code). api: ENV + `.env.example` (DATABASE_URL, JWT_SECRET, PROVIDER_KEY, R2_*, CORS_ORIGIN, cap values — AD-16/20) |
+| Config | Phase 1: none (simulated AI is code). api: ENV + `.env.example` (DATABASE_URL, JWT_SECRET, AI_API_KEY, R2_*, CORS_ORIGIN, cap values — AD-16/20) |
 
 ## Stack
 
@@ -341,7 +341,7 @@ flowchart LR
 | Google OAuth (FR-30's second half) | a real user asks for it — email+password ships first |
 | ActionCable / GraphQL subscriptions | a feature needs server→client push (SSE covers streams) |
 | Relay connections pagination | the first list that actually paginates (evidence history) |
-| AI provider terms verification + swap (OQ-4 residual) | backend build starts (GLM first, adapter makes swap config) |
+| AI provider terms verification + swap (OQ-4 residual) | backend build starts (OpenAI-compatible adapter; vendor = deployment config) |
 | Server-side PDF parsing (OQ-5 residual) | client-side parsing hurts on real devices (AD-7 retains it) |
 | packwerk-style boundary enforcement in api | api grows past ~10 domains (dirs + review suffice below that) |
 | Node-*targeted* quiz generation (FR-21 mechanism; not attribution) | Phase 2 per AD-6 |

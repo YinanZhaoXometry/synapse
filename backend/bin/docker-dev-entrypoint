@@ -8,4 +8,11 @@ bundle check || bundle install
 # Prepare the database (create/migrate as needed), then hand off to CMD.
 bundle exec rails db:prepare
 
+# A previous container killed ungracefully (machine sleep, colima exit — the
+# server runs as PID 1 and never reaches its cleanup) leaves server.pid in the
+# bind-mounted repo, and its stale "1" makes Rails abort every future boot
+# with "A server is already running" (pid 1 always exists in a container).
+# One server per container by construction, so the file is always stale here.
+rm -f tmp/pids/server.pid
+
 exec "$@"

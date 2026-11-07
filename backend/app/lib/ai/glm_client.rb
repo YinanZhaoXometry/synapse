@@ -5,7 +5,7 @@ require "json"
 
 module Ai
   # OpenAI-compatible chat-completions transport (AD-16, epic P2-5 ticket 01),
-  # pointed at GLM by default configuration — a provider swap is config, not
+  # pointed at the built-in OpenAI-compatible endpoint by default configuration — a provider swap is config, not
   # code. Transport only: it knows the wire format, not the domain. Prompts,
   # context assembly, and response-contract parsing live in the commands and
   # the assembler, never here.

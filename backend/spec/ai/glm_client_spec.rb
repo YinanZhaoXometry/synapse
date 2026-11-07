@@ -72,7 +72,7 @@ RSpec.describe Ai::GlmClient do
   end
 
   def client(server)
-    described_class.new(base_url: server.base_url, api_key: "test-key", model: "glm-test", timeout_seconds: 5)
+    described_class.new(base_url: server.base_url, api_key: "test-key", model: "test-model", timeout_seconds: 5)
   end
 
   def messages
@@ -93,7 +93,7 @@ RSpec.describe Ai::GlmClient do
       expect(request[:head]).to include("Authorization: Bearer test-key")
       expect(request[:head]).to include("Content-Type: application/json")
       body = JSON.parse(request[:body])
-      expect(body).to include("model" => "glm-test", "stream" => false)
+      expect(body).to include("model" => "test-model", "stream" => false)
       expect(body["messages"]).to eq([ { "role" => "user", "content" => "hello" } ])
     end
 
@@ -177,7 +177,7 @@ RSpec.describe Ai::GlmClient do
       end
       hung = described_class.new(
         base_url: "http://127.0.0.1:#{tcp.addr[1]}/v4",
-        api_key: "test-key", model: "glm-test", timeout_seconds: 1
+        api_key: "test-key", model: "test-model", timeout_seconds: 1
       )
       begin
         expect { hung.stream(messages).next }.to raise_error(Ai::ProviderError, /transport failure/)

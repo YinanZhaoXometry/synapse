@@ -9,10 +9,10 @@ RSpec.describe "GraphQL notes surface (epic P2-12 T1, FR-40)", type: :request do
   # direct spec (spec/commands/ai/generate_note_command_spec.rb); the
   # adapter is stubbed at the seam (ticket 01's stub-ability contract).
   around do |example|
-    keys = %w[PROVIDER_KEY AI_DAILY_CALL_CAP]
+    keys = %w[AI_API_KEY AI_DAILY_CALL_CAP]
     originals = keys.to_h { |key| [ key, ENV[key] ] }
     keys.each { |key| ENV.delete(key) }
-    ENV["PROVIDER_KEY"] = "test-key"
+    ENV["AI_API_KEY"] = "test-key"
     example.run
   ensure
     originals.each do |key, value|
