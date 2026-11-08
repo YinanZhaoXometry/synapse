@@ -110,7 +110,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // vitest 4: restoreAllMocks no longer resets vi.fn() call history (spies
+  // only) — clearAllMocks keeps the vitest-3-era hygiene for module mocks.
   vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("AchievementsPage — real badge unlocks (FR-28, epic P2-09 T6)", () => {

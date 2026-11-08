@@ -68,7 +68,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // vitest 4: restoreAllMocks no longer resets vi.fn() call history (spies
+  // only) — clearAllMocks keeps the vitest-3-era hygiene for module mocks.
   vi.restoreAllMocks();
+  vi.clearAllMocks();
   Object.defineProperty(window, "location", {
     configurable: true,
     writable: true,
