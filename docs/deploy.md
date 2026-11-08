@@ -4,7 +4,7 @@ Phase 1 shipped as a static SPA (AD-11). Since the Apollo cutover (epic P2-8) th
 
 | Layer | Vendor | What runs there |
 | --- | --- | --- |
-| web | **Cloudflare Pages** | the static SPA (`frontend/` build) — unchanged AD-11 shape: SPA fallback via `_redirects`, auto-deploy from `main` |
+| web | **Cloudflare Pages** | the static SPA (`frontend/` build) — AD-11 shape modernized 2026-11-08: SPA fallback via `frontend/wrangler.jsonc`'s `not_found_handling: "single-page-application"` (Cloudflare's unified Workers-assets pipeline — the classic `_redirects` catch-all is rejected as an infinite loop there), auto-deploy from `main` |
 | api | **Render** (docker, ONE web service) | the Rails api — `POST /graphql` + `GET /api/stream` (SSE) + `GET /up` (health); **Solid Queue in-process** (AD-19, no worker service) |
 | DB | **Neon** | Postgres 17 — **direct (non-pooled)** connection URL (AD-19) |
 | blobs | **Cloudflare R2** | material files via ActiveStorage (AD-13; presigned direct PUT/GET, bytes never touch the api) |
@@ -21,7 +21,7 @@ Local parity is `just up` (compose: postgres 17 + api + Vite + minio as the R2 s
 
 ## 1. Repo-side substrate (committed — no owner action)
 
-- `frontend/public/_redirects` — explicit SPA fallback (`/*  /index.html  200`) — AD-11 unchanged. Vite copies it into `dist/`; belt-and-braces over Pages' auto-detection.
+- `frontend/wrangler.jsonc` — the SPA fallback (2026-11-08): `not_found_handling: "single-page-application"` over the `dist/` assets — AD-11's deep-route-fallback semantics on the unified Workers-assets pipeline. Replaced `frontend/public/_redirects` (`/* /index.html 200`), which the pipeline's stricter validator rejects as an infinite loop (workers-sdk#11824). The `name` must stay `synapse` — matching the dashboard-created script — so `wrangler deploy` versions the existing worker.
 - `backend/Dockerfile` — the production image (self-contained: gems baked, `RAILS_ENV=production`, no volume mounts — the Render analogue of `.dockerdev/Dockerfile.dev`, which stays dev-only). Boot command: `rails db:prepare db:seed` then `exec puma -C config/puma.rb` (idempotent every boot; see §5 and §8).
 - `backend/.dockerignore` — keeps secrets (`.env*`) and local state (`log/`, `tmp/`, `vendor/bundle`, `.dockerdev`) out of the build context — docker COPY does not read `.gitignore`.
 - `render.yaml` (repo root) — the Render Blueprint: one docker web service, `healthCheckPath: /up`, `plan: free`, every ENV var of §3 wired (`generateValue` for random secrets, `sync: false` for owner-pasted values, documented comments for the banned tunables).

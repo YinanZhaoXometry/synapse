@@ -1,0 +1,16 @@
+// The deploy contract for Cloudflare's unified Workers-static-assets pipeline
+// (2026-11-08 — the successor of the classic Pages `_redirects` mechanism,
+// AD-11): the SPA is uploaded as static ASSETS of an assets-only Worker and
+// unknown routes serve index.html — the exact semantics the old
+// `/*  /index.html  200` rule provided. The classic `_redirects` catch-all is
+// rejected by the new validator as an infinite loop (workers-sdk#11824), so
+// the fallback now lives HERE, explicitly, instead of a magic file. The name
+// must match the dashboard-created script ("synapse") so `wrangler deploy`
+// versions THIS worker rather than minting a new one.
+{
+  "name": "synapse",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+  },
+}
