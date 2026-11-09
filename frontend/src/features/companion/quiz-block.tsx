@@ -16,6 +16,7 @@ import { useState } from "react";
 import { CheckCircle2, CircleHelp, ListChecks, XCircle } from "lucide-react";
 import type { CompanionQuiz } from "@/ai/quiz";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ChatMarkdown from "@/components/shared/chat-markdown";
 import { cn } from "@/lib/utils";
 
 /** Keyword coverage for short answers: ≥1 term hit = the attempt landed on
@@ -51,7 +52,9 @@ export function QuizBlock({ quiz }: { quiz: CompanionQuiz }) {
         <ListChecks className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
         {choice ? t("companion.quizChoice") : t("companion.quizShort")}
       </div>
-      <p className="mt-1.5 text-[13px] leading-[1.6] whitespace-pre-wrap">{quiz.question}</p>
+      <div className="mt-1.5 text-[13px] leading-[1.6]">
+        <ChatMarkdown text={quiz.question} />
+      </div>
 
       {choice ? (
         <div role="radiogroup" aria-label={t("companion.quizChoice")} className="mt-2 flex flex-col gap-1.5">
@@ -140,7 +143,9 @@ export function QuizBlock({ quiz }: { quiz: CompanionQuiz }) {
             <span className="ms-1.5">{choice ? quiz.options?.[quiz.answer ?? 0] : quiz.answerText}</span>
           </p>
           {(quiz.explanation ?? "").trim().length > 0 && (
-            <p className="text-[12px] leading-[1.6] text-muted-foreground">{quiz.explanation}</p>
+            <div className="text-[12px] leading-[1.6] text-muted-foreground">
+              <ChatMarkdown text={quiz.explanation ?? ""} />
+            </div>
           )}
         </div>
       )}

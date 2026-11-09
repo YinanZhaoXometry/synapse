@@ -319,6 +319,10 @@ export const translations = {
       'companion.waitingParsing': '材料正在解析，Companion 马上就位。',
       'companion.disabledFailed': '这份材料没有解析成功，Companion 无法阅读它——重新上传后再来。',
 
+      'chat.copy': '复制',
+      'chat.copied': '已复制',
+      'chat.copyFailed': '复制失败，请重试',
+
       'errors.parseCorrupt': '文件已损坏，无法解析',
       'errors.parseEncrypted': '文件已加密，暂不支持解析',
       'errors.parseEmpty': '文件没有可提取的内容',
@@ -1288,6 +1292,10 @@ export const translations = {
       'companion.waitingPosition': 'Ask once your reading position is set.',
       'companion.waitingParsing': 'Parsing the material — the Companion will be ready shortly.',
       'companion.disabledFailed': "This material didn't parse, so the Companion can't read it — re-upload to continue.",
+
+      'chat.copy': 'Copy',
+      'chat.copied': 'Copied',
+      'chat.copyFailed': 'Copy failed — try again',
 
       'errors.parseCorrupt': 'The file is corrupted and could not be parsed',
       'errors.parseEncrypted': 'The file is password-protected — parsing is not supported yet',
