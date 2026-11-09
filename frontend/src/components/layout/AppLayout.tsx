@@ -200,9 +200,7 @@ export default function AppLayout() {
       <aside className="hidden lg:flex w-[264px] flex-col gap-2 glass-panel border-r px-3 pt-3.5 pb-3" aria-label={t("common.navAria")}>
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-3.5 border-b border-border-soft">
-          <span className="w-[34px] h-[34px] rounded-[11px] bg-gradient-hero shadow-brand flex items-center justify-center shrink-0">
-            <img src="/favicon.png" alt="" aria-hidden="true" className="w-[17px] h-[17px]" />
-          </span>
+          <img src="/logo.png" alt="" aria-hidden="true" className="w-[34px] h-[34px] rounded-[11px] shadow-brand shrink-0" />
           <span className="flex flex-col leading-tight min-w-0">
             <span className="font-display font-semibold text-xl tracking-tight text-foreground">Synapse</span>
             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-caption mt-0.5">{t("brand.sub")}</span>
@@ -243,9 +241,7 @@ export default function AppLayout() {
       {/* Icon rail (md–lg) */}
       <aside className="hidden md:flex lg:hidden w-16 flex-col items-center glass-panel border-r">
         <div className="flex items-center justify-center py-4 w-full border-b border-border-soft">
-          <span className="w-8 h-8 rounded-[9px] bg-gradient-hero shadow-brand flex items-center justify-center">
-            <img src="/favicon.png" alt="" aria-hidden="true" className="w-4 h-4" />
-          </span>
+          <img src="/logo.png" alt="" aria-hidden="true" className="w-8 h-8 rounded-[9px] shadow-brand" />
         </div>
         <nav className="flex-1 w-full px-2 py-3 space-y-1 overflow-y-auto" aria-label={t("common.primaryAria")}>
           {NAV_ROUTES.map(item => {
@@ -311,9 +307,7 @@ export default function AppLayout() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="w-7 h-7 rounded-[9px] bg-gradient-hero shadow-brand flex items-center justify-center">
-              <img src="/favicon.png" alt="" aria-hidden="true" className="w-3.5 h-3.5" />
-            </span>
+            <img src="/logo.png" alt="" aria-hidden="true" className="w-7 h-7 rounded-[9px] shadow-brand" />
             <span className="font-display font-semibold text-[17px]">Synapse</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -404,9 +398,7 @@ export default function AppLayout() {
           onClickCapture={onDrawerClickCapture}
         >
           <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-3.5 border-b border-border-soft">
-            <span className="w-[34px] h-[34px] rounded-[11px] bg-gradient-hero shadow-brand flex items-center justify-center shrink-0">
-              <img src="/favicon.png" alt="" aria-hidden="true" className="w-[17px] h-[17px]" />
-            </span>
+            <img src="/logo.png" alt="" aria-hidden="true" className="w-[34px] h-[34px] rounded-[11px] shadow-brand shrink-0" />
             <span className="flex flex-col leading-tight min-w-0">
               <span className="font-display font-semibold text-xl tracking-tight text-foreground">Synapse</span>
               <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-caption mt-0.5">{t("brand.sub")}</span>
