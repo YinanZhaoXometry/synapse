@@ -55,6 +55,14 @@ module Ai
       precede the block — never reveal the answer or explanation outside the block.
     RULE
 
+    # The proposal's materials-block budget (epic-27): the proposal reads the
+    # materials' shape, not their full text — per-material and total slices
+    # at prompt assembly (the command's own 20k/material bound is the honest
+    # storage cap; this is the tighter prompt cap). Module-level constants —
+    # the specs read them as Ai::Prompts::MAX_PROMPT_MATERIAL_*.
+    MAX_PROMPT_MATERIAL_CHARS = 8_000
+    MAX_PROMPT_MATERIAL_TOTAL = 30_000
+
     class << self
       # Quiz generation (ticket 03; targeting epic P2-10 T5; material scope
       # epic-13 T2): node-attributed (AD-6) + materials-sourced (NFR-1)
@@ -341,29 +349,47 @@ module Ai
       # impossible by construction), and an inbound edge for every node
       # outside the first stage. Nothing downstream trusts the constraints:
       # unresolvable/invalid edges drop at confirm (silent-but-logged).
-      def proposal(topic:, goal:, language:)
-        goal_line = goal.to_s.strip.empty? ? "" : "\nThe learner's goal: #{goal}"
+      #
+      # The materials block is the proposal's grounding (epic-27): the
+      # MESSAGE drives the plan's goal, the MATERIALS ground what the plan
+      # covers — deliberately NOT the quiz prompt's "ONLY allowed source"
+      # law (a plan's structure is naming, not extraction). Sliced here —
+      # the proposal reads the materials' shape, not their full text.
+      def proposal(message:, materials:, language:)
+        material_block = proposal_material_block(materials)
         [ system,
           user(<<~PROMPT)
-            Design a study plan. Topic: #{topic}.#{goal_line}
-
+            Design a study plan. The learner's message: #{message}
+            #{material_block}
             Reply in EXACTLY this format — nothing before, between, or after the tags:
             <outline>
             A short readable outline of the plan: one line per stage ("第 1 阶段：…" / "Stage 1: …"), then its node titles as "- …" lines.
             </outline>
             <proposal>
-            {"topic":"#{topic}","stages":[{"name":"…","nodes":[{"title":"…","description":"…","optional":false}]}],"edges":[["…","…"]]}
+            {"topic":"A short plan title derived from the message","stages":[{"name":"…","nodes":[{"title":"…","description":"…","optional":false}]}],"edges":[["…","…"]]}
             </proposal>
 
             2–5 stages, at most 16 nodes total, ordered from foundations to practice.
             Every node carries "description" (one short line saying what the node covers) and "optional" (true only for a node the learner may skip without losing the thread; otherwise false).
             "edges" are prerequisite pairs [fromTitle, toTitle] — address each node by its title EXACTLY as written (titles are unique), and the from node's stage must come strictly BEFORE the to node's stage (forward-only). Give every node outside the first stage at least one inbound edge.
+            When study material context is present above, tailor the stages/nodes/descriptions to what the materials actually cover (the message states the goal; the materials state the ground to cover) — never pad the plan with topics the materials do not touch.
             Write the outline lines AND the JSON's strings in #{language_word(language)}.
           PROMPT
         ]
       end
 
       private
+
+      def proposal_material_block(materials)
+        list = (materials || []).filter_map do |material|
+          text = material["text"].to_s.slice(0, MAX_PROMPT_MATERIAL_CHARS)
+          next if text.strip.empty?
+          "— #{material['title']} (#{material['kind']}):\n#{text}"
+        end
+        return "" if list.empty?
+        joined = list.join("\n\n")[0, MAX_PROMPT_MATERIAL_TOTAL]
+        "\nStudy material context (the attached materials — tailor the plan to what they cover):\n#{joined}\n"
+      end
 
       def system
         { role: "system", content: SYSTEM }

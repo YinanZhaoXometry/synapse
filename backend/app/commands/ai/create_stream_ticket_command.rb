@@ -12,10 +12,13 @@ module Ai
   # (see ticket 04's ## Comments): companion = {material_id, question,
   # locator, text, escalated, language, selection?} (selection is epic-13
   # T1's FR-13 grounding input — it rides ONLY when present, so the pre-T1
-  # shape stays byte-identical for selection-less turns); proposal = {topic,
-  # goal, language}; plan_companion = {plan_id, question, language,
-  # mistake_entry_id?} (epic P2-12 T3, FR-46) — string-keyed, TS keys
-  # verbatim.
+  # shape stays byte-identical for selection-less turns); proposal =
+  # {message, materials, language} (epic-27's amendment: one free-form
+  # creation message + up to 5 attached materials' client-extracted text —
+  # parsing stays client-side, AD-7, and there is no material row pre-create;
+  # the former {topic, goal} shape is retired with the goal chips);
+  # plan_companion = {plan_id, question, language, mistake_entry_id?} (epic
+  # P2-12 T3, FR-46) — string-keyed, TS keys verbatim.
   class CreateStreamTicketCommand < ApplicationCommand
     include ReadingLocators
 
@@ -27,14 +30,16 @@ module Ai
     option :position, optional: true
     option :escalated, optional: true
     option :selection, optional: true
-    option :topic, optional: true
-    option :goal, optional: true
+    option :message, optional: true
+    option :materials, optional: true
     option :plan_id, optional: true
     option :mistake_entry_id, optional: true
 
     MAX_QUESTION_CHARS = 20_000
-    MAX_TOPIC_CHARS = 500
-    MAX_GOAL_CHARS = 2_000
+    MAX_MESSAGE_CHARS = 4_000
+    MAX_MATERIALS = 5
+    MAX_MATERIAL_TEXT_CHARS = 20_000
+    MATERIAL_KINDS = [ "pdf", "markdown" ].freeze
 
     # Mint-time hoarding bound (epic review finding P1): the daily cap
     # counts REDEEMS, not mints, so without this a logged-in client could
@@ -120,20 +125,41 @@ module Ai
       Success(payload)
     end
 
-    # Proposal inputs: a bounded topic (+ optional goal). The transcript is
-    # ephemeral (AD-5) — the ticket carries only this turn's inputs; the
-    # confirmed plan persists through the existing confirmProposal flow.
+    # Proposal inputs (epic-27): one bounded free-form message (+ the attached
+    # materials' client-extracted text). The transcript is ephemeral (AD-5) —
+    # the ticket carries only this turn's inputs; the confirmed plan persists
+    # through the existing confirmProposal flow, and the staged files attach
+    # through the standard upload flow AFTER the create (never re-uploaded).
     def proposal_payload
-      topic_text = topic.to_s.strip
-      return Failure(:VALIDATION_FAILED, { message: "the proposal stream needs a topic", field: :topic }) if topic_text.empty?
-      return Failure(:VALIDATION_FAILED, { message: "the topic exceeds the length bound", field: :topic }) if topic_text.length > MAX_TOPIC_CHARS
-      if goal.to_s.length > MAX_GOAL_CHARS
-        return Failure(:VALIDATION_FAILED, { message: "the goal exceeds the length bound", field: :goal })
+      message_text = message.to_s.strip
+      return Failure(:VALIDATION_FAILED, { message: "the proposal stream needs a message", field: :message }) if message_text.empty?
+      if message_text.length > MAX_MESSAGE_CHARS
+        return Failure(:VALIDATION_FAILED, { message: "the message exceeds the length bound", field: :message })
+      end
+
+      material_inputs = materials.is_a?(Array) ? materials : []
+      if material_inputs.length > MAX_MATERIALS
+        return Failure(:VALIDATION_FAILED, { message: "at most #{MAX_MATERIALS} materials attach to a proposal", field: :materials })
+      end
+
+      cleaned = material_inputs.each_with_index.map do |input, index|
+        row = input.is_a?(Hash) ? input : input.to_h
+        title = row[:title].to_s.strip
+        kind = row[:kind].to_s
+        text = row[:text].to_s
+        return Failure(:VALIDATION_FAILED, { message: "material #{index} needs a title", field: :materials }) if title.empty?
+        unless MATERIAL_KINDS.include?(kind)
+          return Failure(:VALIDATION_FAILED, { message: "material #{index} has an invalid kind", field: :materials })
+        end
+        if text.length > MAX_MATERIAL_TEXT_CHARS
+          return Failure(:VALIDATION_FAILED, { message: "material #{index} exceeds the text bound", field: :materials })
+        end
+        { "title" => title, "kind" => kind, "text" => text }
       end
 
       Success({
-        "topic" => topic_text,
-        "goal" => goal.to_s.strip,
+        "message" => message_text,
+        "materials" => cleaned,
         "language" => language
       })
     end

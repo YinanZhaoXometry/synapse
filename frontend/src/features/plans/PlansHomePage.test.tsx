@@ -203,7 +203,7 @@ describe("PlansHomePage — create-task entries (FR-37; AD-8; UJ-6)", () => {
     expect(await screen.findByText(zh("tasks.pitch"))).toBeInTheDocument();
     expect(entryButton()).toBeInTheDocument();
     // the creation chat is still the primary surface (existing behavior)
-    expect(screen.getByPlaceholderText(zh("plans.topicPlaceholder"))).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(zh("plans.messagePlaceholder"))).toBeInTheDocument();
     // empty state keeps hiding create-new (existing behavior unchanged)
     expect(screen.queryByRole("button", { name: new RegExp(zh("plans.createNew")) })).not.toBeInTheDocument();
     // zero tasks → no section chrome
@@ -297,7 +297,7 @@ describe("PlansHomePage — Study Tasks section (FR-37; FR-10; UJ-6)", () => {
 
     // still the empty state (pitch + chat), plus the task section
     expect(await screen.findByText(zh("tasks.pitch"))).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(zh("plans.topicPlaceholder"))).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(zh("plans.messagePlaceholder"))).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: zh("tasks.eyebrow") })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: new RegExp("solo-notes") })).toHaveAttribute("href", "/task/t-solo");
   });

@@ -123,7 +123,10 @@ const STUB_PROPOSAL_EDGES = [
 ];
 
 function proposalReply(text) {
-  const topic = (text.match(/Topic: (.+?)\./) ?? [])[1] ?? "Stub plan";
+  // epic-27: the prompt carries one free-form message; the stub derives the
+  // plan's short topic from it (the real model's "short title" job).
+  const message = text.split("The learner's message:")[1]?.split("\n")[0]?.trim() ?? "";
+  const topic = message.length > 0 ? message.slice(0, 40) : "Stub plan";
   const outline = [
     "<outline>",
     ...STUB_PROPOSAL_STAGES.map((stage, index) => {
@@ -142,7 +145,7 @@ function replyFor(messages) {
   const lastUser = [...messages].reverse().find((message) => message.role === "user");
   const text = lastUser?.content ?? "";
 
-  if (text.startsWith("Design a study plan. Topic:")) return proposalReply(text);
+  if (text.startsWith("Design a study plan. The learner's message:")) return proposalReply(text);
   if (text.includes("quiz questions")) return quizReply(text);
   return "Stub reply.";
 }

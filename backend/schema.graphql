@@ -1004,11 +1004,6 @@ input CreateStreamTicketInput {
   escalated: Boolean
 
   """
-  proposal only: the optional goal.
-  """
-  goal: String
-
-  """
   The reply language: "zh" | "en" (AD-16 — one parameter, one policy).
   """
   language: String!
@@ -1017,6 +1012,16 @@ input CreateStreamTicketInput {
   companion only: the material's uuid (ownership-checked).
   """
   materialId: String
+
+  """
+  proposal only: the attached materials' client-extracted content (≤ 5; parsing stays client-side, AD-7 — epic-27).
+  """
+  materials: [ProposalMaterialInput!]
+
+  """
+  proposal only: the learner's free-form creation message — topic, goal, any requirements, one text (epic-27).
+  """
+  message: String
 
   """
   plan_companion only: the optional mistake entry's uuid — the "analyze my mistakes" grounding input (ownership-checked).
@@ -1050,11 +1055,6 @@ input CreateStreamTicketInput {
   rides the ticket.
   """
   selection: String
-
-  """
-  proposal only: the plan topic.
-  """
-  topic: String
 }
 
 """
@@ -3563,6 +3563,26 @@ type PromoteTaskToPlanPayload {
   The promoted task, now the read-only pointer to the plan.
   """
   task: StudyTask!
+}
+
+"""
+proposal only: one attached material's client-extracted content (epic-27) — the proposal tailors the plan structure to it.
+"""
+input ProposalMaterialInput {
+  """
+  "pdf" | "markdown" (pptx rides markdown — epic-13 T5).
+  """
+  kind: String!
+
+  """
+  The client-extracted plain text (≤ 20,000 chars — the command refuses beyond).
+  """
+  text: String!
+
+  """
+  The material's title (the filename minus its extension).
+  """
+  title: String!
 }
 
 """

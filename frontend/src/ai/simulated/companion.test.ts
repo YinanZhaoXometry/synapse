@@ -134,13 +134,13 @@ describe("grounded chat (seam: CompanionService interface)", () => {
 
 describe("plan structure proposal (creation chat, spec Q4)", () => {
   it("same topic → identical structure (deterministic demo)", async () => {
-    const a = await svc.generatePlanStructure("COMP5241 软件工程", "zh");
-    const b = await svc.generatePlanStructure("COMP5241 软件工程", "zh");
+    const a = await svc.generatePlanStructure("COMP5241 软件工程", [], "zh");
+    const b = await svc.generatePlanStructure("COMP5241 软件工程", [], "zh");
     expect(b).toEqual(a);
   });
 
   it("software-engineering topic → the SE template, 4 stages / 8–12 nodes", async () => {
-    const p = await svc.generatePlanStructure("软件测试与质量保证", "zh");
+    const p = await svc.generatePlanStructure("软件测试与质量保证", [], "zh");
     expect(p.stages.length).toBe(4);
     const nodeCount = p.stages.reduce((sum, s) => sum + s.nodes.length, 0);
     expect(nodeCount).toBeGreaterThanOrEqual(8);
@@ -152,7 +152,7 @@ describe("plan structure proposal (creation chat, spec Q4)", () => {
   });
 
   it("non-SE topic → generic 4-stage fallback with topic-derived nodes", async () => {
-    const p = await svc.generatePlanStructure("陶艺入门", "zh");
+    const p = await svc.generatePlanStructure("陶艺入门", [], "zh");
     expect(p.stages.length).toBe(4);
     expect(p.stages[0].nodes[0].title).toContain("陶艺入门");
     const nodeCount = p.stages.reduce((sum, s) => sum + s.nodes.length, 0);
@@ -160,7 +160,7 @@ describe("plan structure proposal (creation chat, spec Q4)", () => {
   });
 
   it("proposes stage-forward title-paired edges (epic-16 shape)", async () => {
-    const p = await svc.generatePlanStructure("软件测试与质量保证", "zh");
+    const p = await svc.generatePlanStructure("软件测试与质量保证", [], "zh");
     // the double edges each stage's head off the previous stage's head —
     // resolvable, unique titles only
     expect(p.edges.length).toBe(p.stages.length - 1);
@@ -173,7 +173,7 @@ describe("plan structure proposal (creation chat, spec Q4)", () => {
 
   it("streams the proposal like chat before resolving", async () => {
     const chunks: string[] = [];
-    await svc.generatePlanStructure("COMP5241 软件工程", "en", (c) => chunks.push(c));
+    await svc.generatePlanStructure("COMP5241 软件工程", [], "en", (c) => chunks.push(c));
     expect(chunks.length).toBeGreaterThan(1); // more than one emitted line
     expect(chunks.join("")).toContain("## ");
   });

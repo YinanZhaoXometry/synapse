@@ -16,6 +16,7 @@ import type {
   PlanStructureProposal,
   QuizMode,
   UiLanguage,
+  ProposalMaterial,
 } from "@/ai/types";
 import type { CompanionService } from "@/ai/companion-service";
 import { formatQuizFence, type CompanionQuiz } from "@/ai/quiz";
@@ -283,11 +284,14 @@ export class SimulatedCompanion implements CompanionService {
   }
 
   async generatePlanStructure(
-    topic: string,
+    message: string,
+    // The attached materials are the real adapter's tailoring input (epic-27);
+    // the deterministic double keeps templating from the message alone.
+    _materials: ProposalMaterial[],
     language: UiLanguage,
     onToken?: (chunk: string) => void,
   ): Promise<PlanStructureProposal> {
-    const { proposal, intro } = planTemplateFor(topic, language);
+    const { proposal, intro } = planTemplateFor(message, language);
 
     // Streamed like chat: intro line, then one line per node.
     const lines = [

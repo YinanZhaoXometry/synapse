@@ -67,12 +67,23 @@ RSpec.describe Ai::CreateStreamTicketCommand do
     expect(user.stream_tickets.count).to eq(0)
   end
 
-  it "mints proposal tickets with the ephemeral transcript inputs (AD-5)" do
+  it "mints proposal tickets with the ephemeral transcript inputs (AD-5, epic-27 shape)" do
     result = call(op: "proposal", material_id: nil, question: nil, position: nil,
-                  topic: "软件工程", goal: "考好 COMP5241")
+                  message: "备考 COMP5241，我先啃讲义",
+                  materials: [ { title: "复习讲义", kind: "pdf", text: "第 1 章 集成测试" } ])
     expect(result).to be_success
     expect(result.value![:ticket].payload).to eq({
-      "topic" => "软件工程", "goal" => "考好 COMP5241", "language" => "zh"
+      "message" => "备考 COMP5241，我先啃讲义",
+      "materials" => [ { "title" => "复习讲义", "kind" => "pdf", "text" => "第 1 章 集成测试" } ],
+      "language" => "zh"
+    })
+  end
+
+  it "mints a proposal ticket with NO materials as an empty list (uniform shape)" do
+    result = call(op: "proposal", material_id: nil, question: nil, position: nil, message: "机器学习入门")
+    expect(result).to be_success
+    expect(result.value![:ticket].payload).to eq({
+      "message" => "机器学习入门", "materials" => [], "language" => "zh"
     })
   end
 
@@ -102,9 +113,24 @@ RSpec.describe Ai::CreateStreamTicketCommand do
 
   it "enforces the payload bounds" do
     expect(call(question: "x" * 20_001).failure.code).to eq(:VALIDATION_FAILED)
-    expect(call(op: "proposal", material_id: nil, question: nil, position: nil, topic: "").failure.code).to eq(:VALIDATION_FAILED)
-    expect(call(op: "proposal", material_id: nil, question: nil, position: nil, topic: "x" * 501).failure.code).to eq(:VALIDATION_FAILED)
-    expect(call(op: "proposal", material_id: nil, question: nil, position: nil, topic: "t", goal: "x" * 2_001).failure.code).to eq(:VALIDATION_FAILED)
+    expect(call(op: "proposal", material_id: nil, question: nil, position: nil, message: "").failure.code).to eq(:VALIDATION_FAILED)
+    expect(call(op: "proposal", material_id: nil, question: nil, position: nil, message: "x" * 4_001).failure.code).to eq(:VALIDATION_FAILED)
+    expect(
+      call(op: "proposal", material_id: nil, question: nil, position: nil,
+           message: "m", materials: [ { title: "t", kind: "pdf", text: "x" * 20_001 } ]).failure.code
+    ).to eq(:VALIDATION_FAILED)
+    expect(
+      call(op: "proposal", material_id: nil, question: nil, position: nil,
+           message: "m", materials: Array.new(6) { |i| { title: "m#{i}", kind: "pdf", text: "t" } }).failure.code
+    ).to eq(:VALIDATION_FAILED)
+    expect(
+      call(op: "proposal", material_id: nil, question: nil, position: nil,
+           message: "m", materials: [ { title: "t", kind: "epub", text: "x" } ]).failure.code
+    ).to eq(:VALIDATION_FAILED)
+    expect(
+      call(op: "proposal", material_id: nil, question: nil, position: nil,
+           message: "m", materials: [ { title: "", kind: "pdf", text: "x" } ]).failure.code
+    ).to eq(:VALIDATION_FAILED)
   end
 
   # epic P2-12 T3 (FR-46, delta decision 6): the THIRD stream op — plan-scope

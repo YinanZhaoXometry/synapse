@@ -37,3 +37,7 @@ Infra notes: tickets live in `stream_tickets` (user-scoped, unique token, payloa
 ---
 
 - **2026-11-06 (epic-16 amendment):** the terminal `proposal` payload was reshaped by epic-16 — stages carry `nodes[{title, description, optional}]` and the proposal gains top-level title-paired `edges` (the roadmap DAG's input), replacing `stages[].nodeTitles`. Pre-epic-16 `nodeTitles` replies stay accepted: the stream normalizes them deterministically and logged (`[plans] legacy proposal shape…`) — one title-only node per title, no descriptions, `optional` false, zero edges — instead of a terminal INTERNAL; the edgeless plan renders via the client's legacy fallback path. The confirm surface is unchanged in acceptance: `confirmProposal` still consumes the stream's proposal verbatim, either shape.
+
+---
+
+- **2026-11-09 (epic-27 amendment):** the `proposal` payload shape changed — `{topic, goal, language}` → `{message, materials, language}` (owner creation-surface amendment: one free-form message + up to 5 attached materials' client-extracted text, `{title, kind, text}` per material; bounds at the command — message ≤ 4k chars, per-material text ≤ 20k). The prompt derives the proposal JSON's short `topic` from the message. `companion` and `plan_companion` payloads are UNTOUCHED. Wire shapes: `CreateStreamTicketInput` gains `message` + `materials[ProposalMaterialInput]` and drops `topic`/`goal`; the schema movement is epic-27's (`backend/schema.graphql`).
