@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Eye, Info, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ChatMarkdown from "@/components/shared/chat-markdown";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,7 +89,9 @@ export function QuizRunner({
   // the user). Cleared by next() — the active question or the results show.
   const [verdictId, setVerdictId] = useState<string | null>(null);
   const prevActiveRef = useRef<string | null>(null);
-  const promptRef = useRef<HTMLHeadingElement>(null);
+  // The prompt container (role="heading"): markdown-rendered since epic-26 T1,
+  // so the focus/scroll target is the wrapper, not a bare <h2>.
+  const promptRef = useRef<HTMLDivElement>(null);
 
   const total = run.views.length;
   const active = activeMaskedView(run);
@@ -230,13 +233,15 @@ export function QuizRunner({
 
           <div className="rounded-2xl border border-border-soft bg-card p-8 shadow-raised">
             <span className="pill pill-muted">{active.kind === "open" ? t("quiz.typeOpen") : t("quiz.typeChoice")}</span>
-            <h2
+            <div
               ref={promptRef}
               tabIndex={-1}
-              className="mt-3 font-display text-[23px] font-semibold leading-snug tracking-tight focus:outline-none"
+              role="heading"
+              aria-level={2}
+              className="mt-3 font-display text-[23px] font-semibold leading-snug tracking-tight focus:outline-none chat-prose"
             >
-              {active.prompt}
-            </h2>
+              <ChatMarkdown text={active.prompt} />
+            </div>
 
             {active.kind === "choice" ? (
               <div className="mt-5 flex flex-col gap-2" data-testid="quiz-options">
@@ -423,10 +428,10 @@ function RevealedBody({ view }: { view: RevealedQuestionView }) {
         </p>
       )}
       {view.grading && (
-        <p>
+        <div>
           <strong>{t("quiz.why")}：</strong>
-          {view.grading.rationale}
-        </p>
+          <ChatMarkdown text={view.grading.rationale} />
+        </div>
       )}
       {view.grading?.citation?.quote && (
         <p>
@@ -434,10 +439,10 @@ function RevealedBody({ view }: { view: RevealedQuestionView }) {
           <span className="italic">「{view.grading.citation.quote}」</span>
         </p>
       )}
-      <p>
+      <div>
         <strong>{t("quiz.reference")}：</strong>
-        {view.explanation}
-      </p>
+        <ChatMarkdown text={view.explanation} />
+      </div>
       {view.forfeited && <p>{t("quiz.verdictForfeit")}</p>}
     </div>
   );

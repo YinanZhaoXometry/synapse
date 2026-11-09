@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ChatMarkdown from "@/components/shared/chat-markdown";
+import { CopyButton } from "@/components/shared/copy-button";
 import { useCreatePlanMutation, newClientUuid } from "@/api";
 import { cn } from "@/lib/utils";
 import { proposalNodeKey, toPlanCreateInput } from "./creation-mapping";
@@ -141,20 +143,36 @@ export default function CreationChat() {
             <div
               key={i}
               className={cn(
-                "max-w-[85%] text-[13px] leading-[1.55] rounded-2xl px-3.5 py-2",
+                "group relative max-w-[85%] text-[13px] leading-[1.55] rounded-2xl px-3.5 py-2",
                 m.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-card border border-border-soft",
               )}
             >
-              <span className="whitespace-pre-wrap">{m.text}</span>
+              {m.role === "user" ? (
+                <span className="whitespace-pre-wrap">{m.text}</span>
+              ) : (
+                <ChatMarkdown text={m.text} />
+              )}
               {m.goal && <span className="block text-[11px] opacity-80 mt-1">{t("plans.goalLabel")}{goalDisplay(m.goal)}</span>}
+              <CopyButton
+                text={m.text}
+                testId={`chat-copy-creation-${m.role}`}
+                className={cn(
+                  "absolute -top-3 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity",
+                  m.role === "user" ? "left-0" : "right-0",
+                )}
+              />
             </div>
           ))}
 
           {chat.phase === "streaming" && (
-            <div className="max-w-[85%] text-[13px] leading-[1.6] bg-card border border-border-soft rounded-2xl px-3.5 py-2 whitespace-pre-wrap">
-              {chat.streamText.length > STREAM_DISPLAY_CAP
-                ? `${chat.streamText.slice(0, STREAM_DISPLAY_CAP)}…`
-                : chat.streamText}
+            <div className="max-w-[85%] text-[13px] leading-[1.6] bg-card border border-border-soft rounded-2xl px-3.5 py-2">
+              <ChatMarkdown
+                text={
+                  chat.streamText.length > STREAM_DISPLAY_CAP
+                    ? `${chat.streamText.slice(0, STREAM_DISPLAY_CAP)}…`
+                    : chat.streamText
+                }
+              />
               <span className="animate-pulse">▋</span>
             </div>
           )}

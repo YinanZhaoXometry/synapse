@@ -41,6 +41,8 @@ import type { CompanionReply } from "@/ai/types";
 import { splitQuizBlock, leadBeforeQuiz, QUIZ_FENCE_MARKER } from "@/ai/quiz";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ChatMarkdown from "@/components/shared/chat-markdown";
+import { CopyButton } from "@/components/shared/copy-button";
 import type { PlanMistakeEntryView } from "@/api";
 import type { Material, ReadingLocator, ReadingPosition } from "@/domain/entities";
 import { cn } from "@/lib/utils";
@@ -104,7 +106,10 @@ export function CompanionPanel(props: CompanionPanelProps) {
  * shapes satisfy it structurally). */
 type ChatEntry = BubbleEntry & { failed: boolean };
 
-/** The user's row — a failed turn keeps its text visible with a one-click retry. */
+/** The user's row — a failed turn keeps its text visible with a one-click retry.
+ * Plain text (whitespace-pre-wrap), never markdown: the user's words render
+ * verbatim, the way agent apps show their input (epic-26 decision). Copy rides
+ * the bubble's top-right corner (hover/focus-revealed). */
 function UserBubble({ entry, onRetry }: { entry: ChatEntry; onRetry(): void }) {
   const { t } = useLanguage();
   return (
@@ -115,10 +120,15 @@ function UserBubble({ entry, onRetry }: { entry: ChatEntry; onRetry(): void }) {
       >
         Y
       </span>
-      <div className="flex flex-col items-end gap-1 min-w-0">
+      <div className="group relative flex flex-col items-end gap-1 min-w-0">
         <div className="chat-body leading-[1.7] rounded-[14px] rounded-tr-[4px] bg-foreground text-background px-[15px] py-3 whitespace-pre-wrap">
           {entry.text}
         </div>
+        <CopyButton
+          text={entry.text}
+          testId="chat-copy-user"
+          className="absolute right-0 -top-3 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+        />
         {entry.failed && (
           <button
             type="button"
@@ -161,8 +171,13 @@ function CompanionBubble({
       >
         S
       </span>
-      <div className="chat-body leading-[1.7] rounded-[14px] rounded-tl-[4px] bg-card border border-border-soft shadow-soft px-[15px] py-3 min-w-0">
-        <p className="whitespace-pre-wrap">{lead}</p>
+      <div className="group relative chat-body leading-[1.7] rounded-[14px] rounded-tl-[4px] bg-card border border-border-soft shadow-soft px-[15px] py-3 min-w-0">
+        <CopyButton
+          text={lead}
+          testId="chat-copy-companion"
+          className="absolute right-0 -top-3 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+        />
+        {lead.trim().length > 0 && <ChatMarkdown text={lead} />}
         {quiz && <QuizBlock quiz={quiz} />}
         {entry.citations.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2.5">
@@ -238,7 +253,7 @@ function StreamingBubble({
         S
       </span>
       <div className="chat-body leading-[1.7] rounded-[14px] rounded-tl-[4px] bg-card border border-border-soft shadow-soft px-[15px] py-3 min-w-0">
-        {shown !== null && shown.length > 0 && <p className="whitespace-pre-wrap">{shown}</p>}
+        {shown !== null && shown.length > 0 && <ChatMarkdown text={shown} />}
         {quizPending && (
           <p className="text-[11px] text-muted-foreground" data-testid="companion-quiz-generating">
             {t("companion.quizGenerating")}
