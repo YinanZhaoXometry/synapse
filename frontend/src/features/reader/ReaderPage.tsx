@@ -787,6 +787,7 @@ export default function ReaderPage() {
                 onTotalPages={handleTotalPages}
                 annotations={annotationItems}
                 onAnnotationsApplied={handleAnnotationsApplied}
+                onRemoveAnnotation={handleRemoveAnnotation}
                 claimedSectionIds={claimedSectionIds}
                 onToggleClaim={claimedSectionIds === undefined ? undefined : handleToggleClaim}
                 onConfirmQuiz={claimedSectionIds === undefined ? undefined : handleConfirmQuiz}

@@ -17,7 +17,11 @@
  * popover anchor). Not a React module — the view mounts it in an effect and
  * renders from the anchor callback.
  */
-import { hitTestMarkdownAnnotation, type AnnotationRenderItem } from "./annotation-engine";
+import {
+  hitTestMarkdownAnnotation,
+  hitTestPdfAnnotation,
+  type AnnotationRenderItem,
+} from "./annotation-engine";
 
 /** Where the popover anchors: the annotation's id + viewport coords. */
 export interface AnnotationHoverAnchor {
@@ -30,8 +34,18 @@ export interface AnnotationHoverAnchor {
 export interface AnnotationHoverOptions {
   /** The fresh render items (the same list the engine painted). */
   items: readonly AnnotationRenderItem[];
-  /** The intro contract's id (the engine's intro region address). */
-  introSectionId: string | null;
+  /**
+   * The intro contract's id (the engine's intro region address) — the
+   * markdown surface's concern; the pdf surface addresses by page instead.
+   */
+  introSectionId?: string | null;
+  /**
+   * Which surface the caret path hit-tests (the fallback marks path is
+   * surface-blind — the marks delegate their own events): "markdown" (the
+   * default — the article's section regions) or "pdf" (the page layers'
+   * `[data-page]` addresses). Defaults to "markdown".
+   */
+  surface?: "markdown" | "pdf";
   /** Anchor updates; null = the pointer left every annotation. */
   onAnchor(anchor: AnnotationHoverAnchor | null): void;
 }
@@ -107,7 +121,10 @@ export function attachAnnotationHover(article: HTMLElement, opts: AnnotationHove
     }
     // The caret landed in the popover's own text — same flicker guard.
     if (popover && popover.contains(caret.node)) return;
-    const id = hitTestMarkdownAnnotation(article, opts.items, opts.introSectionId, caret.node, caret.offset);
+    const id =
+      opts.surface === "pdf"
+        ? hitTestPdfAnnotation(article, opts.items, caret.node, caret.offset)
+        : hitTestMarkdownAnnotation(article, opts.items, opts.introSectionId ?? null, caret.node, caret.offset);
     if (!id) {
       report(null);
       return;
