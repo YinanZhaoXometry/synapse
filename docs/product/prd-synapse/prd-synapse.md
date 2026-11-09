@@ -2,7 +2,7 @@
 title: Synapse — PRD
 status: final
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-09
 finalized: 2026-11-01
 ---
 
@@ -107,7 +107,7 @@ On opening the app: with no Study Plans, the user sees an agent-style chat surfa
 **Consequences (testable):**
 - A fresh user is guided to plan creation from the empty state in one step.
 - A returning user can re-enter their latest plan with one click (continue → plan detail page).
-- Plan creation is AI-generated from a stated topic/goal *(owner decision Q4(a))*; roadmap.sh import (FR-43) arrives as the curated alternative in Phase 2. A goal-selection step (exam prep / deep understanding / revision / daily practice — the scaffold onboarding's goal set) feeds the generation `[Phase 2]`. The empty state's agent-chat styling is a UX form decision → `/bmad-ux`.
+- Plan creation is AI-generated from **one free-form creation message plus optional material attachments** *(owner amendment 2026-11-09 — supersedes Q4(a)'s topic/goal form and retires the goal-selection step; the message subsumes it)*: the user attaches up to **5 files (PDF / Markdown / PPTX, ≤ 20 MB each — FR-2's rules)** and writes any message; the AI tailors the proposed structure to the message and the attached materials' content (the proposal reads the materials' client-extracted text — parsing stays client-side, AD-7; after confirm the files attach to the created plan through the standard upload flow and are never re-uploaded). Materials attached at creation count toward FR-2's union. The empty state's agent-chat styling is a UX form decision → `/bmad-ux`.
 
 #### FR-37: Study Task — plan-free study `[Phase 1]`
 

@@ -48,7 +48,7 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
   def mint_proposal(language: "zh")
     result = ::Ai::CreateStreamTicketCommand.call(
       current_user: user, op: "proposal", language: language,
-      topic: "软件工程", goal: ""
+      message: "软件工程期末备考"
     )
     result.value![:ticket]
   end
@@ -235,10 +235,12 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
       user_prompt = captured.last[:content]
       aggregate_failures do
         # The proposal JSON schema the reply contract pins: stage nodes with
-        # metadata + title-paired edges.
+        # metadata + title-paired edges (epic-27: the model derives the short
+        # topic from the message — the template says so instead of echoing it).
         expect(user_prompt).to include(
-          '{"topic":"软件工程","stages":[{"name":"…","nodes":[{"title":"…","description":"…","optional":false}]}],"edges":[["…","…"]]}'
+          '{"topic":"A short plan title derived from the message","stages":[{"name":"…","nodes":[{"title":"…","description":"…","optional":false}]}],"edges":[["…","…"]]}'
         )
+        expect(user_prompt).to include("The learner's message: 软件工程期末备考")
         # The four constraints the epic pins on the proposal.
         expect(user_prompt).to include("at most 16 nodes total")
         expect(user_prompt).to include("titles are unique")

@@ -13,6 +13,7 @@ import type {
   PlanChatRequest,
   PlanProposalOptions,
   PlanStructureProposal,
+  ProposalMaterial,
   QuizMode,
   UiLanguage,
 } from "./types";
@@ -45,10 +46,10 @@ export interface CompanionService {
    * restart; the simulated adapter ignores it.
    */
   generatePlanStructure(
-    topic: string,
+    message: string,
+    materials: ProposalMaterial[],
     language: UiLanguage,
     onToken?: (chunk: string) => void,
-    goal?: string | null,
     options?: PlanProposalOptions,
   ): Promise<PlanStructureProposal>;
 

@@ -191,7 +191,7 @@ module Api
       })
 
       splitter = Ai::TaggedReplySplitter.new
-      messages = Ai::Prompts.proposal(topic: payload["topic"].to_s, goal: payload["goal"].to_s, language: language)
+      messages = Ai::Prompts.proposal(message: payload["message"].to_s, materials: payload["materials"] || [], language: language)
       failure = catch(:client_gone) do
         stream_to_tokens(user, messages, ->(delta) {
           splitter.feed(delta).each { |token| sse("token", { "text" => token }) }

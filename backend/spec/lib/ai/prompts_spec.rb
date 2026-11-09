@@ -153,21 +153,41 @@ RSpec.describe Ai::Prompts do
     end
   end
 
-  it "keeps the proposal's frozen tag contract, goal line, and shape bounds" do
-    bare = described_class.proposal(topic: "Distributed systems", goal: nil, language: "zh")[1][:content]
-    goaled = described_class.proposal(topic: "Distributed systems", goal: "interview ready",
-                                      language: "en")[1][:content]
+  it "keeps the proposal's frozen tag contract, message line, and shape bounds (epic-27)" do
+    bare = described_class.proposal(message: "Distributed systems for the final exam", materials: [],
+                                    language: "zh")[1][:content]
     aggregate_failures do
       expect(bare).to include("<outline>")
       expect(bare).to include("<proposal>")
-      expect(bare).to include("\"topic\":\"Distributed systems\"")
+      # epic-27: the model derives the JSON's short topic from the message.
+      expect(bare).to include('"topic":"A short plan title derived from the message"')
       # epic-16 T1 raised the scale cap (grill decision 3) — the prompt says
       # "at most 16 nodes" now, not the pre-epic-16 "3–8".
       expect(bare).to include("2–5 stages, at most 16 nodes total")
-      expect(bare).to include("Distributed systems")
-      expect(bare).not_to include("The learner's goal")
-      expect(goaled).to include("The learner's goal: interview ready")
+      expect(bare).to include("The learner's message: Distributed systems for the final exam")
+      expect(bare).not_to include("Study material context")
     end
+  end
+
+  it "renders the materials block (epic-27) and slices it to the prompt budget" do
+    with_material = described_class.proposal(
+      message: "按这份讲义备考",
+      materials: [ { "title" => "复习讲义", "kind" => "pdf", "text" => "第 1 章 集成测试" } ],
+      language: "zh",
+    )[1][:content]
+    aggregate_failures do
+      expect(with_material).to include("Study material context")
+      expect(with_material).to include("— 复习讲义 (pdf):")
+      expect(with_material).to include("第 1 章 集成测试")
+    end
+
+    long = described_class.proposal(
+      message: "m",
+      materials: [ { "title" => "big", "kind" => "markdown", "text" => "x" * (described_class::MAX_PROMPT_MATERIAL_CHARS + 500) } ],
+      language: "en",
+    )[1][:content]
+    expect(long).to include("x" * described_class::MAX_PROMPT_MATERIAL_CHARS)
+    expect(long).not_to include("x" * (described_class::MAX_PROMPT_MATERIAL_CHARS + 1))
   end
 
   it "notes partial context honestly (the truncation note)" do

@@ -321,16 +321,23 @@ describe("ServerCompanionService — generatePlanStructure (the proposal stream)
     };
 
     const proposalPromise = adapter.generatePlanStructure(
-      "软件工程",
+      "备考 COMP5241，我先啃讲义",
+      [{ title: "复习讲义", kind: "pdf", text: "第 1 章 集成测试" }],
       "zh",
       (chunk) => tokens.push(chunk),
-      "exam-prep",
     );
     await settle();
 
-    // the goal rides the ticket (A3: the creation chat's selection is a
-    // generation input); tags are stripped server-side
-    expect(mints[0]).toEqual({ input: { op: "proposal", language: "zh", topic: "软件工程", goal: "exam-prep" } });
+    // the message + the materials ride the ticket (epic-27: the creation
+    // chat's generation inputs); tags are stripped server-side
+    expect(mints[0]).toEqual({
+      input: {
+        op: "proposal",
+        language: "zh",
+        message: "备考 COMP5241，我先啃讲义",
+        materials: [{ title: "复习讲义", kind: "pdf", text: "第 1 章 集成测试" }],
+      },
+    });
 
     sources[0].emit("token", { text: "阶段一：基础" });
     sources[0].emit("terminal", { code: "OK", proposal });
@@ -343,7 +350,7 @@ describe("ServerCompanionService — generatePlanStructure (the proposal stream)
     const { deps, sources } = makeDeps();
     const adapter = makeAdapter({ deps });
 
-    const proposalPromise = adapter.generatePlanStructure("软件工程", "en");
+    const proposalPromise = adapter.generatePlanStructure("软件工程", [], "en");
     await settle();
     sources[0].emit("terminal", { code: "RATE_LIMITED" });
 
@@ -715,7 +722,7 @@ describe("ServerCompanionService — the cap-counted restart notice (US2/AD-16 r
       edges: [],
     };
 
-    const proposalPromise = adapter.generatePlanStructure("软件工程", "zh", undefined, null, {
+    const proposalPromise = adapter.generatePlanStructure("软件工程", [], "zh", undefined, {
       onNotice: (key) => notices.push(key),
     });
     await settle();

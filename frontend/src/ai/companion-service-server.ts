@@ -56,6 +56,7 @@ import type {
   PlanStructureProposal,
   QuizMode,
   UiLanguage,
+  ProposalMaterial,
 } from "./types";
 
 // -- the mutation-path error map (AD-9) -------------------------------------------
@@ -299,16 +300,17 @@ export class ServerCompanionService implements CompanionService {
   }
 
   async generatePlanStructure(
-    topic: string,
+    message: string,
+    materials: ProposalMaterial[],
     language: UiLanguage,
     onToken?: (chunk: string) => void,
-    goal?: string | null,
     options?: PlanProposalOptions,
   ): Promise<PlanStructureProposal> {
     const session = startStream(
-      // The goal is a generation input (A3/FR-1): it rides INSIDE the ticket;
-      // the server strips the tags from the streamed text itself.
-      { op: "proposal", topic, goal: goal ?? undefined, language },
+      // The message + the attached materials' client-extracted text are the
+      // generation inputs (epic-27): they ride INSIDE the ticket; the server
+      // strips the tags from the streamed text itself.
+      { op: "proposal", message, materials, language },
       {
         onToken: (chunk) => onToken?.(chunk),
         // Same seam channel as chat: the cap-counted restart notice (AD-16).

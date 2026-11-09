@@ -32,12 +32,12 @@ module Mutations
       argument :escalated, Boolean,
                required: false,
                description: "companion only: the escalation flag (the ladder amendment — true means the answer rung)."
-      argument :topic, String,
+      argument :message, String,
                required: false,
-               description: "proposal only: the plan topic."
-      argument :goal, String,
+               description: "proposal only: the learner's free-form creation message — topic, goal, any requirements, one text (epic-27)."
+      argument :materials, [ Types::Ai::ProposalMaterialInput ],
                required: false,
-               description: "proposal only: the optional goal."
+               description: "proposal only: the attached materials' client-extracted content (≤ 5; parsing stays client-side, AD-7 — epic-27)."
       argument :plan_id, String,
                required: false,
                description: "plan_companion only: the plan's uuid (ownership-checked — FR-46, epic P2-12 T3)."
@@ -52,7 +52,7 @@ module Mutations
             null: false,
             description: "When the ticket dies (~60s TTL; expired → 401)."
 
-      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, topic: nil, goal: nil, plan_id: nil, mistake_entry_id: nil)
+      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, message: nil, materials: nil, plan_id: nil, mistake_entry_id: nil)
         result = command_result(::Ai::CreateStreamTicketCommand.call(
           current_user: current_user!,
           op: op,
@@ -62,8 +62,8 @@ module Mutations
           position: position&.to_h,
           selection: selection,
           escalated: escalated,
-          topic: topic,
-          goal: goal,
+          message: message,
+          materials: materials&.map(&:to_h),
           plan_id: plan_id,
           mistake_entry_id: mistake_entry_id
         ))

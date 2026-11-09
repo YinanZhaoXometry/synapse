@@ -51,6 +51,7 @@ import type {
   CompanionIntent,
   GuardrailRung,
   PlanStructureProposal,
+  ProposalMaterial,
   UiLanguage,
 } from "./types";
 
@@ -72,11 +73,12 @@ export interface CompanionStreamRequest {
   language: UiLanguage;
 }
 
-/** Plan proposal: topic (+ optional goal); tags stripped server-side. */
+/** Plan proposal (epic-27): one free-form message + the attached materials'
+ * client-extracted text; tags stripped server-side. */
 export interface ProposalStreamRequest {
   op: "proposal";
-  topic: string;
-  goal?: string;
+  message: string;
+  materials: ProposalMaterial[];
   language: UiLanguage;
 }
 
@@ -243,8 +245,8 @@ function buildVariables(request: StreamRequest): CreateStreamTicketMutationVaria
     input.question = request.question;
     input.mistakeEntryId = request.mistakeEntryId;
   } else {
-    input.topic = request.topic;
-    input.goal = request.goal ?? "";
+    input.message = request.message;
+    input.materials = request.materials;
   }
   return { input };
 }

@@ -1,23 +1,23 @@
 /**
- * Creation-chat orchestration (FR-1/Q4): the state machine shared by the
- * Plans-Home empty state and the /plan/new route. Streams the Companion's
- * plan-structure proposal through the real service (AD-5 — simulated,
- * deterministic, zh/en); never touches the store — confirm belongs to the
- * surface (create mutation + navigation, see CreationChat).
+ * Creation-chat orchestration (FR-1/Q4; epic-27 rework): ONE free-form
+ * message + optional attached materials stream the Companion's plan-structure
+ * proposal through the real service (AD-5 — simulated, deterministic, zh/en);
+ * never touches the store — confirm belongs to the surface (create mutation +
+ * navigation, see CreationChat).
  */
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getCompanionService } from "@/ai/companion-service";
-import type { PlanStructureProposal, UiLanguage } from "@/ai/types";
+import type { PlanStructureProposal, ProposalMaterial, UiLanguage } from "@/ai/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export type ChatMessage = { role: "user" | "ai"; text: string; goal?: string | null };
+export type ChatMessage = { role: "user" | "ai"; text: string };
 export type ChatPhase = "idle" | "streaming" | "proposed";
 
-/** The stated input a draft regenerates from (topic required, goal optional). */
+/** The stated input a draft regenerates from (message required, materials optional). */
 export interface ChatInput {
-  topic: string;
-  goal: string | null;
+  message: string;
+  materials: ProposalMaterial[];
 }
 
 export function useCreationChat(language: UiLanguage) {
@@ -27,24 +27,24 @@ export function useCreationChat(language: UiLanguage) {
   const [streamText, setStreamText] = useState("");
   const [proposal, setProposal] = useState<PlanStructureProposal | null>(null);
   const buf = useRef("");
-  const lastInput = useRef<ChatInput>({ topic: "", goal: null });
+  const lastInput = useRef<ChatInput>({ message: "", materials: [] });
 
   const generate = useCallback(
-    (topic: string, goal: string | null) => {
-      lastInput.current = { topic, goal };
+    (message: string, materials: ProposalMaterial[]) => {
+      lastInput.current = { message, materials };
       setPhase("streaming");
       setStreamText("");
       setProposal(null);
       buf.current = "";
       void getCompanionService()
-        // The goal rides the proposal stream (T5 · A3/FR-1): a named selection
-        // or the free-text override — a generation input either way. The
+        // The message + the attached materials' client-extracted text are the
+        // generation inputs (epic-27): they ride INSIDE the ticket. The
         // trailing options carry the cap-counted restart notice (AD-16, never
         // silent): sonner surfaces it; the stream itself continues.
-        .generatePlanStructure(topic, language, (chunk) => {
+        .generatePlanStructure(message, materials, language, (chunk) => {
           buf.current += chunk;
           setStreamText(buf.current);
-        }, goal, {
+        }, {
           onNotice: (key) => toast(t(key)),
         })
         .then((p) => {
@@ -65,17 +65,17 @@ export function useCreationChat(language: UiLanguage) {
   );
 
   const send = useCallback(
-    (topic: string, goal: string | null) => {
+    (message: string, materials: ProposalMaterial[]) => {
       if (phase === "streaming") return;
-      setMessages((m) => [...m, { role: "user", text: topic, goal }]);
-      generate(topic, goal);
+      setMessages((m) => [...m, { role: "user", text: message }]);
+      generate(message, materials);
     },
     [generate, phase],
   );
 
-  /** Re-propose from the same topic/goal (Q4) — a bad draft is never a dead end. */
+  /** Re-propose from the same message/materials — a bad draft is never a dead end. */
   const regenerate = useCallback(() => {
-    generate(lastInput.current.topic, lastInput.current.goal);
+    generate(lastInput.current.message, lastInput.current.materials);
   }, [generate]);
 
   const reset = useCallback(() => {

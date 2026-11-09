@@ -145,8 +145,8 @@ const companionRequest = (): StreamRequest => ({
 
 const proposalRequest = (): StreamRequest => ({
   op: "proposal",
-  topic: "软件工程",
-  goal: "",
+  message: "软件工程期末备考",
+  materials: [{ title: "复习讲义", kind: "pdf", text: "第 1 章" }],
   language: "zh",
 });
 
@@ -251,13 +251,18 @@ describe("startStream (the /api/stream EventSource wrapper — epic P2-8 T4)", (
     expect(harness.mints[0].variables.input.selection).toBe("Every row is scoped by user_id.");
   });
 
-  it("mints proposal tickets with topic + goal only", async () => {
+  it("mints proposal tickets with the message + materials (epic-27)", async () => {
     const harness = makeDeps();
     startStream(proposalRequest(), {}, harness.deps);
     await settle();
 
     expect(harness.mints[0].variables).toEqual({
-      input: { op: "proposal", language: "zh", topic: "软件工程", goal: "" },
+      input: {
+        op: "proposal",
+        language: "zh",
+        message: "软件工程期末备考",
+        materials: [{ title: "复习讲义", kind: "pdf", text: "第 1 章" }],
+      },
     });
     expect(harness.sources[0].url).toBe("/api/stream?ticket=tok-1&op=proposal");
   });

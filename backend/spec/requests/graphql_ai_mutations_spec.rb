@@ -33,7 +33,7 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
           "planId: \"#{uuid}\" }) { session { id } } }",
         "mutation { generateFlashcards(input: { materialId: \"#{uuid}\", language: \"zh\" }) { cards { id } } }",
         "mutation { gradeOpenAnswer(input: { questionId: \"#{uuid}\", answer: \"a\", language: \"zh\" }) { gradedAnswer { outcome } } }",
-        "mutation { createStreamTicket(input: { op: \"proposal\", language: \"zh\", topic: \"t\" }) { token } }"
+        "mutation { createStreamTicket(input: { op: \"proposal\", language: \"zh\", message: \"m\" }) { token } }"
       ]
       mutations.each do |mutation|
         expect(error_code(graphql(mutation))).to eq("UNAUTHORIZED")
@@ -277,7 +277,7 @@ RSpec.describe "GraphQL server-side AI mutations (epic P2-5 ticket 03)", type: :
       expect(minted.payload["locator"]).to eq({ "kind" => "markdown", "sectionId" => "sec-1" })
 
       invalid = graphql(
-        "mutation { createStreamTicket(input: { op: \"chat\", language: \"zh\", topic: \"t\" }) { token } }",
+        "mutation { createStreamTicket(input: { op: \"chat\", language: \"zh\", message: \"m\" }) { token } }",
         token: token
       )
       expect(error_code(invalid)).to eq("VALIDATION_FAILED")

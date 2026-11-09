@@ -113,9 +113,14 @@ export const translations = {
       'plans.returningTitle': '继续你的学习',
       'plans.backToPlans': '所有计划',
       'plans.createNew': '新建学习计划',
-      'plans.topicPlaceholder': '例如：COMP5241 软件工程期末备考',
-      'plans.goalPlaceholder': '目标（可选）：比如期末考 85+',
-      'plans.goalLabel': '目标：',
+      'plans.messagePlaceholder': '想学什么？例如：COMP5241 软件工程期末备考——也可以写目标、贴要求，我会据此为你搭计划',
+      'plans.attach': '附材料',
+      'plans.attachAria': '附加材料（可选，PDF / Markdown / PPT，最多 5 份）',
+      'plans.removeMaterialAria': '移除材料 {title}',
+      'plans.materialCap': '最多附 {n} 份材料',
+      'plans.readingMaterials': '正在读取材料…',
+      'plans.attaching': '正在挂上材料…',
+      'plans.attachFailed': '有材料没能挂上计划，可在计划页重新上传',
       'plans.send': '生成',
       'plans.suggestExam': '软件工程期末备考',
       'plans.suggestInterview': '系统设计面试',
@@ -848,12 +853,7 @@ export const translations = {
       'ai.generate.errorInternal': 'AI 服务暂时不可用，请重试',
       'ai.generate.failed': '本次生成失败，请重试',
 
-      // 创建聊天的目标选择（epic P2-8 T5 · A3/FR-1 — 四个命名目标；自由文本仍是可选覆盖）
-      'plans.goalPickerLabel': '选择一个学习目标',
-      'plans.goalExam': '备考冲刺',
-      'plans.goalDeep': '深入理解',
-      'plans.goalRevision': '复习巩固',
-      'plans.goalDaily': '日常练习',
+      // 创建聊天的目标选择已随 epic-27 退役（单条消息涵括目标——FR-1 2026-11-09 owner 修订）
 
       // 章节↔节点映射（epic P2-10 T1 · FR-45 — 每材料覆盖面板：已映射/待确认/已拒绝/未映射四组）
       'mapping.title': '内容覆盖',
@@ -1087,9 +1087,14 @@ export const translations = {
       'plans.returningTitle': 'Continue where you left off',
       'plans.backToPlans': 'All plans',
       'plans.createNew': 'New study plan',
-      'plans.topicPlaceholder': 'e.g. COMP5241 final exam prep',
-      'plans.goalPlaceholder': 'Goal (optional): e.g. score 85+ on the final',
-      'plans.goalLabel': 'Goal: ',
+      'plans.messagePlaceholder': 'What do you want to learn? e.g. COMP5241 final exam prep — goals and requirements welcome; I will tailor the plan',
+      'plans.attach': 'Attach files',
+      'plans.attachAria': 'Attach materials (optional, PDF / Markdown / PPT, up to 5)',
+      'plans.removeMaterialAria': 'Remove material {title}',
+      'plans.materialCap': 'At most {n} materials attach here',
+      'plans.readingMaterials': 'Reading the materials…',
+      'plans.attaching': 'Attaching the materials…',
+      'plans.attachFailed': "Some materials didn't attach — re-upload from the plan page",
       'plans.send': 'Draft',
       'plans.suggestExam': 'SE final exam prep',
       'plans.suggestInterview': 'System design interview',
@@ -1825,11 +1830,7 @@ export const translations = {
       'ai.generate.failed': 'This generation failed — please try again',
 
       // Creation chat goal selection (epic P2-8 T5 · A3/FR-1 — four named goals; free text stays the optional override)
-      'plans.goalPickerLabel': 'Pick a study goal',
-      'plans.goalExam': 'Exam prep',
-      'plans.goalDeep': 'Deep understanding',
-      'plans.goalRevision': 'Revision',
-      'plans.goalDaily': 'Daily practice',
+      // The creation chat's goal picker retired with epic-27 (the single message subsumes the goal — FR-1's 2026-11-09 owner amendment).
 
       // Section↔node mapping (epic P2-10 T1 · FR-45 — the per-material coverage panel: Mapped / Proposed / Rejected / Unmapped)
       'mapping.title': 'Coverage',

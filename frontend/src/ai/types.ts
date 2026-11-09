@@ -77,6 +77,19 @@ export interface GroundedChatRequest {
  * chat request's onNotice): the server adapter passes T4's cap-counted
  * restart notices through; the simulated adapter ignores the whole object.
  */
+/**
+ * One attached material's client-extracted content riding the proposal
+ * stream's ticket (epic-27) — the creation chat's tailoring input. Parsing
+ * stays client-side (AD-7): there is no material row pre-create to presign
+ * against, so the extracted text IS the grounding input. `kind`: pptx rides
+ * "markdown" end-to-end (epic-13 T5).
+ */
+export interface ProposalMaterial {
+  title: string;
+  kind: "pdf" | "markdown";
+  text: string;
+}
+
 export interface PlanProposalOptions {
   onNotice?: (messageKey: string) => void;
 }

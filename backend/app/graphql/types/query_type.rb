@@ -372,7 +372,8 @@ module Types
 
     def ai_usage_today
       user = current_user!
-      { calls_today: Ai::DailyCap.count_for(user, now: Time.current), daily_limit: Ai::DailyCap.limit }
+      # :: prefix — Types::Ai exists since epic-27 (ProposalMaterialInput); an unqualified Ai here would resolve into that namespace and NameError (the cpath-shadow trap, epic-05).
+      { calls_today: ::Ai::DailyCap.count_for(user, now: Time.current), daily_limit: ::Ai::DailyCap.limit }
     end
 
     field :badge_state, [ Types::BadgeStateType ], null: false,

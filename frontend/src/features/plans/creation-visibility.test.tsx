@@ -52,7 +52,7 @@ function createPlanMock(captured: { input?: Record<string, unknown> }): MockedRe
 }
 
 async function reachProposalCard() {
-  fireEvent.change(screen.getByPlaceholderText(zhDict["plans.topicPlaceholder"]), { target: { value: "软件工程" } });
+  fireEvent.change(screen.getByPlaceholderText(zhDict["plans.messagePlaceholder"]), { target: { value: "软件工程" } });
   fireEvent.click(screen.getByRole("button", { name: zhDict["plans.send"] }));
   await waitFor(() => expect(screen.getByText("阶段一：基础")).toBeInTheDocument());
 }
