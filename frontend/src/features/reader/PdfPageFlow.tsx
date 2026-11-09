@@ -35,6 +35,8 @@ import {
   type AnnotationApplyResult,
   type AnnotationRenderItem,
 } from "./annotation-engine";
+import { attachAnnotationHover, type AnnotationHoverAnchor } from "./annotation-hover";
+import { AnnotationHoverPopover } from "./annotation-hover-popover";
 import type { QuickTestGateState } from "./quick-test-gate";
 import { clampPage, inRenderWindow, renderWindow, stepPage } from "./pager";
 import { mostVisiblePage, type MeasuredPageRect } from "./position-tracking";
@@ -75,6 +77,13 @@ interface PdfPageFlowProps {
   /** The engine's application results (the list panel's honesty badges). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
   /**
+   * Remove one annotation (the hover popover's back end — the markdown
+   * surface's exact pattern, epic-24 T2, wired onto PDF by the 2026-11-09
+   * hotfix). Absent = the hover affordance is off entirely (no bridge, no
+   * popover); the mounter owns the mutation, the flow only reports the id.
+   */
+  onRemoveAnnotation?(id: string): void;
+  /**
    * Mastery Marking (FR-15, epic-15 T3) — presentational, like MarkdownView's
    * surface: the mounter's open-claim ids (PDF sections are `page-N`),
    * claim/unmark + confirm-quiz handlers (absent = feature off — the
@@ -88,7 +97,7 @@ interface PdfPageFlowProps {
 }
 
 export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function PdfPageFlow(
-  { blob, initialPage, flashTarget, onPageChange, onTotalPages, annotations, onAnnotationsApplied, claimedSectionIds, onToggleClaim, onConfirmQuiz, quickTestGate = "ready" },
+  { blob, initialPage, flashTarget, onPageChange, onTotalPages, annotations, onAnnotationsApplied, onRemoveAnnotation, claimedSectionIds, onToggleClaim, onConfirmQuiz, quickTestGate = "ready" },
   ref,
 ) {
   const { t } = useLanguage();
@@ -315,6 +324,7 @@ export const PdfPageFlow = forwardRef<PdfFlowHandle, PdfPageFlowProps>(function 
                   flash={flashPage === n}
                   annotations={annotationsByPage?.get(n)}
                   onAnnotationsApplied={onAnnotationsApplied}
+                  onRemoveAnnotation={onRemoveAnnotation}
                   marking={
                     onToggleClaim
                       ? {
@@ -353,6 +363,8 @@ interface PdfPageCanvasProps {
   annotations?: AnnotationRenderItem[];
   /** The engine's application results (aggregated up to the list panel). */
   onAnnotationsApplied?(results: AnnotationApplyResult[]): void;
+  /** Remove one annotation (the hover popover's back end; absent = off). */
+  onRemoveAnnotation?(id: string): void;
   /** This page's marking wiring (undefined = feature off — no control, no band). */
   marking?: {
     claimed: boolean;
@@ -363,13 +375,19 @@ interface PdfPageCanvasProps {
   containerRef(el: HTMLDivElement | null): void;
 }
 
-function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, annotations, onAnnotationsApplied, marking, containerRef }: PdfPageCanvasProps) {
+function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, annotations, onAnnotationsApplied, onRemoveAnnotation, marking, containerRef }: PdfPageCanvasProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // The invisible selectable text layer (epic-13 T1, FR-13): the selection
   // surface the reader's selection bar captures on PDFs. Same lazy window as
   // the canvas — far pages hold layout only.
   const textLayerRef = useRef<HTMLDivElement>(null);
+  // The page box is the hover bridge's root AND the popover's anchor box
+  // (relative, like the markdown article) — a local ref beside the mounter's
+  // callback ref.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<AnnotationHoverAnchor | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   // The layer's readiness gates the annotation pass (FR-16): the ranges are
   // text-anchored, so they apply the moment the spans exist — and re-apply
   // whenever the annotations change while the layer is up.
@@ -468,9 +486,64 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, an
     [],
   );
 
+  // The hover bridge (the markdown surface's exact pattern, wired onto PDF
+  // by the 2026-11-09 hotfix): only with a remove handler AND something
+  // painted on THIS page. Re-attached per fresh list — the bridge closes
+  // over the items the hit-test answers from. Clearing the hover on list
+  // change keeps a removed annotation's popover from outliving its range.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !onRemoveAnnotation || (annotations?.length ?? 0) === 0) {
+      setHover(null);
+      return;
+    }
+    setHover(null);
+    return attachAnnotationHover(root, {
+      items: annotations ?? [],
+      surface: "pdf",
+      onAnchor: setHover,
+    });
+  }, [annotations, onRemoveAnnotation]);
+
+  // Popover dismissal: Escape, any press outside the popover, and the
+  // fresh-list clear above — the markdown surface's exact contract.
+  useEffect(() => {
+    if (!hover) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHover(null);
+    };
+    const onPress = (event: Event) => {
+      if (popoverRef.current && event.target instanceof Node && popoverRef.current.contains(event.target)) return;
+      setHover(null);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPress);
+    window.addEventListener("mousedown", onPress);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPress);
+      window.removeEventListener("mousedown", onPress);
+    };
+  }, [hover]);
+
+  const hoverItem = hover ? annotations?.find((item) => item.id === hover.id) : undefined;
+  // The anchor rides viewport coords; the popover is a child of the (relative)
+  // page box, so convert once per render — the markdown article's math. Near
+  // the page top the popover flips below the range instead of clipping.
+  const rootRect = hover ? rootRef.current?.getBoundingClientRect() : null;
+  const hoverLeft = hover && rootRect ? hover.x - rootRect.left : (hover?.x ?? 0);
+  const hoverTopRaw = hover && rootRect ? hover.y - rootRect.top : (hover?.y ?? 0);
+  const hoverFlip = hoverTopRaw < 56;
+  // The page box clips (overflow-hidden), unlike the article — clamp the
+  // 260px popover's center anchor so the remove button never leaves the page.
+  const hoverLeftClamped = Math.min(Math.max(hoverLeft, 150), Math.max(width - 150, 150));
+
   return (
     <div
-      ref={containerRef}
+      ref={(el) => {
+        rootRef.current = el;
+        containerRef(el);
+      }}
       data-page={pageNumber}
       role="group"
       aria-label={t("reader.pageAria", { n: pageNumber })}
@@ -499,6 +572,22 @@ function PdfPageCanvas({ doc, pageNumber, width, height, shouldRender, flash, an
         />
       )}
       {marking && <PageMarkingControls sectionId={`page-${pageNumber}`} marking={marking} />}
+      {/* The popover mounts ONLY with a hover and a remove handler — the
+          markdown surface's exact affordance, one per page. */}
+      {hover && onRemoveAnnotation && (
+        <AnnotationHoverPopover
+          popoverRef={popoverRef}
+          hover={hover}
+          body={hoverItem?.body}
+          flip={hoverFlip}
+          left={hoverLeftClamped}
+          top={hoverFlip ? hoverTopRaw + 8 : hoverTopRaw}
+          onRemove={(id) => {
+            onRemoveAnnotation(id);
+            setHover(null);
+          }}
+        />
+      )}
     </div>
   );
 }

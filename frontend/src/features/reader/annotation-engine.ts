@@ -481,3 +481,50 @@ export function hitTestMarkdownAnnotation(
   }
   return null;
 }
+
+/**
+ * The pdf twin of hitTestMarkdownAnnotation (the hover-to-remove popover's
+ * truth on the CSS Custom Highlight path — the fallback path's marks
+ * delegate their own events): the caret's (text node, offset) resolves
+ * through the node's page layer (the `[data-page]` box's .pdf-text-layer —
+ * T1's address, the buildRangeFromCapture posture), the layer's text walk
+ * accumulates the offset, and the fresh list answers. Same laws: a stale
+ * range never reports (paints nothing ⇒ not hoverable), and a node outside
+ * any page layer's text answers null. Pure DOM walk: jsdom-testable.
+ */
+export function hitTestPdfAnnotation(
+  root: HTMLElement,
+  items: readonly AnnotationRenderItem[],
+  node: Node,
+  nodeOffset: number,
+): string | null {
+  if (node.nodeType !== Node.TEXT_NODE || !root.contains(node)) return null;
+  // Climb to the node's page box (the `[data-page]` element the flow and the
+  // capture seam both address pages by).
+  const pageBox = node.parentElement?.closest("[data-page]");
+  if (!(pageBox instanceof HTMLElement) || !root.contains(pageBox)) return null;
+  const layer = pageBox.querySelector(".pdf-text-layer");
+  if (!(layer instanceof HTMLElement) || !layer.contains(node)) return null;
+  const page = Number(pageBox.dataset.page);
+  if (!Number.isFinite(page)) return null;
+
+  const nodes = collectTextNodes([layer]);
+  let offset = 0;
+  let caret = -1;
+  for (const text of nodes) {
+    if (text === node) {
+      caret = offset + nodeOffset;
+      break;
+    }
+    offset += (text.nodeValue ?? "").length;
+  }
+  if (caret < 0) return null;
+  const layerText = textOfNodes(nodes);
+  for (const item of items) {
+    if (item.range.page !== page) continue;
+    if (!isValidAnnotationRange(item.range)) continue;
+    if (isStaleRange(item.range, layerText)) continue;
+    if (caret >= item.range.start && caret < item.range.end) return item.id;
+  }
+  return null;
+}

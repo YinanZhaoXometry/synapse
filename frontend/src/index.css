@@ -100,6 +100,12 @@
     --anno-blue-edge: rgba(53, 80, 124, 0.6);
     --anno-default: rgba(26, 26, 31, 0.12);
     --anno-default-edge: rgba(26, 26, 31, 0.4);
+    /* The pdf text layer's NATIVE selection (the pre-annotation drag): the
+       citation-tint token is a near-paper background wash — as an opaque
+       ::selection over transparent-span text it ERASES the canvas glyphs
+       under it. Its own mid-tone rgba, the upstream pdfjs posture (selection
+       paints ~25-35% alpha). Dark mode redefines. */
+    --anno-selection: rgba(53, 80, 124, 0.28);
 
     --mastered: 160 50% 45%;
     --mastered-tint: 152 39% 93%;
@@ -192,6 +198,7 @@
     --anno-blue-edge: rgba(120, 150, 200, 0.7);
     --anno-default: rgba(255, 255, 255, 0.14);
     --anno-default-edge: rgba(255, 255, 255, 0.45);
+    --anno-selection: rgba(120, 150, 200, 0.32);
 
     --elev-low: 0 2px 8px rgba(0, 0, 0, 0.35);
     --elev-raised: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -502,9 +509,10 @@
    vars and per-span custom properties its layout math reads
    (--total-scale-factor is set inline by renderTextLayer, --min-font-size by
    the layer itself). Text stays transparent so the canvas below is the only
-   visible surface in every palette/mode; ::selection rides the citation tint
-   token. Lives OUTSIDE @layer (element/attribute selectors get purged from
-   layers). */
+   visible surface in every palette/mode; ::selection rides the
+   --anno-selection token (semi-transparent — the glyphs on the canvas below
+   must stay visible through the drag). Lives OUTSIDE @layer (element/
+   attribute selectors get purged from layers). */
 .pdf-text-layer {
   position: absolute;
   inset: 0;
@@ -538,7 +546,8 @@
   transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(calc(1 / var(--min-font-size)));
 }
 .pdf-text-layer .markedContent { display: contents; }
-.pdf-text-layer ::selection { background: hsl(var(--citation-tint)); }
+.pdf-text-layer ::selection { background: var(--anno-selection); }
+.pdf-text-layer br::selection { background: transparent; }
 
 /* ── Annotations (FR-16, epic-13 T3) — the engine's two render paths ──
    AD-9 never-color-only: EVERY annotated range also carries a per-kind line

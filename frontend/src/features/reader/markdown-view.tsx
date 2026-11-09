@@ -28,7 +28,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
-import { Bookmark, BookmarkCheck, ListChecks, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, ListChecks } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
@@ -39,6 +39,7 @@ import {
   type AnnotationRenderItem,
 } from "./annotation-engine";
 import { attachAnnotationHover, type AnnotationHoverAnchor } from "./annotation-hover";
+import { AnnotationHoverPopover } from "./annotation-hover-popover";
 import type { QuickTestGateState } from "./quick-test-gate";
 
 interface MarkdownViewProps {
@@ -358,59 +359,6 @@ export default function MarkdownView({
           }}
         />
       )}
-    </div>
-  );
-}
-
-/** The hover popover (epic-24 T2): note body when present + the remove
- * button. Rendered only while an annotation answers the pointer. */
-function AnnotationHoverPopover({
-  popoverRef,
-  hover,
-  body,
-  flip,
-  left,
-  top,
-  onRemove,
-}: {
-  popoverRef: RefObject<HTMLDivElement | null>;
-  hover: AnnotationHoverAnchor;
-  body?: string;
-  flip: boolean;
-  left: number;
-  top: number;
-  onRemove(id: string): void;
-}) {
-  const { t } = useLanguage();
-  return (
-    <div
-      ref={popoverRef}
-      data-testid="annotation-hover-popover"
-      data-anno-popover=""
-      role="group"
-      aria-label={t("reader.annotationRemove")}
-      className={cn(
-        "absolute z-40 flex max-w-[260px] items-center gap-1.5 rounded-xl border border-border-soft bg-[var(--glass-4)] px-2 py-1.5 shadow-raised backdrop-blur-sm",
-        flip ? "-translate-x-1/2" : "-translate-x-1/2 -translate-y-[calc(100%+8px)]",
-      )}
-      style={{ left, top }}
-    >
-      {body && (
-        <span className="min-w-0 flex-1 truncate text-[11px] leading-[1.4] text-muted-foreground" title={body}>
-          {body}
-        </span>
-      )}
-      <button
-        type="button"
-        data-testid="annotation-remove"
-        aria-label={t("reader.annotationRemove")}
-        title={t("reader.annotationRemove")}
-        onClick={() => onRemove(hover.id)}
-        className="inline-flex flex-none items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-[var(--glass-2)] hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-        {t("reader.annotationRemove")}
-      </button>
     </div>
   );
 }
