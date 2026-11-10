@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately — file-disjoint from 01/02 except shared spec conventions).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 - [ ] The due list orders by `next_due_at` ascending, ties break mistakes before flashcards, then by id — asserted at the dueItems/Today query seam
 - [ ] Resolved mistakes remain scheduled (scan unchanged on `resolved`) — pinned by a spec so a future "prune resolved" regression fails loudly

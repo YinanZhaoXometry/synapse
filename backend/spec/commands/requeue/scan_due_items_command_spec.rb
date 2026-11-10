@@ -7,7 +7,9 @@ RSpec.describe Requeue::ScanDueItemsCommand do
   # decisions 7–8). Time comes from Rails' built-in TimeHelpers (travel_to —
   # no extra gem): due-ness must derive from SOURCE timestamps at SCAN time,
   # so every case pins what a wake at that instant would materialize. The
-  # ladders under test are the kickoff's recorded values (spec.md).
+  # ladders under test are the recorded values (P2-7's spec.md; the mistake
+  # ladder's geometric shape + the same-day guard are epic-31's amendments,
+  # recorded in phase-4's epic-31 spec).
   include ActiveSupport::Testing::TimeHelpers
 
   let(:user) { create(:user) }
@@ -62,6 +64,50 @@ RSpec.describe Requeue::ScanDueItemsCommand do
         card.update!(difficulty: "hard") # the rating write moves updated_at
         scan
         expect(schedule_for(card).next_due_at).to eq(Time.current + 2.days)
+      end
+    end
+
+    describe "epic-31 geometric ladders (the stage indexes the row)" do
+      it "climbs the easy ladder with the stage and clamps at the last rung" do
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+          rated = Time.zone.parse("2026-10-28 12:00:00 UTC")
+          base = create(:flashcard, user: user, difficulty: "easy", stage: 0, updated_at: rated)
+          climbed = create(:flashcard, user: user, difficulty: "easy", stage: 1, updated_at: rated)
+          beyond = create(:flashcard, user: user, difficulty: "easy", stage: 5, updated_at: rated)
+
+          scan
+
+          aggregate_failures do
+            expect(schedule_for(base).next_due_at).to eq(rated + 10.days)
+            expect(schedule_for(climbed).next_due_at).to eq(rated + 20.days)
+            expect(schedule_for(beyond).next_due_at).to eq(rated + 30.days) # clamped at the 30d terminal
+          end
+        end
+      end
+
+      it "reads each difficulty's own ladder at the same stage" do
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+          rated = Time.zone.parse("2026-10-28 12:00:00 UTC")
+          hard = create(:flashcard, user: user, difficulty: "hard", stage: 1, updated_at: rated)
+          medium = create(:flashcard, user: user, difficulty: "medium", stage: 1, updated_at: rated)
+
+          scan
+
+          aggregate_failures do
+            expect(schedule_for(hard).next_due_at).to eq(rated + 4.days)
+            expect(schedule_for(medium).next_due_at).to eq(rated + 10.days)
+          end
+        end
+      end
+
+      it "carries the card's stage onto the schedule row (the wire's DueItem.stage)" do
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+          card = create(:flashcard, user: user, difficulty: "easy", stage: 1, updated_at: Time.current)
+
+          scan
+
+          expect(schedule_for(card).stage).to eq(1)
+        end
       end
     end
   end
@@ -125,7 +171,8 @@ RSpec.describe Requeue::ScanDueItemsCommand do
                                  created_at: Time.zone.parse("2026-10-10 10:00:00 UTC"))
         create(:evidence_record, user: user, question: question, node: question.node, outcome: "correct",
                                  created_at: Time.zone.parse("2026-10-15 10:00:00 UTC"))
-        # Five corrects after — beyond the ladder's last rung (stage caps at 3):
+        # Five corrects after, on five distinct days — the ladder's last rung
+        # (stage caps at 4, the 16d terminal):
         5.times do |i|
           create(:evidence_record, user: user, question: question, node: question.node, outcome: "correct",
                                    created_at: Time.zone.parse("2026-10-21 10:00:00 UTC") + i.days)
@@ -135,8 +182,68 @@ RSpec.describe Requeue::ScanDueItemsCommand do
 
         schedule = schedule_for(mistake)
         aggregate_failures do
+          expect(schedule.stage).to eq(4)
+          expect(schedule.next_due_at).to eq(Time.zone.parse("2026-10-25 10:00:00 UTC") + 16.days)
+        end
+      end
+    end
+
+    it "climbs the geometric rungs: three distinct-day corrects sit at the 8d rung" do
+      travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+        mistake = create(:mistake_entry, user: user, created_at: Time.zone.parse("2026-10-20 09:00:00 UTC"))
+        question = mistake.question
+        [ "2026-10-22", "2026-10-24", "2026-10-26" ].each do |day|
+          create(:evidence_record, user: user, question: question, node: question.node, outcome: "correct",
+                                   created_at: Time.zone.parse("#{day} 10:00:00 UTC"))
+        end
+
+        scan
+
+        schedule = schedule_for(mistake)
+        aggregate_failures do
           expect(schedule.stage).to eq(3)
-          expect(schedule.next_due_at).to eq(Time.zone.parse("2026-10-25 10:00:00 UTC") + 7.days)
+          expect(schedule.next_due_at).to eq(Time.zone.parse("2026-10-26 10:00:00 UTC") + 8.days)
+        end
+      end
+    end
+  end
+
+  describe "same-day guard (epic-31's anti-grind rule)" do
+    it "advances the stage once for a same-day burst of corrects — one session cannot fill the ladder" do
+      travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+        mistake = create(:mistake_entry, user: user, created_at: Time.zone.parse("2026-10-20 09:00:00 UTC"))
+        question = mistake.question
+        # Five corrects inside ONE UTC day: stage must read 1, not 5.
+        5.times do |i|
+          create(:evidence_record, user: user, question: question, node: question.node, outcome: "correct",
+                                   created_at: Time.zone.parse("2026-10-25 10:00:00 UTC") + (i + 1).hours)
+        end
+
+        scan
+
+        schedule = schedule_for(mistake)
+        aggregate_failures do
+          expect(schedule.stage).to eq(1)
+          expect(schedule.next_due_at).to eq(Time.zone.parse("2026-10-25 15:00:00 UTC") + 2.days)
+        end
+      end
+    end
+
+    it "counts distinct days inside the run: correct Mon, Mon, Tue reads stage 2" do
+      travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+        mistake = create(:mistake_entry, user: user, created_at: Time.zone.parse("2026-10-20 09:00:00 UTC"))
+        question = mistake.question
+        [ "2026-10-21 09:00", "2026-10-21 18:00", "2026-10-22 09:00" ].each do |at|
+          create(:evidence_record, user: user, question: question, node: question.node, outcome: "correct",
+                                   created_at: Time.zone.parse("#{at}:00 UTC"))
+        end
+
+        scan
+
+        schedule = schedule_for(mistake)
+        aggregate_failures do
+          expect(schedule.stage).to eq(2)
+          expect(schedule.next_due_at).to eq(Time.zone.parse("2026-10-22 09:00:00 UTC") + 4.days)
         end
       end
     end
@@ -155,7 +262,7 @@ RSpec.describe Requeue::ScanDueItemsCommand do
       end
     end
 
-    it "resurfaces a capped mistake sooner than an easy flashcard (7d cap < 10d)" do
+    it "resurfaces a same-day-ground mistake sooner than an easy flashcard (guard keeps the ladder honest: 2d rung < 10d)" do
       travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
         anchor = Time.zone.parse("2026-10-28 12:00:00 UTC")
         mistake = create(:mistake_entry, user: user, created_at: anchor)
@@ -168,7 +275,10 @@ RSpec.describe Requeue::ScanDueItemsCommand do
 
         scan
 
-        expect(schedule_for(mistake).next_due_at).to be < schedule_for(easy_card).next_due_at # 7d < 10d
+        # The burst reads stage 1 (same-day guard), so the mistake sits at the
+        # 2d rung from the latest evidence — still ahead of the easy card's 10d.
+        expect(schedule_for(mistake).stage).to eq(1)
+        expect(schedule_for(mistake).next_due_at).to be < schedule_for(easy_card).next_due_at
       end
     end
   end

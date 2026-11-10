@@ -20,11 +20,13 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, Layers, Play } from "lucide-react";
+import { ChevronDown, Download, Layers, Play } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useFlashcardDecksHubQuery, useTasksQuery, type HubDeckView } from "@/api";
+import { useFlashcardDecksHubQuery, useFlashcardExportLazyQuery, useTasksQuery, type HubDeckView } from "@/api";
 import { localeTag } from "@/features/plans";
+import { downloadTextFile } from "@/lib/download";
 import { cn } from "@/lib/utils";
 import PageLoader from "@/components/shared/PageLoader";
 
@@ -101,12 +103,29 @@ function DeckGroupSection({
 }
 
 /** One deck row: material title (the deck), origin chip, card count, created
- * date, and the study deep link (honestly absent without an origin). */
+ * date, the study deep link (honestly absent without an origin), and the
+ * Anki export action (epic-31 T4 — the file lands as a local download;
+ * a failed read toasts, never a silent nothing). */
 function DeckRow({ deck, taskTitle }: { deck: HubDeckView; taskTitle: (taskId: string) => string }) {
   const { t, language } = useLanguage();
   const originLabel = deck.taskId ? taskTitle(deck.taskId) : deck.planTitle ?? deck.planId;
   const studyHref = deckStudyHref(deck);
   const dateLabel = new Date(deck.createdAt).toLocaleDateString(localeTag(language));
+  const [exportDeck, { loading: exporting }] = useFlashcardExportLazyQuery();
+
+  const exportAnki = async () => {
+    try {
+      const result = await exportDeck({ variables: { materialId: deck.materialId } });
+      const text = result.data?.flashcardExport;
+      if (!text) {
+        toast.error(t("flashcards.hub.exportFailed"));
+        return;
+      }
+      downloadTextFile(`synapse-flashcards-${deck.materialTitle}.txt`, text);
+    } catch {
+      toast.error(t("flashcards.hub.exportFailed"));
+    }
+  };
 
   return (
     <article className="bg-card border border-border-soft rounded-2xl p-5 shadow-raised">
@@ -120,16 +139,29 @@ function DeckRow({ deck, taskTitle }: { deck: HubDeckView; taskTitle: (taskId: s
           <Layers className="w-3 h-3" aria-hidden="true" />
           {t("flashcards.hub.cardCount", { n: deck.cardCount })}
         </span>
-        {studyHref && (
-          <Link
-            to={studyHref}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={t("flashcards.hub.studyAria", { deck: deck.materialTitle })}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-testid={`anki-export-${deck.materialId}`}
+            onClick={() => void exportAnki()}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            aria-label={t("flashcards.hub.exportAria", { deck: deck.materialTitle })}
           >
-            <Play className="w-3.5 h-3.5" aria-hidden="true" />
-            {t("flashcards.hub.study")}
-          </Link>
-        )}
+            <Download className="w-3.5 h-3.5" aria-hidden="true" />
+            {t("flashcards.hub.export")}
+          </button>
+          {studyHref && (
+            <Link
+              to={studyHref}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:shadow-brand-hover hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t("flashcards.hub.studyAria", { deck: deck.materialTitle })}
+            >
+              <Play className="w-3.5 h-3.5" aria-hidden="true" />
+              {t("flashcards.hub.study")}
+            </Link>
+          )}
+        </div>
       </div>
     </article>
   );

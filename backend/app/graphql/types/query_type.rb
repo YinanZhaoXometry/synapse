@@ -284,7 +284,7 @@ module Types
       # is epic-09's call if the hub ever needs one (AD-12: not preempted).
       current_user!.requeue_schedules
                    .where(next_due_at: ..day_end)
-                   .order(:next_due_at)
+                   .review_order
                    .includes(:schedulable)
                    .select { |schedule| schedule.schedulable }
     end
@@ -314,6 +314,21 @@ module Types
 
     def flashcard_decks_hub
       Hubs.flashcard_decks(current_user!)
+    end
+
+    field :flashcard_export, String, null: true,
+      description: "One material's flashcard deck as an Anki text-import file (epic-31 T4): Anki 2.1.55+ headers + one tab-separated row per card, deck `Synapse::<material title>`, GUID = stable content hash so a re-import updates existing notes instead of duplicating them. An unknown, foreign, or malformed material id is uniformly NOT_FOUND; an empty deck is a headers-only file, not an error." do
+      argument :material_id, String, required: true, description: "The material's uuid."
+    end
+
+    def flashcard_export(material_id:)
+      material = nil
+      if material_id.to_s.match?(Accounts::UUID_REGEX)
+        material = current_user!.materials.find_by(id: material_id)
+      end
+      return not_found("material not found") unless material
+
+      AnkiExport.for_material(material)
     end
 
     field :quiz_history_hub, [ Types::QuizHistoryEntryType ], null: false,

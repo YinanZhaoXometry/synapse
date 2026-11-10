@@ -66,6 +66,21 @@ RSpec.describe "GraphQL dueItems query (epic P2-7 ticket 03)", type: :request do
     end
   end
 
+  it "breaks a due-time tie mistakes first (epic-31: the weak spot gets the freshest attention)" do
+    travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+      # A fresh mistake is due created_at + 1d; an unrated card is due exactly
+      # at its updated_at — set the card one day later so BOTH fall due at the
+      # same instant, then the mistake must lead.
+      create(:mistake_entry, user: user, created_at: Time.current)
+      create(:flashcard, user: user, updated_at: 1.day.from_now)
+      Requeue::ScanDueItemsCommand.call
+    end
+
+    result = due_items_query(date: 3.days.from_now.iso8601)
+
+    expect(result.dig("data", "dueItems").map { |i| i["itemType"] }).to eq(%w[mistake flashcard])
+  end
+
   it "keeps overdue items due (the window is inclusive — due by the day's END answers)" do
     travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
       card = create(:flashcard, user: user, difficulty: "hard", updated_at: Time.current)

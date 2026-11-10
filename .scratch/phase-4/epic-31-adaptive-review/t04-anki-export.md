@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (serializes the two schema.graphql movers in this epic).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 - [ ] New GraphQL query returns the export text for a material's deck; unknown material → the closed error enum's NOT_FOUND; empty deck → valid headers-only file (not an error)
 - [ ] Exact TSV format pinned by request specs: the five Anki header lines, tab-separated rows, deck naming, tag slug, field sanitization (tabs/newlines stripped from fields)

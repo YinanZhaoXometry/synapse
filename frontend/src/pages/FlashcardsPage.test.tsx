@@ -21,8 +21,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { createStubClient, makeStubWrapper } from "@/test/apollo-harness";
@@ -222,5 +223,49 @@ describe("FlashcardsPage — the hub re-point (FR-41, epic P2-09 T4)", () => {
     const demoData = readFileSync(resolve(process.cwd(), "src/lib/demo-data.ts"), "utf8");
     expect(demoData).not.toContain("FLASHCARDS");
     expect(demoData).not.toContain("Flashcard");
+  });
+});
+
+describe("FlashcardsPage — the deck's Anki export (epic-31 T4)", () => {
+  it("downloads the export file for the deck's material (query → local .txt)", async () => {
+    const user = userEvent.setup();
+    const createdBlob = vi.fn(() => "blob:stub");
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: createdBlob, revokeObjectURL: vi.fn() }));
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const createSpy = vi.spyOn(document, "createElement");
+    const handlers = {
+      ...hubHandlers([deck({ materialId: "m-plan-1", materialTitle: "复习讲义.md", planId: PLAN_1, planTitle: "软工备考", cardCount: 12 })]),
+      FlashcardExport: vi.fn(() => ({ flashcardExport: "#separator:tab\n#html:true\nrow\there" })),
+    };
+
+    renderFlashcardsPage(handlers);
+    expect(await screen.findByText("复习讲义.md")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: zh("flashcards.hub.exportAria").replace("{deck}", "复习讲义.md") }));
+
+    await vi.waitFor(() => expect(clickSpy).toHaveBeenCalled());
+    const anchor = createSpy.mock.results
+      .map((r) => r.value)
+      .filter((el): el is HTMLAnchorElement => el instanceof HTMLAnchorElement)
+      .find((a) => a.download) as HTMLAnchorElement;
+    expect(anchor.download).toBe("synapse-flashcards-复习讲义.md.txt");
+    expect(createdBlob).toHaveBeenCalled();
+    // jsdom's Blob internals aren't inspectable (the epic-26 lesson) — the
+    // payload law lives server-side (the request spec); here the wire contract:
+    // the right material went out, a Blob reached the download seam.
+    expect(handlers.FlashcardExport.mock.calls[0][0]).toEqual({ materialId: "m-plan-1" });
+    expect(createdBlob).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    clickSpy.mockRestore();
+    createSpy.mockRestore();
+  });
+
+  it("keeps the study link and the export action side by side (the row's two actions)", async () => {
+    renderFlashcardsPage(hubHandlers([deck({ materialId: "m-plan-1", materialTitle: "复习讲义.md", planId: PLAN_1, planTitle: "软工备考", cardCount: 12 })]));
+
+    expect(await screen.findByText("复习讲义.md")).toBeTruthy();
+    expect(screen.getByRole("link", { name: zh("flashcards.hub.studyAria").replace("{deck}", "复习讲义.md") })).toBeTruthy();
+    expect(screen.getByRole("button", { name: zh("flashcards.hub.exportAria").replace("{deck}", "复习讲义.md") })).toBeTruthy();
   });
 });

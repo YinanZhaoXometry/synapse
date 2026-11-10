@@ -26,7 +26,7 @@ module Types
 
     field :stage, Int,
           null: false,
-          description: "The schedule's ladder stage (mistakes advance on consecutive correct answers; flashcards stay 0 — the rating picks their interval)."
+          description: "The schedule's ladder stage (mistakes advance on distinct-UTC-day correct answers — epic-31's same-day guard; flashcards carry their easy-streak stage from the self-rating — epic-31's geometric ladders)."
 
     field :title, String,
           null: false,

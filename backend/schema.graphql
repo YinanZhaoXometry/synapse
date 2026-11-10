@@ -1334,8 +1334,9 @@ type DueItem {
   sourceLocation: ReadingLocator
 
   """
-  The schedule's ladder stage (mistakes advance on consecutive correct answers;
-  flashcards stay 0 — the rating picks their interval).
+  The schedule's ladder stage (mistakes advance on distinct-UTC-day correct
+  answers — epic-31's same-day guard; flashcards carry their easy-streak stage
+  from the self-rating — epic-31's geometric ladders).
   """
   stage: Int!
 
@@ -3780,6 +3781,20 @@ type Query {
   card counts ride each row. A plain list (AD-12).
   """
   flashcardDecksHub: [FlashcardDeckSummary!]!
+
+  """
+  One material's flashcard deck as an Anki text-import file (epic-31 T4): Anki
+  2.1.55+ headers + one tab-separated row per card, deck `Synapse::<material
+  title>`, GUID = stable content hash so a re-import updates existing notes
+  instead of duplicating them. An unknown, foreign, or malformed material id is
+  uniformly NOT_FOUND; an empty deck is a headers-only file, not an error.
+  """
+  flashcardExport(
+    """
+    The material's uuid.
+    """
+    materialId: String!
+  ): String
 
   """
   The current user's flashcards — scoped to one material (the

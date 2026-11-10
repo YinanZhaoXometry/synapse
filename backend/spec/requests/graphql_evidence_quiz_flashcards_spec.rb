@@ -242,6 +242,49 @@ RSpec.describe "GraphQL evidence + quiz + flashcard operations (epic P2-3 ticket
       expect(payload["mistakes"].first["forfeited"]).to be(true)
     end
 
+    describe "epic-31: wrong or partial re-opens resolved mistakes (correct never touches them)" do
+      def record_one(token, session, question, outcome)
+        graphql(
+          "mutation { recordEvidence(input: { sessionId: \"#{session.id}\", results: " \
+            "[{ questionId: \"#{question.id}\", outcome: \"#{outcome}\", userAnswer: \"again\", forfeited: false }] }) " \
+            "{ session { status } } }",
+          token: token
+        )
+      end
+
+      it "flips resolved back to false on wrong and partial" do
+        %w[wrong partial].each do |outcome|
+          user, token = user_with_token("mistake-reopener-#{outcome}@example.com")
+          session = create(:quiz_session, user: user)
+          question = create(:question, user: user, session: session)
+          mistake = create(:mistake_entry, user: user, question: question).tap { |m| m.update!(resolved: true) }
+
+          result = record_one(token, session, question, outcome)
+          expect(error_code(result)).to be_nil
+
+          aggregate_failures do
+            expect(mistake.reload.resolved).to be(false), "#{outcome} must re-open"
+            # wrong additionally logs a NEW mistake entry; partial only re-opens.
+            expect(user.mistake_entries.count).to eq(outcome == "wrong" ? 2 : 1)
+          end
+        end
+      end
+
+      it "keeps a resolved mistake resolved when the answer is correct" do
+        user, token = user_with_token("mistake-keeper@example.com")
+        session = create(:quiz_session, user: user)
+        question = create(:question, user: user, session: session)
+        mistake = create(:mistake_entry, user: user, question: question).tap { |m| m.update!(resolved: true) }
+
+        record_one(token, session, question, "correct")
+
+        aggregate_failures do
+          expect(mistake.reload.resolved).to be(true)
+          expect(user.mistake_entries.count).to eq(1) # no new mistake on correct
+        end
+      end
+    end
+
     it "returns the touched nodes and the owning plan with their FRESH scores (epic P2-10 T3 — the live-update payload)" do
       user, token = user_with_token("evidence-fresh-nodes@example.com")
       plan = create(:study_plan, user: user)
@@ -565,6 +608,67 @@ RSpec.describe "GraphQL evidence + quiz + flashcard operations (epic P2-3 ticket
       # The evidence table is untouched by design — the one pre-existing quiz row is all there is.
       expect(user.evidence_records.count).to eq(1)
       expect(card.reload.difficulty).to eq("medium")
+    end
+
+    describe "epic-31: the rating maintains the ladder stage" do
+      # Sequential non-block travel_to (TimeHelpers refuses nested block form);
+      # stage is asserted through the reloaded row (the wire payload stays
+      # difficulty-only — the interval is the user-visible shape).
+      include ActiveSupport::Testing::TimeHelpers
+
+      after { travel_back }
+
+      it "climbs the easy streak one rung per UTC day, capped at the ladder's end" do
+        user, token = user_with_token("stage-climber@example.com")
+        card = create(:flashcard, user: user)
+        rate = -> { graphql("mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"easy\" }) { flashcard { id } } }", token: token) }
+
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(0) # the first easy sits at the base rung
+
+        travel_to(Time.zone.parse("2026-11-02 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(1)
+
+        travel_to(Time.zone.parse("2026-11-03 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(2)
+
+        travel_to(Time.zone.parse("2026-11-04 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(2) # capped at the ladders' last index
+      end
+
+      it "holds the rung on a same-day easy (the anti-grind guard) and on medium" do
+        user, token = user_with_token("stage-holder@example.com")
+        card = create(:flashcard, user: user, difficulty: "easy", stage: 1, updated_at: Time.zone.parse("2026-11-01 09:00:00 UTC"))
+        rate = ->(d) { graphql("mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"#{d}\" }) { flashcard { id } } }", token: token) }
+
+        travel_to(Time.zone.parse("2026-11-01 18:00:00 UTC"))
+        rate.call("easy")
+        expect(card.reload.stage).to eq(1) # same UTC day — no climb
+
+        travel_to(Time.zone.parse("2026-11-02 09:00:00 UTC"))
+        rate.call("medium")
+        expect(card.reload.stage).to eq(1) # medium holds
+
+        rate.call("easy")
+        expect(card.reload.stage).to eq(1) # easy after a medium does NOT climb (Q7: streak broken)
+      end
+
+      it "resets on hard and keeps the next easy at the base rung (no 2d→20d cliff — Q7)" do
+        user, token = user_with_token("stage-resetter@example.com")
+        card = create(:flashcard, user: user, difficulty: "easy", stage: 2, updated_at: Time.zone.parse("2026-11-01 09:00:00 UTC"))
+        rate = ->(d) { graphql("mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"#{d}\" }) { flashcard { id } } }", token: token) }
+
+        travel_to(Time.zone.parse("2026-11-02 09:00:00 UTC"))
+        rate.call("hard")
+        expect(card.reload.stage).to eq(0)
+
+        rate.call("easy")
+        expect(card.reload.stage).to eq(0) # first easy after a hard sits at the base rung
+      end
     end
 
     it "answers NOT_FOUND for a foreign card id (delta 2)" do

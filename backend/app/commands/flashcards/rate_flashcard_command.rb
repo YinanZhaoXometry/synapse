@@ -28,11 +28,31 @@ module Flashcards
         return Failure(:VALIDATION_FAILED, { message: "difficulty is invalid", field: :difficulty })
       end
 
-      card.update!(difficulty: difficulty)
+      card.update!(difficulty: difficulty, stage: next_stage(card))
       Success(flashcard: card)
     end
 
     private
+
+    # Epic-31 T2: the stage rides the rating write (the interval ladders'
+    # easy-streak counter). Easy climbs ONLY on an easy streak — each ladder
+    # restarts at its base, so a climb off a non-easy rating would jump the
+    # interval (hard 2d → easy 20d off one rating; Q7 in the epic's
+    # delta-grill) — and honors the same-day guard: one rung per UTC day,
+    # reading the card's updated_at (the previous rating moment) BEFORE the
+    # overwrite. Hard resets; medium holds. The cap matches the ladders'
+    # last index; the scan clamps again defensively.
+    def next_stage(card)
+      case difficulty.to_s
+      when "hard"
+        0
+      when "medium"
+        card.stage
+      else # easy
+        climbs = card.difficulty == "easy" && card.updated_at&.utc&.to_date != Time.current.utc.to_date
+        climbs ? [ card.stage + 1, Requeue::FLASHCARD_LADDERS["easy"].length - 1 ].min : card.stage
+      end
+    end
 
     def card_not_found
       Failure(:NOT_FOUND, { message: "flashcard not found" })

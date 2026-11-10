@@ -12,4 +12,18 @@
 class RequeueSchedule < ApplicationRecord
   belongs_to :user
   belongs_to :schedulable, polymorphic: true, optional: true
+
+  # The review queue's order (epic-31 T3), shared by the dueItems query and
+  # the Today hub's due slice: due date ascending — an overdue item
+  # resurfaces first — with same-instant ties breaking MISTAKES before
+  # flashcards (the known weak spot gets the freshest attention; the
+  # discrete form of DeepTutor's active-error bonus, comparison §3.7), then
+  # id for determinism.
+  scope :review_order, -> {
+    order(Arel.sql(<<~SQL.squish))
+      next_due_at ASC,
+      CASE WHEN schedulable_type = 'MistakeEntry' THEN 0 ELSE 1 END ASC,
+      schedulable_id ASC
+    SQL
+  }
 end
