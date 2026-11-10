@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AllEvidenceDocument,
   CreateMaterialUploadDocument,
+  DeleteTaskDocument,
   FlashcardsByMaterialDocument,
   MaterialsDocument,
   PromoteTaskToPlanDocument,
@@ -71,6 +72,7 @@ const parseSeam = vi.hoisted(() => ({ bound: [] as unknown[], calls: [] as strin
 // The promote mutation's captured inputs (epic-14 T2): the page mints the
 // client uuid — the seam asserts the wire contract (task id + uuid shape).
 const promoteSeam = vi.hoisted(() => ({ inputs: [] as Array<{ taskId: string; clientUuid: string }> }));
+const deleteSeam = vi.hoisted(() => ({ inputs: [] as string[] }));
 
 vi.mock("@/features/reader", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/features/reader")>();
@@ -263,6 +265,21 @@ function homeMocks(options: HomeOptions = {}) {
       },
       maxUsageCount: 5,
     },
+    {
+      // The delete mutation (epic-28 T4): the mock captures the addressed id
+      // and answers the cache-eviction payload.
+      request: {
+        query: DeleteTaskDocument,
+        variables: (vars: { input: { id: string } }) => {
+          deleteSeam.inputs.push(vars.input.id);
+          return true;
+        },
+      },
+      result: {
+        data: { __typename: "Mutation", deleteTask: { __typename: "DeleteTaskPayload", deletedTaskId: TASK_ID } },
+      },
+      maxUsageCount: 5,
+    },
   ];
 }
 
@@ -320,6 +337,7 @@ beforeEach(() => {
   parseSeam.bound.length = 0;
   parseSeam.calls.length = 0;
   promoteSeam.inputs.length = 0;
+  deleteSeam.inputs.length = 0;
 });
 
 afterEach(() => {
@@ -566,5 +584,34 @@ describe("TaskHomePage (FR-37; ADR-0001; AD-6/8)", () => {
     // created plan — Task Home (and its promote entry) is gone with it.
     expect(await screen.findByTestId("plan-landing")).toBeInTheDocument();
     expect(screen.queryByTestId("task-promote-button")).not.toBeInTheDocument();
+  });
+});
+
+describe("TaskHomePage — task deletion (epic-28 T4)", () => {
+  it("cancel is a true no-op: the page keeps everything, no wire call", async () => {
+    renderTaskHome();
+    fireEvent.click(await screen.findByTestId("task-delete-button"));
+    expect(await screen.findByText(zh("tasks.deleteTitle"))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("task-delete-cancel"));
+    await waitFor(() => expect(screen.queryByText(zh("tasks.deleteTitle"))).not.toBeInTheDocument());
+    // the page never moved and the seam stayed empty — cancel consumed nothing
+    expect(screen.queryByTestId("plans-landing")).not.toBeInTheDocument();
+    expect(deleteSeam.inputs).toHaveLength(0);
+  });
+
+  it("confirm fires the cascade exactly once: the success toast rides the landing back on Plans Home", async () => {
+    renderTaskHome();
+    fireEvent.click(await screen.findByTestId("task-delete-button"));
+    fireEvent.click(await screen.findByTestId("task-delete-confirm"));
+
+    // the addressed id is the task's — exactly one wire call (epic-28 T4's
+    // single-flight gating contract)
+    await waitFor(() => expect(deleteSeam.inputs).toEqual([TASK_ID]));
+
+    // the key-path voice + the hand-off route (the row is gone; Plans Home
+    // owns the next view)
+    expect(await screen.findByText(zh("tasks.deleteSuccess"))).toBeInTheDocument();
+    expect(await screen.findByTestId("plans-landing")).toBeInTheDocument();
   });
 });

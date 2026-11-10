@@ -10,6 +10,7 @@ import {
   AppendChatMessageDocument,
   ChatThreadDocument,
   CreateTaskDocument,
+  DeleteTaskDocument,
   MaterialsDocument,
   PlanChatThreadDocument,
   PlansDocument,
@@ -48,6 +49,27 @@ export function useCreateTaskMutation() {
   return useMutation(CreateTaskDocument, {
     // payload writes task + node; the list + the material's back-link need the sweep.
     refetchQueries: [TasksDocument, MaterialsDocument],
+  });
+}
+
+/**
+ * Delete a study task (epic-28 T4): the server cascade removes the task,
+ * its material + auto-node, and every dependent row — sweep the surfaces
+ * that aggregated across tasks (the task list, the materials library, the
+ * reading-progress list) and evict the task entity so nothing dead lingers.
+ * Success/failure toasts live at the call sites (the destructive-confirm
+ * flows own their copy).
+ */
+export function useDeleteTaskMutation() {
+  return useMutation(DeleteTaskDocument, {
+    refetchQueries: [TasksDocument, MaterialsDocument, ReadingProgressListDocument],
+    update(cache, { data }) {
+      const deletedTaskId = data?.deleteTask.deletedTaskId;
+      if (deletedTaskId) {
+        cache.evict({ id: cache.identify({ __typename: "StudyTask", id: deletedTaskId }) });
+        cache.gc();
+      }
+    },
   });
 }
 

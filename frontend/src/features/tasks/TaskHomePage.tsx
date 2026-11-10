@@ -22,16 +22,27 @@
  */
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowUpRight, BookOpen, FileText, Layers, ListChecks, RotateCw, Sparkles, Upload } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BookOpen, FileText, Layers, ListChecks, RotateCw, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   newClientUuid,
   sessionBlobs,
   useAllEvidenceQuery,
+  useDeleteTaskMutation,
   useFlashcardsByMaterialQuery,
   useMaterialUpload,
   usePromoteTaskToPlanMutation,
@@ -73,6 +84,12 @@ export default function TaskHomePage() {
   // (the hook's refetch) brings it into 我要学.
   const promote = usePromoteTaskToPlanMutation();
   const [promoteOpen, setPromoteOpen] = useState(false);
+  // FR-37 deletion half (epic-28 T4): the destructive confirm — the strong
+  // gate before the cascade (a plan-free task takes its material, node and
+  // records; a promoted pointer takes only itself and its task-scope
+  // history). The dialog owns the copy; the backend owns the enforcement.
+  const [deleteTask] = useDeleteTaskMutation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (taskQuery.loading || materialsQuery.loading || evidenceQuery.loading || cardsQuery.loading) return <PageLoader />;
   const task = taskQuery.data;
@@ -194,20 +211,36 @@ export default function TaskHomePage() {
           <h1 className="page-title mt-1.5">{title}</h1>
           {/* FR-37 stretch (epic-14 T2): the promote entry — a confirm-gated
               product action (the content becomes a standalone plan). A
-              promoted task never sees it (the pointer card replaces it). */}
-          {!promoted && (
+              promoted task never sees it (the pointer card replaces it).
+              Beside it, the deletion half (epic-28 T4): destructive, always
+              confirm-gated — a promoted pointer deletes too (the pointer
+              cut), which is why the affordance outlives the promote button. */}
+          <div className="mt-2 flex items-center gap-2">
+            {!promoted && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid="task-promote-button"
+                className="gap-1.5 rounded-full"
+                onClick={() => setPromoteOpen(true)}
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                {t("tasks.promoteAction")}
+              </Button>
+            )}
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              data-testid="task-promote-button"
-              className="mt-2 gap-1.5 rounded-full"
-              onClick={() => setPromoteOpen(true)}
+              data-testid="task-delete-button"
+              aria-label={t("tasks.deleteAria")}
+              className="gap-1.5 rounded-full text-muted-foreground hover:text-danger-ink hover:bg-[var(--glass-4)]"
+              onClick={() => setDeleteOpen(true)}
             >
-              <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
-              {t("tasks.promoteAction")}
+              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
             </Button>
-          )}
+          </div>
         </div>
         <div>
           <MasteryRing value={view.score} size={72} />
@@ -356,6 +389,42 @@ export default function TaskHomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* FR-37 deletion half (epic-28 T4): the strong confirm before the
+          cascade — the body names what goes with the task; the destructive
+          action is the only red button on this surface. Success lands back
+          on Plans Home (the row is gone); failure toasts through the
+          mutation's own error mapping and keeps the page for a retry. */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="bg-card border border-border rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">{t("tasks.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("tasks.deleteBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="task-delete-cancel" className="rounded-xl bg-[var(--glass-4)] border border-border text-sm cursor-pointer">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="task-delete-confirm"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl text-sm font-semibold cursor-pointer"
+              onClick={() => {
+                if (!task) return;
+                deleteTask({
+                  variables: { input: { id: task.id } },
+                  onCompleted: () => {
+                    toast.success(t("tasks.deleteSuccess"));
+                    navigate("/plans");
+                  },
+                  onError: () => toast.error(t("tasks.deleteFailed")),
+                });
+              }}
+            >
+              {t("tasks.deleteConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* T4: the quiz launcher — mode select only (the single material IS the
           scope). On success the route carries the session id (resumable); the
