@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately; code-disjoint from epics 29-32).
 
-**Status:** in-progress — claimed 2026-11-11 (epic-33 agent run, worktree `project-new-epic33-nav-discovery`, branch `epic/p4-33-nav-discovery`)
+**Status:** done — shipped in PR #29 @ `bcf39ea` (2026-11-11). Companion child rows parked: the schema carries no cheap has-companion-activity signal; adding one grew past trivial → rows-only shipped (epic Q2's fallback branch).
 
 - [ ] 学习 group renders up to 6 recent plans from `usePlansQuery` (createdAt desc — Q1), each linking to `/plan/:id`, plus a 查看全部 row → `/plans`
 - [ ] Plan row shows the plan topic and the server `masteryScore` chip; nothing recomputes mastery client-side (AD-14)
