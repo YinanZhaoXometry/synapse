@@ -88,6 +88,9 @@ export const translations = {
       'nav.userMenu': '账户菜单',
       'nav.menu': '打开导航',
       'nav.primary': '主导航',
+      'nav.plansRecent': '最近计划',
+      'nav.plansViewAll': '查看全部',
+      'nav.planMastery': '掌握度 {n}%',
 
       'onboarding.welcomeEyebrow': '欢迎来到 Synapse',
       'onboarding.welcomeTitle': '你的知识，会在这里连成一片。',
@@ -721,6 +724,8 @@ export const translations = {
       'command.noResults': '没有匹配的结果',
       'command.groupActions': '操作',
       'command.toggleLanguage': '切换到 English',
+      'command.entityCount': '{name}（{n}）',
+      'command.untitledTask': '未命名任务',
 
       // Study Tasks (epic-5 T1 — task creation flow, FR-37)
       'tasks.eyebrow': '学习任务',
@@ -1090,6 +1095,9 @@ export const translations = {
       'nav.userMenu': 'Account menu',
       'nav.menu': 'Open navigation',
       'nav.primary': 'Primary',
+      'nav.plansRecent': 'Recent plans',
+      'nav.plansViewAll': 'View all',
+      'nav.planMastery': 'Mastery {n}%',
 
       'onboarding.welcomeEyebrow': 'Welcome to Synapse',
       'onboarding.welcomeTitle': 'Your knowledge, connected.',
@@ -1725,6 +1733,8 @@ export const translations = {
       'command.noResults': 'No matching results',
       'command.groupActions': 'Actions',
       'command.toggleLanguage': 'Switch to 中文',
+      'command.entityCount': '{name} ({n})',
+      'command.untitledTask': 'Untitled task',
 
       // Study Tasks (epic-5 T1 — task creation flow, FR-37)
       'tasks.eyebrow': 'Study Tasks',

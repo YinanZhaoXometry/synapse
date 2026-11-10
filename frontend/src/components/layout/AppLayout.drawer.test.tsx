@@ -13,6 +13,10 @@ import { installPointerEventShim } from "@/test/pointer-event-shim";
 vi.mock("@/api", () => ({
   useStreakQuery: () => ({ data: undefined }),
   useMeQuery: () => ({ data: undefined }),
+  // The plan records tree (epic-33 T1) rides the same honest-empty posture:
+  // data: undefined renders no rows, the drawer's fixed links stay the
+  // contract under test (its own tree tests live in SidebarPlanTree.test.tsx).
+  usePlansQuery: () => ({ data: undefined }),
 }));
 // The palette is mounted beside the drawer but is its own surface (⌘K tests
 // live elsewhere) — render it out so `role="dialog"` stays the drawer's alone.
