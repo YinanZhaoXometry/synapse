@@ -295,8 +295,15 @@
   .chat-prose h2 { font-size: 1.15em; }
   .chat-prose h3 { font-size: 1.05em; }
   .chat-prose h4, .chat-prose h5, .chat-prose h6 { font-size: 1em; }
+  /* Tailwind preflight resets list-style globally — restore markers here or
+     lists render as bare undifferentiated lines (owner bug round 2026-11-10). */
   .chat-prose ul, .chat-prose ol { margin: 0.5em 0; padding-inline-start: 1.4em; }
+  .chat-prose ul { list-style-type: disc; }
+  .chat-prose ol { list-style-type: decimal; }
+  .chat-prose ul ul { list-style-type: circle; }
+  .chat-prose ul ul, .chat-prose ul ol, .chat-prose ol ul, .chat-prose ol ol { margin: 0.15em 0; }
   .chat-prose li { margin: 0.2em 0; }
+  .chat-prose li::marker { color: hsl(var(--muted-foreground)); }
   .chat-prose li > p { margin: 0.15em 0; }
   .chat-prose code {
     background: var(--glass-3);

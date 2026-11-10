@@ -228,4 +228,54 @@ describe("CompanionPanel — the quiz thread (epic-24 T4)", () => {
     await waitFor(() => expect(screen.getByTestId("companion-quiz-block")).not.toBeNull());
     expect(screen.queryByTestId("companion-quiz-generating")).toBeNull();
   });
+
+  it("a drift reply whose payload arrives BARE (no fence) still renders the interactive block", async () => {
+    // The owner's 2026-11-10 report: the live model dropped the fence and the
+    // raw JSON rode the reply tail as visible text.
+    const bare = `好，考你一题：\n\n${JSON.stringify(CHOICE_QUIZ)}`;
+    setCompanionService(
+      serviceReplyingWith({ ...replyWithQuiz(CHOICE_QUIZ), text: bare }),
+    );
+    renderPanel();
+    const user = await askQuizMe();
+
+    // the payload never shows as raw text — the lead prose does, the block mounts
+    expect(screen.queryByText(/"kind"/)).toBeNull();
+    expect(screen.getByTestId("companion-quiz-block")).not.toBeNull();
+    expect(screen.getByText("好，考你一题：")).not.toBeNull();
+
+    // and the salvaged block is fully interactive
+    await user.click(screen.getByTestId("quiz-block-option-1"));
+    await user.click(screen.getByTestId("quiz-block-submit"));
+    expect(screen.getByTestId("quiz-block-verdict")).toHaveTextContent(zhDict["companion.quizCorrect"]);
+  });
+
+  it("a drift reply streams bare JSON without flashing it — 出题中 shows instead", async () => {
+    const bareFence = `好，考你一题：\n\n${JSON.stringify(CHOICE_QUIZ)}`;
+    let resolveChat: ((reply: CompanionReply) => void) | null = null;
+    const service: CompanionService = {
+      chat: (_request: GroundedChatRequest, onToken) =>
+        new Promise<CompanionReply>((resolve) => {
+          resolveChat = resolve;
+          onToken?.(bareFence.slice(0, 30)); // mid-payload snapshot
+        }),
+      planChat: vi.fn(),
+      generatePlanStructure: vi.fn(),
+      generateQuiz: vi.fn(),
+      generateFlashcards: vi.fn(),
+      gradeOpenAnswer: vi.fn(),
+    };
+    setCompanionService(service);
+    renderPanel();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: zhDict["companion.starterQuiz"] }));
+
+    await waitFor(() => expect(screen.getByTestId("companion-quiz-generating")).not.toBeNull());
+    expect(screen.queryByText(new RegExp(CHOICE_QUIZ.options[0]!))).toBeNull(); // no payload flash
+    expect(screen.queryByText(/"kind"/)).toBeNull();
+
+    resolveChat?.({ ...replyWithQuiz(CHOICE_QUIZ), text: bareFence });
+    await waitFor(() => expect(screen.getByTestId("companion-quiz-block")).not.toBeNull());
+  });
 });

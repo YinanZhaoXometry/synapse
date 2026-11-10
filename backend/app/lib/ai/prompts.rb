@@ -53,6 +53,8 @@ module Ai
       ("answer" is the 0-based index of the correct option; "keywords" are 2–3 terms a good short
       answer must use.) Write the question in the reply language. One short lead-in line may
       precede the block — never reveal the answer or explanation outside the block.
+      The fence is MANDATORY: never write the JSON as bare text in the reply — a payload not
+      wrapped in the synapse-quiz fence is a protocol violation, even when the JSON itself is perfect.
     RULE
 
     # The proposal's materials-block budget (epic-27): the proposal reads the

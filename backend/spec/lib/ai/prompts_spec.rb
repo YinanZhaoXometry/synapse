@@ -127,6 +127,9 @@ RSpec.describe Ai::Prompts do
         expect(content).to include('"kind":"short"')
         expect(content).to include("never reveal the answer or explanation outside the block")
         expect(content).to include("ONLY from the material above")
+        # The 2026-11-10 drift round: bare JSON payloads were reaching the
+        # client — the fence is now stated as mandatory, not just implied.
+        expect(content).to include("never write the JSON as bare text")
       end
     end
   end

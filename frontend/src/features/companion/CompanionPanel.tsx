@@ -38,7 +38,7 @@ import { useEffect, useRef, useState, type MutableRefObject, type RefObject } fr
 import { useNavigate } from "react-router-dom";
 import { BookmarkMinus, Check, RotateCw, Send, Sparkles } from "lucide-react";
 import type { CompanionReply } from "@/ai/types";
-import { splitQuizBlock, leadBeforeQuiz, QUIZ_FENCE_MARKER } from "@/ai/quiz";
+import { splitQuizBlock, leadBeforeQuiz, quizTailArrived } from "@/ai/quiz";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ChatMarkdown from "@/components/shared/chat-markdown";
@@ -242,7 +242,7 @@ function StreamingBubble({
   onJump(locator: ReadingLocator): void;
 }) {
   const { t } = useLanguage();
-  const quizPending = text !== null && text.includes(QUIZ_FENCE_MARKER);
+  const quizPending = text !== null && quizTailArrived(text);
   const shown = text !== null ? leadBeforeQuiz(text) : null;
   return (
     <div className="flex gap-2.5 max-w-[88%] self-start">
