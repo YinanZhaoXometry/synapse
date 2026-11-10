@@ -21,17 +21,22 @@ const Command = React.forwardRef<
 ));
 Command.displayName = CommandPrimitive.displayName;
 
-type CommandDialogProps = DialogProps;
+type CommandDialogProps = DialogProps & { shouldFilter?: boolean };
 
 // Northstar command bar (northstar-reference.html dialog/.cmd-*): 520px surface dialog
 // with a soft scrim, 18px input over a hairline divider, and 15px items on a warm
 // hover tint. `[&>button]:hidden` drops the generic dialog X — the design has no close
 // button on the command bar (Esc closes it).
-const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
+// `shouldFilter` passes through to the cmdk root (epic-33 T2): the palette
+// filters manually so entity caps + count hints stay deterministic.
+const CommandDialog = ({ children, shouldFilter, ...props }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
       <DialogContent className="overflow-hidden p-0 max-w-[520px] gap-0 rounded-2xl border-border-soft bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)] [&>button]:hidden">
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-14 [&_[cmdk-item]]:gap-3 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4">
+        <Command
+          shouldFilter={shouldFilter}
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-14 [&_[cmdk-item]]:gap-3 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4"
+        >
           {children}
         </Command>
       </DialogContent>

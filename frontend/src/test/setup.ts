@@ -53,3 +53,10 @@ if (typeof window.IntersectionObserver === "undefined") {
   (window as unknown as { IntersectionObserver: typeof IntersectionObserver }).IntersectionObserver =
     IntersectionObserverStub as unknown as typeof IntersectionObserver;
 }
+
+// jsdom ships no scrollIntoView either; cmdk's selection scrolling invokes it
+// on every item registration (epic-33 T2's palette). A no-op stub matches the
+// headless reality — the call exists purely to bring the selection on-screen.
+if (typeof Element.prototype.scrollIntoView === "undefined") {
+  Element.prototype.scrollIntoView = () => {};
+}
