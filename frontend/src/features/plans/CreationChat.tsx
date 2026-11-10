@@ -226,6 +226,8 @@ export default function CreationChat() {
         chat.reset();
         setRenames({});
         setCreateVisibility("private");
+        // epic-28 T2: plan landing used to be silent — the key-path toast.
+        toast.success(t("plans.createSuccess"));
         navigate(`/plan/${planId}`);
       },
       onError: () => toast.error(t("plans.createError")),

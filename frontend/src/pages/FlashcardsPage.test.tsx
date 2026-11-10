@@ -207,9 +207,10 @@ describe("FlashcardsPage — the hub re-point (FR-41, epic P2-09 T4)", () => {
     expect(screen.queryByText("观察者模式解决什么问题？")).toBeNull();
   });
 
-  it("renders nothing while the hub read is loading (honest-empty, no flash of stale demo copy)", () => {
+  it("the first paint of a loading page shows the shared PageLoader — never blank, never stale copy (epic-28 T3)", () => {
     const { container } = renderFlashcardsPage(hubHandlers(hubDecks));
-    expect(container.innerHTML).toBe("");
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
     expect(screen.queryByText(zh("flashcards.hub.emptyTitle"))).toBeNull();
   });
 

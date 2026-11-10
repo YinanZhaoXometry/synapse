@@ -2,7 +2,7 @@ import { LogOut, Settings } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { logout } from "@/apollo";
+import { logout, sessionExitUrl } from "@/apollo";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SETTINGS_ROUTE } from "@/components/layout/nav-items";
 import { useSessionIdentity } from "@/components/shared/session-identity";
@@ -40,7 +40,13 @@ export default function UserMenuButton({
 
   const signOut = () => {
     close();
-    void logout().then(() => window.location.replace("/login"));
+    // epic-28 T1: the wall learns where the learner was (?next=) and why
+    // (out=1 → the signed-out toast) — a deep-page logout resumes after login.
+    void logout().then(() => {
+      window.location.replace(
+        sessionExitUrl("signout", window.location.pathname + window.location.search),
+      );
+    });
   };
 
   return (

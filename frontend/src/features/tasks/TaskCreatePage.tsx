@@ -84,8 +84,16 @@ export default function TaskCreatePage() {
     const startTask = (materialId: string) =>
       createTask({
         variables: { input: { clientUuid: newClientUuid(), materialId } },
-        onError: () => setCreating(false),
-        onCompleted: () => navigate(`/read/${materialId}`),
+        // epic-28 T2: both ends of the key path speak — the silent re-enable
+        // on failure was the owner's report.
+        onError: () => {
+          setCreating(false);
+          toast.error(t("tasks.createFailed"));
+        },
+        onCompleted: () => {
+          toast.success(t("tasks.createSuccess"));
+          navigate(`/read/${materialId}`);
+        },
       });
     // A previous attempt already attached the material — retry adopts it.
     if (registeredMaterialId) {
@@ -103,7 +111,10 @@ export default function TaskCreatePage() {
         setAttached(material); // binds the parse seam — the effect parses eagerly
         startTask(material.id);
       })
-      .catch(() => setCreating(false));
+      .catch(() => {
+        setCreating(false);
+        toast.error(t("errors.uploadFailed"));
+      });
   };
 
   return (

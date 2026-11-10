@@ -318,10 +318,11 @@ describe("MistakesPage — the hub re-point (FR-23, epic P2-09 T2)", () => {
     expect(screen.queryByText(/薄弱主题/)).toBeNull();
   });
 
-  it("renders nothing while the hub read is loading (honest-empty, no flash of stale demo copy)", () => {
+  it("the first paint of a loading page shows the shared PageLoader — never blank, never stale copy (epic-28 T3)", () => {
     const { container } = renderMistakesPage(hubHandlers(hubEntries));
     // the stub link resolves on the next tick — the first paint waits
-    expect(container.innerHTML).toBe("");
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
     expect(screen.queryByText(zh("mistakes.emptyTitle"))).toBeNull();
     expect(screen.queryByText("集成测试的主要目的是什么？")).toBeNull();
   });

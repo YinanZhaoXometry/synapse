@@ -288,10 +288,11 @@ describe("MaterialsPage — the server-backed library (epic P3-18 T3)", () => {
     expect(screen.queryByText("请在学习计划或任务中附加材料。")).toBeNull();
   });
 
-  it("renders nothing while the reads are loading (honest-empty, no flash of stale demo copy)", () => {
+  it("the first paint of a loading page shows the shared PageLoader — never blank, never stale copy (epic-28 T3)", () => {
     const { container } = renderMaterials(hubHandlers(materials));
     // the stub link resolves on the next tick — the first paint waits
-    expect(container.innerHTML).toBe("");
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
     expect(screen.queryByText(zh("materials.emptyTitle"))).toBeNull();
     expect(screen.queryByText("Lecture05.pdf")).toBeNull();
   });

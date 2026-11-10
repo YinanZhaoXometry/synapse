@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { getApolloClient, registerStreamTerminator } from "@/apollo";
 import { clearToken, getToken, isLoggedIn, logout, setToken } from "@/apollo";
@@ -155,5 +156,77 @@ describe("the login wall (epic P2-8 T2, AD-15)", () => {
     expect(screen.queryByText(/A 的计划/)).not.toBeInTheDocument();
 
     unsubscribe();
+  });
+});
+
+// -- 3. the session-exit wall (epic-28 T1) ------------------------------------
+//
+// The errorLink tears a dead bearer down to /login?next=<path>&expired=1; the
+// wall must (a) say why (the expiry toast), (b) resume the ?next= path after
+// a successful login, and (c) refuse a non-same-origin next (falls back to
+// the plans home). state.from keeps priority — pinned above.
+
+function wallMount(initialEntry: string) {
+  return render(
+    <MockedProvider
+      mocks={[
+        {
+          request: { query: LoginDocument, variables: { input: { email: "demo@synapse.test", password: "demo-password" } } },
+          result: {
+            data: {
+              __typename: "Mutation",
+              login: {
+                __typename: "LoginPayload",
+                token: "token-guard",
+                user: { __typename: "User", id: "u-demo", email: "demo@synapse.test", createdAt: "2026-11-04T00:00:00Z" },
+              },
+            },
+          },
+        },
+      ]}
+    >
+      <LanguageProvider>
+        <Toaster />
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<RequireAuth />}>
+              <Route path="/plans" element={<GuardProbe />} />
+              <Route path="/plan/:id" element={<GuardProbe />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>
+    </MockedProvider>,
+  );
+}
+
+async function signInThroughTheWall(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText("邮箱"), "demo@synapse.test");
+  await user.type(screen.getByLabelText("密码"), "demo-password");
+  await user.click(screen.getByRole("button", { name: "登录" }));
+  await waitFor(() => expect(getToken()).toBe("token-guard"));
+}
+
+describe("the session-exit wall (epic-28 T1)", () => {
+  it("?next= carries the learner back after login, and the wall says why (expiry toast)", async () => {
+    const user = userEvent.setup();
+    wallMount(`/login?${new URLSearchParams({ next: "/plan/p-42", expired: "1" }).toString()}`);
+    expect(await screen.findByText("登录状态已过期，请重新登录")).toBeInTheDocument();
+    await signInThroughTheWall(user);
+    // the ?next= path is resumed exactly (the probe renders at /plan/:id)
+    await waitFor(() => expect(screen.getByText(/PROBE:/)).toBeInTheDocument());
+  });
+
+  it("a non-same-origin ?next= is refused — login lands on the plans home instead", async () => {
+    const user = userEvent.setup();
+    wallMount(`/login?${new URLSearchParams({ next: "https://evil.example/steal" }).toString()}`);
+    await signInThroughTheWall(user);
+    await waitFor(() => expect(screen.getByText(/PROBE:/)).toBeInTheDocument());
+  });
+
+  it("the signed-out flag toasts its own reason (out=1)", async () => {
+    wallMount(`/login?${new URLSearchParams({ out: "1" }).toString()}`);
+    expect(await screen.findByText("已退出登录")).toBeInTheDocument();
   });
 });

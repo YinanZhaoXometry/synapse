@@ -40,6 +40,7 @@ import {
 import { localeTag, nodeQuickTestHref } from "@/features/plans";
 import { readerAnchorHref, readerSectionHref } from "@/features/reader";
 import { cn } from "@/lib/utils";
+import PageLoader from "@/components/shared/PageLoader";
 
 /** One grouping unit over the flat hub list: a plan's context or a task's
  * (FR-23's rule — task-context entries render under their task). */
@@ -298,7 +299,7 @@ export default function MistakesPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (hubQuery.loading || materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return null;
+  if (hubQuery.loading || materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return <PageLoader />;
 
   const entries = data ?? [];
 

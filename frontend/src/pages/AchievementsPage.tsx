@@ -28,6 +28,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useBadgeStatesQuery, useStreakQuery, type HubBadgeStateView } from "@/api";
 import { badgeEmoji, collectNewUnlocks, sortBadges } from "@/lib/badges";
+import PageLoader from "@/components/shared/PageLoader";
 
 // Northstar prototype v2 — ringSvg (~1054). The static SVG ratio never
 // animates, so reduce-motion holds trivially; percent caps at 100.
@@ -99,7 +100,7 @@ export default function AchievementsPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (badgesQuery.loading || streakQuery.loading) return null;
+  if (badgesQuery.loading || streakQuery.loading) return <PageLoader />;
 
   const badges: HubBadgeStateView[] = sortBadges(badgesQuery.data ?? []);
   const unlockedCount = badges.filter(badge => badge.unlocked).length;

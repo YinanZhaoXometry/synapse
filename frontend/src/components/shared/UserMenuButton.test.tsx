@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 // The contract is the seam: logout() (clearToken + resetApiClient, AD-15) is
 // the ONE cut this menu may perform; navigation is asserted through the
 // location stub below (the same shape the Settings page's button pins).
-vi.mock("@/apollo", () => ({ logout: vi.fn().mockResolvedValue(undefined) }));
+// sessionExitUrl stays REAL (epic-28 T1) — the ?next=/out=1 URL shape is part
+// of the pinned contract.
+vi.mock("@/apollo", async () => {
+  const session = await vi.importActual<typeof import("@/apollo/session")>("@/apollo/session");
+  return { logout: vi.fn().mockResolvedValue(undefined), sessionExitUrl: session.sessionExitUrl };
+});
 import { logout } from "@/apollo";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { createHarnessState, createStubClient, makeStubWrapper } from "@/test/apollo-harness";
@@ -75,7 +80,7 @@ describe("UserMenuButton (the sidebar account menu)", () => {
     await user.click(screen.getByRole("button", { name: "账户菜单" }));
     await user.click(screen.getByText("退出登录"));
 
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login?next=%2F&out=1"));
     expect(logout).toHaveBeenCalledTimes(1);
   });
 
@@ -85,7 +90,7 @@ describe("UserMenuButton (the sidebar account menu)", () => {
     await user.click(screen.getByRole("button", { name: "账户菜单" }));
     await user.click(screen.getByText("退出登录"));
 
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login?next=%2F&out=1"));
     expect(logout).toHaveBeenCalledTimes(1);
   });
 
@@ -97,7 +102,7 @@ describe("UserMenuButton (the sidebar account menu)", () => {
     await user.click(screen.getByText("退出登录"));
 
     expect(onAction).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login?next=%2F&out=1"));
   });
 });
 

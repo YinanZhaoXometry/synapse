@@ -53,6 +53,7 @@ import { localeTag } from "./locale";
 import { isPptxUpload, validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
 import { ContractNote, MasteryRing, StreakChip } from "./atoms";
+import PageLoader from "@/components/shared/PageLoader";
 
 export default function PlanHomePage() {
   const { t, language } = useLanguage();
@@ -136,6 +137,7 @@ export default function PlanHomePage() {
         // (server copy via a fresh presign PUT + this session's registry).
         upload
           .refreshBytes(reuploadId, file)
+          .then(() => toast.success(t("materials.uploadSuccess")))
           .catch((err) => {
             console.error("[upload] re-upload failed:", err);
             toast.error(t("errors.uploadFailed"));
@@ -148,14 +150,19 @@ export default function PlanHomePage() {
     // the extracted sections are captured for persistence.
     upload
       .attach({ file, title: verdict.title, kind: verdict.kind, planId, taskId: null })
-      .then((material) => parseMaterial.mutate(material.id, material))
+      .then((material) => {
+        // epic-28 T2: the PUT landing used to be invisible until the row
+        // flipped parse states — the success toast is the immediate feedback.
+        toast.success(t("materials.uploadSuccess"));
+        parseMaterial.mutate(material.id, material);
+      })
       .catch((err) => {
         console.error("[upload] attach failed:", err);
         toast.error(t("errors.uploadFailed"));
       });
   };
 
-  if (planQuery.loading || nodesQuery.loading || materialsQuery.loading || evidenceQuery.loading || flashcardsQuery.loading) return null;
+  if (planQuery.loading || nodesQuery.loading || materialsQuery.loading || evidenceQuery.loading || flashcardsQuery.loading) return <PageLoader />;
   const plan = planQuery.data?.plan;
   const nodes = nodesQuery.data ?? [];
   const materials = materialsQuery.data ?? [];

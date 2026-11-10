@@ -1,12 +1,24 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { BookOpen, GitFork, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { BookOpen, GitFork, Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   useAllMaterialsQuery,
   useAllReadingProgressQuery,
   usePlanNodesQuery,
+  useDeletePlanMutation,
   usePlansQuery,
   useTaskMaterialsQuery,
   useTaskNodeQuery,
@@ -23,6 +35,7 @@ import CreationChat from "./CreationChat";
 import ImportOfferDialog from "./ImportOfferDialog";
 import SquareSection from "./SquareSection";
 import { cn } from "@/lib/utils";
+import PageLoader from "@/components/shared/PageLoader";
 
 /**
  * Plans Home (AD-8; FR-1; Q3/Q5) — the front door. Empty state: the creation
@@ -57,7 +70,7 @@ export default function PlansHomePage() {
   // the tab the user left); anything else opens on the mine tab.
   const [tab, setTab] = useState<"mine" | "square">(searchParams.get("tab") === "square" ? "square" : "mine");
 
-  if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return null;
+  if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return <PageLoader />;
   const plans = plansQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const progress = progressQuery.data ?? [];
@@ -216,35 +229,83 @@ function PlanCard({ plan }: { plan: StudyPlanView }) {
   const nodesQuery = usePlanNodesQuery(plan.id);
   const nodes = nodesQuery.data ?? [];
   const metrics = planCardMetrics(plan, nodes);
+  // The deletion half (epic-28 T4): the card is a whole-card button, so the
+  // destructive affordance is a SIBLING icon pinned over its corner (nested
+  // buttons are illegal) — the wrapper div is relative, the corner reserved
+  // by the row's right padding. Confirm-gated: the dialog names the cascade
+  // AND the one refusal edge (a material bound to a study task); the backend
+  // stays the enforcer and its VALIDATION_FAILED toasts through the map.
+  const [deletePlan] = useDeletePlanMutation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/plan/${plan.id}`)}
-      className="text-left bg-card border border-border-soft rounded-2xl shadow-raised p-4 cursor-pointer hover:border-[var(--accent-edge)] transition-colors"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold text-sm truncate">{plan.topic}</p>
-        <span className="font-display font-bold tabular-nums text-sm text-accent-ink flex-none">
-          {metrics.rollup}%
-        </span>
-      </div>
-      <StateMiniBar counts={metrics.stateCounts} />
-      <p className="text-[11px] text-muted-foreground mt-2">
-        {nodes.length} {t("plans.nodesUnit")} · {(nodesQuery.materials ?? []).length} {t("plans.materialsUnit")}
-      </p>
-      {/* The fork attribution (OQ-12, epic P2-11 T3): a small glyph + the
-          source topic snapshot, straight off the server field. */}
-      {plan.forkedFromTopic && (
-        <p
-          className="flex items-center gap-1 text-[11px] text-accent-ink mt-1.5 truncate"
-          title={t("square.forkAria", { topic: plan.forkedFromTopic })}
-          data-testid="plan-card-fork"
-        >
-          <GitFork className="w-3 h-3 flex-none" aria-hidden="true" />
-          <span className="truncate">{plan.forkedFromTopic}</span>
+    <div className="relative group" data-testid="plan-card">
+      <button
+        type="button"
+        onClick={() => navigate(`/plan/${plan.id}`)}
+        className="w-full text-left bg-card border border-border-soft rounded-2xl shadow-raised p-4 cursor-pointer hover:border-[var(--accent-edge)] transition-colors"
+      >
+        <div className="flex items-center justify-between gap-2 pr-7">
+          <p className="font-semibold text-sm truncate">{plan.topic}</p>
+          <span className="font-display font-bold tabular-nums text-sm text-accent-ink flex-none">
+            {metrics.rollup}%
+          </span>
+        </div>
+        <StateMiniBar counts={metrics.stateCounts} />
+        <p className="text-[11px] text-muted-foreground mt-2">
+          {nodes.length} {t("plans.nodesUnit")} · {(nodesQuery.materials ?? []).length} {t("plans.materialsUnit")}
         </p>
-      )}
-    </button>
+        {/* The fork attribution (OQ-12, epic P2-11 T3): a small glyph + the
+            source topic snapshot, straight off the server field. */}
+        {plan.forkedFromTopic && (
+          <p
+            className="flex items-center gap-1 text-[11px] text-accent-ink mt-1.5 truncate"
+            title={t("square.forkAria", { topic: plan.forkedFromTopic })}
+            data-testid="plan-card-fork"
+          >
+            <GitFork className="w-3 h-3 flex-none" aria-hidden="true" />
+            <span className="truncate">{plan.forkedFromTopic}</span>
+          </p>
+        )}
+      </button>
+      <button
+        type="button"
+        data-testid="plan-delete-button"
+        aria-label={t("plans.deleteAria", { title: plan.topic })}
+        title={t("plans.deleteAria", { title: plan.topic })}
+        onClick={() => setDeleteOpen(true)}
+        className="absolute top-2.5 right-2.5 rounded-lg p-1.5 text-muted-foreground/70 transition-colors hover:text-danger-ink hover:bg-[var(--glass-4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+      >
+        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="bg-card border border-border rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">{t("plans.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("plans.deleteBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="plan-delete-cancel" className="rounded-xl bg-[var(--glass-4)] border border-border text-sm cursor-pointer">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="plan-delete-confirm"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl text-sm font-semibold cursor-pointer"
+              onClick={() => {
+                deletePlan({
+                  variables: { input: { id: plan.id } },
+                  onCompleted: () => toast.success(t("plans.deleteSuccess")),
+                  // the neutral persistence-failure posture (the dialog body
+                  // already named the one refusal edge; the server enforces)
+                  onError: () => toast.error(t("errors.persistFailed")),
+                });
+              }}
+            >
+              {t("plans.deleteConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 

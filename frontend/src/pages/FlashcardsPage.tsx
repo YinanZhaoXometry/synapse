@@ -26,6 +26,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useFlashcardDecksHubQuery, useTasksQuery, type HubDeckView } from "@/api";
 import { localeTag } from "@/features/plans";
 import { cn } from "@/lib/utils";
+import PageLoader from "@/components/shared/PageLoader";
 
 /** One grouping unit over the flat hub list: a plan's decks, a task's, or —
  * only when the attach contract is violated in data — an unattached deck. */
@@ -152,7 +153,7 @@ export default function FlashcardsPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (hubQuery.loading || tasksQuery.loading) return null;
+  if (hubQuery.loading || tasksQuery.loading) return <PageLoader />;
 
   const decks = hubQuery.data ?? [];
 

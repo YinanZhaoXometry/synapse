@@ -12,6 +12,7 @@ import type { MockedResponse } from "@apollo/client/testing";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Toaster } from "sonner";
 import { getCompanionService } from "@/ai/companion-service";
 import type { PlanStructureProposal } from "@/ai/types";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -86,6 +87,7 @@ describe("CreationChat visibility choice (FR-38, epic P2-11 T1)", () => {
       <MemoryRouter>
         <MockedProvider mocks={[createPlanMock(captured)]}>
           <LanguageProvider>
+            <Toaster />
             <CreationChat />
           </LanguageProvider>
         </MockedProvider>
@@ -96,6 +98,8 @@ describe("CreationChat visibility choice (FR-38, epic P2-11 T1)", () => {
 
     await waitFor(() => expect(captured.input?.visibility).toEqual("private"));
     expect(screen.getByTestId("create-visibility-private").getAttribute("aria-checked")).toBe("true");
+    // epic-28 T2: plan landing used to be silent — the key-path toast.
+    expect(await screen.findByText(zhDict["plans.createSuccess"])).toBeInTheDocument();
   });
 
   it("sends the picked public visibility on the wire (the explicit Square opt-in)", async () => {

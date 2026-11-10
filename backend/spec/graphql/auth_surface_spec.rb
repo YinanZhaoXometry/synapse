@@ -40,11 +40,11 @@ require "rails_helper"
 # surface shape itself).
 RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
   it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, the epic P2-12 note mutation, the epic P2-09 weekly-goal setter, the epic P2-09 T3 manual-task ops, the epic P2-09 T4 hub retake, the epic P2-11 T1 visibility flip, the epic P2-11 T3 Square adopt fork, the epic-13 T3 annotation ops,
-    the epic-13 T4 study-focus generation, the epic-14 T1 password change, the epic-14 T2 promotion, the epic-18 T1 mistake-lifecycle toggle, and the epic-18 T2 generation-backed Today suggestion" do
+    the epic-13 T4 study-focus generation, the epic-14 T1 password change, the epic-14 T2 promotion, the epic-18 T1 mistake-lifecycle toggle, the epic-18 T2 generation-backed Today suggestion, and the epic-28 T4 task deletion" do
     expect(Types::MutationType.fields.keys).to contain_exactly(
       "register", "login", "changePassword",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan", "setPlanVisibility", "forkSquarePlan",
-      "createTask", "promoteTaskToPlan", "attachMaterial", "setMaterialParseResult", "setMaterialScope",
+      "createTask", "promoteTaskToPlan", "deleteTask", "attachMaterial", "setMaterialParseResult", "setMaterialScope",
       "mapMaterialSections", "confirmMappingProposals", "rejectMappingProposals",
       "createQuizSession", "recordEvidence", "abandonQuizSession", "retakeQuizSession",
       "createFlashcards", "rateFlashcard",

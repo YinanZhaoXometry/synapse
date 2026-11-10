@@ -3,8 +3,8 @@
  * and every request. localStorage-backed (spec A2: memory-only was rejected —
  * reload = logout friction for a study app), read by the Apollo auth link;
  * login/logout (ticket 02) are the only writers outside tests. Expiry is the
- * server's 24h TTL — a stale token surfaces as an UNAUTHENTICATED error, never
- * a silent failure.
+ * server's 24h TTL — a stale token surfaces as an UNAUTHORIZED error, never
+ * a silent failure (and the errorLink ends the session: epic-28 T1).
  */
 const TOKEN_KEY = "synapse-token";
 

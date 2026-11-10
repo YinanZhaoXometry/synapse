@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { Toaster } from "sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LoginDocument } from "@/types/graphql";
 import { clearToken, getToken } from "@/apollo";
@@ -42,6 +43,7 @@ function mount(initialEntry = "/login") {
   return render(
     <MockedProvider mocks={[loginMock("demo@synapse.test", "token-a"), unauthorizedMock]}>
       <LanguageProvider>
+        <Toaster />
         <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -82,6 +84,8 @@ describe("LoginPage (epic P2-8 T2, AD-15)", () => {
     await user.click(screen.getByRole("button", { name: "登录" }));
     await waitFor(() => expect(screen.getByText("PLANS-PROBE")).toBeInTheDocument());
     expect(getToken()).toBe("token-a");
+    // epic-28 T2: the key path speaks — the success toast rides the landing.
+    expect(await screen.findByText("登录成功，欢迎回来")).toBeInTheDocument();
   });
 
   it("the demo entry affordance logs in without typing", async () => {
@@ -90,6 +94,7 @@ describe("LoginPage (epic P2-8 T2, AD-15)", () => {
     await user.click(screen.getByRole("button", { name: /用演示账号体验/ }));
     await waitFor(() => expect(screen.getByText("PLANS-PROBE")).toBeInTheDocument());
     expect(getToken()).toBe("token-a");
+    expect(await screen.findByText("登录成功，欢迎回来")).toBeInTheDocument();
   });
 
   it("a failed login shows the humane banner and keeps the learner on the wall", async () => {

@@ -1,10 +1,13 @@
 import { MockedProvider } from "@apollo/client/testing/react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { Toaster } from "sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import {
+  DeletePlanDocument,
   MaterialsDocument,
   PlanDocument,
   PlansDocument,
@@ -178,6 +181,7 @@ function mocksFor(scenario: {
 function renderPlansHome(mocks: Array<Record<string, unknown>>) {
   return render(
     <LanguageProvider>
+      <Toaster />
       <MockedProvider mocks={mocks as never}>
         <MemoryRouter initialEntries={["/plans"]}>
           <Routes>
@@ -380,5 +384,44 @@ describe("PlansHomePage — fork attribution on plan rows (OQ-12, epic P2-11 T3)
 
     expect(await screen.findByRole("button", { name: new RegExp(zh("plans.createNew")) })).toBeInTheDocument();
     expect(screen.queryByTestId("plan-card-fork")).not.toBeInTheDocument();
+  });
+});
+
+describe("PlansHomePage — plan deletion (epic-28 T4)", () => {
+  const deleteMock = {
+    request: { query: DeletePlanDocument, variables: { input: { id: "plan-1" } } },
+    result: { data: { deletePlan: { __typename: "DeletePlanPayload", deletedPlanId: "plan-1" } } },
+    // the gating contract: exactly ONE wire call — a double-fire (the icon
+    // click AND the confirm both mutating) would fail this mock
+    maxUsageCount: 1,
+  };
+
+  it("the destructive affordance opens the strong confirm; cancel deletes nothing", async () => {
+    const user = userEvent.setup();
+    renderPlansHome(mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }).concat(deleteMock));
+
+    // the whole-card button still navigates; the trash is its SIBLING
+    fireEvent.click(await screen.findByTestId("plan-delete-button"));
+    expect(await screen.findByText(zh("plans.deleteTitle"))).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("plan-delete-cancel"));
+    await waitFor(() => expect(screen.queryByText(zh("plans.deleteTitle"))).not.toBeInTheDocument());
+    // the card survives, and the ONE wire call is still unspent: a second
+    // round-trip through the dialog ends in the success toast — cancel was a
+    // true no-op, not a consumed mutation.
+    fireEvent.click(screen.getByTestId("plan-delete-button"));
+    await user.click(await screen.findByTestId("plan-delete-confirm"));
+    expect(await screen.findByText(zh("plans.deleteSuccess"))).toBeInTheDocument();
+  });
+
+  it("confirm fires the mutation exactly once and toasts the success", async () => {
+    const user = userEvent.setup();
+    renderPlansHome(mocksFor({ plans: [planRowFixture()], planDetail: planDetailFixture(), allMaterials: [] }).concat(deleteMock));
+
+    fireEvent.click(await screen.findByTestId("plan-delete-button"));
+    await user.click(await screen.findByTestId("plan-delete-confirm"));
+
+    // the key-path voice (epic-28 T2's convention rides the deletion too)
+    expect(await screen.findByText(zh("plans.deleteSuccess"))).toBeInTheDocument();
   });
 });

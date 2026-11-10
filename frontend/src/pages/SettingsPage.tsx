@@ -22,7 +22,7 @@ import {
   useWeeklyGoalQuery,
 } from "@/api";
 import { apiErrorCode } from "@/api";
-import { clearToken, logout, resetApiClient } from "@/apollo";
+import { clearToken, logout, resetApiClient, sessionExitUrl } from "@/apollo";
 import { THEMES, type ThemeId, type ThemeMode } from "@/lib/themes";
 import { useReaderMdTheme } from "@/lib/reader-md-theme";
 import { cn } from "@/lib/utils";
@@ -310,8 +310,13 @@ export default function SettingsPage() {
   // AD-15 client-side logout (ticket 02): token + cache + live streams die
   // here; preferences stay (that is reset's job). Shared by the account row
   // and the page-end button (2026-11-06 logout discoverability fix).
+  // epic-28 T1: the wall gets ?next= (resume after re-login) + out=1 (toast).
   const signOut = () => {
-    void logout().then(() => window.location.replace("/login"));
+    void logout().then(() => {
+      window.location.replace(
+        sessionExitUrl("signout", window.location.pathname + window.location.search),
+      );
+    });
   };
 
   return (

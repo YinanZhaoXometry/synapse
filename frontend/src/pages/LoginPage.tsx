@@ -6,12 +6,13 @@
  * refetch under it; the pre-login surface itself made no api reads (NFR-6).
  */
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLoginMutation } from "@/api";
 import { getToken, setToken } from "@/apollo";
-import { AuthShell, authErrorKey, type AuthFieldErrors } from "./auth-shell";
+import { AuthShell, authErrorKey, useAuthReturnDestination, useSessionExitNotice, type AuthFieldErrors } from "./auth-shell";
 
 /** The demo seed's documented dev defaults (backend app/lib/demo_seed.rb) —
  * the demo entry affordance pre-fills them; the server may re-key via ENV. */
@@ -21,15 +22,14 @@ const DEMO_PASSWORD = "demo-password";
 export default function LoginPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
   const [login, { loading: loggingIn }] = useLoginMutation();
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
+  useSessionExitNotice();
+  const from = useAuthReturnDestination();
 
   // Already authed → the wall has nothing to say.
   if (getToken()) return <Navigate to="/plans" replace />;
-
-  const from = (location.state as { from?: string } | null)?.from ?? "/plans";
 
   const submit = (email: string, password: string) => {
     setError(null);
@@ -42,6 +42,8 @@ export default function LoginPage() {
       variables: { input: { email, password } },
       onCompleted: (data) => {
         setToken(data.login.token);
+        // epic-28 T2: the wall's key paths never complete silently.
+        toast.success(t("auth.loginSuccess"));
         navigate(from, { replace: true });
       },
       onError: (e) => setError(authErrorKey(e)),
@@ -55,6 +57,7 @@ export default function LoginPage() {
       variables: { input: { email: DEMO_EMAIL, password: DEMO_PASSWORD } },
       onCompleted: (data) => {
         setToken(data.login.token);
+        toast.success(t("auth.loginSuccess"));
         navigate(from, { replace: true });
       },
       onError: (e) => setError(authErrorKey(e)),

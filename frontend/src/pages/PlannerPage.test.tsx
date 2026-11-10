@@ -21,6 +21,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import { CombinedGraphQLErrors } from "@apollo/client/errors";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
@@ -166,7 +168,7 @@ function hubHandlers(): LooseHandlers {
   };
 }
 
-function renderPlannerPage(handlers: LooseHandlers) {
+function renderPlannerPage(handlers: LooseHandlers, extra: ReactNode = null) {
   const client = createStubClient(handlers as Record<string, (variables: Record<string, unknown>) => unknown>, {
     sessions: [],
     evidence: [],
@@ -178,6 +180,7 @@ function renderPlannerPage(handlers: LooseHandlers) {
     <Wrapper>
       <MemoryRouter>
         <LanguageProvider>
+          {extra}
           <PlannerPage />
         </LanguageProvider>
       </MemoryRouter>
@@ -280,7 +283,7 @@ describe("PlannerPage — the 今日学习 hub re-point (FR-27, epic P2-09 T3)",
   });
 
   it("deletes a manual task; the read-back sweep empties it from the list", async () => {
-    renderPlannerPage(hubHandlers());
+    renderPlannerPage(hubHandlers(), <Toaster />);
 
     expect(await screen.findByText("整理需求追踪矩阵")).toBeTruthy();
     for (const title of ["整理需求追踪矩阵", "给错题本写两周复盘"]) {
@@ -288,11 +291,15 @@ describe("PlannerPage — the 今日学习 hub re-point (FR-27, epic P2-09 T3)",
       fireEvent.click(within(row).getByRole("button", { name: zhVars("planner.deleteTaskAria", { title }) }));
     }
 
+    // epic-28 T2: the today list's only mutation speaks on both ends.
+    expect(await screen.findByText(zh("planner.deleteTaskSuccess"))).toBeTruthy();
+
     // both rows leave through the refetch — the honest manual-empty copy
     expect(await screen.findByText(zh("planner.manualEmpty"))).toBeTruthy();
     expect(screen.queryByText("整理需求追踪矩阵")).toBeNull();
     expect(screen.queryByText("给错题本写两周复盘")).toBeNull();
   });
+
 
   it("renders the day summary counts and the week strip from consistency: evidence days count, quiet days hollow, no-data days dashed, today highlighted", async () => {
     const { container } = renderPlannerPage(hubHandlers());
@@ -333,10 +340,14 @@ describe("PlannerPage — the 今日学习 hub re-point (FR-27, epic P2-09 T3)",
     expect(screen.queryByText("设计模式 8 张")).toBeNull();
   });
 
-  it("renders nothing while the hub reads are loading (honest-empty, no flash of stale demo copy)", () => {
+  it("the first paint of a loading hub shows the shared PageLoader — never blank, never stale copy (epic-28 T3)", () => {
     const { container } = renderPlannerPage(hubHandlers());
-    // the stub link resolves on the next tick — the first paint waits
-    expect(container.innerHTML).toBe("");
+    // the stub link resolves on the next tick — the first paint waits. It
+    // used to be `return null` (blank page); the honest wait is the shared
+    // loader, and the honest-empty copy still never flashes early.
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
+    expect(container.querySelector("[role='status']")).toBeTruthy();
     expect(screen.queryByText(zh("planner.emptyTitle"))).toBeNull();
   });
 });

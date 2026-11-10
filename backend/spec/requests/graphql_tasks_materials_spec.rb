@@ -10,7 +10,7 @@ RSpec.describe "GraphQL study task + material operations (epic P2-3 ticket 02)",
   # materials/); this file pins the wire behavior.
 
   describe "the auth guard on every task/material operation (kickoff delta 8)" do
-    it "answers UNAUTHORIZED without a token on all seven operations" do
+    it "answers UNAUTHORIZED without a token on all eight operations (eight since deleteTask, epic-28 T4)" do
       queries = [
         "query { tasks { id } }",
         'query { task(id: "00000000-0000-0000-0000-000000000000") { id } }',
@@ -20,6 +20,7 @@ RSpec.describe "GraphQL study task + material operations (epic P2-3 ticket 02)",
       mutations = [
         "mutation { createTask(input: { clientUuid: \"#{SecureRandom.uuid}\", " \
           "materialId: \"#{SecureRandom.uuid}\" }) { task { id } } }",
+        "mutation { deleteTask(input: { id: \"#{SecureRandom.uuid}\" }) { deletedTaskId } }",
         "mutation { attachMaterial(input: { clientUuid: \"#{SecureRandom.uuid}\", title: \"t\", " \
           "kind: \"markdown\", sizeBytes: 1, sections: [] }) { material { id } } }",
         "mutation { setMaterialParseResult(input: { id: \"#{SecureRandom.uuid}\", state: \"parsed\", " \
@@ -797,6 +798,87 @@ RSpec.describe "GraphQL study task + material operations (epic P2-3 ticket 02)",
       row = result.dig("data", "tasks").find { |entry| entry["id"] == task.id }
       expect(row["promotedPlanId"]).to eq(client_uuid)
       expect(row["promotedPlan"]["id"]).to eq(client_uuid)
+    end
+  end
+
+  describe "deleteTask mutation (epic-28 T4)" do
+    it "deletes a plan-free task with its single-document triangle (material, auto-node, session)" do
+      user, token = user_with_token("task-deleter@example.com")
+      task = create(:study_task, user: user)
+      session = create(:quiz_session, user: user, task: task, plan: nil)
+      material = task.material
+      node = task.node
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { id: task.id } }, token: token
+          mutation DeleteTask($input: DeleteTaskInput!) {
+            deleteTask(input: $input) { deletedTaskId }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "deleteTask", "deletedTaskId")).to eq(task.id)
+      expect(StudyTask.exists?(task.id)).to be(false)
+      expect(Material.exists?(material.id)).to be(false)
+      expect(KnowledgeNode.exists?(node.id)).to be(false)
+      expect(QuizSession.exists?(session.id)).to be(false)
+    end
+
+    it "deleting a PROMOTED task is the pointer-only cut: the plan keeps its content and history" do
+      user, token = user_with_token("pointer-deleter@example.com")
+      task = create(:study_task, user: user)
+      session = create(:quiz_session, user: user, task: task, plan: nil)
+      client_uuid = SecureRandom.uuid
+
+      promote = graphql(
+        <<~GRAPHQL, variables: { input: { taskId: task.id, clientUuid: client_uuid } }, token: token
+          mutation Promote($input: PromoteTaskToPlanInput!) {
+            promoteTaskToPlan(input: $input) { plan { id } }
+          }
+        GRAPHQL
+      )
+      plan_id = promote.dig("data", "promoteTaskToPlan", "plan", "id")
+
+      result = graphql(
+        <<~GRAPHQL, variables: { input: { id: task.id } }, token: token
+          mutation DeleteTask($input: DeleteTaskInput!) {
+            deleteTask(input: $input) { deletedTaskId }
+          }
+        GRAPHQL
+      )
+
+      expect(result.dig("data", "deleteTask", "deletedTaskId")).to eq(task.id)
+      expect(StudyTask.exists?(task.id)).to be(false)
+      expect(QuizSession.exists?(session.id)).to be(false) # the task-scope history goes
+      # the plan keeps EVERYTHING the promotion moved over
+      expect(StudyPlan.exists?(plan_id)).to be(true)
+      expect(Material.exists?(task.material_id)).to be(true)
+      expect(KnowledgeNode.exists?(task.node_id)).to be(true)
+    end
+
+    it "a foreign task id is NOT_FOUND (delta 2), and a malformed id never degrades to INTERNAL" do
+      user, token = user_with_token("task-scoper@example.com")
+      other = create(:user)
+      foreign_task = create(:study_task, user: other)
+
+      foreign = graphql(
+        <<~GRAPHQL, variables: { input: { id: foreign_task.id } }, token: token
+          mutation DeleteTask($input: DeleteTaskInput!) {
+            deleteTask(input: $input) { deletedTaskId }
+          }
+        GRAPHQL
+      )
+      expect(error_code(foreign)).to eq("NOT_FOUND")
+
+      malformed = graphql(
+        <<~GRAPHQL, variables: { input: { id: "not-a-uuid" } }, token: token
+          mutation DeleteTask($input: DeleteTaskInput!) {
+            deleteTask(input: $input) { deletedTaskId }
+          }
+        GRAPHQL
+      )
+      expect(error_code(malformed)).to eq("NOT_FOUND")
+      expect(StudyTask.exists?(foreign_task.id)).to be(true)
     end
   end
 

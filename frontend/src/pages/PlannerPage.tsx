@@ -53,6 +53,7 @@ import { todayWeekStrip, utcDayKey, type WeekStripCell } from "@/domain/today-we
 import { nodeQuickTestHref } from "@/features/plans";
 import { todaySuggestionClientUuid } from "@/lib/uuid5";
 import { cn } from "@/lib/utils";
+import PageLoader from "@/components/shared/PageLoader";
 
 // The closed-enum → t()-key map for the generation failures (AD-9's one
 // place; the ai.generate.* keys already carry the honest copy for every
@@ -258,7 +259,15 @@ function ManualTaskRow({ task }: { task: HubManualTaskView }) {
       </div>
       <button
         type="button"
-        onClick={() => deleteTask.mutate({ variables: { input: { id: task.id } } })}
+        onClick={() =>
+          // epic-28 T2: the today list's only mutation used to run with NO
+          // handlers at all — both ends speak now.
+          deleteTask.mutate({
+            variables: { input: { id: task.id } },
+            onCompleted: () => toast.success(t("planner.deleteTaskSuccess")),
+            onError: () => toast.error(t("planner.deleteTaskFailed")),
+          })
+        }
         aria-label={t("planner.deleteTaskAria", { title: task.title })}
         className="flex-none rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-danger-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
       >
@@ -279,7 +288,7 @@ export default function PlannerPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (hubQuery.loading || consistencyQuery.loading) return null;
+  if (hubQuery.loading || consistencyQuery.loading) return <PageLoader />;
 
   const hub = hubQuery.data;
   const summary = hub?.summary ?? { dueCount: 0, manualCount: 0, doneCount: 0 };

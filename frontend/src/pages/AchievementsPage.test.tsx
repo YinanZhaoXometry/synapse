@@ -180,7 +180,8 @@ describe("AchievementsPage — real badge unlocks (FR-28, epic P2-09 T6)", () =>
 
   it("renders nothing while the reads load (honest-empty, no demo fallback)", () => {
     const { container } = renderAchievementsPage(achHandlers());
-    expect(container.innerHTML).toBe("");
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
   });
 
   it("a failed read shows the retry banner (never silent, never demo copy)", async () => {

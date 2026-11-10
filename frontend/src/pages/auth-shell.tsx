@@ -4,10 +4,12 @@
  * (NFR-6): no api reads, only semantic tokens, both themes, both languages.
  * Error display rides the closed api enum (code → t() key, never the message).
  */
-import { useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { CircleAlert } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { sanitizeReturnPath } from "@/apollo/session";
 import { apiErrorCode, isNetworkError, type ApiErrorCode } from "@/api/errors";
 import type { ErrorLike } from "@apollo/client";
 
@@ -24,6 +26,38 @@ export function authErrorKey(error: ErrorLike | undefined): string {
   if (code === "VALIDATION_FAILED") return "auth.validationFailed";
   if (isNetworkError(error)) return "auth.networkFailed";
   return "auth.networkFailed";
+}
+
+/**
+ * Where a successful auth lands (epic-28 T1): the guard's deep-link state
+ * (`state.from`, test-pinned) wins, then the session-exit redirect's
+ * sanitized `?next=`, then the plans home. Non-same-origin nexts are refused
+ * by sanitizeReturnPath — the wall never bounces off-origin.
+ */
+export function useAuthReturnDestination(): string {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  return (
+    (location.state as { from?: string } | null)?.from ??
+    sanitizeReturnPath(searchParams.get("next")) ??
+    "/plans"
+  );
+}
+
+/**
+ * The wall's "why am I here" toast (epic-28 T1): the session-exit redirect
+ * tags its URL with the reason (`expired=1` after the errorLink's teardown,
+ * `out=1` after sign-out); the wall surfaces it once on mount. The pinned
+ * deep-link path (state.from) carries no flag — silent, as before.
+ */
+export function useSessionExitNotice(): void {
+  const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("expired") === "1") toast(t("errors.sessionExpired"));
+    else if (searchParams.get("out") === "1") toast(t("auth.signedOut"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once notice: the flags come from the session-exit redirect, never from in-wall navigation
+  }, []);
 }
 
 const PRIMARY_CTA =
