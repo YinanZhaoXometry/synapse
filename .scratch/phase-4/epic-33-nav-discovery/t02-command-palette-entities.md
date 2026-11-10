@@ -4,7 +4,7 @@
 
 **Blocked by:** None (independent of T01; either order or parallel worktrees).
 
-**Status:** ready-for-agent
+**Status:** in-progress — claimed 2026-11-11 (same epic-33 run, sequential after T01 on the same branch)
 
 - [ ] Palette results include plans / materials / tasks as cmdk groups alongside (not replacing) page nav + language toggle
 - [ ] Cache-first: opens instantly from cache; background refetch on open only; no loading state ever blocks input
