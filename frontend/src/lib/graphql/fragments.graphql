@@ -13,6 +13,7 @@ fragment KnowledgeNodeParts on KnowledgeNode {
   order
   masteryScore
   state
+  studyMark
   createdAt
 }
 

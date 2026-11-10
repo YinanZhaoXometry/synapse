@@ -12,6 +12,13 @@ import type { AnnotationRange } from "@/domain/annotation-range";
 /** Node Mastery Score as the api carries it: integer percent string "0".."100". */
 export type MasteryScoreString = string;
 
+/**
+ * The Study Mark (FR-47, epic-28): the user's self-declared per-node status —
+ * orthogonal to mastery by contract (never evidence, never a score input).
+ * Server truth, rendered verbatim; null = unmarked.
+ */
+export type StudyMark = "learning" | "finished" | "skipped";
+
 export interface KnowledgeNodeView extends KnowledgeNode {
   masteryScore: MasteryScoreString;
   state: "uncovered" | "partial" | "mastered";
@@ -27,6 +34,12 @@ export interface KnowledgeNodeView extends KnowledgeNode {
    * false, never derived.
    */
   optional: boolean;
+  /**
+   * epic-28 (FR-47): the user's self-declared study status — learning |
+   * finished | skipped; null = unmarked. ORTHOGONAL to masteryScore/state
+   * above: a mark is "where the user says they are", never evidence.
+   */
+  studyMark: StudyMark | null;
 }
 
 /**

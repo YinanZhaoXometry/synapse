@@ -1,0 +1,9 @@
+# The Study Mark (FR-47, epic-28): the user's self-declared per-node status —
+# orthogonal to mastery (never evidence, never a score input; ADR-0002).
+mutation NodeStudyMarkSet($input: NodeStudyMarkSetInput!) {
+  nodeStudyMarkSet(input: $input) {
+    node {
+      ...KnowledgeNodeParts
+    }
+  }
+}
