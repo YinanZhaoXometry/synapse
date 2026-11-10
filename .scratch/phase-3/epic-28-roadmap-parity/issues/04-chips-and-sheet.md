@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (canvas + badges + data on the wire).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 **Bound by:** FR-47 UI (marks render; orthogonality — the chips never touch mastery); the companionAsk contract (prefill WITHOUT send — no silent AI spend; respects the daily cap); touch/tap contract (tap opens the sheet — epic-20 posture); i18n zh/en; the no-"Done" copy rule (已完成).
 

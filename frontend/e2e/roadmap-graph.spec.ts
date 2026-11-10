@@ -1,19 +1,22 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The interactive roadmap's e2e coverage (epic-16 T4, ticket 04) over the live
- * local stack: creation chat → confirm → the 16-node graph renders with real
- * arrows (and the stub's one deliberately invalid backward edge is ABSENT —
- * the server dropped it, Plans::PlanCreation#drop_edge); a node click opens
- * the sheet (description + optional badge); `?node=` deep-links (select + pan
- * + sheet); the progress bar counts off server states; the graph IS the
- * default plan view with the List toggle one click away.
+ * The spine roadmap's e2e coverage (epic-28 T5) over the live local stack:
+ * creation chat → confirm → the 16-node spine renders (4 hub cards on the
+ * solid spine, 16 leaves on the dotted fans, the 12 persisted prerequisites
+ * as dotted brackets/dips, and the stub's one deliberately invalid backward
+ * edge ABSENT — the server dropped it); a node click opens the sheet;
+ * hovering opens the chip strip and a mark persists across reload (FR-47)
+ * while the progress bar stays pure mastery (AD-14); `?node=` deep-links
+ * (scroll into view + sheet); the spine IS the default plan view with List
+ * one click away. No zoom/pan/pinch affordances exist anywhere — page scroll
+ * is the only navigation (the widget era is over).
  *
- * The stub provider (e2e/stub-provider.mjs) is the deterministic fixture — its
- * proposal shape (stage/column/edge counts below) is the contract this spec
- * pins. Harness lessons honored: explicit timeouts everywhere (the 1s default
- * breaks under load), node titles are SVG <text> inside g[data-node-id], and
- * clicks on far nodes come after fit-view (the canvas never scrolls).
+ * The stub provider (e2e/stub-provider.mjs) is the deterministic fixture —
+ * its proposal shape (stage/node/edge counts below) is the contract this
+ * spec pins. Harness lessons honored: explicit timeouts everywhere, node
+ * titles live in the g's aria-label (SVG <text> is not text-matchable), and
+ * the browser auto-scrolls the tall page for far nodes.
  */
 
 const PASSWORD = "e2e-password-123";
@@ -25,8 +28,9 @@ const OPTIONAL_DESC = "边界写法与常见变形";
 const FIRST_DESC = "大 O、均摊分析与常见代价模型";
 const STAGES = ["基础奠基", "核心结构", "进阶专题", "面试实战"];
 const NODE_COUNT = 16;
-const EDGE_COUNT = 12; // the stub emits 13 pairs; the backward one drops server-side
+const PREREQ_COUNT = 12; // the stub emits 13 pairs; the backward one drops server-side
 const BACKWARD_EDGE = { from: "模拟面试复盘", to: "复杂度分析" };
+const LAST_NODE = BACKWARD_EDGE.from;
 
 async function registerOrLogin(page: Page) {
   await page.goto("/login");
@@ -43,10 +47,16 @@ function nodeBox(page: Page, title: string) {
   return page.locator(`[data-testid="roadmap-node"][aria-label*="${title}"]`);
 }
 
+/** The chip strip's 150ms hover-intent needs a real beat. */
+async function hoverNode(page: Page, title: string) {
+  await nodeBox(page, title).hover({ position: { x: 60, y: 25 } });
+  await page.waitForTimeout(250);
+}
+
 test.describe.configure({ mode: "serial" });
 
-test.describe("the roadmap graph surface", () => {
-  test("confirming the stub proposal renders the 16-node graph with real arrows; the backward edge is dropped", async ({
+test.describe("the spine roadmap surface", () => {
+  test("confirming the stub proposal renders the 16-node spine; the backward edge is dropped; no arrowheads", async ({
     page,
   }) => {
     await page.goto("/register");
@@ -61,7 +71,7 @@ test.describe("the roadmap graph surface", () => {
     await page.getByRole("button", { name: "确认创建计划" }).click();
     await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
 
-    // The graph IS the default view — the canvas renders with no toggle click.
+    // The spine IS the default view — the canvas renders with no toggle click.
     await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
 
     // The plan progress bar counts off SERVER states (AD-14): a fresh plan is 0/16.
@@ -70,20 +80,22 @@ test.describe("the roadmap graph surface", () => {
     await expect(progress).toHaveAttribute("aria-valuenow", "0");
     await expect(page.getByText(/0\/16/)).toBeVisible();
 
-    // The four stage columns render their labels + per-stage progress.
+    // The four stage hubs render their labels + per-stage mastered/total.
     for (const stage of STAGES) {
       await expect(page.getByTestId("roadmap-stage-label").filter({ hasText: stage })).toBeVisible();
     }
 
-    // All 16 nodes render (SVG <text> titles inside the g[role=button] boxes).
+    // All 16 leaves render (aria-labels carry the titles).
     await expect(page.getByTestId("roadmap-node")).toHaveCount(NODE_COUNT);
     await expect(nodeBox(page, FIRST_NODE)).toBeVisible();
 
-    // Real arrows: exactly the 12 persisted forward edges, each carrying the
-    // shared arrowhead marker.
-    const edges = page.getByTestId("roadmap-edge");
-    await expect(edges).toHaveCount(EDGE_COUNT);
-    await expect(edges.first()).toHaveAttribute("marker-end", "url(#roadmap-arrow)");
+    // The edge classes: 12 prereq brackets/dips + 16 fan curves + 3 spine
+    // segments — and NO arrowhead marker anywhere (direction is geometric).
+    await expect(page.getByTestId("roadmap-edge")).toHaveCount(PREREQ_COUNT + NODE_COUNT + (STAGES.length - 1));
+    await expect(page.locator("[data-edge-kind='prereq']")).toHaveCount(PREREQ_COUNT);
+    await expect(page.locator("[data-edge-kind='fan']")).toHaveCount(NODE_COUNT);
+    await expect(page.locator("[data-edge-kind='spine']")).toHaveCount(STAGES.length - 1);
+    await expect(page.locator("#roadmap-arrow")).toHaveCount(0);
 
     // The one deliberately invalid stub edge (backward: 面试实战 → 基础奠基)
     // must be absent — resolvable titles, dropped by stage-forward validity.
@@ -95,10 +107,13 @@ test.describe("the roadmap graph surface", () => {
       page.locator(`[data-testid="roadmap-edge"][data-edge-from="${fromId}"][data-edge-to="${toId}"]`),
     ).toHaveCount(0);
 
-    // The optional node is dashed + carries the visible 「可选」 marker line
-    // (AD-9 not-color-only).
+    // The optional node is dashed + carries the visible 「可选」 marker (AD-9).
     await expect(nodeBox(page, OPTIONAL_NODE).getByTestId("roadmap-node-optional")).toBeVisible();
     await expect(page.getByTestId("roadmap-node-optional")).toHaveCount(1);
+
+    // The copied skin rides tokens — spot-check the hub face on a hub rect.
+    const hubRect = page.getByTestId("roadmap-stage-group").first().locator("rect").first();
+    await expect(hubRect).toHaveAttribute("style", /var\(--roadmap-hub-face\)/);
   });
 
   test("a node click opens the sheet with its description; the optional node shows the badge", async ({
@@ -111,17 +126,17 @@ test.describe("the roadmap graph surface", () => {
 
     const sheet = page.getByTestId("roadmap-detail");
 
-    // Stage-1's first node sits on-canvas at the identity view — a plain click.
+    // The page auto-scrolls to any node — the spine is full-page now.
     await nodeBox(page, FIRST_NODE).click();
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole("heading", { name: FIRST_NODE })).toBeVisible();
     await expect(sheet.getByTestId("roadmap-node-desc")).toHaveText(FIRST_DESC);
+    // The sheet carries the mark toggles + the evidence bar (epic-28 T4).
+    await expect(sheet.getByTestId("study-mark-toggle")).toBeVisible();
+    await expect(sheet.getByTestId("evidence-marks")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sheet).not.toBeVisible({ timeout: 5_000 });
 
-    // The optional node may sit off the identity view — fit-view first (the
-    // canvas never scrolls), then click: the sheet gains the optional badge.
-    await page.getByTestId("roadmap-fit").click();
     await nodeBox(page, OPTIONAL_NODE).click();
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole("heading", { name: OPTIONAL_NODE })).toBeVisible();
@@ -131,15 +146,48 @@ test.describe("the roadmap graph surface", () => {
     await expect(sheet).not.toBeVisible({ timeout: 5_000 });
   });
 
-  test("a ?node= deep-link selects, pans into view, focuses, and opens the sheet", async ({ page }) => {
+  test("hover chips mark a node 已完成; the chip + the count survive reload; mastery stays 0", async ({
+    page,
+  }) => {
     await registerOrLogin(page);
     await page.getByText(TOPIC).first().click();
     await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
     await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
 
-    // A stage-4 node — off-canvas at the identity view, so the deep-link must
-    // PAN it into view (the keyboard's ensureBoxVisible path), not just select.
-    const target = await nodeBox(page, BACKWARD_EDGE.from);
+    // Hover → the chip strip; row 1 marks the node 已完成.
+    await hoverNode(page, FIRST_NODE);
+    const strip = page.getByTestId("roadmap-chips");
+    await expect(strip).toBeVisible();
+    await strip.getByTestId("study-mark-finished").click();
+
+    // The canvas corner chip flips immediately (the optimistic overlay).
+    await expect(nodeBox(page, FIRST_NODE).getByTestId("roadmap-node-mark")).toHaveAttribute(
+      "data-mark",
+      "finished",
+    );
+
+    // The mark line counts it; the mastery bar STAYS 0 (orthogonality, AD-14).
+    await expect(page.getByTestId("roadmap-marks-line")).toContainText(/已标记完成 1/);
+    await expect(page.getByTestId("roadmap-progress")).toHaveAttribute("aria-valuenow", "0");
+
+    // Server truth: reload — the chip and the count persist.
+    await page.reload();
+    await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
+    await expect(nodeBox(page, FIRST_NODE).getByTestId("roadmap-node-mark")).toHaveAttribute(
+      "data-mark",
+      "finished",
+    );
+    await expect(page.getByTestId("roadmap-marks-line")).toContainText(/已标记完成 1/);
+    await expect(page.getByTestId("roadmap-progress")).toHaveAttribute("aria-valuenow", "0");
+  });
+
+  test("a ?node= deep-link scrolls the node into view, focuses, and opens the sheet", async ({ page }) => {
+    await registerOrLogin(page);
+    await page.getByText(TOPIC).first().click();
+    await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
+    await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
+
+    const target = await nodeBox(page, LAST_NODE);
     const nodeId = await target.getAttribute("data-node-id");
     const planUrl = page.url();
 
@@ -148,37 +196,43 @@ test.describe("the roadmap graph surface", () => {
 
     const sheet = page.getByTestId("roadmap-detail");
     await expect(sheet).toBeVisible({ timeout: 15_000 });
-    await expect(sheet.getByRole("heading", { name: BACKWARD_EDGE.from })).toBeVisible();
-
-    // Selected AND roving-focused state on the box. (DOM focus itself moves
-    // INTO the opened sheet — Radix's modal focus trap, the correct a11y
-    // posture for a dialog — so document.activeElement is the sheet, not
-    // the node behind it.)
+    await expect(sheet.getByRole("heading", { name: LAST_NODE })).toBeVisible();
     await expect(target).toHaveAttribute("data-focused", "true", { timeout: 15_000 });
 
-    // Pan proof: the off-view stage-4 node is fully inside the measured
-    // canvas after the deep-link — the keyboard's ensureBoxVisible path ran.
+    // Scroll proof: the deep-linked node is inside the BROWSER viewport after
+    // the native scrollIntoView (the tall page navigates by scrolling).
     const visible = await page.evaluate((id) => {
-      const canvas = document.querySelector('[data-testid="roadmap-canvas"]');
       const el = document.querySelector(`[data-node-id="${id}"]`);
-      if (!canvas || !el) return false;
-      const c = canvas.getBoundingClientRect();
+      if (!el) return false;
       const r = el.getBoundingClientRect();
-      return r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom;
+      return r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth;
     }, nodeId);
     expect(visible).toBe(true);
   });
 
-  test("Graph stays the default view and the List toggle keeps working", async ({ page }) => {
+  test("no zoom/pan/pinch affordances exist anywhere", async ({ page }) => {
+    await registerOrLogin(page);
+    await page.getByText(TOPIC).first().click();
+    await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
+
+    for (const testid of ["roadmap-zoom-in", "roadmap-zoom-out", "roadmap-fit", "roadmap-zoom-reset", "roadmap-viewport"]) {
+      await expect(page.getByTestId(testid)).toHaveCount(0);
+    }
+    // No horizontal overflow at any width — the spine always fits.
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("the spine stays the default view and the List toggle keeps working", async ({ page }) => {
     await registerOrLogin(page);
     await page.getByText(TOPIC).first().click();
     await expect(page).toHaveURL(/\/plan\/[0-9a-f-]{36}/);
 
-    // Default: the canvas — not the list — meets the user, no clicks needed.
+    // Default: the spine — not the list — meets the user, no clicks needed.
     await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("roadmap-node")).toHaveCount(NODE_COUNT);
 
-    // One click to the stage-grouped list; the graph unmounts.
+    // One click to the stage-grouped list; the spine unmounts.
     await page.getByRole("button", { name: "列表" }).click();
     await expect(page.getByTestId("roadmap-canvas")).toHaveCount(0);
     await expect(page.getByText(FIRST_NODE).first()).toBeVisible();

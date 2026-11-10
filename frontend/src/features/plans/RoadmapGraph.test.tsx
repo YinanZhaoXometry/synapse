@@ -387,7 +387,8 @@ describe("RoadmapGraph hover + empty", () => {
     expect(strip).toHaveTextContent("Node 0 学习节点");
     expect(strip).toHaveTextContent(zhDict["plans.markLearning"]);
 
-    fireEvent.pointerLeave(nodeEl("node-00")!);
+    fireEvent.pointerLeave(screen.getByTestId("roadmap-canvas"));
+    await new Promise((resolve) => setTimeout(resolve, 160));
     expect(screen.queryByTestId("roadmap-chips")).toBeNull();
   });
 
@@ -412,7 +413,10 @@ describe("RoadmapGraph hover chip strip (epic-28 T4)", () => {
     expect(strip.querySelector("[data-testid='study-mark-toggle']")).not.toBeNull();
     expect(strip.querySelector("[data-testid='node-quick-test']")).not.toBeNull();
 
-    fireEvent.pointerLeave(nodeEl("node-05")!);
+    // Hiding is the CONTAINER's job (a strip mounted under a stationary
+    // pointer never synthesizes per-element leave/enter).
+    fireEvent.pointerLeave(screen.getByTestId("roadmap-canvas"));
+    await new Promise((resolve) => setTimeout(resolve, 160));
     expect(screen.queryByTestId("roadmap-chips")).toBeNull();
   });
 

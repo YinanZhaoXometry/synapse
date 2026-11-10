@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (studyMark on the wire), 02 (spine layout).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 **Bound by:** FR-5; owner decisions 2026-11-11 (full-page scroll, no zoom/pan, verbatim style copy, dual-mode colors, spine layout, List toggle stays); AD-9 (keyboard floor — roving tabindex preserved, not rebuilt); AD-14 (progress reads server states only); NFR-6 (one new asset total: the OFL font); theme discipline (tokens only, zero raw hex in components).
 

@@ -75,6 +75,7 @@ See the brief — [Executive Summary and Vision](../brief-synapse/brief-synapse.
 - **Roadmap** — the interactive node-graph rendering of a Study Plan (roadmap.sh-style): nodes grouped by stage, edges for sequence, mastery states, click-through.
 - **Material** — an uploaded study document (PDF or Markdown) attached to a Study Plan. The user finds Materials; the system hosts none.
 - **Mastery Score** — the evidence-based percentage (0–100) of mastery for a Knowledge Node, rolled up to a Study Plan total; 100% is the readiness state (exam/interview confidence).
+- **Study Mark (学习标记)** — the user's self-declared per-node status (学习中 / 已完成 / 已跳过), set from the Roadmap and revocable. ORTHOGONAL to the Mastery Score by contract: a mark says where the user *says they are*; only quiz evidence moves the Mastery Score. Nothing computational reads a mark. *(Added 2026-11-11, epic-28; owner decision.)*
 - **Immersive Reader** — the in-app reading surface for a Material, with the Companion panel beside it.
 - **Companion** — the AI tutor: answers grounded in the current Reading Position; guardrailed (guides before it answers); generates quizzes, flashcards, and Study Notes.
 - **Reading Position** — the page (PDF) or section (Markdown) the user is currently viewing, including its text content.
@@ -144,10 +145,19 @@ A user's Study Plans, Materials, Annotations, and Mastery Scores are visible onl
 
 #### FR-5: Roadmap graph rendering `[Phase 2]`
 
-A Study Plan renders as an interactive node graph in the roadmap.sh style: Knowledge Nodes grouped by stage, edges for sequence, click for detail.
+A Study Plan renders as an interactive node graph in the roadmap.sh style: Knowledge Nodes grouped by stage, edges for sequence, click for detail. *(Form factor revised 2026-11-11, epic-28, owner decision: a full-page vertical-spine roadmap browsed by scrolling — stage headers as main nodes on a central spine, knowledge nodes fanning beside them, the roadmap.sh style parameters copied verbatim; no zoom or pan.)*
 
 **Consequences (testable):**
 - Nodes and edges reflect the Study Plan's structure; the graph renders for a 30+ node plan without unusable layout.
+
+#### FR-47: Study Mark on the Roadmap `[Phase 2 · added 2026-11-11, epic-28]`
+
+The user can mark a Knowledge Node on the Roadmap as 学习中 (learning), 已完成 (finished), or 已跳过 (skipped) — from a node's hover chips or its detail sheet — and revoke the mark by clicking the active status again. Marks persist per user account. **Orthogonal to mastery (ADR-0002):** the mark is self-declared tracking ("where I say I am"); it never feeds the Mastery Score, readiness, targeting, or any other computation (those stay evidence-only per ADR-0001/FR-6). The plan progress bar keeps counting evidence-derived mastery only; a separate line counts marks.
+
+**Consequences (testable):**
+- A mark survives reload and follows the account across devices.
+- Marking 已完成 never changes the node's mastery state, the plan's progress bar, or any score.
+- The UI copy never uses the word "Done" (glossary discipline — 已完成).
 
 #### FR-6: Mastery-driven node state `[Phase 2]`
 
@@ -442,7 +452,7 @@ FR-1, FR-2, FR-3, FR-8, FR-9, FR-10, FR-11, FR-12, FR-18, FR-19, FR-25, FR-29, F
 
 ### 6.2 Out of Scope for MVP (Phase 1) — delivered in Phase 2
 
-Accounts, plan privacy and sync (FR-4, FR-30, FR-31); Roadmap graph rendering and node states (FR-5, FR-6, FR-7); roadmap.sh import, node-pinned attachment, material–node mapping (FR-43, FR-44, FR-45); Square and plan visibility (FR-38, FR-39); Notes with enrichment (FR-40); PPT upload (owner Q6 — first candidate when Phase 2 opens); adaptive targeting (FR-21); plan-level Companion grounding (FR-46); in-reader Quick Test and Annotations/Study Focus beyond stretch (FR-13–17); Mistakes Notebook and Re-queue (FR-23, FR-24); full per-plan analytics, Today, real badge unlocks (FR-26, FR-27, FR-28); Flashcards Hub and Quiz Hub (FR-41, FR-42); cost cap (FR-34); Study Task → Plan promotion (FR-37 stretch half). Reason: the owner-confirmed Nov 6 slice protects the front door (entry states → plan or task → study) plus the flagship reader demo; the hubs, Square, Notes, and import need the fuller data model and accounts. **Scaffold retention (owner round 2026-11-01):** the scaffold's ten pages are formally retained as the Phase 1 demo app — Dashboard, AI Tutor, Materials, Quiz, Flashcards, Mistakes, Planner, Achievements, Analytics on demo data, plus the sidebar profile footer + Settings — while the plan-first surfaces (FR-1/FR-36) layer on as they land; the earlier "placeholder if needed" framing is superseded by this retention.
+Accounts, plan privacy and sync (FR-4, FR-30, FR-31); Roadmap graph rendering and node states (FR-5, FR-6, FR-7; FR-5's form factor revised + FR-47 added 2026-11-11, epic-28); roadmap.sh import, node-pinned attachment, material–node mapping (FR-43, FR-44, FR-45); Square and plan visibility (FR-38, FR-39); Notes with enrichment (FR-40); PPT upload (owner Q6 — first candidate when Phase 2 opens); adaptive targeting (FR-21); plan-level Companion grounding (FR-46); in-reader Quick Test and Annotations/Study Focus beyond stretch (FR-13–17); Mistakes Notebook and Re-queue (FR-23, FR-24); full per-plan analytics, Today, real badge unlocks (FR-26, FR-27, FR-28); Flashcards Hub and Quiz Hub (FR-41, FR-42); cost cap (FR-34); Study Task → Plan promotion (FR-37 stretch half). Reason: the owner-confirmed Nov 6 slice protects the front door (entry states → plan or task → study) plus the flagship reader demo; the hubs, Square, Notes, and import need the fuller data model and accounts. **Scaffold retention (owner round 2026-11-01):** the scaffold's ten pages are formally retained as the Phase 1 demo app — Dashboard, AI Tutor, Materials, Quiz, Flashcards, Mistakes, Planner, Achievements, Analytics on demo data, plus the sidebar profile footer + Settings — while the plan-first surfaces (FR-1/FR-36) layer on as they land; the earlier "placeholder if needed" framing is superseded by this retention.
 
 ### 6.3 Explicit Non-Goals (v1, both phases)
 

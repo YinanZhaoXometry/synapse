@@ -14,7 +14,7 @@ import path from "node:path";
  * runs against the stub-wired e2e stack OR the plain dev stack). It drives
  * the REAL 16-node graph on the live stack through the visual matrix the
  * ticket names — light + dark, one non-default palette (twilight),
- * reduced-motion, fit-view + zoom + keyboard roving focus — and saves full
+ * reduced-motion, page-scroll reach + keyboard roving focus — and saves full
  * screenshots OUTSIDE the repository (the OS temp dir) for human review.
  *
  * Honest caveats (recorded in the close-out): the browser is Playwright's
@@ -170,26 +170,12 @@ test.describe("the 16-node graph visual matrix", () => {
     // Light + sunset (the defaults): the whole plan home with the graph.
     await shoot(page, "01-graph-light-sunset-default.png");
 
-    // Fit-view really rescales the viewport transform: 16 nodes overflow the
-    // ~440px canvas at zoom 1, so the fit zoom settles BELOW 1 (the 160ms
-    // ease-out transition needs a settle poll, not an instant read).
-    const scaleOf = (style: string | null | undefined) =>
-      Number((style?.match(/scale\(([\d.]+)\)/) ?? [])[1]);
-    const viewport = page.getByTestId("roadmap-viewport");
-    await page.getByTestId("roadmap-fit").click();
-    await expect
-      .poll(async () => scaleOf(await viewport.getAttribute("style")), { timeout: 5_000 })
-      .toBeLessThan(1);
-    const fitted = scaleOf(await viewport.getAttribute("style"));
-
-    // Zoom in two pinned steps (+0.25 each, ZOOM_STEP): the scale grows by
-    // exactly 0.5 from the fitted value (clamped at 2).
-    await page.getByTestId("roadmap-zoom-in").click();
-    await page.getByTestId("roadmap-zoom-in").click();
-    await expect
-      .poll(async () => scaleOf(await viewport.getAttribute("style")), { timeout: 5_000 })
-      .toBeCloseTo(fitted + 0.5, 1);
-    await shoot(page, "02-graph-light-sunset-fit-zoom.png");
+    // The spine form factor (epic-28): no zoom/pan — page scroll reaches the
+    // last stage; the full-page screenshot above already captures it, and the
+    // scroll-to-bottom proves the navigation.
+    await nodeBox(page, "模拟面试复盘").scrollIntoViewIfNeeded();
+    await expect(nodeBox(page, "模拟面试复盘")).toBeVisible();
+    await shoot(page, "02-graph-light-sunset-scrolled.png");
 
     // The node detail sheet over the graph (description line visible). The
     // Radix sheet slides in — let the entrance animation settle before the
@@ -256,8 +242,9 @@ test.describe("the 16-node graph visual matrix", () => {
     await expect(sheet.getByRole("heading", { name: focusedTitle })).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Far right column, bottom row — off the identity view; arrowing there must
-    // PAN it into the canvas (ensureBoxVisible), leaving real DOM focus on it.
+    // Far right column, bottom row — likely scrolled off; arrowing there must
+    // SCROLL it into view (the native scrollIntoView), leaving real DOM focus
+    // on it.
     const far = nodeBox(page, "模拟面试复盘");
     const farId = await far.getAttribute("data-node-id");
     await page.evaluate((id) => {
@@ -268,14 +255,12 @@ test.describe("the 16-node graph visual matrix", () => {
     const leftId = await activeId();
     expect(leftId).toBeTruthy();
     expect(leftId).not.toBe(farId);
-    // The newly focused node is fully inside the measured canvas.
+    // The newly focused node is fully inside the BROWSER viewport.
     const visible = await page.evaluate((id) => {
-      const canvas = document.querySelector('[data-testid="roadmap-canvas"]');
       const el = document.querySelector(`[data-node-id="${id}"]`);
-      if (!canvas || !el) return false;
-      const c = canvas.getBoundingClientRect();
+      if (!el) return false;
       const r = el.getBoundingClientRect();
-      return r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom;
+      return r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth;
     }, leftId);
     expect(visible).toBe(true);
   });

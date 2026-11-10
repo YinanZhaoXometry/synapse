@@ -176,30 +176,57 @@ export default function RoadmapGraph({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [chipsVisible, setChipsVisible] = useState(false);
   const hoverIntentRef = useRef<number | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
   const nodeRefs = useRef(new Map<string, SVGElement>());
 
   // The hover chip strip (epic-28 T4): ~150ms hover-intent so brushing the
-  // canvas never flickers chips; pointer-leave cancels; TOUCH never opens
-  // them (tap = the sheet, unchanged). Keyboard never opens them either —
-  // Enter opens the sheet, which carries the same actions.
+  // canvas never flickers chips; leaving schedules a ~120ms GRACE hide that
+  // entering the strip (or another node) cancels — the strip mounts flush
+  // above the node, so a top-row strip overlaps the pointer and a bare
+  // leave-hide would unmount the strip the instant it opens (the e2e
+  // flicker lesson). TOUCH never opens them (tap = the sheet, unchanged).
+  // Keyboard never opens them either — Enter opens the sheet, which carries
+  // the same actions.
   const clearHoverIntent = () => {
     if (hoverIntentRef.current !== null) {
       window.clearTimeout(hoverIntentRef.current);
       hoverIntentRef.current = null;
     }
   };
+  const cancelHide = () => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    hideTimerRef.current = window.setTimeout(() => {
+      hideTimerRef.current = null;
+      setChipsVisible(false);
+      setHoveredId(null);
+    }, 120);
+  };
   const onNodePointerEnter = (id: string, event: React.PointerEvent) => {
     if (event.pointerType === "touch") return;
+    cancelHide();
     setHoveredId(id);
     clearHoverIntent();
     hoverIntentRef.current = window.setTimeout(() => setChipsVisible(true), 150);
   };
-  const onNodePointerLeave = (id: string) => {
-    setHoveredId((current) => (current === id ? null : current));
-    setChipsVisible(false);
-    clearHoverIntent();
-  };
-  useEffect(() => clearHoverIntent, []);
+  // NOTE: no per-node pointerleave — a strip mounted flush above a top-row
+  // node sits under a STATIONARY pointer, and Chromium never synthesizes the
+  // enter/leave pair for an element that appears (or vanishes) beneath an
+  // unmoved pointer. Hiding is therefore the CONTAINER's job: the pointer
+  // leaving the whole canvas area schedules the hide; nodes and the strip
+  // are inside it, so reaching either never hides anything.
+  useEffect(
+    () => () => {
+      clearHoverIntent();
+      cancelHide();
+    },
+    [],
+  );
 
   useEffect(() => {
     // Focused-id reconciliation (review finding 4 posture): when the focused
@@ -377,7 +404,13 @@ export default function RoadmapGraph({
           viewBox, height follows the layout — the page's own scrollbar is the
           only navigation. The canvas testid survives (the graph surface's
           stable handle, same contract as the widget era). */}
-      <div ref={containerRef} data-testid="roadmap-canvas" className="relative w-full">
+      <div
+        ref={containerRef}
+        data-testid="roadmap-canvas"
+        data-motion={reduceMotion ? "off" : "on"}
+        onPointerLeave={() => scheduleHide()}
+        className="relative w-full"
+      >
         <svg
           role="group"
           aria-label={t("plans.graphAria")}
@@ -479,13 +512,13 @@ export default function RoadmapGraph({
                 tabIndex={focused ? 0 : -1}
                 aria-label={ariaLabel}
                 onPointerEnter={(event) => onNodePointerEnter(id, event)}
-                onPointerLeave={() => onNodePointerLeave(id)}
                 onClick={() => {
                   setSelectedId(id);
                   setFocusedId(id);
+                  clearHoverIntent();
+                  cancelHide();
                   setHoveredId(null);
                   setChipsVisible(false);
-                  clearHoverIntent();
                 }}
                 onFocus={() => setFocusedId(id)}
                 onKeyDown={(event) => onNodeKeyDown(event, box)}
@@ -581,7 +614,7 @@ export default function RoadmapGraph({
               left: Math.max(0, hoveredBox.x * scale),
               top: Math.max(0, hoveredBox.y * scale - 76),
             }}
-            onPointerLeave={() => onNodePointerLeave(hoveredId!)}
+
           >
             <div className="flex items-center gap-2">
               <span className="max-w-[260px] truncate text-xs font-semibold text-foreground">{hovered.node.title}</span>
