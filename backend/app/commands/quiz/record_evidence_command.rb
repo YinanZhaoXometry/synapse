@@ -66,6 +66,14 @@ module Quiz
             question: question,
             outcome: result[:outcome]
           )
+          # Epic-31 T3: a wrong or partial answer re-opens the question's
+          # resolved mistakes — the hub reflects the live failure set, not a
+          # museum (correct never touches the flag; the requeue anchor stays
+          # untouched — the evidence timeline already resets the stage).
+          if result[:outcome] == "wrong" || result[:outcome] == "partial"
+            current_user.mistake_entries.where(question_id: question.id, resolved: true)
+                        .update_all(resolved: false) # rubocop:disable Rails/SkipsModelValidations
+          end
           next unless result[:outcome] == "wrong"
 
           mistakes << current_user.mistake_entries.create!(

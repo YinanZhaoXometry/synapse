@@ -284,7 +284,7 @@ module Types
       # is epic-09's call if the hub ever needs one (AD-12: not preempted).
       current_user!.requeue_schedules
                    .where(next_due_at: ..day_end)
-                   .order(:next_due_at)
+                   .review_order
                    .includes(:schedulable)
                    .select { |schedule| schedule.schedulable }
     end

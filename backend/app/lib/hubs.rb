@@ -89,7 +89,7 @@ module Hubs
       day_end = now.end_of_day
       user.requeue_schedules
           .where(next_due_at: ..day_end)
-          .order(:next_due_at)
+          .review_order
           .includes(:schedulable)
           .select { |schedule| schedule.schedulable }
     end
