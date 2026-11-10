@@ -243,7 +243,8 @@ describe("DashboardPage — plan evidence re-point (FR-25, epic P2-09 T5)", () =
 
   it("renders nothing while the reads load (honest-empty, no flash of stale demo copy)", () => {
     const { container } = renderDashboardPage(dashHandlers());
-    expect(container.innerHTML).toBe("");
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
     expect(screen.queryByText(zh("dashboard.achievementsEmpty"))).toBeNull();
   });
 
