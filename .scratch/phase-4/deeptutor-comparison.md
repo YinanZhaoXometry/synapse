@@ -1,7 +1,7 @@
 # DeepTutor × Synapse — feature comparison & mastery-gate extraction
 
 Status: research artifact for the Phase 4 kickoff grills · 2026-11-11
-Source: local snapshot `../DeepTutor-main` (HKUDS/DeepTutor v1.7.2, Apache-2.0). All `deeptutor/…` paths below are under that snapshot; all `backend/…`/`frontend/…` paths are Synapse main @ `6dcdb16`. Facts on the Synapse side were re-verified in-repo today, not from memory.
+Source: local snapshot `../DeepTutor-main` (HKUDS/DeepTutor v1.7.2, Apache-2.0). All `deeptutor/…` paths below are under that snapshot; all `backend/…`/`frontend/…` paths are Synapse main @ `b7234ef` (verified against `6dcdb16`; the intervening epic-28 merge touched auth/toast/deleteTask only). Facts on the Synapse side were re-verified in-repo today, not from memory.
 
 Why this exists: the owner nominated a DeepTutor-parity learning-engine phase (2026-11-11). This doc is the comparison + the extracted design that the phase-4 epics grill against. It is **not** a spec — each epic specs at its own kickoff (delta-grill-at-kickoff convention).
 
