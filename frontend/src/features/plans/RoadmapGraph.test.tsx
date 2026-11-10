@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MockedProvider } from "@apollo/client/testing/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { installPointerEventShim } from "@/test/pointer-event-shim";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -18,6 +20,10 @@ import RoadmapGraph from "./RoadmapGraph";
  * mount it directly, no Apollo. jsdom renders unmeasured (scale 1), which is
  * exactly the deterministic posture the assertions ride.
  */
+
+// jsdom 20 predates PointerEvent — the chip strip's touch suppression rides
+// pointerType, so install the shared shim (src/test/pointer-event-shim.ts).
+installPointerEventShim();
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
 const zh = (key: string, vars?: Record<string, string>) => {
@@ -86,20 +92,22 @@ const treeWith = (
     initialEntries?: string[];
   } = {},
 ) => (
-  <MemoryRouter initialEntries={opts.initialEntries ?? ["/plan/plan-1"]}>
-    <ThemeProvider>
-      <LanguageProvider>
-        <RoadmapGraph
+  <MockedProvider mocks={[]}>
+    <MemoryRouter initialEntries={opts.initialEntries ?? ["/plan/plan-1"]}>
+      <ThemeProvider>
+        <LanguageProvider>
+          <RoadmapGraph
           planId="plan-1"
           views={views}
           materials={MATERIALS}
           edges={opts.edges}
-          mappings={"mappings" in opts ? opts.mappings : [mappingRow()]}
-          mappingsFailed={opts.mappingsFailed ?? false}
-        />
-      </LanguageProvider>
-    </ThemeProvider>
-  </MemoryRouter>
+            mappings={"mappings" in opts ? opts.mappings : [mappingRow()]}
+            mappingsFailed={opts.mappingsFailed ?? false}
+          />
+        </LanguageProvider>
+      </ThemeProvider>
+    </MemoryRouter>
+  </MockedProvider>
 );
 
 function mountGraph(
@@ -369,21 +377,88 @@ describe("RoadmapGraph node detail sheet", () => {
 });
 
 describe("RoadmapGraph hover + empty", () => {
-  it("hover shows the overlay (title · state · mark) and leave hides it", () => {
+  it("hover opens the chip strip (title · state · mark) and leave hides it", async () => {
     const views = nodeRowViews([nodeAt(0, { studyMark: "learning" })], []);
     mountGraph({ views });
 
-    fireEvent.pointerEnter(nodeEl("node-00")!);
-    const tooltip = screen.getByTestId("roadmap-tooltip");
-    expect(tooltip).toHaveTextContent("Node 0 学习节点");
-    expect(tooltip).toHaveTextContent(zhDict["plans.markLearning"]);
+    fireEvent.pointerEnter(nodeEl("node-00")!, { pointerType: "mouse" });
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    const strip = screen.getByTestId("roadmap-chips");
+    expect(strip).toHaveTextContent("Node 0 学习节点");
+    expect(strip).toHaveTextContent(zhDict["plans.markLearning"]);
 
     fireEvent.pointerLeave(nodeEl("node-00")!);
-    expect(screen.queryByTestId("roadmap-tooltip")).toBeNull();
+    expect(screen.queryByTestId("roadmap-chips")).toBeNull();
   });
 
   it("an empty plan renders the honest empty line", () => {
     mountGraph({ views: [] });
     expect(screen.getByText(zhDict["plans.graphEmpty"])).toBeInTheDocument();
+  });
+});
+
+describe("RoadmapGraph hover chip strip (epic-28 T4)", () => {
+  it("opens after the hover intent with toggles + actions, and closes on leave", async () => {
+    mountGraph();
+    fireEvent.pointerEnter(nodeEl("node-05")!, { pointerType: "mouse" });
+    // Inside the 150ms intent window the strip is not up yet.
+    expect(screen.queryByTestId("roadmap-chips")).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 220));
+
+    const strip = screen.getByTestId("roadmap-chips");
+    expect(strip).toBeInTheDocument();
+    // Row 1: the mark toggles; row 2: the actions (quick test always; study
+    // link when the mapping read gave one).
+    expect(strip.querySelector("[data-testid='study-mark-toggle']")).not.toBeNull();
+    expect(strip.querySelector("[data-testid='node-quick-test']")).not.toBeNull();
+
+    fireEvent.pointerLeave(nodeEl("node-05")!);
+    expect(screen.queryByTestId("roadmap-chips")).toBeNull();
+  });
+
+  it("never opens for touch pointers (tap stays the sheet contract)", async () => {
+    mountGraph();
+    fireEvent.pointerEnter(nodeEl("node-00")!, { pointerType: "touch" });
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    expect(screen.queryByTestId("roadmap-chips")).toBeNull();
+  });
+
+  it("the sheet carries the mark toggles + the evidence bar", () => {
+    const views = nodeRowViews(
+      [nodeAt(5, { studyMark: "learning" })],
+      [
+        { id: "ev-1", nodeId: "node-05", sessionId: null, questionId: null, outcome: "correct" as const, createdAt: "2026-11-05T01:00:00Z" },
+        { id: "ev-2", nodeId: "node-05", sessionId: null, questionId: null, outcome: "wrong" as const, createdAt: "2026-11-05T02:00:00Z" },
+      ],
+    );
+    mountGraph({ views });
+    fireEvent.click(nodeEl("node-05")!);
+
+    const detail = screen.getByTestId("roadmap-detail");
+    const toggle = detail.querySelector("[data-testid='study-mark-toggle']");
+    expect(toggle).not.toBeNull();
+    expect(toggle!.querySelector("[data-testid='study-mark-learning']")!.getAttribute("aria-pressed")).toBe("true");
+    // The evidence bar: the window's marks (wrong newest) + honest empty elsewhere.
+    const marks = detail.querySelector("[data-testid='evidence-marks']");
+    expect(marks).not.toBeNull();
+    expect(marks!.textContent).not.toContain(zhDict["plans.noEvidence"]);
+  });
+
+  it("the evidence bar reads the honest empty line when no evidence exists", () => {
+    mountGraph();
+    fireEvent.click(nodeEl("node-00")!);
+    const marks = screen.getByTestId("roadmap-detail").querySelector("[data-testid='evidence-marks']");
+    expect(marks!.textContent).toContain(zhDict["plans.noEvidence"]);
+  });
+
+  it("the ask-AI handoff href carries the encoded draft before the anchor", () => {
+    mountGraph();
+    fireEvent.click(nodeEl("node-05")!);
+    const ask = screen.getByTestId("node-ask-ai");
+    const href = ask.getAttribute("href")!;
+    expect(href.startsWith("/read/m-md?hl=1&companionAsk=")).toBe(true);
+    expect(href.endsWith("#sec-1")).toBe(true);
+    const draft = decodeURIComponent(href.split("companionAsk=")[1].split("#")[0]);
+    expect(draft).toBe(zh("plans.companionAskDraft", { node: "Node 5 学习节点" }));
   });
 });

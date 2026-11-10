@@ -8,11 +8,12 @@
  * pinch batch retire with this rewrite (git history is the archive).
  *
  * Skin (epic-28, owner decision 2026-11-11): the roadmap.sh style parameters
- * COPIED VERBATIM — hub `#fdff00` / leaf `#ffe599` fills, black 2.7 borders,
-   radius 5, `#2b78e4` edges at 3.5 with the dotted `0.8 8` fans, Balsamiq
- * Sans 28px — all as CSS variables (--roadmap-*) with identical values in
- * light and dark; only the canvas surface follows the theme. Zero raw hex in
- * this file. No roadmap.sh content/assets are copied (FR-43 wontfix stands).
+ * COPIED VERBATIM (hub/leaf fills, black 2.7 borders, radius 5, the blue
+ * edges at 3.5 with the dotted 0.8 8 fans, Balsamiq Sans 28px) — every value
+ * lives in the --roadmap-* CSS variables (index.css) with identical values in
+ * light and dark; only the canvas surface follows the theme. Zero raw colors
+ * in this file (the guard test enforces it). No roadmap.sh content/assets are
+ * copied (FR-43 wontfix stands).
  *
  * State vocabulary: node fills never encode mastery (NODE_STATE_FACE is
  * gone from the graph). Two independent corner badges — the Study Mark chip
@@ -40,6 +41,8 @@ import { cn } from "@/lib/utils";
 import type { NodeRowView } from "./display-shaping";
 import NodeActions from "./node-actions";
 import { NodeStateBadge } from "./node-state-badge";
+import StudyMarkToggleRow from "./study-mark-toggle";
+import EvidenceMarks from "./evidence-marks";
 import { NODE_STATE_DISPLAY, nodeJumpTargets } from "./node-state";
 import {
   roadmapSpineLayout,
@@ -80,7 +83,7 @@ function MarkChip({ box, mark }: { box: SpineBox; mark: StudyMark }) {
   const color = MARK_DISPLAY[mark].colorVar;
   return (
     <g data-testid="roadmap-node-mark" data-mark={mark} aria-hidden="true">
-      <circle cx={cx} cy={cy} r={8.5} fill="#ffffff" stroke={color} strokeWidth={2} />
+      <circle cx={cx} cy={cy} r={8.5} fill="hsl(var(--card))" stroke={color} strokeWidth={2} />
       {mark === "finished" && (
         <path
           d={`M ${cx - 3.6} ${cy + 0.4} L ${cx - 0.8} ${cy + 3.2} L ${cx + 3.8} ${cy - 3}`}
@@ -171,7 +174,32 @@ export default function RoadmapGraph({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(() => layout.readingOrder[0] ?? null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [chipsVisible, setChipsVisible] = useState(false);
+  const hoverIntentRef = useRef<number | null>(null);
   const nodeRefs = useRef(new Map<string, SVGElement>());
+
+  // The hover chip strip (epic-28 T4): ~150ms hover-intent so brushing the
+  // canvas never flickers chips; pointer-leave cancels; TOUCH never opens
+  // them (tap = the sheet, unchanged). Keyboard never opens them either —
+  // Enter opens the sheet, which carries the same actions.
+  const clearHoverIntent = () => {
+    if (hoverIntentRef.current !== null) {
+      window.clearTimeout(hoverIntentRef.current);
+      hoverIntentRef.current = null;
+    }
+  };
+  const onNodePointerEnter = (id: string, event: React.PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    setHoveredId(id);
+    clearHoverIntent();
+    hoverIntentRef.current = window.setTimeout(() => setChipsVisible(true), 150);
+  };
+  const onNodePointerLeave = (id: string) => {
+    setHoveredId((current) => (current === id ? null : current));
+    setChipsVisible(false);
+    clearHoverIntent();
+  };
+  useEffect(() => clearHoverIntent, []);
 
   useEffect(() => {
     // Focused-id reconciliation (review finding 4 posture): when the focused
@@ -259,6 +287,13 @@ export default function RoadmapGraph({
     mappings && selectedId
       ? nodeJumpTargets(
           mappings.filter((row) => row.nodeId === selectedId),
+          materials,
+        )
+      : null;
+  const hoveredTargets =
+    mappings && hoveredId
+      ? nodeJumpTargets(
+          mappings.filter((row) => row.nodeId === hoveredId),
           materials,
         )
       : null;
@@ -443,12 +478,14 @@ export default function RoadmapGraph({
                 role="button"
                 tabIndex={focused ? 0 : -1}
                 aria-label={ariaLabel}
-                onPointerEnter={() => setHoveredId(id)}
-                onPointerLeave={() => setHoveredId((current) => (current === id ? null : current))}
+                onPointerEnter={(event) => onNodePointerEnter(id, event)}
+                onPointerLeave={() => onNodePointerLeave(id)}
                 onClick={() => {
                   setSelectedId(id);
                   setFocusedId(id);
                   setHoveredId(null);
+                  setChipsVisible(false);
+                  clearHoverIntent();
                 }}
                 onFocus={() => setFocusedId(id)}
                 onKeyDown={(event) => onNodeKeyDown(event, box)}
@@ -531,23 +568,36 @@ export default function RoadmapGraph({
           })}
         </svg>
 
-        {/* The hover overlay (T3 posture: title + state + mark, pinned by
-            scale; T4 upgrades it to the actionable chip strip). */}
-        {hovered && hoveredBox && (
+        {/* The hover chip strip (epic-28 T4): row 1 = the Study Mark
+            toggles, row 2 = the node's actions (NodeActions verbatim — one
+            implementation everywhere). Anchored above the node; pointer
+            events ON (the chips are clickable); hidden while unhovered,
+            during the intent delay, and for touch (tap = the sheet). */}
+        {hovered && hoveredBox && chipsVisible && (
           <div
-            role="tooltip"
-            data-testid="roadmap-tooltip"
-            className="pointer-events-none absolute z-10 max-w-[240px] rounded-lg border border-border-soft bg-popover px-2.5 py-1.5 text-xs leading-[1.5] shadow-raised"
-            style={{ left: hoveredBox.x * scale + 12, top: Math.max(4, hoveredBox.y * scale - 36) }}
+            data-testid="roadmap-chips"
+            className="absolute z-10 flex flex-col items-start gap-1 rounded-xl border border-border-soft bg-popover px-2 py-1.5 shadow-raised"
+            style={{
+              left: Math.max(0, hoveredBox.x * scale),
+              top: Math.max(0, hoveredBox.y * scale - 76),
+            }}
+            onPointerLeave={() => onNodePointerLeave(hoveredId!)}
           >
-            <span className="font-semibold text-foreground">{hovered.node.title}</span>
-            <span className="text-muted-foreground">
-              {` · ${t(NODE_STATE_DISPLAY[hovered.state].labelKey)}`}
-              {hovered.node.studyMark
-                ? ` · ${t(MARK_DISPLAY[hovered.node.studyMark].labelKey)}`
-                : ""}
-              {hovered.node.optional && ` · ${t("plans.nodeOptional")}`}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="max-w-[260px] truncate text-xs font-semibold text-foreground">{hovered.node.title}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {t(NODE_STATE_DISPLAY[hovered.state].labelKey)}
+                {hovered.node.optional ? ` · ${t("plans.nodeOptional")}` : ""}
+              </span>
+            </div>
+            <StudyMarkToggleRow nodeId={hovered.node.id} mark={hovered.node.studyMark} compact />
+            <NodeActions
+              targets={hoveredTargets}
+              failed={mappingsFailed}
+              planId={planId}
+              nodeId={hovered.node.id}
+              nodeTitle={hovered.node.title}
+            />
           </div>
         )}
       </div>
@@ -569,7 +619,12 @@ export default function RoadmapGraph({
                   {t("plans.graphNodeAria", { node: selected.node.title, state: t(NODE_STATE_DISPLAY[selected.state].labelKey) })}
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-1 flex items-center gap-2.5">
+              {/* The Study Mark row (FR-47): self-declared status, revocable —
+                  orthogonal to the mastery badge beside it (ADR-0002). */}
+              <div className="mt-3">
+                <StudyMarkToggleRow nodeId={selected.node.id} mark={selected.node.studyMark} />
+              </div>
+              <div className="mt-3 flex items-center gap-2.5">
                 <NodeStateBadge state={selected.state} />
                 {selected.node.optional && (
                   <span
@@ -615,6 +670,12 @@ export default function RoadmapGraph({
               {mappings === undefined && !mappingsFailed && (
                 <p className="mt-3 text-xs text-muted-foreground">{t("plans.graphActionsPending")}</p>
               )}
+              {/* The evidence bar (epic-28 T4): the same ●◐✕ window the list
+                  view's popover shows — the sheet explains the score instead
+                  of just displaying it. */}
+              <div className="mt-4 rounded-xl border border-border-soft bg-[var(--glass-1)] p-3">
+                <EvidenceMarks outcomes={selected.lastOutcomes} />
+              </div>
             </>
           )}
         </SheetContent>

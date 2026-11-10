@@ -11,7 +11,10 @@ import { join } from "node:path";
 describe("roadmap skin token discipline", () => {
   it("RoadmapGraph.tsx carries zero raw color literals", () => {
     const source = readFileSync(join(__dirname, "RoadmapGraph.tsx"), "utf8");
-    const violations = source.match(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g) ?? [];
+    // Comments may NARRATE the skin (prose pointing at index.css) — strip
+    // them before the scan so only live code is judged.
+    const code = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
+    const violations = code.match(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g) ?? [];
     expect(violations, `raw colors leaked into the renderer: ${violations.join(", ")}`).toEqual([]);
   });
 

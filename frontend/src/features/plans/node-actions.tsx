@@ -12,10 +12,10 @@
  * Comments): node-scoped quiz GENERATION lands with T5's node_scope.
  */
 import { Link } from "react-router-dom";
-import { BookOpen, ListChecks } from "lucide-react";
+import { BookOpen, ListChecks, MessageCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { nodePrimaryAction, nodeQuickTestHref, type NodeJumpTarget, type NodePrimaryAction } from "./node-state";
+import { nodePrimaryAction, nodeQuickTestHref, withCompanionAsk, type NodeJumpTarget, type NodePrimaryAction } from "./node-state";
 
 const ACTION_CLASS =
   "inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none";
@@ -94,6 +94,20 @@ export default function NodeActions({
           className={ACTION_CLASS}
         >
           <ListChecks className="w-3 h-3" aria-hidden="true" /> {t("plans.nodeQuickTest")}
+        </Link>
+      )}
+      {/* The ask-AI handoff (epic-28 T4): jump into the reader with the
+          Companion open and the composer pre-filled — PREFILL ONLY, the user
+          presses send (no silent AI spend). Rendered only when a confirmed
+          mapping exists (the same condition as the study link). */}
+      {action?.kind === "study" && (
+        <Link
+          to={withCompanionAsk(action.targets[0].href, t("plans.companionAskDraft", { node: nodeTitle }))}
+          aria-label={t("plans.askAiAria", { node: nodeTitle })}
+          data-testid="node-ask-ai"
+          className={ACTION_CLASS}
+        >
+          <MessageCircle className="w-3 h-3" aria-hidden="true" /> {t("plans.askAiAction")}
         </Link>
       )}
     </>

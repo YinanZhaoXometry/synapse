@@ -259,6 +259,22 @@ export default function ReaderPage() {
     }
   }, [searchParams, setSearchParams]);
 
+  // ?companionAsk=<draft> is the roadmap's ask-AI handoff (epic-28 T4):
+  // ONE-SHOT — the Companion opens (wherever the ladder puts it) with the
+  // composer pre-filled, and the param is stripped in the same pass. The
+  // draft is NEVER auto-sent: the user presses send (no silent AI spend,
+  // the daily cap stays honest). Replays die with the param.
+  useEffect(() => {
+    const ask = searchParams.get("companionAsk");
+    if (!ask) return;
+    setAskPrefill({ quote: ask, nonce: Date.now() });
+    setPanelChoice(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("companionAsk");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // Responsive ladder (T6): which Companion surface this width mounts — the
   // CSS-gated dock (≥1024), the slide-over (768–1023) or the sheet (<768).
   // A null choice follows the tier default: desktop opens the dock, tablet/
