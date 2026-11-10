@@ -22,3 +22,7 @@ services:
       AI_BASE_URL: http://host.docker.internal:8791
       AI_API_KEY: e2e-stub-placeholder-key
       AI_MODEL: e2e-stub
+      # The suite logs in once per serial test (six+ per file); the dev-default
+      # limiter (5/60s) trips mid-file on pacing — the fixture disables it.
+      LOGIN_RATE_LIMIT_THRESHOLD: "1000"
+      LOGIN_RATE_LIMIT_WINDOW_SECONDS: "60"

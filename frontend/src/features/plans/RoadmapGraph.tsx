@@ -261,18 +261,25 @@ export default function RoadmapGraph({
       if (next < 0 || next >= layout.readingOrder.length) return undefined;
       return at(layout.readingOrder[next]);
     }
-    // Left/Right: the same-row opposite-side leaf (same stage, same y, other
-    // side). Deterministic: the first match in reading order.
+    // Left/Right: the nearest-row leaf in the PREVIOUS/NEXT stage (one fan
+    // per stage now — sections are discrete, so horizontal = across the
+    // spine; the closest row keeps the pointer honest). Deterministic:
+    // reading order breaks y ties.
     if (key === "ArrowLeft" || key === "ArrowRight") {
-      const opposite = box.side === "left" ? "right" : "left";
-      const target = layout.readingOrder.find(
-        (id) =>
-          id !== box.id &&
-          layout.boxes[id].stage === box.stage &&
-          layout.boxes[id].side === opposite &&
-          layout.boxes[id].y === box.y,
-      );
-      return target ? at(target) : undefined;
+      const stageIndex = layout.hubs.findIndex((hub) => hub.stage === box.stage);
+      const neighbor = layout.hubs[key === "ArrowLeft" ? stageIndex - 1 : stageIndex + 1];
+      if (!neighbor || neighbor.leafIds.length === 0) return undefined;
+      let best: SpineBox | undefined;
+      let bestDelta = Number.POSITIVE_INFINITY;
+      for (const id of neighbor.leafIds) {
+        const candidate = at(id);
+        const delta = Math.abs(candidate.y - box.y);
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          best = candidate;
+        }
+      }
+      return best;
     }
     return undefined;
   };

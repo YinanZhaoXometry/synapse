@@ -167,10 +167,13 @@ describe("RoadmapGraph spine render", () => {
     const spine = edges().filter((e) => e.getAttribute("data-edge-kind") === "spine");
     const fans = edges().filter((e) => e.getAttribute("data-edge-kind") === "fan");
     const prereqs = edges().filter((e) => e.getAttribute("data-edge-kind") === "prereq");
-    // Three hubs → two spine edges; 12 leaves → 12 fan edges.
+    // Three hubs → two spine edges; 12 leaves → 12 fan edges. The two input
+    // pairs: node-01→node-02 is same-stage (renders); node-00→node-05 is
+    // cross-stage (WITHHELD — the spine's job).
     expect(spine).toHaveLength(2);
     expect(fans).toHaveLength(NODE_COUNT);
-    expect(prereqs).toHaveLength(2);
+    expect(prereqs).toHaveLength(1);
+    expect(prereqs[0].getAttribute("data-edge-from")).toBe("node-01");
     // Solid spine (no dasharray); dotted rest (the copied `0.8 8`).
     expect(spine[0].getAttribute("stroke-dasharray")).toBeNull();
     for (const dotted of [...fans, ...prereqs]) {
@@ -272,30 +275,36 @@ describe("RoadmapGraph state vocabulary (dual corner badges)", () => {
 describe("RoadmapGraph keyboard contract (re-pointed at the spine)", () => {
   it("roves the reading order with Up/Down and Enter opens the sheet, Esc closes", () => {
     mountGraph();
-    // The roving tabindex seeds the FIRST reading-order leaf. Reading order
-    // is column-major within a stage: the left fan top→bottom, then the
-    // right fan (Foundations: 00 02 04 | 01 03).
+    // The roving tabindex seeds the FIRST reading-order leaf. One fan per
+    // stage now: the reading order is the fan top→bottom (Foundations:
+    // 00..04, then Practice).
     expect(nodeEl("node-00")!.getAttribute("tabindex")).toBe("0");
     fireEvent.keyDown(nodeEl("node-00")!, { key: "ArrowDown" });
-    expect(nodeEl("node-02")!.getAttribute("data-focused")).toBe("true");
+    expect(nodeEl("node-01")!.getAttribute("data-focused")).toBe("true");
     expect(nodeEl("node-00")!.getAttribute("tabindex")).toBe("-1");
 
-    fireEvent.keyDown(nodeEl("node-02")!, { key: "Enter" });
+    fireEvent.keyDown(nodeEl("node-01")!, { key: "Enter" });
     expect(screen.getByTestId("roadmap-detail")).toBeInTheDocument();
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(screen.queryByTestId("roadmap-detail")).toBeNull();
   });
 
-  it("ArrowLeft/Right jumps to the same-row opposite-side leaf", () => {
-    // Six leaves in one stage → sides L R L R L R; rows pair (0,1), (2,3), (4,5).
-    const six = Array.from({ length: 6 }, (_, i) => nodeAt(i, { stage: "Foundations" }));
+  it("ArrowLeft/Right jumps to the nearest-row leaf across the spine (prev/next stage)", () => {
+    // Stage 0 (right fan): node-00..02 top→bottom; stage 1 (left fan): node-03..05.
+    const six = [
+      ...Array.from({ length: 3 }, (_, i) => nodeAt(i, { stage: "Foundations", order: i })),
+      ...Array.from({ length: 3 }, (_, i) => nodeAt(3 + i, { stage: "Practice", order: 3 + i })),
+    ];
     mountGraph({ views: nodeRowViews(six, []) });
 
-    // node-01 (row 0, right) ← ArrowLeft → node-00 (row 0, left).
-    fireEvent.keyDown(nodeEl("node-01")!, { key: "ArrowLeft" });
-    expect(nodeEl("node-00")!.getAttribute("data-focused")).toBe("true");
-    fireEvent.keyDown(nodeEl("node-00")!, { key: "ArrowRight" });
-    expect(nodeEl("node-01")!.getAttribute("data-focused")).toBe("true");
+    // From stage 0's middle row, ArrowRight lands on stage 1's nearest row —
+    // blocks are a row-block apart, so that is the fan's FIRST leaf.
+    fireEvent.keyDown(nodeEl("node-01")!, { key: "ArrowRight" });
+    expect(nodeEl("node-03")!.getAttribute("data-focused")).toBe("true");
+    // And back: ArrowLeft returns to stage 0's nearest row (the block offset
+    // makes that the fan's LAST leaf).
+    fireEvent.keyDown(nodeEl("node-03")!, { key: "ArrowLeft" });
+    expect(nodeEl("node-02")!.getAttribute("data-focused")).toBe("true");
   });
 
   it("focus is reachable by Tab and survives a layout identity change (reconciliation)", () => {

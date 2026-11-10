@@ -29,6 +29,7 @@ import { CompanionPanel } from "@/features/companion";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import MaterialScopeControls from "./MaterialScopeControls";
 import NotesSection from "./NotesSection";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlanVisibilityControls from "./PlanVisibilityControls";
 import {
   sessionBlobs,
@@ -282,27 +283,19 @@ export default function PlanHomePage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_320px] gap-6 mt-5 items-start">
-        {/* left zone: nodes + materials */}
+      <div className="grid lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_400px] gap-6 mt-5 items-start">
+        {/* left zone: the nodes view (spine roadmap / list) */}
         <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-3" role="group">
-            <button
-              type="button"
-              aria-pressed={nodesView === "list"}
-              onClick={() => setNodesView("list")}
-              className={cn("pill cursor-pointer", nodesView !== "list" && "pill-muted")}
-            >
-              {t("plans.viewList")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={nodesView === "graph"}
-              onClick={() => setNodesView("graph")}
-              className={cn("pill cursor-pointer", nodesView !== "graph" && "pill-muted")}
-            >
-              {t("plans.viewGraph")}
-            </button>
-          </div>
+          <Tabs value={nodesView} onValueChange={(value) => setNodesView(value as "list" | "graph")}>
+            <TabsList className="mb-3">
+              <TabsTrigger value="graph" data-testid="view-tab-graph" className="cursor-pointer">
+                {t("plans.viewGraph")}
+              </TabsTrigger>
+              <TabsTrigger value="list" data-testid="view-tab-list" className="cursor-pointer">
+                {t("plans.viewList")}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           {nodesView === "graph" ? (
             <section className="mb-5">
               <RoadmapGraph
@@ -332,6 +325,42 @@ export default function PlanHomePage() {
                 </div>
               </section>
             ))
+          )}
+
+
+        </div>
+
+        {/* right zone: materials + notes (owner round 2026-11-11 — the rail
+            carries the user's study collateral beside the roadmap) + attach
+            CTA + quick actions + activity */}
+        <div className="space-y-4 min-w-0">
+          {!hasMaterials && (
+            <button
+              type="button"
+              onClick={() => openPicker()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                handleFiles(e.dataTransfer.files);
+              }}
+              className={cn(
+                "w-full rounded-2xl border-[1.5px] border-dashed px-4 py-6 text-center cursor-pointer transition-colors",
+                dragOver
+                  ? "border-[var(--accent-ring)] bg-[var(--accent-tint-2)]"
+                  : "border-[var(--accent-edge)] bg-[var(--accent-tint)] hover:bg-[var(--accent-tint-2)]",
+              )}
+            >
+              <Upload className="w-5 h-5 mx-auto text-accent-ink" aria-hidden="true" />
+              <p className="text-sm font-semibold mt-2">{t("plans.attachCta")}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {dragOver ? t("plans.attachDropActive") : t("plans.attachCtaHint")}
+              </p>
+            </button>
           )}
 
           <section>
@@ -379,38 +408,6 @@ export default function PlanHomePage() {
               the ONE server union) plus the generate control with the
               user-requested annotation input. */}
           <NotesSection planId={plan.id} nodes={nodes} materials={materials} />
-        </div>
-
-        {/* right zone: attach CTA + quick actions + activity */}
-        <div className="space-y-4">
-          {!hasMaterials && (
-            <button
-              type="button"
-              onClick={() => openPicker()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                handleFiles(e.dataTransfer.files);
-              }}
-              className={cn(
-                "w-full rounded-2xl border-[1.5px] border-dashed px-4 py-6 text-center cursor-pointer transition-colors",
-                dragOver
-                  ? "border-[var(--accent-ring)] bg-[var(--accent-tint-2)]"
-                  : "border-[var(--accent-edge)] bg-[var(--accent-tint)] hover:bg-[var(--accent-tint-2)]",
-              )}
-            >
-              <Upload className="w-5 h-5 mx-auto text-accent-ink" aria-hidden="true" />
-              <p className="text-sm font-semibold mt-2">{t("plans.attachCta")}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {dragOver ? t("plans.attachDropActive") : t("plans.attachCtaHint")}
-              </p>
-            </button>
-          )}
 
           <div className="bg-card border border-border-soft rounded-2xl shadow-raised p-4">
             <h2 className="eyebrow mb-3">{t("plans.quickActions")}</h2>

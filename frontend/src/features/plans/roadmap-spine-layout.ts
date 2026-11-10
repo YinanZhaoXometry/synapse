@@ -15,16 +15,24 @@
  * - Blocks stack top → bottom; a block's height is its tallest column, so
  *   same-side fans can never overlap by construction.
  *
+ * Section discreteness (owner feedback round 2026-11-11): each stage's
+ * leaves sit on ONE side — alternating by stage index (even → right, odd →
+ * left), the roadmap.sh section-cluster shape — so every fan curve stays
+ * strictly inside its own section band, and the side split is no longer
+ * balanced. Cross-SECTION connectivity is the spine's job alone: a
+ * prerequisite edge between leaves of DIFFERENT stages is deliberately NOT
+ * rendered (the data persists; the spine already carries the ordering, and
+ * a dotted line sweeping across sections reads as a mistake — owner ruling).
+ * Same-stage prerequisites render as an outer bracket on that stage's side.
+ *
  * Edges (three classes, NO arrowheads anywhere — direction is the top-down
  * geometry; stage-forward validity makes that lossless):
  * - `spine`  hub k → hub k+1, straight vertical (generated, one per
  *   consecutive hub pair — structural, not data).
  * - `fan`    hub → each of its leaves, the measured dotted S-curve
  *   (generated, one per leaf — structural).
- * - `prereq` the plan's persisted prerequisite edges (data, sanitized:
- *   unknown endpoints / self-pairs / duplicates drop). Same-side pairs draw
- *   an outer bracket on their shared side; opposite-side pairs dip beneath
- *   the later hub block through the spine corridor.
+ * - `prereq` same-stage pairs only (data, sanitized: unknown endpoints /
+ *   self-pairs / duplicates drop, cross-stage pairs withheld).
  *
  * Edge `d` strings are built HERE (pure, rounded to 2 decimals) so the
  * renderer stays dumb and the byte-identical determinism pin covers the
@@ -143,18 +151,6 @@ function outerBracketPath(source: SpineBox, target: SpineBox): string {
   return `M ${fmt(sx)} ${fmt(sy)} C ${fmt(sx + bulge(source))} ${fmt(sy)} ${fmt(tx + bulge(target))} ${fmt(ty)} ${fmt(tx)} ${fmt(ty)}`;
 }
 
-/** The corridor dip (opposite-side prereq pairs): inner ports, curve beneath
- * the later of the two blocks — through the spine corridor, never across a
- * hub. */
-function corridorDipPath(source: SpineBox, target: SpineBox, dipY: number): string {
-  const inner = (box: SpineBox) => (box.side === "right" ? box.x : box.x + SPINE_NODE_W);
-  const sx = inner(source);
-  const tx = inner(target);
-  const sy = source.y + SPINE_NODE_H / 2;
-  const ty = target.y + SPINE_NODE_H / 2;
-  return `M ${fmt(sx)} ${fmt(sy)} C ${fmt(sx)} ${fmt(dipY)} ${fmt(tx)} ${fmt(dipY)} ${fmt(tx)} ${fmt(ty)}`;
-}
-
 /**
  * The deterministic spine layout described in the module doc. Empty input →
  * an empty layout with a positive minimum canvas (the empty-state graph
@@ -187,13 +183,12 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
 
   let blockTop = SPINE_PADDING;
   groups.forEach((group, stageIndex) => {
-    // Deterministic side split: (order, id) sequence onto the lighter side,
-    // ties → left.
+    // Section discreteness (see the module doc): the whole stage's fan on
+    // ONE side, alternating by stage index (even → right, odd → left) —
+    // deterministic, and every curve stays inside its own section band.
     const left: SpineNodeInput[] = [];
     const right: SpineNodeInput[] = [];
-    for (const node of group.nodes) {
-      (left.length <= right.length ? left : right).push(node);
-    }
+    (stageIndex % 2 === 0 ? right : left).push(...group.nodes);
 
     const fanHeight = (count: number) => (count <= 0 ? 0 : count * SPINE_ROW_PITCH - (SPINE_ROW_PITCH - SPINE_NODE_H));
     const blockHeight = Math.max(SPINE_NODE_H, fanHeight(left.length), fanHeight(right.length));
@@ -250,12 +245,17 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
   }
 
   // Prereq data, sanitized (membership / self-pairs / dedupe — the server's
-  // authority mirrored; the layout stays total on dirty data).
+  // authority mirrored; the layout stays total on dirty data) AND section-
+  // discrete: cross-stage pairs are WITHHELD from the rendering (the spine
+  // carries inter-stage ordering — owner ruling 2026-11-11), so what remains
+  // is same-stage pairs, always same-side → the outer bracket.
   const leafIds = new Set(sorted.map((node) => node.id));
+  const stageOfLeaf = new Map(sorted.map((node) => [node.id, node.stage]));
   const seen = new Set<string>();
   const sanitized: { from: string; to: string }[] = [];
   for (const edge of prereqs) {
     if (!leafIds.has(edge.from) || !leafIds.has(edge.to) || edge.from === edge.to) continue;
+    if (stageOfLeaf.get(edge.from) !== stageOfLeaf.get(edge.to)) continue; // the spine's job
     const key = `${edge.from}→${edge.to}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -266,16 +266,7 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
   for (const edge of sanitized) {
     const source = boxes[edge.from];
     const target = boxes[edge.to];
-    if (source.side === target.side) {
-      edges.push({ from: edge.from, to: edge.to, kind: "prereq", d: outerBracketPath(source, target) });
-    } else {
-      const laterHubBottom = Math.max(
-        hubBottoms[stageIndexOf(source.stage, groups)],
-        hubBottoms[stageIndexOf(target.stage, groups)],
-      );
-      const dipY = Math.max(source.y + SPINE_NODE_H, target.y + SPINE_NODE_H, laterHubBottom) + 28;
-      edges.push({ from: edge.from, to: edge.to, kind: "prereq", d: corridorDipPath(source, target, dipY) });
-    }
+    edges.push({ from: edge.from, to: edge.to, kind: "prereq", d: outerBracketPath(source, target) });
   }
 
   // After the loop, blockTop sits one BLOCK_GAP past the last block's bottom.
@@ -283,9 +274,4 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
   const height = groups.length === 0 ? SPINE_PADDING * 2 + SPINE_NODE_H : lastBlockBottom + SPINE_PADDING;
 
   return { hubs, boxes, edges, readingOrder, width: SPINE_WIDTH, height, centerX: SPINE_CENTER_X };
-}
-
-function stageIndexOf(stage: string | null, groups: { stage: string | null }[]): number {
-  const index = groups.findIndex((group) => group.stage === stage);
-  return index < 0 ? 0 : index;
 }

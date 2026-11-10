@@ -22,7 +22,7 @@ import PlanHomePage from "./PlanHomePage";
 /**
  * Plan Home's nodes-zone view flip (epic-16 T3): the ROADMAP GRAPH is the
  * default view — the canvas renders on arrival without a click, the Graph
- * pill carries aria-pressed, and the stage-grouped List stays one click away
+ * tab carries aria-selected (shadcn Tabs), and the stage-grouped List stays one click away
  * (the flip swaps only the nodes zone; existing e2e assertions read node
  * titles "wherever they render" and survive the flip).
  */
@@ -95,23 +95,29 @@ function mount() {
 }
 
 describe("Plan Home nodes zone — the graph is the default view (epic-16 T3)", () => {
-  it("renders the roadmap graph on arrival with the Graph pill pressed and List unpressed", async () => {
+  it("renders the roadmap graph on arrival with the Graph tab selected and List unselected", async () => {
     mount();
 
     expect(await screen.findByTestId("roadmap-canvas")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: zhDict["plans.viewGraph"] })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: zhDict["plans.viewList"] })).toHaveAttribute("aria-pressed", "false");
+    // The shadcn Tabs segmented control (owner round 2026-11-11): the graph
+    // tab is selected on arrival.
+    const graphTab = screen.getByRole("tab", { name: zhDict["plans.viewGraph"] });
+    expect(graphTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: zhDict["plans.viewList"] })).toHaveAttribute("aria-selected", "false");
   });
 
   it("keeps List one click away — flipping swaps the nodes zone to the stage-grouped rows", async () => {
     mount();
     await screen.findByTestId("roadmap-canvas");
 
-    fireEvent.click(screen.getByRole("button", { name: zhDict["plans.viewList"] }));
+    // Radix Tabs activates on pointerdown (not click).
+    const listTab = screen.getByRole("tab", { name: zhDict["plans.viewList"] });
+    fireEvent.mouseDown(listTab, { button: 0 });
+    fireEvent.click(listTab);
 
     expect(screen.queryByTestId("roadmap-canvas")).not.toBeInTheDocument();
     expect(screen.getByText("节点 0")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: zhDict["plans.viewList"] })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: zhDict["plans.viewGraph"] })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("tab", { name: zhDict["plans.viewList"] })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: zhDict["plans.viewGraph"] })).toHaveAttribute("aria-selected", "false");
   });
 });

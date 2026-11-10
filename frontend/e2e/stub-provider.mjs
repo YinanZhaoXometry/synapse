@@ -8,7 +8,8 @@
  * contract — this stub matches on their stable opening lines):
  *   - plan proposal  → the frozen <outline>/<proposal> tag contract, echoing
  *     the topic the prompt carried — the fixed 16-node roadmap proposal
- *     (epic-16 wire shape, one deliberately invalid backward edge; see
+ *     (epic-16 wire shape; one backward edge the server drops + cross-stage
+ *     pairs the spine era withholds from rendering; see
  *     proposalReply below).
  *   - quiz           → {"questions":[…]} citing REAL ids regexed out of the
  *     assembled context ([material id=…], [section id=…], [node id=…]) — the
@@ -118,6 +119,11 @@ const STUB_PROPOSAL_EDGES = [
   ["图的表示", "并查集"], // S2→S3
   ["动态规划入门", "高频题精练"], // S3→S4
   ["手写代码训练", "模拟面试复盘"], // S3→S4
+  // Two SAME-STAGE pairs — the spine era (epic-28 feedback round): cross-stage
+  // pairs are withheld from the rendering (the spine carries inter-stage
+  // ordering), so these are the only two that draw brackets.
+  ["排序算法", "堆与优先队列"], // S2→S2
+  ["高频题精练", "模拟面试复盘"], // S4→S4
   // The one invalid pair: backward (S4 → S1) — the server drops it.
   ["模拟面试复盘", "复杂度分析"],
 ];

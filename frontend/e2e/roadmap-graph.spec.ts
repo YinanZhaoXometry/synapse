@@ -28,7 +28,14 @@ const OPTIONAL_DESC = "边界写法与常见变形";
 const FIRST_DESC = "大 O、均摊分析与常见代价模型";
 const STAGES = ["基础奠基", "核心结构", "进阶专题", "面试实战"];
 const NODE_COUNT = 16;
-const PREREQ_COUNT = 12; // the stub emits 13 pairs; the backward one drops server-side
+// The stub emits 15 valid pairs (14 cross-stage + 2 same-stage) + 1 backward.
+// The server's stage-forward validation drops BOTH the backward pair AND the
+// same-stage pairs (strictly-lower rule, epic-16) — so the persisted edge set
+// is cross-stage only, and the spine era additionally WITHHOLDS those from
+// the rendering (the spine carries inter-stage ordering; owner ruling). Net:
+// ZERO prerequisite lines render for server plans, ever.
+const PREREQ_COUNT = 0;
+const CROSS_STAGE_PAIR = { from: "复杂度分析", to: "二叉树遍历" };
 const BACKWARD_EDGE = { from: "模拟面试复盘", to: "复杂度分析" };
 const LAST_NODE = BACKWARD_EDGE.from;
 
@@ -89,16 +96,29 @@ test.describe("the spine roadmap surface", () => {
     await expect(page.getByTestId("roadmap-node")).toHaveCount(NODE_COUNT);
     await expect(nodeBox(page, FIRST_NODE)).toBeVisible();
 
-    // The edge classes: 12 prereq brackets/dips + 16 fan curves + 3 spine
-    // segments — and NO arrowhead marker anywhere (direction is geometric).
+    // The edge classes: 16 fan curves + 3 spine segments and ZERO prereq
+    // lines (same-stage pairs never survive the server; cross-stage pairs are
+    // withheld) — and NO arrowhead marker anywhere (direction is geometric).
     await expect(page.getByTestId("roadmap-edge")).toHaveCount(PREREQ_COUNT + NODE_COUNT + (STAGES.length - 1));
     await expect(page.locator("[data-edge-kind='prereq']")).toHaveCount(PREREQ_COUNT);
     await expect(page.locator("[data-edge-kind='fan']")).toHaveCount(NODE_COUNT);
     await expect(page.locator("[data-edge-kind='spine']")).toHaveCount(STAGES.length - 1);
     await expect(page.locator("#roadmap-arrow")).toHaveCount(0);
 
-    // The one deliberately invalid stub edge (backward: 面试实战 → 基础奠基)
-    // must be absent — resolvable titles, dropped by stage-forward validity.
+    // Section discreteness (owner ruling): a CROSS-STAGE pair that EXISTS on
+    // the wire (复杂度分析 S1 → 二叉树遍历 S2 — persisted, strictly forward)
+    // still renders NOTHING — the spine carries inter-stage ordering; dotted
+    // lines never leave their section.
+    const crossFrom = await nodeBox(page, CROSS_STAGE_PAIR.from).getAttribute("data-node-id");
+    const crossTo = await nodeBox(page, CROSS_STAGE_PAIR.to).getAttribute("data-node-id");
+    expect(crossFrom).toBeTruthy();
+    expect(crossTo).toBeTruthy();
+    await expect(
+      page.locator(`[data-testid="roadmap-edge"][data-edge-from="${crossFrom}"][data-edge-to="${crossTo}"]`),
+    ).toHaveCount(0);
+
+    // The deliberately invalid stub edge (backward: 面试实战 → 基础奠基) is
+    // dropped server-side (rspec-pinned) — doubly absent here.
     const fromId = await nodeBox(page, BACKWARD_EDGE.from).getAttribute("data-node-id");
     const toId = await nodeBox(page, BACKWARD_EDGE.to).getAttribute("data-node-id");
     expect(fromId).toBeTruthy();
@@ -232,13 +252,15 @@ test.describe("the spine roadmap surface", () => {
     await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("roadmap-node")).toHaveCount(NODE_COUNT);
 
-    // One click to the stage-grouped list; the spine unmounts.
-    await page.getByRole("button", { name: "列表" }).click();
+    // One click to the stage-grouped list; the spine unmounts (the shadcn
+    // Tabs segmented control — role=tab, Radix activates on pointerdown).
+    const listTab = page.getByRole("tab", { name: "列表" });
+    await listTab.click();
     await expect(page.getByTestId("roadmap-canvas")).toHaveCount(0);
     await expect(page.getByText(FIRST_NODE).first()).toBeVisible();
 
     // And back to the roadmap.
-    await page.getByRole("button", { name: "路线图" }).click();
+    await page.getByRole("tab", { name: "路线图" }).click();
     await expect(page.getByTestId("roadmap-canvas")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("roadmap-node")).toHaveCount(NODE_COUNT);
   });

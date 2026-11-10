@@ -47,28 +47,30 @@ describe("roadmapSpineLayout", () => {
     expect(layout.boxes[hub1.id].y).toBeGreaterThanOrEqual(layout.boxes[hub0.id].y + SPINE_NODE_H);
   });
 
-  it("splits a stage's leaves across the two fans, lighter side first, ties to the left", () => {
-    // Five leaves in (order, id) sequence: L R L R L (ties at 0 and 2 go left).
+  it("keeps a stage's leaves on ONE side, alternating by stage index (section discreteness)", () => {
     const layout = roadmapSpineLayout(
-      [node("a", 1, "基础"), node("b", 2, "基础"), node("c", 3, "基础"), node("d", 4, "基础"), node("e", 5, "基础")],
+      [
+        node("a", 1, "基础"),
+        node("b", 2, "基础"),
+        node("c", 1, "核心"),
+        node("d", 2, "核心"),
+        node("e", 1, "进阶"),
+      ],
       [],
     );
 
-    const hub = layout.hubs[0];
-    const sides = hub.leafIds.map((id) => layout.boxes[id].side);
-    expect(sides.filter((side) => side === "left")).toHaveLength(3);
-    expect(sides.filter((side) => side === "right")).toHaveLength(2);
-    // (order, id) sequence onto the lighter side: a left, b right, c left…
-    expect(layout.boxes.a.side).toBe("left");
+    // Stage 0 (基础) → right; stage 1 (核心) → left; stage 2 (进阶) → right.
+    expect(layout.boxes.a.side).toBe("right");
     expect(layout.boxes.b.side).toBe("right");
     expect(layout.boxes.c.side).toBe("left");
-    expect(layout.boxes.d.side).toBe("right");
-    expect(layout.boxes.e.side).toBe("left");
+    expect(layout.boxes.d.side).toBe("left");
+    expect(layout.boxes.e.side).toBe("right");
     // Leaf geometry rides the measured constants: inner edges flank the hub.
-    for (const id of hub.leafIds) {
-      const box = layout.boxes[id];
-      if (box.side === "left") expect(box.x + SPINE_NODE_W).toBe(SPINE_CENTER_X - SPINE_NODE_W / 2 - SPINE_FAN_GAP);
-      else expect(box.x).toBe(SPINE_CENTER_X + SPINE_NODE_W / 2 + SPINE_FAN_GAP);
+    for (const id of ["a", "b", "e"]) {
+      expect(layout.boxes[id].x).toBe(SPINE_CENTER_X + SPINE_NODE_W / 2 + SPINE_FAN_GAP);
+    }
+    for (const id of ["c", "d"]) {
+      expect(layout.boxes[id].x + SPINE_NODE_W).toBe(SPINE_CENTER_X - SPINE_NODE_W / 2 - SPINE_FAN_GAP);
     }
   });
 
@@ -80,20 +82,15 @@ describe("roadmapSpineLayout", () => {
 
     const hub = layout.hubs[0];
     const hubCenterY = layout.boxes[hub.id].y + SPINE_NODE_H / 2;
-    const leftIds = hub.leafIds.filter((id) => layout.boxes[id].side === "left");
-    const rightIds = hub.leafIds.filter((id) => layout.boxes[id].side === "right");
+    const ids = hub.leafIds;
 
-    // 4 leaves split 2/2.
-    expect(leftIds).toHaveLength(2);
-    expect(rightIds).toHaveLength(2);
-    for (const ids of [leftIds, rightIds]) {
-      const ys = ids.map((id) => layout.boxes[id].y);
-      // Stacked at the measured pitch…
-      expect(ys[1] - ys[0]).toBe(SPINE_ROW_PITCH);
-      // …and vertically centered on the hub.
-      const mid = (ys[0] + ys[ys.length - 1] + SPINE_NODE_H) / 2;
-      expect(mid).toBe(hubCenterY);
-    }
+    // All 4 leaves on the stage's one side, stacked at the measured pitch…
+    expect(ids).toHaveLength(4);
+    const ys = ids.map((id) => layout.boxes[id].y);
+    expect(ys[1] - ys[0]).toBe(SPINE_ROW_PITCH);
+    // …and vertically centered on the hub.
+    const mid = (ys[0] + ys[ys.length - 1] + SPINE_NODE_H) / 2;
+    expect(mid).toBe(hubCenterY);
   });
 
   it("attaches stage-less nodes to a synthetic trailing hub", () => {
@@ -127,39 +124,32 @@ describe("roadmapSpineLayout", () => {
     }
   });
 
-  it("classes same-side prereq pairs as outer brackets and opposite-side pairs as corridor dips", () => {
+  it("renders same-stage prereqs as outer brackets and withholds cross-stage pairs (the spine's job)", () => {
     const nodes = [
       node("a", 1, "基础"),
       node("b", 2, "基础"),
-      node("c", 3, "核心"),
-      node("d", 4, "核心"),
+      node("c", 3, "基础"),
+      node("d", 1, "核心"),
+      node("e", 2, "核心"),
     ];
-    // a(left) b(right) c(left) d(right) by the alternating split.
     const layout = roadmapSpineLayout(nodes, [
-      { from: "a", to: "b" }, // same stage, opposite sides → dip
-      { from: "a", to: "c" }, // cross stage, same side → bracket
-      { from: "b", to: "d" }, // cross stage, same side → bracket
-      { from: "c", to: "d" }, // same stage, opposite sides → dip
+      { from: "a", to: "b" }, // same stage → bracket
+      { from: "b", to: "c" }, // same stage → bracket
+      { from: "a", to: "d" }, // cross stage → WITHHELD (the spine's job)
+      { from: "d", to: "e" }, // cross stage → WITHHELD
     ]);
 
     const prereqs = layout.edges.filter((edge) => edge.kind === "prereq");
-    expect(prereqs).toHaveLength(4);
+    // d→e is same-stage (核心) → bracket; a→d / d→e-shape cross pairs withheld.
+    expect(prereqs.map((edge) => `${edge.from}→${edge.to}`).sort()).toEqual(["a→b", "b→c", "d→e"]);
     for (const edge of prereqs) {
-      const source = layout.boxes[edge.from];
-      const target = layout.boxes[edge.to];
-      if (source.side === target.side) {
-        // Bracket: a cubic on the shared outer side.
-        expect(edge.d).toMatch(/^M -?[\d.]+ -?[\d.]+ C -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+$/);
-      } else {
-        // Dip: the curve's dip Y sits below both leaves.
-        const dipY = Number(edge.d.split(" ")[4]);
-        expect(dipY).toBeGreaterThan(Math.max(source.y, target.y) + SPINE_NODE_H);
-      }
+      // Bracket: a cubic on the stage's outer side.
+      expect(edge.d).toMatch(/^M -?[\d.]+ -?[\d.]+ C -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+$/);
     }
   });
 
   it("drops dirty prereq edges — unknown endpoints, self-pairs, duplicates", () => {
-    const nodes = [node("a", 1, "基础"), node("b", 2, "核心")];
+    const nodes = [node("a", 1, "基础"), node("b", 2, "基础")];
     const layout = roadmapSpineLayout(nodes, [
       { from: "a", to: "b" },
       { from: "a", to: "b" },
@@ -196,7 +186,9 @@ describe("roadmapSpineLayout", () => {
         expect(separated).toBe(true);
       }
     }
-    expect(layout.edges.filter((edge) => edge.kind === "prereq")).toHaveLength(15);
+    // The chain: 12 same-stage pairs render as brackets; the 3 cross-stage
+    // seams are withheld (the spine's job).
+    expect(layout.edges.filter((edge) => edge.kind === "prereq")).toHaveLength(12);
   });
 
   it("keeps a positive minimal canvas on empty input", () => {
