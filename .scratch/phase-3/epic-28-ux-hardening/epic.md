@@ -1,7 +1,7 @@
 # Epic-28: ux-hardening
 
 Milestone: Phase 2 — post-deadline
-Status: in-progress (branch `epic/p3-28-ux-hardening` @ worktree `project-new-epic28-ux-hardening`; merge = owner verification, then worktree+branch delete per the ruling)
+Status: in-review (T1–T4 done on epic/p3-28-ux-hardening — vitest 1074 · rspec/pending-full · rubocop clean; PR = the merge gate, owner verifies then merges; worktree+branch delete per the ruling)
 Created: 2026-11-10 (owner bug round: 「创建独立的epic 修复以下bugs，不影响main分支」)
 
 ## Scope

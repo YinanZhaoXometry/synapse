@@ -1,7 +1,7 @@
 # T1 — Session-expiry teardown + ?next= redirect
 
 Milestone: Phase 2 — post-deadline
-Status: pending
+Status: done
 Epic: epic-28-ux-hardening
 Blocked by: —
 

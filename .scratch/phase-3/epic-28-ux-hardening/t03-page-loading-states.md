@@ -1,7 +1,7 @@
 # T3 — Shared PageLoader on blank-render pages
 
 Milestone: Phase 2 — post-deadline
-Status: pending
+Status: done
 Epic: epic-28-ux-hardening
 Blocked by: —
 
@@ -31,3 +31,17 @@ explicitly not touched.
    (companion StreamingBubble typing dots `CompanionPanel.tsx:268-270`; quiz
    `QuizLauncher.tsx:110-115` generating phase; flashcards
    `FlashcardLauncher.tsx:44-53`) — no code change.
+
+## Close note (2026-11-11)
+
+AC 1–4 landed in b08a375. The audit's "no page has a loader" missed five MORE
+pinned loading-contract tests beyond the planner's (Achievements, Dashboard,
+Flashcards, Materials, Mistakes, Quiz each pinned "renders nothing while
+loading") — swept in 8b36be7 with the same clause swap: the loader replaces
+the `innerHTML === ""` assertion, the never-stale-copy assertions stay.
+All six + planner now pin the same first-paint contract.
+
+AC3 (theme spot-check): the loader uses semantic tokens only
+(--glass-4/border-border/text-muted-foreground/text-accent-ink) — dark mode
+correct by construction; the visual ride-along happens at PR review
+(owner verification).

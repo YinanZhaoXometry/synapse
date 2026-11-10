@@ -1,7 +1,7 @@
 # T2 — Key-path toasts (sonner + i18n zh/en)
 
 Milestone: Phase 2 — post-deadline
-Status: pending
+Status: done
 Epic: epic-28-ux-hardening
 Blocked by: T1 (lands first for the ?next= param keys; no coupling otherwise)
 

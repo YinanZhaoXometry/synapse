@@ -1,7 +1,7 @@
 # T4 — Plan & study-task deletion with destructive confirm
 
 Milestone: Phase 2 — post-deadline
-Status: pending
+Status: done (backend half)
 Epic: epic-28-ux-hardening
 Blocked by: T1–T3 (serial; schema movement + codegen last)
 
