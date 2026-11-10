@@ -72,14 +72,17 @@ module Requeue
     end
 
     # The self-rating is the only flashcard write (rateFlashcard — never
-    # evidence, ADR-0001): updated_at is the rating moment, difficulty picks
-    # the interval, an unrated card (nil) is due immediately.
+    # evidence, ADR-0001): updated_at is the rating moment, and the card's
+    # stage (epic-31 T2, the easy-streak counter the rating maintains)
+    # indexes the per-difficulty geometric ladder — clamped at its end. An
+    # unrated card (nil difficulty) is due immediately.
     def flashcard_rows(now)
       Flashcard.find_each.map do |flashcard|
-        interval = Requeue::FLASHCARD_LADDER.fetch(flashcard.difficulty, 0)
+        ladder = Requeue::FLASHCARD_LADDERS[flashcard.difficulty]
+        interval = ladder ? ladder[[ flashcard.stage, ladder.length - 1 ].min] : 0
         due_at = flashcard.updated_at + interval
 
-        schedule_row(flashcard, user_id: flashcard.user_id, stage: 0, due_at: due_at,
+        schedule_row(flashcard, user_id: flashcard.user_id, stage: flashcard.stage, due_at: due_at,
                                 anchor: flashcard.updated_at, now: now)
       end
     end

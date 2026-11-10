@@ -567,6 +567,67 @@ RSpec.describe "GraphQL evidence + quiz + flashcard operations (epic P2-3 ticket
       expect(card.reload.difficulty).to eq("medium")
     end
 
+    describe "epic-31: the rating maintains the ladder stage" do
+      # Sequential non-block travel_to (TimeHelpers refuses nested block form);
+      # stage is asserted through the reloaded row (the wire payload stays
+      # difficulty-only — the interval is the user-visible shape).
+      include ActiveSupport::Testing::TimeHelpers
+
+      after { travel_back }
+
+      it "climbs the easy streak one rung per UTC day, capped at the ladder's end" do
+        user, token = user_with_token("stage-climber@example.com")
+        card = create(:flashcard, user: user)
+        rate = -> { graphql("mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"easy\" }) { flashcard { id } } }", token: token) }
+
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(0) # the first easy sits at the base rung
+
+        travel_to(Time.zone.parse("2026-11-02 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(1)
+
+        travel_to(Time.zone.parse("2026-11-03 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(2)
+
+        travel_to(Time.zone.parse("2026-11-04 09:00:00 UTC"))
+        rate.call
+        expect(card.reload.stage).to eq(2) # capped at the ladders' last index
+      end
+
+      it "holds the rung on a same-day easy (the anti-grind guard) and on medium" do
+        user, token = user_with_token("stage-holder@example.com")
+        card = create(:flashcard, user: user, difficulty: "easy", stage: 1, updated_at: Time.zone.parse("2026-11-01 09:00:00 UTC"))
+        rate = ->(d) { graphql("mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"#{d}\" }) { flashcard { id } } }", token: token) }
+
+        travel_to(Time.zone.parse("2026-11-01 18:00:00 UTC"))
+        rate.call("easy")
+        expect(card.reload.stage).to eq(1) # same UTC day — no climb
+
+        travel_to(Time.zone.parse("2026-11-02 09:00:00 UTC"))
+        rate.call("medium")
+        expect(card.reload.stage).to eq(1) # medium holds
+
+        rate.call("easy")
+        expect(card.reload.stage).to eq(1) # easy after a medium does NOT climb (Q7: streak broken)
+      end
+
+      it "resets on hard and keeps the next easy at the base rung (no 2d→20d cliff — Q7)" do
+        user, token = user_with_token("stage-resetter@example.com")
+        card = create(:flashcard, user: user, difficulty: "easy", stage: 2, updated_at: Time.zone.parse("2026-11-01 09:00:00 UTC"))
+        rate = ->(d) { graphql("mutation { rateFlashcard(input: { id: \"#{card.id}\", difficulty: \"#{d}\" }) { flashcard { id } } }", token: token) }
+
+        travel_to(Time.zone.parse("2026-11-02 09:00:00 UTC"))
+        rate.call("hard")
+        expect(card.reload.stage).to eq(0)
+
+        rate.call("easy")
+        expect(card.reload.stage).to eq(0) # first easy after a hard sits at the base rung
+      end
+    end
+
     it "answers NOT_FOUND for a foreign card id (delta 2)" do
       _owner, token = user_with_token("rater-not-owner@example.com")
       foreign_card = create(:flashcard, user: create(:user))

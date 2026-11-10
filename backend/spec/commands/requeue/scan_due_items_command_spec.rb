@@ -66,6 +66,50 @@ RSpec.describe Requeue::ScanDueItemsCommand do
         expect(schedule_for(card).next_due_at).to eq(Time.current + 2.days)
       end
     end
+
+    describe "epic-31 geometric ladders (the stage indexes the row)" do
+      it "climbs the easy ladder with the stage and clamps at the last rung" do
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+          rated = Time.zone.parse("2026-10-28 12:00:00 UTC")
+          base = create(:flashcard, user: user, difficulty: "easy", stage: 0, updated_at: rated)
+          climbed = create(:flashcard, user: user, difficulty: "easy", stage: 1, updated_at: rated)
+          beyond = create(:flashcard, user: user, difficulty: "easy", stage: 5, updated_at: rated)
+
+          scan
+
+          aggregate_failures do
+            expect(schedule_for(base).next_due_at).to eq(rated + 10.days)
+            expect(schedule_for(climbed).next_due_at).to eq(rated + 20.days)
+            expect(schedule_for(beyond).next_due_at).to eq(rated + 30.days) # clamped at the 30d terminal
+          end
+        end
+      end
+
+      it "reads each difficulty's own ladder at the same stage" do
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+          rated = Time.zone.parse("2026-10-28 12:00:00 UTC")
+          hard = create(:flashcard, user: user, difficulty: "hard", stage: 1, updated_at: rated)
+          medium = create(:flashcard, user: user, difficulty: "medium", stage: 1, updated_at: rated)
+
+          scan
+
+          aggregate_failures do
+            expect(schedule_for(hard).next_due_at).to eq(rated + 4.days)
+            expect(schedule_for(medium).next_due_at).to eq(rated + 10.days)
+          end
+        end
+      end
+
+      it "carries the card's stage onto the schedule row (the wire's DueItem.stage)" do
+        travel_to(Time.zone.parse("2026-11-01 09:00:00 UTC")) do
+          card = create(:flashcard, user: user, difficulty: "easy", stage: 1, updated_at: Time.current)
+
+          scan
+
+          expect(schedule_for(card).stage).to eq(1)
+        end
+      end
+    end
   end
 
   describe "mistake stage ladder (consecutive correct evidence after the mistake)" do

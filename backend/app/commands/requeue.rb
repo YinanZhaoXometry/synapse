@@ -20,13 +20,15 @@ module Requeue
   # interval.
   MISTAKE_STAGES = [ 1.day, 2.days, 4.days, 8.days, 16.days ].freeze
 
-  # FLASHCARD_LADDER[difficulty]: the self-rating (rateFlashcard's only
-  # write — never evidence, ADR-0001) picks the interval; the anchor is the
-  # flashcard's updated_at (the rating moment). An unrated card (difficulty
-  # nil — never studied) is due immediately.
-  FLASHCARD_LADDER = {
-    "hard" => 2.days,
-    "medium" => 5.days,
-    "easy" => 10.days
+  # FLASHCARD_LADDERS[difficulty][stage] (epic-31 T2): per-difficulty
+  # geometric ladders — the stage (maintained by rateFlashcard: an easy
+  # streak climbs, hard resets, medium holds; the base rungs equal the old
+  # fixed ladder) indexes the row, clamped at the ladder's end by the scan.
+  # The anchor is the flashcard's updated_at (the rating moment). An
+  # unrated card (difficulty nil — never studied) is due immediately.
+  FLASHCARD_LADDERS = {
+    "hard" => [ 2.days, 4.days, 7.days ].freeze,
+    "medium" => [ 5.days, 10.days, 14.days ].freeze,
+    "easy" => [ 10.days, 20.days, 30.days ].freeze
   }.freeze
 end

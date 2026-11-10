@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (shares the scan command file — keep the lane serial; the ladders' table shape mirrors 01's).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 - [ ] Migration adds `flashcards.stage` (int, NOT NULL, DEFAULT 0, CHECK ≥ 0) — strong-migrations safe; fresh cards start at 0
 - [ ] Per-difficulty geometric ladders live on the Requeue module as day-run tables, indexed by min(stage, len−1); unrated (difficulty nil) = due immediately
