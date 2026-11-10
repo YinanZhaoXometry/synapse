@@ -74,6 +74,11 @@ module Types
     field :claim_section, mutation: Mutations::Markings::ClaimSection
     field :unclaim_section, mutation: Mutations::Markings::UnclaimSection
 
+    # The Study Mark (FR-47, epic-28 T1): set/clear a node's self-declared
+    # status (learning | finished | skipped) — orthogonal to mastery, never
+    # evidence; nothing computational reads it.
+    field :node_study_mark_set, mutation: Mutations::Nodes::NodeStudyMarkSet
+
     # The FR-16 annotation ops (epic-13 T3, delta decision 3): the
     # highlight/underline writes — add pins the char-offset range (the
     # delta-3 shape law lives in the command), remove takes the row down.
