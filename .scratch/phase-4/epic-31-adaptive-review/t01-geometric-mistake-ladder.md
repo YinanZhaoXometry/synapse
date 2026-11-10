@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 - [ ] The mistake ladder is [1, 2, 4, 8, 16] days; the final rung is terminal (due date keeps sliding with the anchor, spacing stays at 16d)
 - [ ] Stage = consecutive `correct` evidence after the mistake; `wrong`/`partial` reset to 0 (existing semantics, pinned by parametrized specs over every rung)

@@ -32,9 +32,12 @@ module Requeue
     private
 
     # Stage = consecutive `correct` evidence for the question AFTER the
-    # mistake (wrong/partial reset to 0); anchor = the newer of the mistake's
-    # creation and the latest post-mistake evidence. Everything derives from
-    # one evidence query — no per-row round trips.
+    # mistake (wrong/partial reset to 0), counted over DISTINCT UTC days —
+    # the epic-31 anti-grind guard: a same-day burst of corrects advances
+    # the stage once, so one grinding session cannot fill the ladder.
+    # anchor = the newer of the mistake's creation and the latest
+    # post-mistake evidence. Everything derives from one evidence query —
+    # no per-row round trips.
     def mistake_rows(now)
       evidence_by_question = EvidenceRecord.where(question_id: MistakeEntry.select(:question_id))
                                            .order(:created_at)
@@ -45,16 +48,21 @@ module Requeue
                                       .select { |e| e.created_at > mistake.created_at }
 
         stage = 0
+        last_counted_day = nil
         timeline.reverse_each do |evidence|
           break unless evidence.outcome == "correct"
 
-          stage += 1
+          day = evidence.created_at.utc.to_date
+          unless day == last_counted_day
+            stage += 1
+            last_counted_day = day
+          end
         end
-        # Cap the stage at the ladder's end BEFORE indexing (the 7d rung is
+        # Cap the stage at the ladder's end BEFORE indexing (the 16d rung is
         # terminal: a fifth consecutive correct neither crashes the array
         # index nor widens the interval — the due date still tracks the
         # anchor, i.e. it keeps sliding with each new study event, only the
-        # spacing stays at 7d).
+        # spacing stays at 16d).
         stage = [ stage, Requeue::MISTAKE_STAGES.length - 1 ].min
         anchor = [ mistake.created_at, timeline.last&.created_at ].compact.max
         due_at = anchor + Requeue::MISTAKE_STAGES[stage]
