@@ -5,7 +5,7 @@
  * SERVER-side, so the mutation sweeps every score-rendering surface (plans,
  * tasks, streak, evidence) on completion (AD-14: the client never recomputes).
  */
-import { useMutation, useQuery } from "@apollo/client/react";
+import { useLazyQuery, useMutation, useQuery } from "@apollo/client/react";
 import {
   AbandonQuizSessionDocument,
   AllEvidenceDocument,
@@ -14,6 +14,7 @@ import {
   EvidenceByNodeDocument,
   FlashcardsByMaterialDocument,
   FlashcardsByPlanDocument,
+  FlashcardExportDocument,
   QuizSessionDocument,
   RateFlashcardDocument,
   RecordEvidenceDocument,
@@ -80,6 +81,12 @@ export function useCreateFlashcardsMutation() {
     // cards return (normalized write); the deck lists gain rows via the sweep.
     refetchQueries: [FlashcardsByMaterialDocument, FlashcardsByPlanDocument],
   });
+}
+
+export function useFlashcardExportLazyQuery() {
+  // The Anki export read (epic-31 T4): lazy — the button fetches the file
+  // text on demand and hands it to the download seam.
+  return useLazyQuery(FlashcardExportDocument);
 }
 
 export function useRateFlashcardMutation() {

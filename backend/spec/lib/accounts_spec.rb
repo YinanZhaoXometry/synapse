@@ -25,6 +25,9 @@ RSpec.describe Accounts do
     it "is the only `.downcase` normalization site in app/" do
       offenders = Dir.glob(Rails.root.join("app/**/*.rb")).reject do |path|
         next true if path.end_with?("app/lib/accounts.rb")
+        # The Anki export's kebab slug (epic-31 T4) downcases a material TITLE
+        # for Anki tags — display text, never an account identity.
+        next true if path.end_with?("app/lib/anki_export.rb")
 
         File.readlines(path).none? do |line|
           !line.strip.start_with?("#") && line.include?(".downcase")

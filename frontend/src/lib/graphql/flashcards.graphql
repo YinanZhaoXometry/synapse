@@ -47,3 +47,7 @@ mutation RateFlashcard($input: RateFlashcardInput!) {
     }
   }
 }
+
+query FlashcardExport($materialId: String!) {
+  flashcardExport(materialId: $materialId)
+}
