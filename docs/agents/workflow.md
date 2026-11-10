@@ -72,9 +72,20 @@ After epic 1 lands, epics 2–6 can run two lanes in parallel (that's what AD-2'
 - **Cleanup on merge.** Once the branch is merged into `main` (verified — merge commit exists / branch shows merged), remove the worktree (`git worktree remove <dir>`) and delete the branch, local and remote. A worktree or branch stays alive only for an explicit owner-stated reason (precedent: the transcript-v2 branch retention, epic-4).
 - **Each worktree bootstraps from zero** (fresh checkout): pnpm install in `frontend/` (`pnpm install --frozen-lockfile` — node_modules is not shared across checkouts); backend test DB via `db:drop db:create db:migrate`, not `db:prepare`; parallel worktrees must override ports (compose override in /tmp) and compose project names (`-p synapse-t<NN>`) so they never collide with the demo stack on 8080/3000 — the owner may be manually testing on `main` at the same time.
 
+## Cross-session coordination (parallel agents on one repo)
+
+(Codified 2026-11-11 after two live incidents: the 2026-11-06 epic-28 double-claim — two sessions each took number 28 because claims lived on branch names, not the board — and the 2026-11-11 broad-add sweep, where one session's `git add` published another session's uncommitted draft inside an unrelated commit.)
+
+Three channels exist, one is authoritative: **committed repo files on `main`** are the only coordination state every session, tool, and human can see (worktrees are separate checkouts; agent memory is advisory and per-tool). Hence:
+
+1. **A claim exists only when committed to `main`.** Opening a phase or epic — allocating numbers, writing a board row, landing a spec — ends with committing **and pushing** those tracker files to `main` in the same session. Until then the claim is invisible to every parallel session. Planning artifacts never linger uncommitted on the shared main checkout.
+2. **Numbers come from the board, not from branch names.** Before allocating an epic number, `git pull` and read the newest `.scratch/phase-*/roadmap.md` table; claim the number by landing the board row (rule 1). Branch names are labels, not claims.
+3. **Precise-path adds on the shared main checkout.** Doc/board commits on `main` must `git add` exact paths (e.g. `git add .scratch/phase-4/roadmap.md`) — never `git add -A` or `git add .` — because the checkout is shared and a broad add publishes whatever uncommitted files other sessions left in the tree. If you find foreign uncommitted WIP: leave it in place (or stash → pull → pop the union back, the epic-18 recipe); never commit, delete, or overwrite it.
+
 ## Rules
 
 - **Implementation runs in a worktree** (see [Implementation worktree discipline](#implementation-worktree-discipline) above) — never build epic code on the main checkout, and delete worktree + branch once merged.
+- **Claims land on `main` immediately** — a phase/epic/spec claim is only real once its tracker files are committed and pushed; allocate epic numbers from the board after `git pull` (see [Cross-session coordination](#cross-session-coordination-parallel-agents-on-one-repo)).
 - Do not run `/bmad-prd` and `/to-spec` over the same feature unless one is explicitly updating the other. One spec pipeline per feature.
 - **Reference architecture-spine decision IDs inside tickets**, so implementation stays aligned with the agreed boundaries and rules.
 - Before implementation planning, read the brief, `docs/design/`, and the `docs/architecture/` spine for the area you're about to work in. If your output contradicts a spine decision, surface it explicitly rather than silently overriding (same rule as ADR conflicts in [domain.md](domain.md)).
