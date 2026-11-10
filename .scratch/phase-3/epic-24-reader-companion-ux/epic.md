@@ -1,6 +1,6 @@
 # Epic 24 — reader-companion-ux
 
-Status: in-progress (opened 2026-11-06, owner-reported batch)
+Status: MERGED (PR #21 @ b5ce323 — status line was stale; closed 2026-11-10 board sweep)
 Branch: `epic/p3-24-reader-companion-ux`
 Milestone: Phase 3 — optimization season
 
