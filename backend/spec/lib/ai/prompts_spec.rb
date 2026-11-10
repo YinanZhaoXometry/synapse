@@ -169,6 +169,16 @@ RSpec.describe Ai::Prompts do
     end
   end
 
+  it "carries the files-only posture on a blank message (2026-11-10) — the materials alone state the ground" do
+    silent = described_class.proposal(message: "", materials: [ { "title" => "讲义", "kind" => "pdf", "text" => "第 1 章" } ],
+                                      language: "zh")[1][:content]
+    aggregate_failures do
+      expect(silent).to include("attached study materials without a message")
+      expect(silent).not_to include("The learner's message:")
+      expect(silent).to include("Study material context")
+    end
+  end
+
   it "renders the materials block (epic-27) and slices it to the prompt budget" do
     with_material = described_class.proposal(
       message: "按这份讲义备考",

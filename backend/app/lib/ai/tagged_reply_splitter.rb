@@ -59,6 +59,13 @@ module Ai
       { proposal: parse_proposal }
     end
 
+    # The raw proposal segment's tail, for the controller's failure log
+    # (diagnosability — the parse itself is silent by contract). Public: the
+    # controller reads it on the nil-proposal path.
+    def reply_tail
+      @tail.to_s.last(400)
+    end
+
     private
 
     def emit_streamable
@@ -90,9 +97,33 @@ module Ai
       closing = @tail.index(PROPOSAL_CLOSE)
       return nil unless opening && closing && closing > opening
 
-      JSON.parse(@tail[(opening + PROPOSAL_OPEN.length)...closing])
+      parse_segment(@tail[(opening + PROPOSAL_OPEN.length)...closing])
+    end
+
+    # The tolerant parse ladder (2026-11-10): strict first, then the two
+    # recoverable contract misses — markdown code fences around the JSON and
+    # prose riding before/after it. Structurally corrupted JSON still fails
+    # (nil; the controller logs the tail and answers terminal INTERNAL).
+    def parse_segment(segment)
+      JSON.parse(segment)
     rescue JSON::ParserError
-      nil
+      stripped = segment.gsub(/```(?:json)?/i, "").strip
+      parsed = begin
+        JSON.parse(stripped)
+      rescue JSON::ParserError
+        nil
+      end
+      return parsed if parsed
+
+      first = stripped.index("{")
+      last = stripped.rindex("}")
+      return nil unless first && last && last > first
+
+      begin
+        JSON.parse(stripped[first..last])
+      rescue JSON::ParserError
+        nil
+      end
     end
   end
 end

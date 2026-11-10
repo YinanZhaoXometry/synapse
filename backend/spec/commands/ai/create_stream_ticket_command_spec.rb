@@ -87,6 +87,16 @@ RSpec.describe Ai::CreateStreamTicketCommand do
     })
   end
 
+  it "mints a FILES-ONLY proposal ticket on a blank message (2026-11-10) — the materials carry the turn" do
+    result = call(op: "proposal", material_id: nil, question: nil, position: nil, message: "",
+                  materials: [ { title: "project_overview", kind: "pdf", text: "Project Overview" } ])
+    expect(result).to be_success
+    expect(result.value![:ticket].payload).to eq({
+      "message" => "", "materials" => [ { "title" => "project_overview", "kind" => "pdf", "text" => "Project Overview" } ],
+      "language" => "zh"
+    })
+  end
+
   it "refuses unknown ops, bad languages, foreign materials, empty questions, and bad locators" do
     other = create(:user)
     foreign = create(:material, user: other)

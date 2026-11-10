@@ -18,7 +18,11 @@ module Ai
     extend Dry::Monads[:result]
 
     DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
-    DEFAULT_MODEL = "glm-4-flash"
+    # The flash-tier successor (still the free tier): the older flash default's
+    # long structured replies corrupted the proposal JSON contract
+    # deterministically under a large materials block (2026-11-10 diagnosis) —
+    # the same payload parses clean on this one.
+    DEFAULT_MODEL = "glm-4.5-flash"
     DEFAULT_TIMEOUT_SECONDS = 120
 
     class << self

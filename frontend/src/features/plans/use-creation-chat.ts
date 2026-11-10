@@ -11,10 +11,11 @@ import { getCompanionService } from "@/ai/companion-service";
 import type { PlanStructureProposal, ProposalMaterial, UiLanguage } from "@/ai/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export type ChatMessage = { role: "user" | "ai"; text: string };
+export type ChatMessage = { role: "user" | "ai"; text: string; materialCount?: number };
 export type ChatPhase = "idle" | "streaming" | "proposed";
 
-/** The stated input a draft regenerates from (message required, materials optional). */
+/** The stated input a draft regenerates from (files-only rounds carry an
+ * empty message — the materials are the input; 2026-11-10). */
 export interface ChatInput {
   message: string;
   materials: ProposalMaterial[];
@@ -67,7 +68,7 @@ export function useCreationChat(language: UiLanguage) {
   const send = useCallback(
     (message: string, materials: ProposalMaterial[]) => {
       if (phase === "streaming") return;
-      setMessages((m) => [...m, { role: "user", text: message }]);
+      setMessages((m) => [...m, { role: "user", text: message, materialCount: materials.length }]);
       generate(message, materials);
     },
     [generate, phase],

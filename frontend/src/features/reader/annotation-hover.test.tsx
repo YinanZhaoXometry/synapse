@@ -7,6 +7,7 @@ import MarkdownView from "./markdown-view";
 import { PdfPageFlow } from "./PdfPageFlow";
 import { hitTestMarkdownAnnotation, hitTestPdfAnnotation } from "./annotation-engine";
 import type { AnnotationRenderItem } from "./annotation-engine";
+import { attachAnnotationHover, type AnnotationHoverAnchor } from "./annotation-hover";
 
 /**
  * The hover-to-remove affordance (epic-24 T2): a painted annotation answers
@@ -125,6 +126,66 @@ describe("annotation hover-remove (epic-24 T2) — fallback marks path", () => {
     await user.keyboard("{Escape}");
     expect(view.container.querySelector('[data-testid="annotation-hover-popover"]')).toBeNull();
     expect(onRemoveAnnotation).not.toHaveBeenCalled();
+  });
+});
+
+describe("the sticky anchor (2026-11-10) — the popover parks, it never chases the pointer", () => {
+  /** One annotation painted as TWO marks (a multi-node wrap): the bug shape
+   * where re-anchoring to each mark's rect let the popover jump between them. */
+  function markDom(): { article: HTMLElement; markA: HTMLElement; markB: HTMLElement; plain: HTMLElement } {
+    const article = document.createElement("article");
+    const markA = article.appendChild(document.createElement("mark"));
+    markA.setAttribute("data-annotation-id", "anno-1");
+    markA.textContent = "first";
+    const plain = article.appendChild(document.createElement("p"));
+    plain.textContent = "gap";
+    const markB = article.appendChild(document.createElement("mark"));
+    markB.setAttribute("data-annotation-id", "anno-1");
+    markB.textContent = "second";
+    return { article, markA, markB, plain };
+  }
+
+  it("one annotation across two marks keeps the FIRST contact's anchor", async () => {
+    const { article, markA, markB, plain } = markDom();
+    document.body.append(article);
+    const seen: Array<AnnotationHoverAnchor | null> = [];
+    const rects = new Map<Element, { left: number; top: number; width: number; height: number }>([
+      [markA, { left: 10, top: 20, width: 40, height: 16 }],
+      [markB, { left: 100, top: 200, width: 60, height: 16 }],
+    ]);
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        const rect = rects.get(this);
+        return rect ? ({ ...rect, x: rect.left, y: rect.top, right: 0, bottom: 0 } as DOMRect) : new DOMRect(0, 0, 0, 0);
+      });
+    const dispose = attachAnnotationHover(article, { items: [], onAnchor: (anchor) => seen.push(anchor) });
+    try {
+      markA.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await waitFor(() => expect(seen.length).toBeGreaterThanOrEqual(1));
+      // markA's own box, centered horizontally (capped at the popover's half-width)
+      expect(seen[0]).toEqual({ id: "anno-1", x: 30, y: 20 });
+
+      // Moving to the SAME annotation's other mark re-parks NOTHING — the
+      // dedup proves the coords held (a second callback would mean a jump).
+      markB.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(seen).toHaveLength(1);
+
+      // Off the annotation entirely: leaving the article clears the anchor
+      // (jsdom has no caret API — a bare move over a non-annotation keeps
+      // the parked anchor by design; the article leave is the dismissal).
+      article.dispatchEvent(new MouseEvent("mouseleave"));
+      await waitFor(() => expect(seen.at(-1)).toBeNull());
+
+      // Re-entry parks at the ENTRY mark's geometry, not the old anchor.
+      markB.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await waitFor(() => expect(seen.at(-1)).toEqual({ id: "anno-1", x: 130, y: 200 }));
+    } finally {
+      dispose();
+      rectSpy.mockRestore();
+      article.remove();
+    }
   });
 });
 

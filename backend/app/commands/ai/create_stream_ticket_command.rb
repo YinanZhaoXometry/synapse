@@ -130,14 +130,19 @@ module Ai
     # the ticket carries only this turn's inputs; the confirmed plan persists
     # through the existing confirmProposal flow, and the staged files attach
     # through the standard upload flow AFTER the create (never re-uploaded).
+    # A blank message is honest inputs as of 2026-11-10 (files-only creation,
+    # the owner's round): the turn needs SOMETHING to design from — a message
+    # or at least one material — never both empty.
     def proposal_payload
       message_text = message.to_s.strip
-      return Failure(:VALIDATION_FAILED, { message: "the proposal stream needs a message", field: :message }) if message_text.empty?
+      material_inputs = materials.is_a?(Array) ? materials : []
+      if message_text.empty? && material_inputs.empty?
+        return Failure(:VALIDATION_FAILED, { message: "the proposal stream needs a message or materials", field: :message })
+      end
       if message_text.length > MAX_MESSAGE_CHARS
         return Failure(:VALIDATION_FAILED, { message: "the message exceeds the length bound", field: :message })
       end
 
-      material_inputs = materials.is_a?(Array) ? materials : []
       if material_inputs.length > MAX_MATERIALS
         return Failure(:VALIDATION_FAILED, { message: "at most #{MAX_MATERIALS} materials attach to a proposal", field: :materials })
       end

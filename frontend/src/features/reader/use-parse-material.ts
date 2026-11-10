@@ -64,6 +64,12 @@ export function useParseMaterialMutation(material?: MaterialView | null | undefi
               sizeBytes: row.sizeBytes,
               planId: row.planId,
               taskId: row.taskId,
+              // The shared fragment's scope fields (epic-10): the paint must
+              // carry EVERY field the document selects, or Apollo's cache
+              // write throws "Missing field" and the optimistic ride dies
+              // (the 2026-11-10 reader console errors).
+              attachmentScope: row.attachmentScope,
+              nodeId: row.nodeId,
               parseState: "parsing",
               parseFailureReason: null,
               createdAt: row.createdAt,

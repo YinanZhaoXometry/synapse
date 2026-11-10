@@ -33,7 +33,7 @@ RSpec.describe Ai::Provider do
       expect(described_class.configuration).to eq(
         base_url: "https://open.bigmodel.cn/api/paas/v4",
         api_key: "",
-        model: "glm-4-flash",
+        model: "glm-4.5-flash",
         timeout_seconds: 120
       )
     end

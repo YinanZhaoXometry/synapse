@@ -145,4 +145,26 @@ describe("CreationChat — one message + attachments (epic-27)", () => {
     expect(generateSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(zhDict["plans.draftLabel"])).toBeNull();
   });
+
+  it("a FILES-ONLY round sends on an empty message (2026-11-10) — the placeholder bubble stands in", async () => {
+    renderChat();
+    // Empty composer: the send button starts DISABLED — nothing to design from.
+    expect(screen.getByRole("button", { name: zhDict["plans.send"] })).toBeDisabled();
+
+    stageFiles([mdFile("讲义.md", "# 第一章\n\n集成测试关注组件之间的交互。")]);
+    await screen.findByTestId("creation-staged-files");
+    // The staged material alone enables the send.
+    expect(screen.getByRole("button", { name: zhDict["plans.send"] })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: zhDict["plans.send"] }));
+    await waitFor(() => expect(screen.getByText("阶段一：基础")).toBeInTheDocument());
+
+    const [message, materials] = generateSpy.mock.calls[0];
+    expect(message).toBe("");
+    expect(materials).toHaveLength(1);
+    expect(materials[0]).toMatchObject({ title: "讲义", kind: "markdown" });
+
+    // The user bubble renders the materials-only placeholder, not empty text.
+    expect(screen.getByText(zhDict["plans.sentMaterialsOnly"].replace("{n}", "1"))).toBeInTheDocument();
+  });
 });

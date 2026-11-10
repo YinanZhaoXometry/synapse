@@ -145,7 +145,9 @@ export default function CreationChat() {
 
   const submit = async () => {
     const message = messageDraft.trim();
-    if (!message || chat.phase === "streaming" || reading) return;
+    // Files-only rounds are honest inputs (2026-11-10): the message may ride
+    // empty when at least one staged material carries the turn.
+    if ((!message && staged.length === 0) || chat.phase === "streaming" || reading) return;
     setReading(true);
     try {
       const materials = await extractMaterials(staged, language);
@@ -258,7 +260,11 @@ export default function CreationChat() {
               )}
             >
               {m.role === "user" ? (
-                <span className="whitespace-pre-wrap">{m.text}</span>
+                // Files-only rounds carry an empty text — the materials-only
+                // placeholder stands in (the chips themselves cleared on send).
+                <span className="whitespace-pre-wrap">
+                  {m.text || t("plans.sentMaterialsOnly", { n: m.materialCount ?? 0 })}
+                </span>
               ) : (
                 <ChatMarkdown text={m.text} />
               )}
@@ -438,7 +444,11 @@ export default function CreationChat() {
           >
             <Paperclip className="w-3.5 h-3.5 mr-1" /> {t("plans.attach")}
           </Button>
-          <Button className="ml-auto" onClick={() => void submit()} disabled={!messageDraft.trim() || inputDisabled}>
+          <Button
+            className="ml-auto"
+            onClick={() => void submit()}
+            disabled={(!messageDraft.trim() && staged.length === 0) || inputDisabled}
+          >
             {reading ? t("plans.readingMaterials") : t("plans.send")}
           </Button>
         </div>

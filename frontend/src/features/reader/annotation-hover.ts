@@ -12,9 +12,11 @@
  *    never report — they paint nothing).
  *
  * rAF-throttled pointermove; hover only with no buttons pressed (a text
- * selection drag must not pop the popover mid-drag). Geometry rides the mark
- * rect (fallback) or the pointer point (Highlight path — near enough for a
- * popover anchor). Not a React module — the view mounts it in an effect and
+ * selection drag must not pop the popover mid-drag). Geometry is the
+ * annotation's OWN, sticky per id from first contact (2026-11-10): the mark
+ * rect (fallback) or the caret's line box (Highlight path) — never the live
+ * pointer point, which chases the cursor and makes the remove button
+ * unreachable. Not a React module — the view mounts it in an effect and
  * renders from the anchor callback.
  */
 import {
@@ -80,6 +82,39 @@ function hasCaretApi(): boolean {
   return typeof doc.caretPositionFromPoint === "function" || typeof doc.caretRangeFromPoint === "function";
 }
 
+/** The first non-degenerate client rect of a range, or null (jsdom reports
+ * zero boxes; exotic hosts may not expose the rects API at all). */
+function firstRect(range: Range): DOMRect | null {
+  const rects = typeof range.getClientRects === "function" ? range.getClientRects() : [];
+  const rect = rects.length > 0 ? rects[0] : typeof range.getBoundingClientRect === "function" ? range.getBoundingClientRect() : null;
+  return rect && (rect.width > 0 || rect.height > 0) ? rect : null;
+}
+
+/** A stable viewport point for the annotation under the caret (2026-11-10):
+ * the line box of the caret's own position (a one-character Range), the
+ * whole text node's box as the fallback, and the pointer point only where no
+ * real boxes exist (jsdom). The popover centers horizontally over that point
+ * (capped at the popover's half-width) so it hangs over the text, not off it. */
+function stablePoint(node: Node, offset: number, x: number, y: number): { x: number; y: number } {
+  try {
+    if (typeof document.createRange !== "function" || node.nodeType !== Node.TEXT_NODE) return { x, y };
+    const text = node as Text;
+    const length = (text.nodeValue ?? "").length;
+    const caret = document.createRange();
+    caret.setStart(text, Math.min(offset, length));
+    caret.setEnd(text, Math.min(offset + 1, length));
+    const line = firstRect(caret);
+    if (line) return { x: line.left + Math.min(line.width / 2, 130), y: line.top };
+    const whole = document.createRange();
+    whole.selectNodeContents(text);
+    const box = firstRect(whole);
+    if (box) return { x: box.left + Math.min(box.width / 2, 130), y: box.top };
+  } catch {
+    // No Range support in this host — the pointer point remains.
+  }
+  return { x, y };
+}
+
 /**
  * Attach the bridge to the article. Returns the disposer (call on unmount /
  * whenever the items identity changes — the fresh list is the truth).
@@ -87,12 +122,26 @@ function hasCaretApi(): boolean {
 export function attachAnnotationHover(article: HTMLElement, opts: AnnotationHoverOptions): () => void {
   let raf = 0;
   let lastKey = "";
+  // The anchor parks at the annotation's own geometry from FIRST contact and
+  // stays put while the same annotation answers (2026-11-10). Re-anchoring to
+  // the live pointer made the popover chase the cursor — the remove button
+  // kept sliding away and could never be clicked. A new id re-parks; null
+  // clears.
+  let sticky: AnnotationHoverAnchor | null = null;
 
   const report = (anchor: AnnotationHoverAnchor | null) => {
     const key = anchor ? `${anchor.id}:${Math.round(anchor.x)},${Math.round(anchor.y)}` : "";
     if (key === lastKey) return;
     lastKey = key;
+    if (!anchor) sticky = null;
     opts.onAnchor(anchor);
+  };
+
+  /** Same id ⇒ the parked anchor; a new id parks at the fresh geometry. */
+  const anchorFor = (id: string, point: { x: number; y: number }): AnnotationHoverAnchor => {
+    if (sticky && sticky.id === id) return sticky;
+    sticky = { id, x: point.x, y: point.y };
+    return sticky;
   };
 
   const resolve = (x: number, y: number, target: EventTarget | null) => {
@@ -108,11 +157,13 @@ export function attachAnnotationHover(article: HTMLElement, opts: AnnotationHove
       const id = mark.getAttribute("data-annotation-id") ?? "";
       if (id) {
         const rect = mark.getBoundingClientRect();
-        report({ id, x: rect.left, y: rect.top });
+        report(anchorFor(id, { x: rect.left + Math.min(rect.width / 2, 130), y: rect.top }));
         return;
       }
     }
-    // Highlight-API path: no DOM to delegate on — the caret decides.
+    // Highlight-API path: no DOM to delegate on — the caret decides, and the
+    // anchor comes from the caret's own line box (stablePoint), never the
+    // moving pointer.
     if (!hasCaretApi()) return;
     const caret = caretTextNodeAt(x, y);
     if (!caret) {
@@ -129,7 +180,7 @@ export function attachAnnotationHover(article: HTMLElement, opts: AnnotationHove
       report(null);
       return;
     }
-    report({ id, x, y });
+    report(anchorFor(id, stablePoint(caret.node, caret.offset, x, y)));
   };
 
   const scheduleResolve = (x: number, y: number, target: EventTarget | null) => {

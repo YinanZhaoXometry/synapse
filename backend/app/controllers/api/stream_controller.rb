@@ -94,12 +94,19 @@ module Api
     # Failure too).
     def stream_to_tokens(user, messages, on_delta)
       result = Ai::Provider.stream(user: user, messages: messages)
-      return result.failure if result.failure?
+      if result.failure?
+        # The failure paths are silent on the wire by contract (terminal
+        # enum only) — the log is the only diagnosability (2026-11-10: two
+        # live proposal failures were invisible without it).
+        Rails.logger.warn("[ai] stream failure: #{result.failure.code} — #{result.failure.context[:message]}")
+        return result.failure
+      end
 
       begin
         result.value!.each { |delta| on_delta.call(delta) }
         nil
       rescue Ai::ProviderError => e
+        Rails.logger.warn("[ai] stream transport failure: #{e.message[0, 200]}")
         ApplicationErrors::Failure.new(code: :INTERNAL, context: { message: e.message })
       end
     end
@@ -201,10 +208,18 @@ module Api
       return terminal(code: failure.code) if failure.is_a?(ApplicationErrors::Failure)
 
       proposal = splitter.finish[:proposal]
-      return terminal(code: "INTERNAL") unless proposal
+      unless proposal
+        # The tag contract violation is silent on the wire (terminal enum
+        # only) — log the tail so a live failure is diagnosable (2026-11-10).
+        Rails.logger.warn("[ai] proposal reply failed the tag contract — tail: #{splitter.reply_tail.inspect}")
+        return terminal(code: "INTERNAL")
+      end
 
       normalized = normalize_proposal(proposal)
-      return terminal(code: "INTERNAL") if normalized["stages"].empty?
+      if normalized["stages"].empty?
+        Rails.logger.warn("[ai] proposal reply normalized to zero stages — proposal: #{proposal.inspect[0, 300]}")
+        return terminal(code: "INTERNAL")
+      end
 
       terminal(code: "OK", proposal: normalized.merge("language" => language))
     end

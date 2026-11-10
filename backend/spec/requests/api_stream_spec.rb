@@ -250,11 +250,13 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
       end
     end
 
-    it "answers terminal{INTERNAL} on a contract-violating reply" do
+    it "answers terminal{INTERNAL} on a contract-violating reply — and logs the reply tail (2026-11-10)" do
       allow(adapter).to receive(:stream).and_return(%w[no tags at all].each)
+      allow(Rails.logger).to receive(:warn)
 
       stream(mint_proposal)
       expect(events.last["data"]["code"]).to eq("INTERNAL")
+      expect(Rails.logger).to have_received(:warn).with(a_string_including("[ai] proposal reply failed the tag contract"))
     end
 
     it "accepts the legacy nodeTitles reply via the logged normalization — title-only nodes, zero edges" do

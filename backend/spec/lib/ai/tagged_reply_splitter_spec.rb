@@ -68,6 +68,28 @@ RSpec.describe Ai::TaggedReplySplitter do
     expect(unterminated.finish[:proposal]).to be_nil
   end
 
+  it "recovers the two recoverable contract misses (fences, riding prose) — corruption still nil" do
+    json = { topic: "t", stages: [ { name: "s", nodes: [ { title: "n", description: nil, optional: false } ] } ] }
+
+    fenced = described_class.new
+    feed_all(fenced, [ proposal_reply("stage one", "```json\n#{JSON.generate(json)}\n```") ])
+    expect(fenced.finish[:proposal]).to eq(JSON.parse(JSON.generate(json)))
+
+    prose = described_class.new
+    feed_all(prose, [ proposal_reply("stage one", "Here is the JSON you asked for:\n#{JSON.generate(json)}\nHope this helps!") ])
+    expect(prose.finish[:proposal]).to eq(JSON.parse(JSON.generate(json)))
+
+    corrupted = described_class.new
+    feed_all(corrupted, [ proposal_reply("stage one", '{"topic":"t","stages":[{"name":"s" "corrupted"}]}') ])
+    expect(corrupted.finish[:proposal]).to be_nil
+  end
+
+  it "exposes the reply tail for the controller's failure log" do
+    splitter = described_class.new
+    feed_all(splitter, [ "<outline>x</outline>\n<proposal>{broken json</proposal>" ])
+    expect(splitter.reply_tail).to include("{broken json")
+  end
+
   it "flushes a held-back tail when the close tag never arrives" do
     splitter = described_class.new
     tokens = feed_all(splitter, [ "<outline>streaming that stops early" ])

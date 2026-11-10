@@ -357,9 +357,17 @@ module Ai
       # the proposal reads the materials' shape, not their full text.
       def proposal(message:, materials:, language:)
         material_block = proposal_material_block(materials)
+        # Files-only creation (2026-11-10): a blank message is honest inputs —
+        # the materials alone state the ground to cover.
+        message_line =
+          if message.to_s.strip.empty?
+            "The learner attached study materials without a message — design the plan from ONLY what the materials cover."
+          else
+            "The learner's message: #{message}"
+          end
         [ system,
           user(<<~PROMPT)
-            Design a study plan. The learner's message: #{message}
+            Design a study plan. #{message_line}
             #{material_block}
             Reply in EXACTLY this format — nothing before, between, or after the tags:
             <outline>
