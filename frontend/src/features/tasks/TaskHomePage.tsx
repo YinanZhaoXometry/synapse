@@ -48,6 +48,7 @@ import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation, validateReupload } from "@/features/reader";
 import { taskMasteryView, type TaskMasteryView } from "./display-shaping";
+import PageLoader from "@/components/shared/PageLoader";
 
 export default function TaskHomePage() {
   const { t } = useLanguage();
@@ -73,7 +74,7 @@ export default function TaskHomePage() {
   const promote = usePromoteTaskToPlanMutation();
   const [promoteOpen, setPromoteOpen] = useState(false);
 
-  if (taskQuery.loading || materialsQuery.loading || evidenceQuery.loading || cardsQuery.loading) return null;
+  if (taskQuery.loading || materialsQuery.loading || evidenceQuery.loading || cardsQuery.loading) return <PageLoader />;
   const task = taskQuery.data;
   // The single auto-owned node rides on the task view (AD-6) — server-scored.
   const node: KnowledgeNodeView | undefined = task?.node;

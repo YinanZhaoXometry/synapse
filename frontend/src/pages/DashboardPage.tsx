@@ -37,6 +37,7 @@ import {
   usePlansQuery,
 } from "@/api";
 import { badgeEmoji } from "@/lib/badges";
+import PageLoader from "@/components/shared/PageLoader";
 
 /** The time-of-day greeting key off the local hour (pure seam — tests pin
  * the boundaries): morning < 12, afternoon < 18, evening otherwise. */
@@ -114,7 +115,7 @@ export default function DashboardPage() {
   const loading =
     plansQuery.loading || seriesQuery.loading || goalQuery.loading ||
     streakQuery.loading || mistakesQuery.loading || badgesQuery.loading;
-  if (loading) return null;
+  if (loading) return <PageLoader />;
 
   const plans = plansQuery.data ?? [];
   const nodeMastery = seriesQuery.data?.nodeMastery ?? [];

@@ -53,6 +53,7 @@ import { todayWeekStrip, utcDayKey, type WeekStripCell } from "@/domain/today-we
 import { nodeQuickTestHref } from "@/features/plans";
 import { todaySuggestionClientUuid } from "@/lib/uuid5";
 import { cn } from "@/lib/utils";
+import PageLoader from "@/components/shared/PageLoader";
 
 // The closed-enum → t()-key map for the generation failures (AD-9's one
 // place; the ai.generate.* keys already carry the honest copy for every
@@ -287,7 +288,7 @@ export default function PlannerPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (hubQuery.loading || consistencyQuery.loading) return null;
+  if (hubQuery.loading || consistencyQuery.loading) return <PageLoader />;
 
   const hub = hubQuery.data;
   const summary = hub?.summary ?? { dueCount: 0, manualCount: 0, doneCount: 0 };

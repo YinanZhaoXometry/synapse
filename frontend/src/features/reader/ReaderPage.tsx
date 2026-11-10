@@ -105,6 +105,7 @@ import {
 } from "./annotation-engine";
 import { AnnotationsPanel } from "./annotations-panel";
 import { StudyFocusPanel } from "./study-focus-panel";
+import PageLoader from "@/components/shared/PageLoader";
 
 // The study-focus generation toasts ride the closed-enum map's shared
 // `ai.generate.` namespace (the server adapter's sibling keys — capReached
@@ -583,7 +584,7 @@ export default function ReaderPage() {
     }
   };
 
-  if (materialQuery.loading) return null;
+  if (materialQuery.loading) return <PageLoader />;
 
   if (!material) {
     // Honest not-found (AD-8): an unknown or deleted id never pretends.

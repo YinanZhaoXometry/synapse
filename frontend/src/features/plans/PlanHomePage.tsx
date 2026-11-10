@@ -53,6 +53,7 @@ import { localeTag } from "./locale";
 import { isPptxUpload, validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
 import { ContractNote, MasteryRing, StreakChip } from "./atoms";
+import PageLoader from "@/components/shared/PageLoader";
 
 export default function PlanHomePage() {
   const { t, language } = useLanguage();
@@ -161,7 +162,7 @@ export default function PlanHomePage() {
       });
   };
 
-  if (planQuery.loading || nodesQuery.loading || materialsQuery.loading || evidenceQuery.loading || flashcardsQuery.loading) return null;
+  if (planQuery.loading || nodesQuery.loading || materialsQuery.loading || evidenceQuery.loading || flashcardsQuery.loading) return <PageLoader />;
   const plan = planQuery.data?.plan;
   const nodes = nodesQuery.data ?? [];
   const materials = materialsQuery.data ?? [];

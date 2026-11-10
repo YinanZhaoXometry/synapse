@@ -23,6 +23,7 @@ import CreationChat from "./CreationChat";
 import ImportOfferDialog from "./ImportOfferDialog";
 import SquareSection from "./SquareSection";
 import { cn } from "@/lib/utils";
+import PageLoader from "@/components/shared/PageLoader";
 
 /**
  * Plans Home (AD-8; FR-1; Q3/Q5) — the front door. Empty state: the creation
@@ -57,7 +58,7 @@ export default function PlansHomePage() {
   // the tab the user left); anything else opens on the mine tab.
   const [tab, setTab] = useState<"mine" | "square">(searchParams.get("tab") === "square" ? "square" : "mine");
 
-  if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return null;
+  if (plansQuery.loading || tasksQuery.loading || progressQuery.loading) return <PageLoader />;
   const plans = plansQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const progress = progressQuery.data ?? [];

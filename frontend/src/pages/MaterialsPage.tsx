@@ -21,6 +21,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAllMaterialsQuery, usePlansQuery, useTasksQuery, type MaterialView } from "@/api";
 import { localeTag } from "@/features/plans";
 import { PARSE_REASON_MESSAGE_KEY } from "@/features/reader";
+import PageLoader from "@/components/shared/PageLoader";
 
 const KINDS = ["all", "pdf", "markdown"] as const;
 type KindFilter = (typeof KINDS)[number];
@@ -132,7 +133,7 @@ export default function MaterialsPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return null;
+  if (materialsQuery.loading || plansQuery.loading || tasksQuery.loading) return <PageLoader />;
 
   return (
     <div className="p-6 md:p-8 max-w-[1120px] mx-auto">

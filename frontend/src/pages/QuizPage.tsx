@@ -30,6 +30,7 @@ import {
 } from "@/api";
 import { QUIZ_FRESH_LAUNCH_KEY } from "@/features/quiz";
 import { localeTag } from "@/features/plans";
+import PageLoader from "@/components/shared/PageLoader";
 
 /** The retake launch: fire the mutation; on the NEW session's arrival, mark
  * the fresh launch and navigate to its flow route per origin kind. The api
@@ -142,7 +143,7 @@ export default function QuizPage() {
 
   // Honest-empty posture: nothing renders until the reads land (no demo
   // fallback, no flash of stale copy).
-  if (hubQuery.loading || tasksQuery.loading) return null;
+  if (hubQuery.loading || tasksQuery.loading) return <PageLoader />;
 
   return (
     <div className="max-w-[984px] mx-auto px-6 py-8">

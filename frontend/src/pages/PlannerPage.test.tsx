@@ -300,6 +300,7 @@ describe("PlannerPage — the 今日学习 hub re-point (FR-27, epic P2-09 T3)",
     expect(screen.queryByText("给错题本写两周复盘")).toBeNull();
   });
 
+
   it("renders the day summary counts and the week strip from consistency: evidence days count, quiet days hollow, no-data days dashed, today highlighted", async () => {
     const { container } = renderPlannerPage(hubHandlers());
 
@@ -339,10 +340,14 @@ describe("PlannerPage — the 今日学习 hub re-point (FR-27, epic P2-09 T3)",
     expect(screen.queryByText("设计模式 8 张")).toBeNull();
   });
 
-  it("renders nothing while the hub reads are loading (honest-empty, no flash of stale demo copy)", () => {
+  it("the first paint of a loading hub shows the shared PageLoader — never blank, never stale copy (epic-28 T3)", () => {
     const { container } = renderPlannerPage(hubHandlers());
-    // the stub link resolves on the next tick — the first paint waits
-    expect(container.innerHTML).toBe("");
+    // the stub link resolves on the next tick — the first paint waits. It
+    // used to be `return null` (blank page); the honest wait is the shared
+    // loader, and the honest-empty copy still never flashes early.
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText(zh("common.loading"))).toBeTruthy();
+    expect(container.querySelector("[role='status']")).toBeTruthy();
     expect(screen.queryByText(zh("planner.emptyTitle"))).toBeNull();
   });
 });

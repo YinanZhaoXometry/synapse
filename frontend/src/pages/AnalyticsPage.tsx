@@ -29,6 +29,7 @@ import { useAnalyticsSeriesQuery } from "@/api";
 import { NodeStateBadge } from "@/features/plans";
 import { cn } from "@/lib/utils";
 import type { HubNodeMasteryView, HubWeeklyAccuracyView } from "@/api";
+import PageLoader from "@/components/shared/PageLoader";
 
 const STAT_CARD =
   "bg-card border border-border-soft rounded-2xl shadow-raised p-[18px] flex flex-col gap-2";
@@ -135,7 +136,7 @@ export default function AnalyticsPage() {
 
   // Honest-empty posture: nothing renders until the series lands (no demo
   // fallback, no flash of stale copy).
-  if (seriesQuery.loading) return null;
+  if (seriesQuery.loading) return <PageLoader />;
 
   const series = seriesQuery.data;
   const nodeMastery = series?.nodeMastery ?? [];
