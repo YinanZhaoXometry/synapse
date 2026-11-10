@@ -271,6 +271,9 @@ describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
     // the user lands in the Reader on the created material (UJ-6; AD-8)
     await waitFor(() => expect(screen.getByTestId("reader-landing")).toHaveTextContent(MATERIAL_ID));
 
+    // epic-28 T2: the key path speaks — the created toast rides the landing.
+    expect(await screen.findByText(zh("tasks.createSuccess"))).toBeInTheDocument();
+
     // exactly one attach against the task-to-be: the edited title, taskId null
     // (the material cannot know the task yet), markdown kind (AD-6 flow)
     expect(attachInputs).toHaveLength(1);
@@ -305,10 +308,12 @@ describe("TaskCreatePage (FR-37; UJ-6; AD-6/7/8)", () => {
     const { container } = renderPage({ failFirstCreate: true });
     fireEvent.change(fileInputOf(container), { target: { files: [markdownFile("retry-case.md")] } });
 
-    // attempt 1: the material attaches, task creation fails
+    // attempt 1: the material attaches, task creation fails — with a voice
+    // (epic-28 T2: the silent re-enable was the owner's report)
     fireEvent.click(screen.getByRole("button", { name: zh("tasks.confirm") }));
     await waitFor(() => expect(createTaskInputs).toHaveLength(1));
     expect(attachInputs).toHaveLength(1);
+    expect(await screen.findByText(zh("tasks.createFailed"))).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: zh("tasks.confirm") })).toBeEnabled());
 
     // retry skips straight to task creation on the SAME material

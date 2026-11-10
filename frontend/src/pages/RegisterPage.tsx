@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useRegisterMutation } from "@/api";
 import { getToken, setToken } from "@/apollo";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,6 +37,7 @@ export default function RegisterPage() {
       variables: { input: { email, password } },
       onCompleted: (data) => {
         setToken(data.register.token);
+        toast.success(t("auth.registerSuccess"));
         navigate(from, { replace: true });
       },
       onError: (e) => setError(authErrorKey(e)),

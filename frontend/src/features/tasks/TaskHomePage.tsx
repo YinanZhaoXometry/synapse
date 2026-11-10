@@ -132,6 +132,7 @@ export default function TaskHomePage() {
     }
     upload
       .refreshBytes(material.id, file)
+      .then(() => toast.success(t("materials.uploadSuccess")))
       .catch((err) => {
         console.error("[upload] re-upload failed:", err);
         toast.error(t("errors.uploadFailed"));

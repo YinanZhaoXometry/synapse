@@ -258,7 +258,15 @@ function ManualTaskRow({ task }: { task: HubManualTaskView }) {
       </div>
       <button
         type="button"
-        onClick={() => deleteTask.mutate({ variables: { input: { id: task.id } } })}
+        onClick={() =>
+          // epic-28 T2: the today list's only mutation used to run with NO
+          // handlers at all — both ends speak now.
+          deleteTask.mutate({
+            variables: { input: { id: task.id } },
+            onCompleted: () => toast.success(t("planner.deleteTaskSuccess")),
+            onError: () => toast.error(t("planner.deleteTaskFailed")),
+          })
+        }
         aria-label={t("planner.deleteTaskAria", { title: task.title })}
         className="flex-none rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-danger-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
       >

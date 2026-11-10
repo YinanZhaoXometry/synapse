@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLoginMutation } from "@/api";
@@ -41,6 +42,8 @@ export default function LoginPage() {
       variables: { input: { email, password } },
       onCompleted: (data) => {
         setToken(data.login.token);
+        // epic-28 T2: the wall's key paths never complete silently.
+        toast.success(t("auth.loginSuccess"));
         navigate(from, { replace: true });
       },
       onError: (e) => setError(authErrorKey(e)),
@@ -54,6 +57,7 @@ export default function LoginPage() {
       variables: { input: { email: DEMO_EMAIL, password: DEMO_PASSWORD } },
       onCompleted: (data) => {
         setToken(data.login.token);
+        toast.success(t("auth.loginSuccess"));
         navigate(from, { replace: true });
       },
       onError: (e) => setError(authErrorKey(e)),

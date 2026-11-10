@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
+import { Toaster } from "sonner";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { RegisterDocument } from "@/types/graphql";
 import { clearToken, getToken } from "@/apollo";
@@ -52,6 +53,7 @@ function mount() {
   return render(
     <MockedProvider mocks={[validationMock, successMock]}>
       <LanguageProvider>
+        <Toaster />
         <MemoryRouter initialEntries={["/register"]}>
           <Routes>
             <Route path="/register" element={<RegisterPage />} />
@@ -95,5 +97,7 @@ describe("RegisterPage (epic P2-8 T2, AD-15)", () => {
     await user.click(screen.getByRole("button", { name: "注册并进入" }));
     await waitFor(() => expect(screen.getByText("PLANS-PROBE")).toBeInTheDocument());
     expect(getToken()).toBe("token-new");
+    // epic-28 T2: registration lands with its own voice.
+    expect(await screen.findByText("注册成功，开始学习吧")).toBeInTheDocument();
   });
 });
