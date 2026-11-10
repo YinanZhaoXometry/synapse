@@ -45,6 +45,7 @@ import StudyMarkToggleRow from "./study-mark-toggle";
 import EvidenceMarks from "./evidence-marks";
 import { NODE_STATE_DISPLAY, nodeJumpTargets } from "./node-state";
 import {
+  hubTitleLines,
   roadmapSpineLayout,
   SPINE_NODE_H,
   SPINE_NODE_W,
@@ -453,27 +454,35 @@ export default function RoadmapGraph({
           {layout.hubs.map((hub) => {
             const box = layout.boxes[hub.id];
             const stageMastered = hub.leafIds.filter((id) => byId.get(id)?.state === "mastered").length;
+            // The hub title wraps to at most two width-measured lines (the
+            // owner's overflow report); the box grew with it in the layout.
+            const lines = hub.stage === null ? hubTitleLines(t("plans.stageUngrouped")) : hub.lines;
+            const lineBaseline = (index: number) =>
+              box.y + box.h / 2 + 10 + (index - (lines.length - 1) / 2) * 30;
             return (
               <g key={hub.id} data-testid="roadmap-stage-group" data-stage={hub.stage}>
                 <rect
                   x={box.x}
                   y={box.y}
                   width={SPINE_NODE_W}
-                  height={SPINE_NODE_H}
+                  height={box.h}
                   rx={5}
                   style={{ fill: "var(--roadmap-hub-face)", stroke: "var(--roadmap-node-border)" }}
                   strokeWidth={2.7}
                 />
-                <text
-                  data-testid="roadmap-stage-label"
-                  x={box.x + SPINE_NODE_W / 2}
-                  y={box.y + SPINE_NODE_H / 2 + 10}
-                  fontSize={28}
-                  textAnchor="middle"
-                  style={{ fill: "var(--roadmap-node-ink)" }}
-                >
-                  {hub.stage ?? t("plans.stageUngrouped")}
-                </text>
+                {lines.map((line, index) => (
+                  <text
+                    key={index}
+                    data-testid="roadmap-stage-label"
+                    x={box.x + SPINE_NODE_W / 2}
+                    y={lineBaseline(index)}
+                    fontSize={28}
+                    textAnchor="middle"
+                    style={{ fill: "var(--roadmap-node-ink)" }}
+                  >
+                    {line}
+                  </text>
+                ))}
                 <text
                   data-testid="roadmap-stage-progress"
                   x={box.x + SPINE_NODE_W - 12}

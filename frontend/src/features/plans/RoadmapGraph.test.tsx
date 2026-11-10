@@ -211,6 +211,16 @@ describe("RoadmapGraph spine render", () => {
     mountGraph();
     expect(screen.getByTestId("roadmap-svg")).toHaveClass("select-none");
   });
+
+  it("wraps a long hub title into two centered lines inside the grown box", () => {
+    const longStage = "第 1 阶段：GraphQL 基础";
+    mountGraph({ views: nodeRowViews([nodeAt(0, { stage: longStage })], []) });
+
+    const labels = screen.getAllByTestId("roadmap-stage-label").map((el) => el.textContent);
+    expect(labels).toEqual(["第 1 阶段：", "GraphQL 基础"]);
+    const hubRect = screen.getByTestId("roadmap-stage-group").querySelector("rect")!;
+    expect(Number(hubRect.getAttribute("height"))).toBeGreaterThan(51);
+  });
 });
 
 describe("RoadmapGraph state vocabulary (dual corner badges)", () => {

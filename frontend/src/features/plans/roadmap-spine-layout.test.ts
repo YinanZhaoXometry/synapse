@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  hubTitleLines,
   SPINE_CENTER_X,
   SPINE_FAN_GAP,
+  SPINE_HUB_SECOND_LINE,
   SPINE_NODE_H,
   SPINE_NODE_W,
   SPINE_PADDING,
@@ -211,5 +213,51 @@ describe("roadmapSpineLayout", () => {
     expect(tall.width).toBe(narrow.width);
     expect(tall.height).toBeGreaterThan(narrow.height);
     expect(narrow.width).toBe(SPINE_PADDING * 2 + SPINE_NODE_W * 3 + SPINE_FAN_GAP * 2);
+  });
+});
+
+describe("hubTitleLines (the hub's two-line wrap)", () => {
+  it("keeps a short title on one line", () => {
+    expect(hubTitleLines("基础奠基")).toEqual(["基础奠基"]);
+    expect(hubTitleLines("第 1 阶段")).toEqual(["第 1 阶段"]);
+  });
+
+  it("breaks a long title at its colon into two fitting lines", () => {
+    const lines = hubTitleLines("第 1 阶段：GraphQL 基础");
+    expect(lines).toEqual(["第 1 阶段：", "GraphQL 基础"]);
+  });
+
+  it("truncates the second line when nothing fits (never a third line)", () => {
+    const lines = hubTitleLines("一个非常非常非常非常非常非常非常非常长的没有分隔符的阶段标题");
+    expect(lines).toHaveLength(2);
+    expect(lines[1].endsWith("…")).toBe(true);
+  });
+});
+
+describe("the two-line hub geometry", () => {
+  it("grows the hub box and the block for a wrapped title; edges ride the real height", () => {
+    const longStage = "第 1 阶段：GraphQL 基础";
+    const layout = roadmapSpineLayout([node("a", 1, longStage), node("b", 2, "核心")], []);
+
+    const hub0 = layout.hubs[0];
+    expect(hub0.lines).toEqual(["第 1 阶段：", "GraphQL 基础"]);
+    const box0 = layout.boxes[hub0.id];
+    const box1 = layout.boxes[layout.hubs[1].id];
+    // The two-line hub is one second-line taller…
+    expect(box0.h).toBe(51 + SPINE_HUB_SECOND_LINE);
+    expect(box1.h).toBe(51);
+    // …the spine edge leaves from the TALLER box's real bottom…
+    const spine = layout.edges.find((edge) => edge.kind === "spine")!;
+    expect(spine.d).toBe(`M ${SPINE_CENTER_X} ${box0.y + box0.h} L ${SPINE_CENTER_X} ${box1.y}`);
+    // …and no leaf overlaps the grown hub (block math held).
+    for (const id of layout.readingOrder) {
+      const leaf = layout.boxes[id];
+      const separated =
+        leaf.x + SPINE_NODE_W <= box0.x ||
+        box0.x + SPINE_NODE_W <= leaf.x ||
+        leaf.y + leaf.h <= box0.y ||
+        box0.y + box0.h <= leaf.y;
+      expect(separated).toBe(true);
+    }
   });
 });

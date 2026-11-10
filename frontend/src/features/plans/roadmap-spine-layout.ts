@@ -64,6 +64,46 @@ export const SPINE_FAN_GAP = 122;
 /** The vertical gap between consecutive stage blocks. */
 export const SPINE_BLOCK_GAP = 40;
 export const SPINE_PADDING = 28;
+/** A two-line hub's extra height (the second 28px line + its leading). */
+export const SPINE_HUB_SECOND_LINE = 33;
+/** The hub title's per-line width budget (the box minus side insets). */
+export const SPINE_HUB_LINE_PX = SPINE_NODE_W - 40;
+
+/**
+ * Split a hub title into 1–2 renderable lines at the measured width
+ * (deterministic): prefer the LAST ：/:／· separator inside the first half
+ * (「第 1 阶段：GraphQL 基础」 breaks after the colon), else the first
+ * space, else a greedy width fill; the second line truncates if it still
+ * overflows (never a third line).
+ */
+export function hubTitleLines(title: string): string[] {
+  const width = (text: string) =>
+    [...text].reduce((sum, ch) => sum + (ch.codePointAt(0)! > 0x2e7f ? 28 : 14.5), 0);
+  if (width(title) <= SPINE_HUB_LINE_PX) return [title];
+
+  const separators = ["：", ":", "—", "·", " "];
+  for (const sep of separators) {
+    const at = title.lastIndexOf(sep, Math.floor(title.length / 2) + 2);
+    if (at > 0 && at < title.length - 1) {
+      const head = title.slice(0, at + 1);
+      const tail = title.slice(at + 1).trim();
+      if (width(head) <= SPINE_HUB_LINE_PX && width(tail) <= SPINE_HUB_LINE_PX) return [head, tail];
+    }
+  }
+  // Greedy fill: walk the string to the width budget, break there.
+  let used = 0;
+  let at = title.length;
+  for (let i = 0; i < title.length; i += 1) {
+    used += title.codePointAt(i)! > 0x2e7f ? 28 : 14.5;
+    if (used > SPINE_HUB_LINE_PX) {
+      at = i;
+      break;
+    }
+  }
+  const head = title.slice(0, at);
+  const tail = title.slice(at);
+  return [head, width(tail) <= SPINE_HUB_LINE_PX ? tail : `${tail.slice(0, Math.max(1, Math.floor(SPINE_HUB_LINE_PX / 28)))}…`];
+}
 
 export type SpineSide = "left" | "right";
 export type SpineEdgeKind = "spine" | "fan" | "prereq";
@@ -80,12 +120,16 @@ export interface SpineBox {
   x: number;
   /** Top edge. */
   y: number;
+  /** The box's own height — 51 for one-line boxes, taller for a two-line hub. */
+  h: number;
 }
 
 export interface SpineHub {
   /** Synthetic hub id — `hub:<stageIndex>`; never collides with node uuids. */
   id: string;
   stage: string | null;
+  /** The hub's title split into 1–2 renderable lines (width-measured). */
+  lines: string[];
   leafIds: string[];
 }
 
@@ -190,12 +234,16 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
     const right: SpineNodeInput[] = [];
     (stageIndex % 2 === 0 ? right : left).push(...group.nodes);
 
+    // The hub grows a second line when its title cannot fit one (the owner's
+    // overflow report) — the block and every edge ride the ACTUAL height.
+    const lines = hubTitleLines(group.stage ?? "");
+    const hubH = SPINE_NODE_H + (lines.length > 1 ? SPINE_HUB_SECOND_LINE : 0);
     const fanHeight = (count: number) => (count <= 0 ? 0 : count * SPINE_ROW_PITCH - (SPINE_ROW_PITCH - SPINE_NODE_H));
-    const blockHeight = Math.max(SPINE_NODE_H, fanHeight(left.length), fanHeight(right.length));
+    const blockHeight = Math.max(hubH, fanHeight(left.length), fanHeight(right.length));
     const centerY = blockTop + blockHeight / 2;
     const hubId = `hub:${stageIndex}`;
 
-    boxes[hubId] = { id: hubId, kind: "hub", stage: group.stage, side: null, x: HUB_X, y: centerY - SPINE_NODE_H / 2 };
+    boxes[hubId] = { id: hubId, kind: "hub", stage: group.stage, side: null, x: HUB_X, y: centerY - hubH / 2, h: hubH };
 
     const leafIds: string[] = [];
     const placeFan = (list: SpineNodeInput[], side: SpineSide) => {
@@ -204,7 +252,7 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
       list.forEach((node, row) => {
         const x = side === "left" ? LEFT_INNER_X : RIGHT_INNER_X;
         const y = top + row * SPINE_ROW_PITCH;
-        boxes[node.id] = { id: node.id, kind: "leaf", stage: group.stage, side, x, y };
+        boxes[node.id] = { id: node.id, kind: "leaf", stage: group.stage, side, x, y, h: SPINE_NODE_H };
         leafIds.push(node.id);
         readingOrder.push(node.id);
       });
@@ -212,8 +260,8 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
     placeFan(left, "left");
     placeFan(right, "right");
 
-    hubs.push({ id: hubId, stage: group.stage, leafIds });
-    hubBottoms.push(centerY + SPINE_NODE_H / 2);
+    hubs.push({ id: hubId, stage: group.stage, lines, leafIds });
+    hubBottoms.push(centerY + hubH / 2);
     blockTop += blockHeight + SPINE_BLOCK_GAP;
   });
 
@@ -229,13 +277,13 @@ export function roadmapSpineLayout(nodes: SpineNodeInput[], prereqs: SpinePrereq
       from: hubs[i].id,
       to: hubs[i + 1].id,
       kind: "spine",
-      d: `M ${fmt(x)} ${fmt(from.y + SPINE_NODE_H)} L ${fmt(x)} ${fmt(to.y)}`,
+      d: `M ${fmt(x)} ${fmt(from.y + from.h)} L ${fmt(x)} ${fmt(to.y)}`,
     });
   }
 
   for (const hub of hubs) {
     const hubBox = boxes[hub.id];
-    const hubY = hubBox.y + SPINE_NODE_H / 2;
+    const hubY = hubBox.y + hubBox.h / 2;
     for (const leafId of hub.leafIds) {
       const leaf = boxes[leafId];
       const hubPortX = leaf.side === "left" ? HUB_X : HUB_X + SPINE_NODE_W;
