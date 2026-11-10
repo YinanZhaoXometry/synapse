@@ -1,110 +1,105 @@
 /**
- * The roadmap graph (epic P2-10 T4, FR-5; delta decision 1 — custom SVG, ZERO
- * new dependencies, NFR-6; epic-16 upgrades the structure: persisted
- * prerequisite edges render through the pure DAG layout — swimlane stage
- * columns, barycenter ordering, orthogonal elbows with arrowheads — while
- * zero-edge plans keep the epic-10 derived-sequence layout, selected per-plan
- * by edge presence). The UX spine names the graph "a view tab
- * inside Plan Home" (EXPERIENCE.md Phase-2 positions); the node detail is a
- * SIDE SHEET (the spine is silent on panel-vs-sheet — recorded in the ticket:
- * a sheet keeps the pannable canvas context visible, matching the scaffold's
- * floating-layer posture, DESIGN.md).
+ * The roadmap graph (FR-5; epic-28 T3 — the owner-settled roadmap.sh form
+ * factor). The widget era is over: the graph renders INLINE IN THE PAGE FLOW
+ * as one tall, narrow spine you browse by scrolling — no zoom, no pan, no
+ * horizontal scroll anywhere (scale = container width / layout width, so the
+ * full width always fits; narrow screens get proportionally smaller nodes,
+ * the roadmap.sh posture). Epic-16's zoom/pan/pinch canvas and epic-20's
+ * pinch batch retire with this rewrite (git history is the archive).
  *
- * Nodes render the T3 state vocabulary on the face (glyph + tint, AD-9
- * never-color-only — server fields only, AD-14). Epic-16 T3 adds the roadmap
- * reading vocabulary (the style-reference mock's structure, colors mapped to
- * the app's semantic tokens only): OPTIONAL nodes render a dashed border plus
- * a visible 「可选」 marker line and the optional aria-label; tinted
- * stage-group containers carry the stage title and its mastered/total;
- * the plan progress bar above the canvas counts mastered nodes off the
- * SERVER states (never recomputed — ADR-0001, AD-14); hovering a node shows
- * a tooltip (title + state + optional marker); the side sheet gains the
- * node's description line + optional badge; a fit-view button rescales and
- * recenters the whole roadmap. `?node=<id>` deep-links: on mount the node
- * selects, pans into view (the SAME ensureBoxVisible path the keyboard uses)
- * and the sheet opens as if clicked.
+ * Skin (epic-28, owner decision 2026-11-11): the roadmap.sh style parameters
+ * COPIED VERBATIM (hub/leaf fills, black 2.7 borders, radius 5, the blue
+ * edges at 3.5 with the dotted 0.8 8 fans, Balsamiq Sans 28px) — every value
+ * lives in the --roadmap-* CSS variables (index.css) with identical values in
+ * light and dark; only the canvas surface follows the theme. Zero raw colors
+ * in this file (the guard test enforces it). No roadmap.sh content/assets are
+ * copied (FR-43 wontfix stands).
  *
- * Keyboard (AD-9): every node is a focusable `g[role=button]` with an
- * aria-label, roving tabindex (up/down within a column, left/right across
- * columns, clamped), Enter/Space opens the detail, Esc closes; the focused
- * node carries the semantic-token focus ring. Pan = pointer drag on the
- * canvas; zoom = buttons + WHEEL INSIDE THE CANVAS (epic-16 posture: plain
- * wheel zooms, ctrl/cmd+wheel kept as an alias — native non-passive listener,
- * the clamp/step unchanged from epic-10). Touch (epic-20): one-finger drag
- * pans as before, a two-finger pinch zooms CONTINUOUSLY within the same
- * clamp, anchored at the gesture midpoint (the content under the fingers
- * stays under the fingers; midpoint delta = two-finger pan); the canvas is
- * touch-action: none and Safari's legacy gesture events are prevented. The
- * app's motion setting
- * (ThemeContext, like every surface) and prefers-reduced-motion disable the
- * smooth transform transitions.
+ * State vocabulary: node fills never encode mastery (NODE_STATE_FACE is
+ * gone from the graph). Two independent corner badges — the Study Mark chip
+ * top-right (blue 学习中 / green 已完成 / gray 已跳过; FR-47, orthogonal to
+ * mastery) and the mastery glyph inline before the title (✦◐○, AD-9
+ * not-color-only; server fields only, AD-14). Optional nodes keep the dashed
+ * border + the 可选 marker.
+ *
+ * Keyboard (AD-9): leaves are focusable `g[role=button]` with roving
+ * tabindex in reading order (stage by stage, left fan then right fan);
+ * Up/Down walk that order, Left/Right jump to the same-row opposite-side
+ * leaf; Enter/Space opens the detail sheet, Esc closes. Focus scrolls the
+ * node into view (native scrollIntoView — there is no pan anymore). Hubs are
+ * anchors, not tab stops. `?node=<id>` deep-links with the same mount-only
+ * latch as epic-16 (consume once, ghost ids latched off, sheet opens as if
+ * clicked).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import type { MaterialNodeMappingView, MaterialView } from "@/api/views";
+import type { MaterialNodeMappingView, MaterialView, PlanEdgeView, StudyMark } from "@/api/views";
 import { cn } from "@/lib/utils";
 import type { NodeRowView } from "./display-shaping";
 import NodeActions from "./node-actions";
 import { NodeStateBadge } from "./node-state-badge";
-import { NODE_STATE_DISPLAY, NODE_STATE_FACE, nodeJumpTargets } from "./node-state";
+import StudyMarkToggleRow from "./study-mark-toggle";
+import EvidenceMarks from "./evidence-marks";
+import { NODE_STATE_DISPLAY, nodeJumpTargets } from "./node-state";
 import {
-  planGraphEdgePath,
-  planGraphLayout,
-  ROADMAP_NODE_H,
-  ROADMAP_NODE_W,
-  ROADMAP_PADDING,
-  ROADMAP_HEADER_H,
-  ROADMAP_ROW_GAP,
-  type RoadmapBox,
-  type RoadmapColumn,
-} from "./roadmap-dag-layout";
-import type { PlanEdgeView } from "@/api/views";
+  roadmapSpineLayout,
+  SPINE_NODE_H,
+  SPINE_NODE_W,
+  type SpineBox,
+} from "./roadmap-spine-layout";
 
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 2;
-const ZOOM_STEP = 0.25;
-/** Breathing room kept around a focused node when panning it into view (px). */
-const FOCUS_PAN_MARGIN = 16;
-/** Breathing room the fit-view keeps at the viewport edges (px). */
-const FIT_MARGIN = 24;
-/**
- * Fit-view's zoom cap — a small roadmap must not blow up to fill a large
- * viewport (the style-reference mock's 1.15 posture; the epic-10 min/max
- * clamp below still applies).
- */
-const FIT_ZOOM_CAP = 1.15;
-
-const clampZoom = (zoom: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
-
-/** A screen-space pointer position (clientX/clientY). */
-type PointerPoint = { x: number; y: number };
-const pointerDistance = (a: PointerPoint, b: PointerPoint) => Math.hypot(a.x - b.x, a.y - b.y);
-const pointerMidpoint = (a: PointerPoint, b: PointerPoint): PointerPoint => ({
-  x: (a.x + b.x) / 2,
-  y: (a.y + b.y) / 2,
-});
-/**
- * The pinch gesture's anchor snapshot, taken when the SECOND finger lands:
- * both finger positions are live in `pointersRef`, and these four numbers
- * freeze the view the pinch starts from.
- */
-type PinchAnchor = {
-  startDistance: number;
-  startMidpoint: PointerPoint;
-  startPan: PointerPoint;
-  startZoom: number;
+/** The mark vocabulary's rendering: token color + i18n label key + glyph shape. */
+const MARK_DISPLAY: Record<StudyMark, { colorVar: string; labelKey: string }> = {
+  learning: { colorVar: "var(--roadmap-mark-learning)", labelKey: "plans.markLearning" },
+  finished: { colorVar: "var(--roadmap-mark-finished)", labelKey: "plans.markFinished" },
+  skipped: { colorVar: "var(--roadmap-mark-skipped)", labelKey: "plans.markSkipped" },
 };
 
-/** The stage-group container band around one column (tinted group background). */
-function stageGroupRect(column: RoadmapColumn) {
-  const rows = Math.max(1, column.nodeIds.length);
-  const top = ROADMAP_PADDING - 12;
-  const bottom = ROADMAP_PADDING + ROADMAP_HEADER_H + (rows - 1) * (ROADMAP_NODE_H + ROADMAP_ROW_GAP) + ROADMAP_NODE_H + 14;
-  return { x: column.x - 14, y: top, width: ROADMAP_NODE_W + 28, height: bottom - top };
+/**
+ * Title truncation for the copied 28px face inside a 297px box: walk the
+ * string, count CJK glyphs at full width and everything else at ~0.52em,
+ * stop at the budget. Deterministic; the full title lives in the sheet
+ * (and the hover overlay).
+ */
+function truncateForBox(title: string, maxPx: number): string {
+  let used = 0;
+  for (let i = 0; i < title.length; i += 1) {
+    const code = title.codePointAt(i) ?? 0;
+    const wide = code > 0x2e7f; // CJK ranges and above
+    used += wide ? 28 : 14.5;
+    if (used > maxPx) return `${title.slice(0, i)}…`;
+  }
+  return title;
+}
+
+/** The Study Mark chip (top-right corner, half outside the box like
+ * roadmap.sh's badges): a white disc with the mark's shape in its color. */
+function MarkChip({ box, mark }: { box: SpineBox; mark: StudyMark }) {
+  const cx = box.x + SPINE_NODE_W - 14;
+  const cy = box.y;
+  const color = MARK_DISPLAY[mark].colorVar;
+  return (
+    <g data-testid="roadmap-node-mark" data-mark={mark} aria-hidden="true">
+      <circle cx={cx} cy={cy} r={8.5} fill="hsl(var(--card))" stroke={color} strokeWidth={2} />
+      {mark === "finished" && (
+        <path
+          d={`M ${cx - 3.6} ${cy + 0.4} L ${cx - 0.8} ${cy + 3.2} L ${cx + 3.8} ${cy - 3}`}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {mark === "learning" && <path d={`M ${cx - 2.4} ${cy - 3.6} L ${cx + 4} ${cy} L ${cx - 2.4} ${cy + 3.6} Z`} fill={color} />}
+      {mark === "skipped" && (
+        <path d={`M ${cx - 3.6} ${cy} L ${cx + 3.6} ${cy}`} stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+      )}
+    </g>
+  );
 }
 
 export default function RoadmapGraph({
@@ -119,9 +114,8 @@ export default function RoadmapGraph({
   /** The plan's node rows, already shaped by nodeRowViews (score/state server fields, AD-14). */
   views: NodeRowView[];
   materials: MaterialView[];
-  /** The plan's persisted prerequisite edges (epic-16, server rows) — the
-   * DAG layout's input; a zero-edge plan falls back to the epic-10
-   * derived-sequence layout (per-plan selection by edge presence). */
+  /** The plan's persisted prerequisite edges (epic-16 rows) — the spine
+   * layout's prereq input; a zero-edge plan renders the pure spine. */
   edges?: PlanEdgeView[];
   /** The plan-scope batch mapping rows; undefined while the read is in flight. */
   mappings?: MaterialNodeMappingView[];
@@ -130,174 +124,175 @@ export default function RoadmapGraph({
   const { t } = useLanguage();
   const { reduceMotion } = useTheme();
   const [searchParams] = useSearchParams();
-  // The per-plan layout selection (epic-16): persisted edges → the swimlane
-  // DAG with barycenter ordering; zero edges → the legacy derived sequence.
-  const graph = useMemo(
+
+  // The ONE layout (epic-28): the deterministic spine — hubs per stage,
+  // balanced fans, structural spine/fan edges + the sanitized prereq data.
+  const layout = useMemo(
     () =>
-      planGraphLayout(
+      roadmapSpineLayout(
         views.map((view) => ({ id: view.node.id, order: view.node.order, stage: view.node.stage })),
         (edges ?? []).map((edge) => ({ from: edge.fromNodeId, to: edge.toNodeId })),
       ),
     [views, edges],
   );
-  const layout = graph.layout;
   const byId = useMemo(() => new Map(views.map((view) => [view.node.id, view])), [views]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [focusedId, setFocusedId] = useState<string | null>(() => layout.columns[0]?.nodeIds[0] ?? null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
-  // Touch posture (epic-20): every active pointer on the canvas, keyed by
-  // pointerId, with its latest position. One entry = the pan candidate;
-  // two entries = the pinch is live (its anchor rides `pinchRef`).
-  const pointersRef = useRef(new Map<number, PointerPoint>());
-  const pinchRef = useRef<PinchAnchor | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const nodeRefs = useRef(new Map<string, SVGElement>());
+  // Scale = container width / layout width (the full width always fits —
+  // no horizontal scroll by construction). Unmeasured containers (first
+  // paint, jsdom) render at scale 1 and rescale on the first observation.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const observedWidthRef = useRef(0);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      observedWidthRef.current = width;
+      if (width > 0) setScale(width / layout.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [layout.width]);
+  useEffect(() => {
+    // A new layout width (plan switch / data refresh) rescales against the
+    // last measured width without waiting for the next resize event.
+    if (observedWidthRef.current > 0) setScale(observedWidthRef.current / layout.width);
+  }, [layout.width]);
 
   // Plan progress off the SERVER states (AD-14): the bar counts mastered
-  // nodes; the client renders the share, never recomputes a score.
+  // nodes; the client renders the share, never recomputes a score. The mark
+  // line counts the self-declared marks (FR-47) — displayed, never merged
+  // into the mastery bar (the orthogonality contract, ADR-0002).
   const total = views.length;
   const masteredCount = views.filter((view) => view.state === "mastered").length;
   const percent = total > 0 ? Math.round((masteredCount / total) * 100) : 0;
+  const markCount = (mark: StudyMark) => views.filter((view) => view.node.studyMark === mark).length;
 
-  // WHEEL INSIDE THE CANVAS zooms (epic-16 posture: plain wheel zooms — the
-  // canvas is a bounded surface, so page-scroll hijack is not a concern —
-  // and ctrl/cmd+wheel stays an alias). Rides a NATIVE non-passive listener
-  // — React's root wheel listener is passive and preventDefault (blocking
-  // the browser's page zoom / scroll) would be swallowed.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      setZoom((current) => clampZoom(current + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)));
-    };
-    canvas.addEventListener("wheel", onWheel, { passive: false });
-    return () => canvas.removeEventListener("wheel", onWheel);
-  }, []);
+  // The roving tabindex rides the layout's reading order (stage by stage,
+  // left fan then right fan). Hubs are not tab stops.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(() => layout.readingOrder[0] ?? null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [chipsVisible, setChipsVisible] = useState(false);
+  const hoverIntentRef = useRef<number | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+  const nodeRefs = useRef(new Map<string, SVGElement>());
 
-  // Safari's legacy GestureEvent stream (gesturestart/gesturechange) would
-  // zoom the PAGE on top of the pointer-driven pinch below, so it is
-  // prevented on the canvas — the same native non-passive add/remove
-  // lifecycle as the wheel effect above. The types are unknown outside
-  // Safari (and in jsdom); addEventListener with an arbitrary type is inert
-  // there, so no capability sniffing. The page's pinch-zoom stays enabled
-  // everywhere else — no user-scalable meta change (accessibility, AD-9
-  // posture); the canvas itself opts out via touch-action: none below.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const preventGesture = (event: Event) => event.preventDefault();
-    canvas.addEventListener("gesturestart", preventGesture, { passive: false });
-    canvas.addEventListener("gesturechange", preventGesture, { passive: false });
-    return () => {
-      canvas.removeEventListener("gesturestart", preventGesture);
-      canvas.removeEventListener("gesturechange", preventGesture);
-    };
-  }, []);
+  // The hover chip strip (epic-28 T4): ~150ms hover-intent so brushing the
+  // canvas never flickers chips; leaving schedules a ~120ms GRACE hide that
+  // entering the strip (or another node) cancels — the strip mounts flush
+  // above the node, so a top-row strip overlaps the pointer and a bare
+  // leave-hide would unmount the strip the instant it opens (the e2e
+  // flicker lesson). TOUCH never opens them (tap = the sheet, unchanged).
+  // Keyboard never opens them either — Enter opens the sheet, which carries
+  // the same actions.
+  const clearHoverIntent = () => {
+    if (hoverIntentRef.current !== null) {
+      window.clearTimeout(hoverIntentRef.current);
+      hoverIntentRef.current = null;
+    }
+  };
+  const cancelHide = () => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    hideTimerRef.current = window.setTimeout(() => {
+      hideTimerRef.current = null;
+      setChipsVisible(false);
+      setHoveredId(null);
+    }, 120);
+  };
+  const onNodePointerEnter = (id: string, event: React.PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    cancelHide();
+    setHoveredId(id);
+    clearHoverIntent();
+    hoverIntentRef.current = window.setTimeout(() => setChipsVisible(true), 150);
+  };
+  // NOTE: no per-node pointerleave — a strip mounted flush above a top-row
+  // node sits under a STATIONARY pointer, and Chromium never synthesizes the
+  // enter/leave pair for an element that appears (or vanishes) beneath an
+  // unmoved pointer. Hiding is therefore the CONTAINER's job: the pointer
+  // leaving the whole canvas area schedules the hide; nodes and the strip
+  // are inside it, so reaching either never hides anything.
+  useEffect(
+    () => () => {
+      clearHoverIntent();
+      cancelHide();
+    },
+    [],
+  );
 
-  // The roving tabindex is seeded once at mount — if the focused node ever
-  // leaves `views` while mounted (plan rows change underneath the graph), no
-  // <g> would carry tabIndex=0 and the graph would be Tab-unreachable.
-  // Reconcile: whenever the focused id is no longer in the layout, reseed it
-  // to the first node (review finding 4).
   useEffect(() => {
+    // Focused-id reconciliation (review finding 4 posture): when the focused
+    // id leaves the layout (rows changed underneath), reseed to the first
+    // leaf so the graph never loses Tab reachability.
     setFocusedId((current) =>
-      current !== null && layout.boxes[current]
+      current !== null && layout.boxes[current] && layout.boxes[current].kind === "leaf"
         ? current
-        : (layout.columns[0]?.nodeIds[0] ?? null),
+        : (layout.readingOrder[0] ?? null),
     );
   }, [layout]);
 
-  // The column/row grid for arrow traversal: (column, row) → box.
-  const grid = useMemo(() => {
-    const map = new Map<string, RoadmapBox>();
-    for (const box of Object.values(layout.boxes)) map.set(`${box.column}:${box.row}`, box);
-    return map;
-  }, [layout]);
-
-  const nextBox = (box: RoadmapBox, key: string): RoadmapBox | undefined => {
-    const sizes = layout.columns.map((column) => column.nodeIds.length);
-    const at = (column: number, row: number) => grid.get(`${column}:${row}`);
-    switch (key) {
-      case "ArrowUp":
-        return at(box.column, Math.max(0, box.row - 1));
-      case "ArrowDown":
-        return at(box.column, Math.min(sizes[box.column] - 1, box.row + 1));
-      case "ArrowLeft":
-        return box.column > 0 ? at(box.column - 1, Math.min(box.row, sizes[box.column - 1] - 1)) : undefined;
-      case "ArrowRight":
-        return box.column < layout.columns.length - 1
-          ? at(box.column + 1, Math.min(box.row, sizes[box.column + 1] - 1))
-          : undefined;
-      default:
-        return undefined;
-    }
-  };
-
-  // Keyboard focus must never land on a clipped, invisible node: the canvas
-  // is `overflow-hidden`, so arrowing past the visible rows would park focus
-  // where nothing paints. Pan just enough to bring the focused box fully
-  // into the measured viewport (transform space: screen = pan + layout·zoom,
-  // transformOrigin 0 0). The smooth transition is the CSS class already
-  // gated on data-motion, so reduced-motion pans instantly (review finding 2).
-  const ensureBoxVisible = (box: RoadmapBox) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const viewW = canvas.clientWidth;
-    const viewH = canvas.clientHeight;
-    if (viewW <= 0 || viewH <= 0) return; // unmeasured (hidden canvas / jsdom) — nothing to compute against
-    const left = pan.x + box.x * zoom;
-    const top = pan.y + box.y * zoom;
-    const right = left + ROADMAP_NODE_W * zoom;
-    const bottom = top + ROADMAP_NODE_H * zoom;
-    const dx = left < FOCUS_PAN_MARGIN
-      ? FOCUS_PAN_MARGIN - left
-      : right > viewW - FOCUS_PAN_MARGIN
-        ? viewW - FOCUS_PAN_MARGIN - right
-        : 0;
-    const dy = top < FOCUS_PAN_MARGIN
-      ? FOCUS_PAN_MARGIN - top
-      : bottom > viewH - FOCUS_PAN_MARGIN
-        ? viewH - FOCUS_PAN_MARGIN - bottom
-        : 0;
-    if (dx !== 0 || dy !== 0) setPan({ x: pan.x + dx, y: pan.y + dy });
-  };
-
-  const focusNode = (box: RoadmapBox) => {
-    setFocusedId(box.id);
-    const el = nodeRefs.current.get(box.id);
+  // Focus scrolls the node into view — native, because there is no pan
+  // anymore. jsdom (no scrollIntoView) and hidden containers skip silently.
+  const focusNode = (id: string) => {
+    setFocusedId(id);
+    const el = nodeRefs.current.get(id);
     if (el && typeof el.focus === "function") el.focus();
-    ensureBoxVisible(box);
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "nearest" });
   };
 
-  // Deep-link (`?node=<id>`, spec): MOUNT-ONLY semantics — the param is
-  // consumed ONCE, on the first layout that can resolve it (views may still
-  // be in flight at commit), then never again: a post-quiz refetch that
-  // rebuilds the layout identity must not re-open the sheet the user closed
-  // or re-pan the canvas (review F3). An id that is not one of the plan's
-  // nodes is ignored — attempted once, then latched off. The param stays in
-  // the URL (bookmarkable).
+  const moveFocus = (id: string) => {
+    if (layout.boxes[id]) focusNode(id);
+  };
+
+  const nextBox = (box: SpineBox, key: string): SpineBox | undefined => {
+    const at = (id: string) => layout.boxes[id];
+    if (key === "ArrowUp" || key === "ArrowDown") {
+      const index = layout.readingOrder.indexOf(box.id);
+      if (index < 0) return undefined;
+      const next = key === "ArrowUp" ? index - 1 : index + 1;
+      if (next < 0 || next >= layout.readingOrder.length) return undefined;
+      return at(layout.readingOrder[next]);
+    }
+    // Left/Right: the same-row opposite-side leaf (same stage, same y, other
+    // side). Deterministic: the first match in reading order.
+    if (key === "ArrowLeft" || key === "ArrowRight") {
+      const opposite = box.side === "left" ? "right" : "left";
+      const target = layout.readingOrder.find(
+        (id) =>
+          id !== box.id &&
+          layout.boxes[id].stage === box.stage &&
+          layout.boxes[id].side === opposite &&
+          layout.boxes[id].y === box.y,
+      );
+      return target ? at(target) : undefined;
+    }
+    return undefined;
+  };
+
+  // Deep-link (`?node=<id>`): MOUNT-ONLY semantics, unchanged from epic-16 —
+  // consumed once on the first layout that can resolve it, ghost ids latched
+  // off, the param stays in the URL.
   const deepLinkDoneRef = useRef(false);
   useEffect(() => {
     if (deepLinkDoneRef.current) return;
     const id = searchParams.get("node");
     if (!id) return;
-    // Wait for a layout that actually carries nodes (data in flight at
-    // mount); once it exists, this is the one attempt — found or not.
-    if (Object.keys(layout.boxes).length === 0) return;
+    if (layout.readingOrder.length === 0) return;
     deepLinkDoneRef.current = true;
-    const box = layout.boxes[id];
-    if (!box) return;
+    if (!layout.boxes[id] || layout.boxes[id].kind !== "leaf") return;
     setSelectedId(id);
-    focusNode(box);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    focusNode(id);
   }, [searchParams, layout]);
 
-  const onNodeKeyDown = (event: React.KeyboardEvent, box: RoadmapBox) => {
+  const onNodeKeyDown = (event: React.KeyboardEvent, box: SpineBox) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       setSelectedId(box.id);
@@ -310,100 +305,8 @@ export default function RoadmapGraph({
     if (event.key.startsWith("Arrow")) {
       event.preventDefault();
       const target = nextBox(box, event.key);
-      if (target) focusNode(target);
+      if (target) moveFocus(target.id);
     }
-  };
-
-  // Touch gesture arbitration (epic-20, spec decision 3): the FIRST pointer
-  // down is the existing one-finger pan candidate (byte-identical behavior).
-  // The SECOND pointer down kills that drag and enters the pinch, anchored at
-  // the current view. Either pointer up/cancel ends the WHOLE gesture — no
-  // mid-gesture handoff to one-finger pan (that revert is a rabbit hole);
-  // panning resumes on a fresh single-pointer drag. A third finger just
-  // records (the pinch math rides the first two tracked pointers). Single-
-  // pointer taps are never swallowed: the pinch path only activates on a
-  // second pointerdown.
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pointersRef.current.size === 2) {
-      // Second finger: the drag dies, the pinch anchors at the live view.
-      dragRef.current = null;
-      const [a, b] = [...pointersRef.current.values()];
-      pinchRef.current = {
-        startDistance: pointerDistance(a, b),
-        startMidpoint: pointerMidpoint(a, b),
-        startPan: { x: pan.x, y: pan.y },
-        startZoom: zoom,
-      };
-    } else if (pointersRef.current.size === 1) {
-      // First finger: the pan candidate, exactly as before.
-      dragRef.current = { x: event.clientX, y: event.clientY, originX: pan.x, originY: pan.y };
-    }
-    // NOTE: no setPointerCapture here. A capture active at pointerup
-    // retargets the click to the canvas (W3C pointerevents#356 — spec
-    // behavior), which would swallow every node tap; the capture instead
-    // rides the FIRST DRAG MOVE (below), so taps — which never move — never
-    // capture.
-  };
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const tracked = pointersRef.current.get(event.pointerId);
-    if (tracked) {
-      tracked.x = event.clientX;
-      tracked.y = event.clientY;
-    }
-    const pinch = pinchRef.current;
-    // A degenerate zero start-distance (fingers stacked) would divide by
-    // zero → NaN into the transform; skip the math for that gesture.
-    if (pinch && tracked && pinch.startDistance > 0 && pointersRef.current.size >= 2) {
-      // Midpoint-anchored pinch (spec decision 2): k grows by the distance
-      // ratio (continuous, clamped 0.5–2 — the wheel/buttons KEEP their 0.25
-      // steps), and `pan' = m − ((m_start − pan_start)/k_start)·k_now` keeps
-      // the content point under the start midpoint under the current
-      // midpoint. With the distance held constant the formula degrades to
-      // pan += midpoint delta — two-finger pan falls out of the same math.
-      const [a, b] = [...pointersRef.current.values()];
-      const nextZoom = clampZoom(pinch.startZoom * (pointerDistance(a, b) / pinch.startDistance));
-      const mid = pointerMidpoint(a, b);
-      const anchorX = (pinch.startMidpoint.x - pinch.startPan.x) / pinch.startZoom;
-      const anchorY = (pinch.startMidpoint.y - pinch.startPan.y) / pinch.startZoom;
-      setPan({ x: mid.x - anchorX * nextZoom, y: mid.y - anchorY * nextZoom });
-      setZoom(nextZoom);
-      return;
-    }
-    const drag = dragRef.current;
-    if (!drag) return;
-    // Capture rides the first drag move (see the pointerdown NOTE): from
-    // here on, a pan released outside the canvas still delivers its stream.
-    // Idempotent for every later move of the drag.
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    setPan({ x: drag.originX + (event.clientX - drag.x), y: drag.originY + (event.clientY - drag.y) });
-  };
-  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    // Any lift tears the gesture down: the pinch anchor dies with it and the
-    // drag candidate is dropped — the remaining finger cannot silently turn
-    // into a pan. Still-held pointers keep tracking, so a genuinely fresh
-    // pointerdown can re-enter a pinch against their live positions.
-    pointersRef.current.delete(event.pointerId);
-    dragRef.current = null;
-    pinchRef.current = null;
-  };
-
-  // Fit-view: rescale + recenter so the WHOLE roadmap is visible (a small
-  // roadmap caps at FIT_ZOOM_CAP; the epic-10 clamp still bounds the result).
-  const fitView = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const viewW = canvas.clientWidth;
-    const viewH = canvas.clientHeight;
-    if (viewW <= 0 || viewH <= 0) {
-      // unmeasured (hidden canvas / jsdom) — fall back to the identity view.
-      setZoom(1);
-      setPan({ x: 0, y: 0 });
-      return;
-    }
-    const k = clampZoom(Math.min((viewW - FIT_MARGIN) / layout.width, (viewH - FIT_MARGIN) / layout.height, FIT_ZOOM_CAP));
-    setZoom(k);
-    setPan({ x: (viewW - layout.width * k) / 2, y: (viewH - layout.height * k) / 2 });
   };
 
   const selected = selectedId ? byId.get(selectedId) : undefined;
@@ -411,6 +314,13 @@ export default function RoadmapGraph({
     mappings && selectedId
       ? nodeJumpTargets(
           mappings.filter((row) => row.nodeId === selectedId),
+          materials,
+        )
+      : null;
+  const hoveredTargets =
+    mappings && hoveredId
+      ? nodeJumpTargets(
+          mappings.filter((row) => row.nodeId === hoveredId),
           materials,
         )
       : null;
@@ -424,40 +334,63 @@ export default function RoadmapGraph({
 
   return (
     <div>
-      {/* The plan progress bar + the state legend (epic-16 T3): mastered
-          x of y + percent off the SERVER states, above the canvas. */}
+      {/* The plan progress bar (mastered x of y — SERVER states, AD-14) + the
+          mark-count line (FR-47 — displayed, never merged into the bar) + the
+          badge-style legend. */}
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div
-            role="progressbar"
-            aria-label={t("plans.graphProgressAria")}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-            data-testid="roadmap-progress"
-            className="h-[7px] w-[180px] flex-none overflow-hidden rounded-full bg-[hsl(var(--border-soft))]"
-          >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
             <div
-              className={cn("h-full rounded-full bg-accent", !reduceMotion && "transition-[width] duration-500 ease-out")}
-              style={{ width: `${percent}%` }}
-            />
+              role="progressbar"
+              aria-label={t("plans.graphProgressAria")}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              data-testid="roadmap-progress"
+              className="h-[7px] w-[180px] flex-none overflow-hidden rounded-full bg-[hsl(var(--border-soft))]"
+            >
+              <div
+                className={cn("h-full rounded-full bg-accent", !reduceMotion && "transition-[width] duration-500 ease-out")}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              <b className="font-semibold text-foreground">{masteredCount}</b>/{total} {t("plans.graphProgressUnit")} ·{" "}
+              {percent}%
+            </span>
           </div>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            <b className="font-semibold text-foreground">{masteredCount}</b>/{total} {t("plans.graphProgressUnit")} ·{" "}
-            {percent}%
-          </span>
+          <p className="mt-1 text-[11px] text-muted-foreground tabular-nums" data-testid="roadmap-marks-line">
+            {t("plans.graphMarksLine", {
+              finished: markCount("finished"),
+              learning: markCount("learning"),
+              skipped: markCount("skipped"),
+            })}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground" data-testid="roadmap-legend">
           <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-2 w-2 flex-none rounded-[3px] bg-mastered" aria-hidden="true" />
+            <i className="inline-block h-2 w-2 flex-none rounded-full" style={{ background: "var(--roadmap-mark-learning)" }} aria-hidden="true" />
+            {t("plans.markLearning")}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2 w-2 flex-none rounded-full" style={{ background: "var(--roadmap-mark-finished)" }} aria-hidden="true" />
+            {t("plans.markFinished")}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2 w-2 flex-none rounded-full" style={{ background: "var(--roadmap-mark-skipped)" }} aria-hidden="true" />
+            {t("plans.markSkipped")}
+          </span>
+          <span aria-hidden="true" className="text-border">|</span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block font-semibold" style={{ color: "var(--roadmap-node-ink)" }}>✦</i>
             {t("plans.stateMastered")}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-2 w-2 flex-none rounded-[3px] bg-partial" aria-hidden="true" />
+            <i className="inline-block font-semibold" style={{ color: "var(--roadmap-node-ink)" }}>◐</i>
             {t("plans.statePartial")}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-2 w-2 flex-none rounded-[3px] border border-muted-foreground bg-card" aria-hidden="true" />
+            <i className="inline-block font-semibold" style={{ color: "var(--roadmap-node-ink)" }}>○</i>
             {t("plans.stateUncovered")}
           </span>
           <span className="inline-flex items-center gap-1.5">
@@ -467,289 +400,239 @@ export default function RoadmapGraph({
         </div>
       </div>
 
+      {/* The full-page spine: inline in the page flow, width-fitted by the
+          viewBox, height follows the layout — the page's own scrollbar is the
+          only navigation. The canvas testid survives (the graph surface's
+          stable handle, same contract as the widget era). */}
       <div
-        ref={canvasRef}
+        ref={containerRef}
         data-testid="roadmap-canvas"
         data-motion={reduceMotion ? "off" : "on"}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        className="relative h-[440px] overflow-hidden rounded-2xl border border-border-soft bg-card shadow-raised cursor-grab active:cursor-grabbing select-none"
-        // touch-action: none hands the surface to the pointer handlers —
-        // the browser must not read a one-finger drag as page scroll or a
-        // two-finger pinch as PAGE zoom inside this bounded viewport. Inline
-        // (not a Tailwind utility) so the contract is purge-proof and
-        // jsdom-assertable.
-        style={{ touchAction: "none" }}
+        onPointerLeave={() => scheduleHide()}
+        className="relative w-full"
       >
-        <div
-          data-testid="roadmap-viewport"
-          className={cn("absolute inset-0 will-change-transform", !reduceMotion && "roadmap-viewport-motion")}
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
+        <svg
+          role="group"
+          aria-label={t("plans.graphAria")}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          width="100%"
+          style={{ height: "auto", display: "block" }}
+          className="roadmap-font select-none"
+          data-testid="roadmap-svg"
         >
-          <svg
-            role="group"
-            aria-label={t("plans.graphAria")}
-            width={layout.width}
-            height={layout.height}
-            data-testid="roadmap-svg"
-          >
-            {/* The dependency arrowhead — one shared marker, token-colored. */}
-            <defs>
-              <marker
-                id="roadmap-arrow"
-                viewBox="0 0 10 10"
-                refX={9}
-                refY={5}
-                markerWidth={7}
-                markerHeight={7}
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--muted-foreground))" fillOpacity={0.55} />
-              </marker>
-            </defs>
-            {/* Tinted stage-group containers (behind edges + nodes) with the
-                stage title and its mastered/total — both layout paths expose
-                columns, so the vocabulary renders for DAG and legacy alike. */}
-            {layout.columns.map((column) => {
-              const rect = stageGroupRect(column);
-              const stageMastered = column.nodeIds.filter((id) => byId.get(id)?.state === "mastered").length;
-              return (
-                <g key={`group-${column.nodeIds[0] ?? column.x}`}>
-                  <rect
-                    data-testid="roadmap-stage-group"
-                    x={rect.x}
-                    y={rect.y}
-                    width={rect.width}
-                    height={rect.height}
-                    rx={14}
-                    style={{ fill: "var(--accent-tint)" }}
-                    fillOpacity={0.5}
-                    stroke="hsl(var(--border-soft))"
-                  />
-                  <text
-                    data-testid="roadmap-stage-label"
-                    x={column.x + 2}
-                    y={12 + 14}
-                    fontSize={11}
-                    fontWeight={600}
-                    fill="hsl(var(--muted-foreground))"
-                  >
-                    {column.stage ?? t("plans.stageUngrouped")}
-                  </text>
-                  <text
-                    data-testid="roadmap-stage-progress"
-                    x={column.x + ROADMAP_NODE_W}
-                    y={12 + 14}
-                    fontSize={11}
-                    textAnchor="end"
-                    fill="hsl(var(--muted-foreground))"
-                  >
-                    {stageMastered}/{column.nodeIds.length}
-                  </text>
-                </g>
-              );
-            })}
-            {layout.edges.map((edge) => {
-              const from = layout.boxes[edge.from];
-              const to = layout.boxes[edge.to];
-              if (!from || !to) return null;
-              // On the DAG, persisted prerequisites render as token-colored
-              // orthogonal arrows; an edge touching an optional node renders
-              // dashed (the optional path). The legacy fallback keeps the
-              // epic-10 pseudo-edge look untouched.
-              const dag = graph.kind === "dag";
-              const optionalTouch =
-                dag && (byId.get(edge.from)?.node.optional || byId.get(edge.to)?.node.optional);
-              return (
-                <path
-                  key={`${edge.kind}-${edge.from}-${edge.to}`}
-                  data-testid="roadmap-edge"
-                  data-edge-from={edge.from}
-                  data-edge-to={edge.to}
-                  d={planGraphEdgePath(graph.kind, from, to)}
-                  fill="none"
-                  stroke={dag ? "hsl(var(--muted-foreground))" : "hsl(var(--border))"}
-                  strokeOpacity={dag ? 0.55 : 1}
-                  strokeWidth={edge.kind === "stage-connector" ? 1.5 : dag ? 1.5 : 1.25}
-                  strokeDasharray={optionalTouch ? "5 4" : undefined}
-                  markerEnd={dag ? "url(#roadmap-arrow)" : undefined}
-                />
-              );
-            })}
-            {Object.values(layout.boxes).map((box) => {
-              const view = byId.get(box.id);
-              if (!view) return null;
-              const display = NODE_STATE_DISPLAY[view.state];
-              const face = NODE_STATE_FACE[view.state];
-              const focused = focusedId === box.id;
-              const title = view.node.title.length > 18 ? `${view.node.title.slice(0, 17)}…` : view.node.title;
-              const ariaLabel = view.node.optional
-                ? t("plans.graphNodeAriaOptional", { node: view.node.title, state: t(display.labelKey) })
-                : t("plans.graphNodeAria", { node: view.node.title, state: t(display.labelKey) });
-              return (
-                <g
-                  key={box.id}
-                  ref={(el) => {
-                    if (el) nodeRefs.current.set(box.id, el);
-                  }}
-                  data-testid="roadmap-node"
-                  data-node-id={box.id}
-                  data-focused={focused ? "true" : "false"}
-                  role="button"
-                  tabIndex={focused ? 0 : -1}
-                  aria-label={ariaLabel}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onPointerEnter={() => setHoveredId(box.id)}
-                  onPointerLeave={() => setHoveredId((current) => (current === box.id ? null : current))}
-                  onClick={() => {
-                    setSelectedId(box.id);
-                    setFocusedId(box.id);
-                    setHoveredId(null);
-                  }}
-                  onFocus={() => setFocusedId(box.id)}
-                  onKeyDown={(event) => onNodeKeyDown(event, box)}
-                  className="cursor-pointer"
-                >
-                  <rect
-                    x={box.x}
-                    y={box.y}
-                    width={ROADMAP_NODE_W}
-                    height={ROADMAP_NODE_H}
-                    rx={14}
-                    style={{ fill: face.fill, stroke: focused ? "var(--accent-ring)" : "hsl(var(--border-soft))" }}
-                    strokeWidth={focused ? 2 : 1}
-                    strokeDasharray={view.node.optional ? "6 4" : undefined}
-                  />
-                  {focused && (
-                    <rect
-                      data-testid="roadmap-node-ring"
-                      x={box.x - 3}
-                      y={box.y - 3}
-                      width={ROADMAP_NODE_W + 6}
-                      height={ROADMAP_NODE_H + 6}
-                      rx={16}
-                      fill="none"
-                      stroke="var(--accent-ring)"
-                      strokeWidth={2.5}
-                    />
-                  )}
-                  <text
-                    x={box.x + 14}
-                    y={box.y + ROADMAP_NODE_H / 2 + 5}
-                    fontSize={14}
-                    fill={face.ink}
-                    aria-hidden="true"
-                  >
-                    {display.glyph}
-                  </text>
-                  <text
-                    x={box.x + 36}
-                    y={box.y + ROADMAP_NODE_H / 2 + 5}
-                    fontSize={12.5}
-                    fontWeight={600}
-                    fill="hsl(var(--foreground))"
-                  >
-                    {title}
-                  </text>
-                  {/* The optional marker line (AD-9 not-color-only): a
-                      dashed-outline chip + the word, under the title. */}
-                  {view.node.optional && (
-                    <g data-testid="roadmap-node-optional">
-                      <rect
-                        x={box.x + 36}
-                        y={box.y + ROADMAP_NODE_H - 20}
-                        width={8}
-                        height={8}
-                        rx={2}
-                        fill="none"
-                        stroke="hsl(var(--muted-foreground))"
-                        strokeWidth={1.2}
-                        strokeDasharray="3 2"
-                      />
-                      <text
-                        x={box.x + 49}
-                        y={box.y + ROADMAP_NODE_H - 12.5}
-                        fontSize={10}
-                        fill="hsl(var(--muted-foreground))"
-                      >
-                        {t("plans.nodeOptional")}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-        </div>
+          {/* Structural edges first (behind nodes): the SOLID spine between
+              hubs, the DOTTED fans, the dotted prereq brackets/dips — the
+              copied `0.8 8` dots need round caps. No arrowheads anywhere
+              (direction is the top-down geometry). */}
+          {layout.edges.map((edge) => (
+            <path
+              key={`${edge.kind}-${edge.from}-${edge.to}`}
+              data-testid="roadmap-edge"
+              data-edge-kind={edge.kind}
+              data-edge-from={edge.from}
+              data-edge-to={edge.to}
+              d={edge.d}
+              fill="none"
+              stroke="var(--roadmap-edge)"
+              strokeWidth={3.5}
+              strokeLinecap={edge.kind === "spine" ? "butt" : "round"}
+              strokeDasharray={edge.kind === "spine" ? undefined : "0.8 8"}
+            />
+          ))}
 
-        {/* The hover tooltip (epic-16 T3): title + state (+ optional marker),
-            pinned to the node's screen position, never intercepting the pan. */}
-        {hovered && hoveredBox && (
+          {/* The stage hub cards: the copied main-node skin — interactive
+              NOTHING (anchors, not knowledge nodes). Title centered at the
+              copied 28px; the per-stage mastered/total right-inset. */}
+          {layout.hubs.map((hub) => {
+            const box = layout.boxes[hub.id];
+            const stageMastered = hub.leafIds.filter((id) => byId.get(id)?.state === "mastered").length;
+            return (
+              <g key={hub.id} data-testid="roadmap-stage-group" data-stage={hub.stage}>
+                <rect
+                  x={box.x}
+                  y={box.y}
+                  width={SPINE_NODE_W}
+                  height={SPINE_NODE_H}
+                  rx={5}
+                  style={{ fill: "var(--roadmap-hub-face)", stroke: "var(--roadmap-node-border)" }}
+                  strokeWidth={2.7}
+                />
+                <text
+                  data-testid="roadmap-stage-label"
+                  x={box.x + SPINE_NODE_W / 2}
+                  y={box.y + SPINE_NODE_H / 2 + 10}
+                  fontSize={28}
+                  textAnchor="middle"
+                  style={{ fill: "var(--roadmap-node-ink)" }}
+                >
+                  {hub.stage ?? t("plans.stageUngrouped")}
+                </text>
+                <text
+                  data-testid="roadmap-stage-progress"
+                  x={box.x + SPINE_NODE_W - 12}
+                  y={box.y + 16}
+                  fontSize={13}
+                  textAnchor="end"
+                  fillOpacity={0.62}
+                  style={{ fill: "var(--roadmap-node-ink)" }}
+                >
+                  {stageMastered}/{hub.leafIds.length}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* The knowledge nodes (leaves): the copied secondary-node skin +
+              the dual corner vocabulary (mark chip top-right, mastery glyph
+              inline-left). */}
+          {layout.readingOrder.map((id) => {
+            const box = layout.boxes[id];
+            const view = byId.get(id);
+            if (!view) return null;
+            const display = NODE_STATE_DISPLAY[view.state];
+            const focused = focusedId === id;
+            const mark = view.node.studyMark;
+            const markDisplay = mark ? MARK_DISPLAY[mark] : null;
+            const title = truncateForBox(view.node.title, SPINE_NODE_W - 60);
+            const markSuffix = markDisplay ? t("plans.markAriaSuffix", { mark: t(markDisplay.labelKey) }) : "";
+            const ariaLabel =
+              (view.node.optional
+                ? t("plans.graphNodeAriaOptional", { node: view.node.title, state: t(display.labelKey) })
+                : t("plans.graphNodeAria", { node: view.node.title, state: t(display.labelKey) })) + markSuffix;
+            return (
+              <g
+                key={id}
+                ref={(el) => {
+                  if (el) nodeRefs.current.set(id, el);
+                }}
+                data-testid="roadmap-node"
+                data-node-id={id}
+                data-focused={focused ? "true" : "false"}
+                role="button"
+                tabIndex={focused ? 0 : -1}
+                aria-label={ariaLabel}
+                onPointerEnter={(event) => onNodePointerEnter(id, event)}
+                onClick={() => {
+                  setSelectedId(id);
+                  setFocusedId(id);
+                  clearHoverIntent();
+                  cancelHide();
+                  setHoveredId(null);
+                  setChipsVisible(false);
+                }}
+                onFocus={() => setFocusedId(id)}
+                onKeyDown={(event) => onNodeKeyDown(event, box)}
+                className="cursor-pointer"
+              >
+                <rect
+                  x={box.x}
+                  y={box.y}
+                  width={SPINE_NODE_W}
+                  height={SPINE_NODE_H}
+                  rx={5}
+                  style={{
+                    fill: "var(--roadmap-leaf-face)",
+                    stroke: focused ? "hsl(var(--ring))" : "var(--roadmap-node-border)",
+                  }}
+                  strokeWidth={focused ? 3.4 : 2.7}
+                  strokeDasharray={view.node.optional ? "6 4" : undefined}
+                />
+                {focused && (
+                  <rect
+                    data-testid="roadmap-node-ring"
+                    x={box.x - 4}
+                    y={box.y - 4}
+                    width={SPINE_NODE_W + 8}
+                    height={SPINE_NODE_H + 8}
+                    rx={9}
+                    fill="none"
+                    stroke="hsl(var(--ring))"
+                    strokeWidth={2.5}
+                  />
+                )}
+                {/* The mastery glyph, inline before the title (AD-9
+                    not-color-only; the server state rendered, AD-14). */}
+                <text
+                  data-testid="roadmap-node-glyph"
+                  x={box.x + 18}
+                  y={box.y + SPINE_NODE_H / 2 + 10}
+                  fontSize={22}
+                  aria-hidden="true"
+                  style={{ fill: "var(--roadmap-node-ink)" }}
+                >
+                  {display.glyph}
+                </text>
+                <text
+                  x={box.x + 50}
+                  y={box.y + SPINE_NODE_H / 2 + 10}
+                  fontSize={28}
+                  style={{ fill: "var(--roadmap-node-ink)" }}
+                >
+                  {title}
+                </text>
+                {/* The optional marker (AD-9): dashed chip + word, top-right
+                    inside (the mark chip rides the corner outside). */}
+                {view.node.optional && (
+                  <g data-testid="roadmap-node-optional">
+                    <rect
+                      x={box.x + SPINE_NODE_W - 60}
+                      y={box.y + 8}
+                      width={8}
+                      height={8}
+                      rx={2}
+                      fill="none"
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeWidth={1.2}
+                      strokeDasharray="3 2"
+                    />
+                    <text
+                      x={box.x + SPINE_NODE_W - 47}
+                      y={box.y + 16}
+                      fontSize={11}
+                      fill="hsl(var(--muted-foreground))"
+                    >
+                      {t("plans.nodeOptional")}
+                    </text>
+                  </g>
+                )}
+                {mark && <MarkChip box={box} mark={mark} />}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* The hover chip strip (epic-28 T4): row 1 = the Study Mark
+            toggles, row 2 = the node's actions (NodeActions verbatim — one
+            implementation everywhere). Anchored above the node; pointer
+            events ON (the chips are clickable); hidden while unhovered,
+            during the intent delay, and for touch (tap = the sheet). */}
+        {hovered && hoveredBox && chipsVisible && (
           <div
-            role="tooltip"
-            data-testid="roadmap-tooltip"
-            className="pointer-events-none absolute z-10 max-w-[240px] rounded-lg border border-border-soft bg-popover px-2.5 py-1.5 text-xs leading-[1.5] shadow-raised"
-            style={{ left: pan.x + hoveredBox.x * zoom + 12, top: Math.max(4, pan.y + hoveredBox.y * zoom - 38) }}
+            data-testid="roadmap-chips"
+            className="absolute z-10 flex flex-col items-start gap-1 rounded-xl border border-border-soft bg-popover px-2 py-1.5 shadow-raised"
+            style={{
+              left: Math.max(0, hoveredBox.x * scale),
+              top: Math.max(0, hoveredBox.y * scale - 76),
+            }}
+
           >
-            <span className="font-semibold text-foreground">{hovered.node.title}</span>
-            <span className="text-muted-foreground">
-              {` · ${t(NODE_STATE_DISPLAY[hovered.state].labelKey)}`}
-              {hovered.node.optional && ` · ${t("plans.nodeOptional")}`}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="max-w-[260px] truncate text-xs font-semibold text-foreground">{hovered.node.title}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {t(NODE_STATE_DISPLAY[hovered.state].labelKey)}
+                {hovered.node.optional ? ` · ${t("plans.nodeOptional")}` : ""}
+              </span>
+            </div>
+            <StudyMarkToggleRow nodeId={hovered.node.id} mark={hovered.node.studyMark} compact />
+            <NodeActions
+              targets={hoveredTargets}
+              failed={mappingsFailed}
+              planId={planId}
+              nodeId={hovered.node.id}
+              nodeTitle={hovered.node.title}
+            />
           </div>
         )}
-
-        {/* The toolbar floats INSIDE the pan-capturing canvas — without
-            stopping the pointerdown here, the canvas grabs pointer capture and
-            real-Chromium retargets the pointerup to the canvas, so the
-            buttons' onClick never fires (and a press-drag on a button pans).
-            Mirrors the node <g>'s stopPropagation (review finding 1). */}
-        <div
-          className="absolute top-2.5 right-2.5 flex flex-col gap-1.5"
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <button
-            type="button"
-            data-testid="roadmap-zoom-in"
-            aria-label={t("plans.graphZoomIn")}
-            onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-border-soft bg-background text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <Plus className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            data-testid="roadmap-zoom-out"
-            aria-label={t("plans.graphZoomOut")}
-            onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-border-soft bg-background text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <Minus className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            data-testid="roadmap-fit"
-            aria-label={t("plans.graphFitView")}
-            onClick={fitView}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-border-soft bg-background text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <Maximize2 className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            data-testid="roadmap-zoom-reset"
-            aria-label={t("plans.graphZoomReset")}
-            onClick={() => {
-              setZoom(1);
-              setPan({ x: 0, y: 0 });
-            }}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-border-soft bg-background text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <RotateCcw className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
       </div>
 
       <p className="mt-1.5 text-[11px] text-muted-foreground px-1">{t("plans.graphHint")}</p>
@@ -769,7 +652,12 @@ export default function RoadmapGraph({
                   {t("plans.graphNodeAria", { node: selected.node.title, state: t(NODE_STATE_DISPLAY[selected.state].labelKey) })}
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-1 flex items-center gap-2.5">
+              {/* The Study Mark row (FR-47): self-declared status, revocable —
+                  orthogonal to the mastery badge beside it (ADR-0002). */}
+              <div className="mt-3">
+                <StudyMarkToggleRow nodeId={selected.node.id} mark={selected.node.studyMark} />
+              </div>
+              <div className="mt-3 flex items-center gap-2.5">
                 <NodeStateBadge state={selected.state} />
                 {selected.node.optional && (
                   <span
@@ -777,6 +665,15 @@ export default function RoadmapGraph({
                     className="pill pill-muted border-dashed flex-none"
                   >
                     {t("plans.nodeOptional")}
+                  </span>
+                )}
+                {selected.node.studyMark && (
+                  <span
+                    data-testid="roadmap-node-mark-badge"
+                    className="pill flex-none border"
+                    style={{ borderColor: MARK_DISPLAY[selected.node.studyMark].colorVar, color: MARK_DISPLAY[selected.node.studyMark].colorVar }}
+                  >
+                    {t(MARK_DISPLAY[selected.node.studyMark].labelKey)}
                   </span>
                 )}
                 <span className="font-display font-bold tabular-nums text-sm text-muted-foreground">
@@ -806,6 +703,12 @@ export default function RoadmapGraph({
               {mappings === undefined && !mappingsFailed && (
                 <p className="mt-3 text-xs text-muted-foreground">{t("plans.graphActionsPending")}</p>
               )}
+              {/* The evidence bar (epic-28 T4): the same ●◐✕ window the list
+                  view's popover shows — the sheet explains the score instead
+                  of just displaying it. */}
+              <div className="mt-4 rounded-xl border border-border-soft bg-[var(--glass-1)] p-3">
+                <EvidenceMarks outcomes={selected.lastOutcomes} />
+              </div>
             </>
           )}
         </SheetContent>

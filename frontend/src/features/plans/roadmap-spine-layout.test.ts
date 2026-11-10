@@ -1,0 +1,223 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  SPINE_CENTER_X,
+  SPINE_FAN_GAP,
+  SPINE_NODE_H,
+  SPINE_NODE_W,
+  SPINE_PADDING,
+  SPINE_ROW_PITCH,
+  SPINE_WIDTH,
+  roadmapSpineLayout,
+  type SpineNodeInput,
+} from "./roadmap-spine-layout";
+
+const node = (id: string, order: number, stage: string | null): SpineNodeInput => ({ id, order, stage });
+
+describe("roadmapSpineLayout", () => {
+  it("is byte-identical under shuffled input", () => {
+    const nodes = [
+      node("a", 1, "基础"),
+      node("b", 2, "基础"),
+      node("c", 3, "核心"),
+      node("d", 4, "核心"),
+      node("e", 5, "核心"),
+      node("f", 6, null),
+    ];
+    const edges = [
+      { from: "a", to: "c" },
+      { from: "b", to: "e" },
+    ];
+
+    const straight = roadmapSpineLayout(nodes, edges);
+    const shuffled = roadmapSpineLayout([...nodes].reverse(), [...edges].reverse());
+
+    expect(JSON.stringify(shuffled)).toBe(JSON.stringify(straight));
+  });
+
+  it("stacks hubs on the spine in first-appearance stage order, hubs centered per block", () => {
+    const layout = roadmapSpineLayout([node("a", 5, "核心"), node("b", 1, "基础")], []);
+
+    expect(layout.hubs.map((hub) => hub.stage)).toEqual(["基础", "核心"]);
+    const [hub0, hub1] = layout.hubs;
+    // Both hubs sit on the spine's center x…
+    expect(layout.boxes[hub0.id].x + SPINE_NODE_W / 2).toBe(SPINE_CENTER_X);
+    expect(layout.boxes[hub1.id].x + SPINE_NODE_W / 2).toBe(SPINE_CENTER_X);
+    // …and never overlap vertically (each hub's block clears the previous).
+    expect(layout.boxes[hub1.id].y).toBeGreaterThanOrEqual(layout.boxes[hub0.id].y + SPINE_NODE_H);
+  });
+
+  it("splits a stage's leaves across the two fans, lighter side first, ties to the left", () => {
+    // Five leaves in (order, id) sequence: L R L R L (ties at 0 and 2 go left).
+    const layout = roadmapSpineLayout(
+      [node("a", 1, "基础"), node("b", 2, "基础"), node("c", 3, "基础"), node("d", 4, "基础"), node("e", 5, "基础")],
+      [],
+    );
+
+    const hub = layout.hubs[0];
+    const sides = hub.leafIds.map((id) => layout.boxes[id].side);
+    expect(sides.filter((side) => side === "left")).toHaveLength(3);
+    expect(sides.filter((side) => side === "right")).toHaveLength(2);
+    // (order, id) sequence onto the lighter side: a left, b right, c left…
+    expect(layout.boxes.a.side).toBe("left");
+    expect(layout.boxes.b.side).toBe("right");
+    expect(layout.boxes.c.side).toBe("left");
+    expect(layout.boxes.d.side).toBe("right");
+    expect(layout.boxes.e.side).toBe("left");
+    // Leaf geometry rides the measured constants: inner edges flank the hub.
+    for (const id of hub.leafIds) {
+      const box = layout.boxes[id];
+      if (box.side === "left") expect(box.x + SPINE_NODE_W).toBe(SPINE_CENTER_X - SPINE_NODE_W / 2 - SPINE_FAN_GAP);
+      else expect(box.x).toBe(SPINE_CENTER_X + SPINE_NODE_W / 2 + SPINE_FAN_GAP);
+    }
+  });
+
+  it("centers each fan on its hub with the measured row pitch", () => {
+    const layout = roadmapSpineLayout(
+      [node("a", 1, "基础"), node("b", 2, "基础"), node("c", 3, "基础"), node("d", 4, "基础")],
+      [],
+    );
+
+    const hub = layout.hubs[0];
+    const hubCenterY = layout.boxes[hub.id].y + SPINE_NODE_H / 2;
+    const leftIds = hub.leafIds.filter((id) => layout.boxes[id].side === "left");
+    const rightIds = hub.leafIds.filter((id) => layout.boxes[id].side === "right");
+
+    // 4 leaves split 2/2.
+    expect(leftIds).toHaveLength(2);
+    expect(rightIds).toHaveLength(2);
+    for (const ids of [leftIds, rightIds]) {
+      const ys = ids.map((id) => layout.boxes[id].y);
+      // Stacked at the measured pitch…
+      expect(ys[1] - ys[0]).toBe(SPINE_ROW_PITCH);
+      // …and vertically centered on the hub.
+      const mid = (ys[0] + ys[ys.length - 1] + SPINE_NODE_H) / 2;
+      expect(mid).toBe(hubCenterY);
+    }
+  });
+
+  it("attaches stage-less nodes to a synthetic trailing hub", () => {
+    const layout = roadmapSpineLayout([node("z", 9, null), node("a", 1, "基础")], []);
+
+    expect(layout.hubs).toHaveLength(2);
+    const ungrouped = layout.hubs[1];
+    expect(ungrouped.stage).toBeNull();
+    expect(ungrouped.leafIds).toEqual(["z"]);
+    expect(layout.boxes["z"].stage).toBeNull();
+  });
+
+  it("emits structural spine + fan edges (no arrowheads; the d strings carry the geometry)", () => {
+    const layout = roadmapSpineLayout(
+      [node("a", 1, "基础"), node("b", 2, "核心"), node("c", 3, "核心")],
+      [],
+    );
+
+    const spineEdges = layout.edges.filter((edge) => edge.kind === "spine");
+    const fanEdges = layout.edges.filter((edge) => edge.kind === "fan");
+    expect(spineEdges).toHaveLength(1);
+    // The spine edge is a straight vertical segment hub → hub.
+    const spine = spineEdges[0];
+    expect(spine.d).toMatch(/^M [\d.]+ [\d.]+ L [\d.]+ [\d.]+$/);
+    // One fan edge per leaf across every stage (a + b + c), hub → leaf, S-curve.
+    expect(fanEdges).toHaveLength(3);
+    for (const edge of fanEdges) {
+      expect(edge.d).toMatch(/^M [\d.]+ [\d.]+ C /);
+      expect(layout.boxes[edge.from].kind).toBe("hub");
+      expect(layout.boxes[edge.to].kind).toBe("leaf");
+    }
+  });
+
+  it("classes same-side prereq pairs as outer brackets and opposite-side pairs as corridor dips", () => {
+    const nodes = [
+      node("a", 1, "基础"),
+      node("b", 2, "基础"),
+      node("c", 3, "核心"),
+      node("d", 4, "核心"),
+    ];
+    // a(left) b(right) c(left) d(right) by the alternating split.
+    const layout = roadmapSpineLayout(nodes, [
+      { from: "a", to: "b" }, // same stage, opposite sides → dip
+      { from: "a", to: "c" }, // cross stage, same side → bracket
+      { from: "b", to: "d" }, // cross stage, same side → bracket
+      { from: "c", to: "d" }, // same stage, opposite sides → dip
+    ]);
+
+    const prereqs = layout.edges.filter((edge) => edge.kind === "prereq");
+    expect(prereqs).toHaveLength(4);
+    for (const edge of prereqs) {
+      const source = layout.boxes[edge.from];
+      const target = layout.boxes[edge.to];
+      if (source.side === target.side) {
+        // Bracket: a cubic on the shared outer side.
+        expect(edge.d).toMatch(/^M -?[\d.]+ -?[\d.]+ C -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+ -?[\d.]+$/);
+      } else {
+        // Dip: the curve's dip Y sits below both leaves.
+        const dipY = Number(edge.d.split(" ")[4]);
+        expect(dipY).toBeGreaterThan(Math.max(source.y, target.y) + SPINE_NODE_H);
+      }
+    }
+  });
+
+  it("drops dirty prereq edges — unknown endpoints, self-pairs, duplicates", () => {
+    const nodes = [node("a", 1, "基础"), node("b", 2, "核心")];
+    const layout = roadmapSpineLayout(nodes, [
+      { from: "a", to: "b" },
+      { from: "a", to: "b" },
+      { from: "a", to: "ghost" },
+      { from: "a", to: "a" },
+    ]);
+
+    expect(layout.edges.filter((edge) => edge.kind === "prereq")).toHaveLength(1);
+  });
+
+  it("handles the 16-node mixed case without any box overlap", () => {
+    const stages = ["基础", "核心", "进阶", "应用"];
+    const nodes: SpineNodeInput[] = [];
+    let order = 1;
+    for (const stage of stages) {
+      for (let i = 0; i < 4; i += 1) nodes.push(node(`n-${stage}-${i}`, order++, stage));
+    }
+    const edges = Array.from({ length: 15 }, (_, i) => ({ from: nodes[i].id, to: nodes[i + 1].id }));
+
+    const layout = roadmapSpineLayout(nodes, edges);
+
+    expect(layout.hubs).toHaveLength(4);
+    expect(layout.readingOrder).toHaveLength(16);
+    const boxes = Object.values(layout.boxes);
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        const a = boxes[i];
+        const b = boxes[j];
+        const separated =
+          a.x + SPINE_NODE_W <= b.x ||
+          b.x + SPINE_NODE_W <= a.x ||
+          a.y + SPINE_NODE_H <= b.y ||
+          b.y + SPINE_NODE_H <= a.y;
+        expect(separated).toBe(true);
+      }
+    }
+    expect(layout.edges.filter((edge) => edge.kind === "prereq")).toHaveLength(15);
+  });
+
+  it("keeps a positive minimal canvas on empty input", () => {
+    const layout = roadmapSpineLayout([], []);
+
+    expect(layout.hubs).toEqual([]);
+    expect(layout.edges).toEqual([]);
+    expect(layout.width).toBe(SPINE_WIDTH);
+    expect(layout.height).toBeGreaterThan(0);
+    expect(layout.readingOrder).toEqual([]);
+  });
+
+  it("grows tall, not wide — the canvas frame is data-independent", () => {
+    const narrow = roadmapSpineLayout([node("a", 1, "基础")], []);
+    const tall = roadmapSpineLayout(
+      Array.from({ length: 16 }, (_, i) => node(`n${i}`, i + 1, `阶段${i % 4}`)),
+      [],
+    );
+
+    expect(tall.width).toBe(narrow.width);
+    expect(tall.height).toBeGreaterThan(narrow.height);
+    expect(narrow.width).toBe(SPINE_PADDING * 2 + SPINE_NODE_W * 3 + SPINE_FAN_GAP * 2);
+  });
+});

@@ -32,6 +32,12 @@ _Avoid_: weak, in-progress, half-done
 A node whose recent evidence sits at or above the mastery threshold, with at least the minimum evidence count. The only state that counts toward plan readiness.
 _Avoid_: done, complete, green (green is the rendering, not the state)
 
+### Self-declared status
+
+**Study Mark**:
+The user's self-declared per-node status — `learning | finished | skipped`, nullable, revocable (FR-47). "Where the user says they are." ORTHOGONAL to the mastery states above by contract (ADR-0002): it renders (roadmap chip, sheet row) and nothing else — no score, readiness, targeting, or hub computation reads it.
+_Avoid_: done (the word itself — the UI copy is 已完成), mark-as-mastered (it is NEVER evidence), progress (the progress bar stays mastery-only)
+
 ### Local data
 
 **synapse-db**:

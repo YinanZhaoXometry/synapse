@@ -50,6 +50,15 @@ module Types
           null: false,
           description: "Whether the node may be skipped without losing the thread (epic-16). Default false."
 
+    # The Study Mark (FR-47, epic-28 T1): the user's self-declared status.
+    # ORTHOGONAL to the mastery fields below by contract (ADR-0002) — a mark
+    # is "where the user says they are", mastery is "what evidence proves
+    # they know"; nothing computational reads the mark. Plain column read,
+    # no resolver.
+    field :study_mark, String,
+          null: true,
+          description: "The user's self-declared study status (FR-47): \"learning\" | \"finished\" | \"skipped\"; null = unmarked. ORTHOGONAL to mastery — a mark is never evidence and never feeds any score or state."
+
     # The Mastery Score fields (epic P2-4 ticket 03). The ONLY score source on
     # the wire (AD-14: the client renders, never recomputes) — both marshal
     # through Mastery (app/lib/mastery.rb, the api's one scoring

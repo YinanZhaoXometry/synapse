@@ -28,7 +28,7 @@ const taskNode = (id: string, masteryScore: string, state: KnowledgeNodeView["st
   stage: null,
   title: "lecture-04",
   description: null,
-  optional: false,
+  optional: false, studyMark: null,
   order: 0,
   masteryScore,
   state,

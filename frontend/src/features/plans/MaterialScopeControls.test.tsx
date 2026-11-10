@@ -27,11 +27,11 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), base: vi.f
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
 
 const NODES: KnowledgeNodeView[] = [
-  { id: "n-1", planId: "plan-1", taskId: null, stage: null, title: "Consensus", order: 0, description: null, optional: false, masteryScore: "0", state: "uncovered" },
-  { id: "n-2", planId: "plan-1", taskId: null, stage: null, title: "Gossip", order: 1, description: null, optional: false, masteryScore: "0", state: "uncovered" },
+  { id: "n-1", planId: "plan-1", taskId: null, stage: null, title: "Consensus", order: 0, description: null, optional: false, studyMark: null, masteryScore: "0", state: "uncovered" },
+  { id: "n-2", planId: "plan-1", taskId: null, stage: null, title: "Gossip", order: 1, description: null, optional: false, studyMark: null, masteryScore: "0", state: "uncovered" },
   // A foreign-plan node — the picker must never offer it (the api refuses a
   // pin outside the material's plan).
-  { id: "n-9", planId: "plan-2", taskId: null, stage: null, title: "Elsewhere", order: 0, description: null, optional: false, masteryScore: "0", state: "uncovered" },
+  { id: "n-9", planId: "plan-2", taskId: null, stage: null, title: "Elsewhere", order: 0, description: null, optional: false, studyMark: null, masteryScore: "0", state: "uncovered" },
 ];
 
 const wireMaterial = (scope: string, nodeId: string | null) => ({

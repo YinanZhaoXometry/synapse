@@ -20,6 +20,7 @@ export type { KnowledgeNodeView, MaterialView, StudyPlanView, StudyTaskView, Mas
 export type { PlanEdgeView } from "./views";
 export type { MaterialNodeMappingView, NoteMarkerView, NoteView } from "./views";
 export type { SectionMarkingView } from "./views";
+export type { StudyMark } from "./views";
 export type { StudyFocusItemView, StudyFocusSetView } from "./views";
 export { MATERIAL_SECTION_MAX_CHARS } from "@/lib/material-bounds";
 export { AppError } from "@/lib/app-error";
@@ -33,6 +34,7 @@ export * from "./queries/plan-queries";
 export * from "./queries/material-queries";
 export * from "./queries/mapping-queries";
 export * from "./queries/marking-queries";
+export * from "./queries/study-mark-queries";
 export * from "./queries/note-queries";
 export * from "./queries/study-focus-queries";
 export * from "./queries/scope-queries";

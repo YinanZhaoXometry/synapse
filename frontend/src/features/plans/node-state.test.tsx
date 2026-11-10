@@ -4,6 +4,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import type { MaterialNodeMappingView, MaterialView } from "@/api/views";
 import { NodeStateBadge } from "./node-state-badge";
+import { withCompanionAsk } from "./node-state";
 import {
   NODE_STATE_DISPLAY,
   nodeJumpTargets,
@@ -193,5 +194,17 @@ describe("node-state i18n namespace", () => {
       expect(zhDict[key], `zh missing ${key}`).toBeTruthy();
       expect(enDict[key], `en missing ${key}`).toBeTruthy();
     }
+  });
+});
+
+describe("withCompanionAsk (the ask-AI handoff href, epic-28 T4)", () => {
+  it("injects the draft before the hash on an ?hl href", () => {
+    const href = withCompanionAsk("/read/m-1?hl=1#sec-raft", "关于《Raft》我想问：");
+    expect(href).toBe(`/read/m-1?hl=1&companionAsk=${encodeURIComponent("关于《Raft》我想问：")}#sec-raft`);
+  });
+
+  it("uses ? when the href has no query yet", () => {
+    expect(withCompanionAsk("/read/m-1#sec-1", "q")).toBe(`/read/m-1?companionAsk=${encodeURIComponent("q")}#sec-1`);
+    expect(withCompanionAsk("/read/m-1", "q")).toBe(`/read/m-1?companionAsk=${encodeURIComponent("q")}`);
   });
 });

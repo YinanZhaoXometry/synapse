@@ -35,7 +35,7 @@ import type {
   ReadingPositionPartsFragment,
   SectionMarkingPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, SectionMarkingView, StudyFocusSetView, StudyPlanView, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, SectionMarkingView, StudyFocusSetView, StudyPlanView, StudyMark, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
@@ -59,6 +59,11 @@ export function mapMaterialNodeMapping(row: MaterialNodeMappingPartsFragment): M
   };
 }
 
+/** The closed Study Mark enum (FR-47) — anything else reads unmarked. */
+function studyMarkOf(value: string | null | undefined): StudyMark | null {
+  return value === "learning" || value === "finished" || value === "skipped" ? value : null;
+}
+
 export function mapNode(node: KnowledgeNodePartsFragment): KnowledgeNodeView {
   return {
     id: node.id,
@@ -70,6 +75,9 @@ export function mapNode(node: KnowledgeNodePartsFragment): KnowledgeNodeView {
     // on legacy nodes; optional is the server's Boolean! (default false).
     description: node.description ?? null,
     optional: node.optional === true,
+    // epic-28 (FR-47): the self-declared mark rides verbatim (null =
+    // unmarked). It renders and nothing else — never a mastery input.
+    studyMark: studyMarkOf(node.studyMark),
     order: node.order,
     masteryScore: node.masteryScore,
     state: nodeState(node.state),

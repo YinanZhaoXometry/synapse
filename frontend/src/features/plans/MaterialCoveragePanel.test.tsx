@@ -71,7 +71,7 @@ const MATERIAL: MaterialView = {
 };
 
 const NODES: KnowledgeNodeView[] = [
-  { id: "n-1", planId: "plan-1", taskId: null, stage: null, title: "Consensus", order: 0, description: null, optional: false, masteryScore: "0", state: "uncovered" },
+  { id: "n-1", planId: "plan-1", taskId: null, stage: null, title: "Consensus", order: 0, description: null, optional: false, studyMark: null, masteryScore: "0", state: "uncovered" },
 ];
 
 /** Wire-shaped fixture rows: the cache write needs __typename (Apollo normalization). */
@@ -193,7 +193,7 @@ describe("MaterialCoveragePanel", () => {
       stage: null,
       title,
       description: null,
-      optional: false,
+      optional: false, studyMark: null,
       order,
       masteryScore: "0",
       state: "uncovered",

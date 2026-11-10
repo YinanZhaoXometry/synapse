@@ -21,12 +21,11 @@
  * complete (AD-9): every action is a native link/button.
  */
 import { Sparkles } from "lucide-react";
+import EvidenceMarks from "./evidence-marks";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { MaterialNodeMappingView, MaterialView } from "@/api/views";
-import { OutcomeMark } from "./atoms";
 import type { NodeRowView } from "./display-shaping";
-import { OUTCOME_LABEL_KEY } from "./outcome-labels";
 import NodeActions from "./node-actions";
 import { NodeStateBadge } from "./node-state-badge";
 import { nodeJumpTargets } from "./node-state";
@@ -75,22 +74,7 @@ export default function NodeRow({
         </PopoverTrigger>
         <PopoverContent className="w-64 text-xs">
           <p className="font-semibold mb-2">{view.node.title}</p>
-          <div className="flex items-center gap-1.5 mb-2">
-            {view.lastOutcomes.length === 0 ? (
-              <span className="text-muted-foreground">{t("plans.noEvidence")}</span>
-            ) : (
-              view.lastOutcomes.map((outcome, i) => <OutcomeMark key={`${outcome}-${i}`} outcome={outcome} />)
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mb-2 text-[10px] text-muted-foreground">
-            {(["correct", "partial", "wrong"] as const).map((outcome) => (
-              <span key={outcome} className="inline-flex items-center gap-1">
-                <OutcomeMark outcome={outcome} small />
-                {t(OUTCOME_LABEL_KEY[outcome])}
-              </span>
-            ))}
-          </div>
-          <p className="text-muted-foreground leading-[1.5]">{t("plans.evidenceRule")}</p>
+          <EvidenceMarks outcomes={view.lastOutcomes} />
         </PopoverContent>
       </Popover>
     </div>

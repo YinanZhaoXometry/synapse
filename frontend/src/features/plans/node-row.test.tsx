@@ -32,6 +32,7 @@ const wireNode = (overrides: Record<string, unknown> = {}) => ({
   title: "Consensus",
   description: null,
   optional: false,
+  studyMark: null,
   order: 0,
   masteryScore: "0",
   state: "uncovered",
