@@ -8,7 +8,7 @@
 
 - [ ] Migration adds `flashcards.stage` (int, NOT NULL, DEFAULT 0, CHECK ≥ 0) — strong-migrations safe; fresh cards start at 0
 - [ ] Per-difficulty geometric ladders live on the Requeue module as day-run tables, indexed by min(stage, len−1); unrated (difficulty nil) = due immediately
-- [ ] The self-rating mutation maintains stage exactly: easy +1 (capped at the ladder end), hard → 0, medium unchanged; the same-day guard compares the card's previous rating moment (updated_at read before overwrite) with today UTC
+- [ ] The self-rating mutation maintains stage exactly (Q7 amendment): easy climbs one rung **only when the previous rating was also easy** (first easy after hard/medium sits at the base rung — no 2d→20d cliff), capped at the ladder end; hard → 0; medium holds; the same-day guard additionally requires the card's previous rating moment (updated_at read before overwrite) to be a different UTC day for the climb
 - [ ] The scan derives flashcard due dates from (difficulty, stage) through the table — still a pure recompute, no scheduler state
 - [ ] The DueItem stage description text and the GraphQL schema descriptions no longer claim "flashcards stay 0"; schema.graphql regenerated (codegen gate + fixture sweep)
 - [ ] Request specs: rating transition matrix (easy/hard/medium × fresh/same-day/cross-day), scan table specs over every (difficulty, stage) rung including caps
