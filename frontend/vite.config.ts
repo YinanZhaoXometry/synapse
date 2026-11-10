@@ -27,6 +27,46 @@ export default defineConfig(() => ({
     },
   },
   plugins: [react()],
+  optimizeDeps: {
+    // Pre-bundle the WHOLE shadcn/radix surface + the icon/toast workhorses
+    // (2026-11-10): lazy DEPENDENCY discovery re-ran the optimizer
+    // mid-session whenever a lazy route first imported a not-yet-bundled dep
+    // — the "Outdated Optimize Dep" 504 that white-screened the confirm-
+    // create navigation. Listed here they bundle at dev-server START and a
+    // live session never re-optimizes. KEEP IN SYNC with package.json's
+    // @radix-ui/* set (a newly added radix dep must land here too).
+    include: [
+      "@radix-ui/react-accordion",
+      "@radix-ui/react-alert-dialog",
+      "@radix-ui/react-aspect-ratio",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-collapsible",
+      "@radix-ui/react-context-menu",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-hover-card",
+      "@radix-ui/react-label",
+      "@radix-ui/react-menubar",
+      "@radix-ui/react-navigation-menu",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-progress",
+      "@radix-ui/react-radio-group",
+      "@radix-ui/react-scroll-area",
+      "@radix-ui/react-select",
+      "@radix-ui/react-separator",
+      "@radix-ui/react-slider",
+      "@radix-ui/react-slot",
+      "@radix-ui/react-switch",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-toast",
+      "@radix-ui/react-toggle",
+      "@radix-ui/react-toggle-group",
+      "@radix-ui/react-tooltip",
+      "lucide-react",
+      "sonner",
+    ],
+  },
   build: {
     // Soft size tripwire (epic-19 T1, spec decision 5) — derived from the
     // measured post-split entry, it warns and gates nothing:

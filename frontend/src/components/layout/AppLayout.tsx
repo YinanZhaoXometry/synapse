@@ -1,5 +1,6 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
+import RouteErrorBoundary from "@/components/shared/route-error-boundary";
 import { Settings, Search, Flame, Menu } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -327,7 +328,13 @@ export default function AppLayout() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">
-          <Outlet />
+          {/* ONE boundary around the Outlet covers every in-shell lazy page:
+              a failed dynamic import (dev "Outdated Optimize Dep" 504, prod
+              stale-chunk 404) renders the recovery card instead of a white
+              screen — the shell (sidebar/nav) stays alive around it. */}
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
 
         <nav className="md:hidden flex items-center justify-around glass-bottom-nav border-t py-1.5 px-2" aria-label={t("common.primaryAria")}>

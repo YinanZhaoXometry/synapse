@@ -334,6 +334,11 @@ export const translations = {
       'errors.parseEmpty': '文件没有可提取的内容',
       'errors.parseUnknown': '解析失败，请重试',
       'errors.persistFailed': '保存失败，请重试。',
+      'errors.routeUpdateTitle': '页面有更新',
+      'errors.routeUpdateBody': '页面资源刚更新过，旧页面加载不到了。点击重新加载即可继续。',
+      'errors.routeCrashed': '页面出错了',
+      'errors.routeCrashedBody': '这个页面遇到了问题，点击重新加载试试。',
+      'errors.routeReload': '重新加载',
 
       'dashboard.eyebrow': '仪表盘',
       'dashboard.greetingMorning': '早上好',
@@ -1309,6 +1314,11 @@ export const translations = {
       'errors.parseEmpty': 'The file has no extractable content',
       'errors.parseUnknown': 'Parsing failed — please retry',
       'errors.persistFailed': "Saving failed — please retry.",
+      'errors.routeUpdateTitle': 'This page has an update',
+      'errors.routeUpdateBody': "The page's assets were just updated and the old copy can no longer load. Reload to continue.",
+      'errors.routeCrashed': 'Something went wrong',
+      'errors.routeCrashedBody': 'This page hit a problem — try reloading it.',
+      'errors.routeReload': 'Reload',
 
       'dashboard.eyebrow': 'Dashboard',
       'dashboard.greetingMorning': 'Good morning',
