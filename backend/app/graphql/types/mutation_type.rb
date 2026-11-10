@@ -42,6 +42,11 @@ module Types
     # Verb-first next to createTask (it creates a plan, from a task).
     field :promote_task_to_plan, mutation: Mutations::Tasks::PromoteTaskToPlan
 
+    # The deletion half of the FR-37 task lifecycle (epic-28 T4): delete a
+    # study task with the deletePlan-mirroring cascade (plan-free) or the
+    # pointer-only cut (promoted). Verb-first next to createTask/promote.
+    field :delete_task, mutation: Mutations::Tasks::DeleteTask
+
     field :attach_material, mutation: Mutations::Materials::AttachMaterial
     field :set_material_parse_result, mutation: Mutations::Materials::SetMaterialParseResult
 
