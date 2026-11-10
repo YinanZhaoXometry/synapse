@@ -3783,6 +3783,20 @@ type Query {
   flashcardDecksHub: [FlashcardDeckSummary!]!
 
   """
+  One material's flashcard deck as an Anki text-import file (epic-31 T4): Anki
+  2.1.55+ headers + one tab-separated row per card, deck `Synapse::<material
+  title>`, GUID = stable content hash so a re-import updates existing notes
+  instead of duplicating them. An unknown, foreign, or malformed material id is
+  uniformly NOT_FOUND; an empty deck is a headers-only file, not an error.
+  """
+  flashcardExport(
+    """
+    The material's uuid.
+    """
+    materialId: String!
+  ): String
+
+  """
   The current user's flashcards — scoped to one material (the
   listFlashcardsByMaterial mirror) or one plan (the listFlashcardsByPlan mirror,
   through the plan's materials). The Phase-1 repo exposes no unscoped list, so
