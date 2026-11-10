@@ -6,25 +6,24 @@
  * remains the authority (VALIDATION_FAILED maps to its own key).
  */
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useRegisterMutation } from "@/api";
 import { getToken, setToken } from "@/apollo";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AuthShell, authErrorKey, type AuthFieldErrors } from "./auth-shell";
+import { AuthShell, authErrorKey, useAuthReturnDestination, useSessionExitNotice, type AuthFieldErrors } from "./auth-shell";
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const location = useLocation();
   const [register, { loading: registering }] = useRegisterMutation();
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
+  useSessionExitNotice();
+  const from = useAuthReturnDestination();
 
   if (getToken()) return <Navigate to="/plans" replace />;
-
-  const from = (location.state as { from?: string } | null)?.from ?? "/plans";
 
   const submit = (email: string, password: string) => {
     setError(null);

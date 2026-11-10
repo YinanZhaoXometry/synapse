@@ -456,7 +456,7 @@ describe("Settings — page-end sign-out (2026-11-06 logout discoverability fix)
     expect(signOutButtons.length).toBe(2);
     await user.click(signOutButtons[signOutButtons.length - 1]);
 
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/login?next=%2F&out=1"));
     // The observable contract (not a mock): the token is gone — the login
     // wall owns the next visit (AD-15).
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();

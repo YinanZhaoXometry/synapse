@@ -36,6 +36,7 @@
  */
 import { getApolloClient } from "@/apollo/client";
 import { registerStreamTerminator } from "@/apollo/reset";
+import { teardownSession } from "@/apollo/session";
 import { apiErrorCode, apiErrorKeys } from "@/api/errors";
 import type { ApiErrorCode } from "@/api/errors";
 import { AppError } from "@/lib/app-error";
@@ -282,6 +283,10 @@ function toCitation(data: Record<string, unknown>): Citation {
 
 function toTerminal(data: Record<string, unknown>): StreamTerminal {
   const code = typeof data.code === "string" ? data.code : "INTERNAL";
+  // A server-pushed UNAUTHORIZED terminal is a dead bearer mid-stream — end
+  // the session (the errorLink can't see SSE frames; single-flight makes the
+  // double-dispatch with the mint path a no-op).
+  if (code === "UNAUTHORIZED") void teardownSession("expired");
   if (code === "OK") {
     const terminal: StreamTerminal = { code: "OK" };
     if (data.proposal && typeof data.proposal === "object") {
