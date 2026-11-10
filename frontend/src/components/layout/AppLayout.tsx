@@ -12,6 +12,7 @@ import UserMenuButton from "@/components/shared/UserMenuButton";
 import { useSessionIdentity } from "@/components/shared/session-identity";
 import { recordNavPathname } from "@/lib/nav-history";
 import { NAV_GROUPS, NAV_ROUTES, SETTINGS_ROUTE, flatNav, mobileNavPaths } from "@/components/layout/nav-items";
+import SidebarPlanTree from "@/components/layout/SidebarPlanTree";
 import { cn } from "@/lib/utils";
 
 const mobileNav = mobileNavPaths
@@ -211,7 +212,9 @@ export default function AppLayout() {
         {/* Command-bar search pill (Northstar ⌘K) */}
         <div className="pt-1">{searchPill}</div>
 
-        {/* Grouped nav (scaffold navGroups restored — owner round 2026-11-02) */}
+        {/* Grouped nav (scaffold navGroups restored — owner round 2026-11-02).
+            The 学习 group carries the plan records tree (epic-33 T1): the
+            sidebar holds the user's recent plans, not just page links. */}
         <nav className="flex-1 pt-1 pb-2 overflow-y-auto" aria-label={t("common.primaryAria")}>
           {NAV_GROUPS.map(group => (
             <div key={group.labelKey} className="pt-2">
@@ -221,6 +224,7 @@ export default function AppLayout() {
               <div className="space-y-0.5">
                 {group.items.map(item => renderLink(item))}
               </div>
+              {group.labelKey === "nav.group.learn" && <SidebarPlanTree />}
             </div>
           ))}
         </nav>
@@ -425,6 +429,9 @@ export default function AppLayout() {
                 <div className="space-y-0.5">
                   {group.items.map(item => renderLink(item, () => setDrawerOpen(false)))}
                 </div>
+                {group.labelKey === "nav.group.learn" && (
+                  <SidebarPlanTree onNavigate={() => setDrawerOpen(false)} />
+                )}
               </div>
             ))}
           </nav>

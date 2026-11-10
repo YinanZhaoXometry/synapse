@@ -23,6 +23,10 @@ const stubWrapper = (email: string | null) => {
     {
       Me: () => (email === null ? { __typename: "Me" } : { __typename: "Me", email }),
       Streak: () => 0,
+      // The plan records tree (epic-33 T1) mounts with AppLayout: zero plans
+      // renders it honest-empty, keeping the footer identity as the only
+      // site under test here.
+      Plans: () => [],
     },
     createHarnessState(),
   );
