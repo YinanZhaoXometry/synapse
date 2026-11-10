@@ -135,7 +135,11 @@ test.describe("deterministic destinations", () => {
 
     await page.getByLabel("密码").fill(NEW_PASSWORD);
     await page.getByRole("button", { name: "登录" }).click();
-    await expect(page).toHaveURL(/\/plans/);
+    // epic-28 T1: the sign-out carried ?next= — a successful login resumes
+    // the EXACT page the session left from (settings here), the same resume
+    // contract the guard's deep links pin. The failed old-password attempt
+    // above never consumed it.
+    await expect(page).toHaveURL(/\/settings/);
   });
 
   test("settings: the data export downloads a JSON document", async ({ page }) => {
