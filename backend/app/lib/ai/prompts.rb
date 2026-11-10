@@ -63,6 +63,25 @@ module Ai
     MAX_PROMPT_MATERIAL_CHARS = 8_000
     MAX_PROMPT_MATERIAL_TOTAL = 30_000
 
+    # The proposal's system posture (2026-11-10): the shared SYSTEM's
+    # "reply ONLY with the single JSON object" contract CONFLICTS with the
+    # proposal's tag format — a model resolving the conflict sometimes drops
+    # the wrapper tags entirely (the live no-<outline> failure). The
+    # proposal speaks its own system message: the tags ARE the reply
+    # contract, the JSON is strict, and content quotes are escaped.
+    PROPOSAL_SYSTEM = <<~PROMPT.freeze
+      You are Synapse's study AI. You design study plans grounded in the
+      learner's message and the attached materials — you never invent
+      content that is not grounded in them. Guardrails: you are a study
+      companion; when the materials do not cover the request, say so inside
+      the outline honestly. Your reply is EXACTLY the two-tag format the
+      task specifies — <outline>…</outline> immediately followed by
+      <proposal>…</proposal>, nothing before, between, or after, and no
+      code fences anywhere. The proposal payload is ONE strict JSON object:
+      any double quote INSIDE a string value must be escaped with a
+      backslash — never emit a raw quote inside a string.
+    PROMPT
+
     class << self
       # Quiz generation (ticket 03; targeting epic P2-10 T5; material scope
       # epic-13 T2): node-attributed (AD-6) + materials-sourced (NFR-1)
@@ -365,7 +384,7 @@ module Ai
           else
             "The learner's message: #{message}"
           end
-        [ system,
+        [ { role: "system", content: PROPOSAL_SYSTEM },
           user(<<~PROMPT)
             Design a study plan. #{message_line}
             #{material_block}

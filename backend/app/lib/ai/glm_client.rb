@@ -28,11 +28,18 @@ module Ai
 
     attr_reader :model
 
-    def initialize(base_url:, api_key:, model:, timeout_seconds:)
+    # thinking_disabled is the 2026-11-10 latency fix: the endpoint's chat
+    # completions default to REASONING MODE (verified live — reasoning_content
+    # rides every response, and a proposal generation burned 100–211s mostly
+    # thinking). Every surface here wants tight structured/prose output where
+    # thinking is latency, not quality — so it ships OFF; AI_THINKING=on
+    # restores it (Provider passes the ENV flag).
+    def initialize(base_url:, api_key:, model:, timeout_seconds:, thinking_disabled: true)
       @request_uri = URI(base_url.to_s.strip.chomp("/") + CHAT_COMPLETIONS_PATH)
       @api_key = api_key.to_s
       @model = model
       @timeout_seconds = timeout_seconds
+      @thinking_disabled = thinking_disabled
     end
 
     # One full completion (the non-streamed mutations' path — quiz/flashcard
@@ -96,7 +103,11 @@ module Ai
       Net::HTTP::Post.new(@request_uri).tap do |request|
         request["Content-Type"] = "application/json"
         request["Authorization"] = "Bearer #{@api_key}"
-        request.body = JSON.generate(model: @model, messages: messages, stream: stream)
+        body = { model: @model, messages: messages, stream: stream }
+        # The OpenAI-compatible gateway ignores unknown fields; the
+        # thinking toggle is the endpoint's own extension (verified 200).
+        body[:thinking] = { type: "disabled" } if @thinking_disabled
+        request.body = JSON.generate(body)
       end
     end
 

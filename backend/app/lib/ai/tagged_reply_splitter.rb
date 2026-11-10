@@ -24,6 +24,7 @@ module Ai
     HOLD = [ OUTLINE_OPEN, OUTLINE_CLOSE, PROPOSAL_OPEN, PROPOSAL_CLOSE ].map(&:length).max - 1
 
     def initialize
+      @raw = +""
       @buffer = +""
       @tail = +""
       @phase = :seeking_outline
@@ -32,6 +33,7 @@ module Ai
 
     # Returns the token events (outline text pieces) the delta produced.
     def feed(delta)
+      @raw << delta.to_s
       @buffer << delta.to_s
       case @phase
       when :seeking_outline
@@ -59,11 +61,12 @@ module Ai
       { proposal: parse_proposal }
     end
 
-    # The raw proposal segment's tail, for the controller's failure log
-    # (diagnosability — the parse itself is silent by contract). Public: the
-    # controller reads it on the nil-proposal path.
+    # The raw reply's tail for the controller's failure log (diagnosability —
+    # the parse itself is silent by contract). Public: the controller reads it
+    # on the nil-proposal path — the untouched raw reply, whatever phase the
+    # stream died in.
     def reply_tail
-      @tail.to_s.last(400)
+      @raw.last(400)
     end
 
     private
@@ -91,39 +94,94 @@ module Ai
     end
 
     def parse_proposal
-      return nil unless @phase == :collecting_proposal
+      # The salvage source is the RAW reply (@raw), not the phase buffers:
+      # a model that dropped a wrapper tag (no <outline>, no </outline>, or
+      # no </proposal> — all 2026-11-10 live failure classes) scatters the
+      # proposal across phases, and a generation that succeeded on the wire
+      # must not die on a missing wrapper. The open tag is the anchor: parse
+      # from it to the reply's end (the tolerant ladder strips whatever
+      # trails the JSON). No tags at all → the whole reply rides the ladder
+      # (bare JSON / fenced / prose-wrapped); nothing salvageable → nil.
+      span = tag_span(@raw)
+      return parse_segment(@raw[span...]) if span
+      return nil if @phase == :collecting_proposal
 
-      opening = @tail.index(PROPOSAL_OPEN)
-      closing = @tail.index(PROPOSAL_CLOSE)
-      return nil unless opening && closing && closing > opening
-
-      parse_segment(@tail[(opening + PROPOSAL_OPEN.length)...closing])
+      parse_segment(@raw)
     end
 
-    # The tolerant parse ladder (2026-11-10): strict first, then the two
-    # recoverable contract misses — markdown code fences around the JSON and
-    # prose riding before/after it. Structurally corrupted JSON still fails
-    # (nil; the controller logs the tail and answers terminal INTERNAL).
-    def parse_segment(segment)
-      JSON.parse(segment)
-    rescue JSON::ParserError
-      stripped = segment.gsub(/```(?:json)?/i, "").strip
-      parsed = begin
-        JSON.parse(stripped)
-      rescue JSON::ParserError
-        nil
-      end
-      return parsed if parsed
+    # The span after <proposal> (the CLOSE tag is optional — a truncated
+    # reply often ends right after the JSON), or nil when the open tag is
+    # absent.
+    def tag_span(text)
+      opening = text.index(PROPOSAL_OPEN)
+      opening ? opening + PROPOSAL_OPEN.length : nil
+    end
 
+    # The tolerant parse ladder (2026-11-10): strict first, then the
+    # recoverable contract misses in the order the live model produced them —
+    # markdown code fences around the JSON, prose riding before/after it, and
+    # unescaped ASCII quotes INSIDE string values (the second live failure:
+    # "聊"天不等于工程 — a content quote the model never escaped). Each rung
+    # is a candidate parse; the first that parses wins. Structurally
+    # corrupted JSON still fails (nil; the controller logs the tail and
+    # answers terminal INTERNAL).
+    def parse_segment(segment)
+      stripped = segment.gsub(/```(?:json)?/i, "").strip
       first = stripped.index("{")
       last = stripped.rindex("}")
-      return nil unless first && last && last > first
-
-      begin
-        JSON.parse(stripped[first..last])
-      rescue JSON::ParserError
-        nil
+      sliced = first && last && last > first ? stripped[first..last] : nil
+      candidates = [
+        stripped,
+        repair_unescaped_quotes(stripped),
+        sliced,
+        sliced && repair_unescaped_quotes(sliced)
+      ].compact
+      candidates.each do |candidate|
+        begin
+          return JSON.parse(candidate)
+        rescue JSON::ParserError
+          nil
+        end
       end
+      nil
+    end
+
+    # Escape double quotes that are CONTENT inside string values: a quote
+    # closes a string only when the next non-space character is a JSON
+    # delimiter (: , } ] or end); any other in-string quote is model noise
+    # and gets escaped. A misjudgment breaks the parse — the ladder just
+    # falls through to the next rung, never worse than before.
+    def repair_unescaped_quotes(segment)
+      chars = segment.chars
+      out = +""
+      in_string = false
+      i = 0
+      while i < chars.length
+        ch = chars[i]
+        if in_string && ch == "\\"
+          out << ch << (chars[i + 1] || "")
+          i += 2
+          next
+        end
+        if ch == "\""
+          if in_string
+            j = i + 1
+            j += 1 while chars[j] == " " || chars[j] == "\n" || chars[j] == "\t" || chars[j] == "\r"
+            if j >= chars.length || [ ":", ",", "}", "]" ].include?(chars[j])
+              in_string = false
+              out << ch
+            else
+              out << "\\\""
+            end
+            i += 1
+            next
+          end
+          in_string = true
+        end
+        out << ch
+        i += 1
+      end
+      out
     end
   end
 end

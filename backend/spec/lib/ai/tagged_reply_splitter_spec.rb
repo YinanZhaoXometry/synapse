@@ -68,7 +68,7 @@ RSpec.describe Ai::TaggedReplySplitter do
     expect(unterminated.finish[:proposal]).to be_nil
   end
 
-  it "recovers the two recoverable contract misses (fences, riding prose) — corruption still nil" do
+  it "recovers the recoverable contract misses (fences, riding prose, unescaped content quotes) — corruption still nil" do
     json = { topic: "t", stages: [ { name: "s", nodes: [ { title: "n", description: nil, optional: false } ] } ] }
 
     fenced = described_class.new
@@ -79,15 +79,57 @@ RSpec.describe Ai::TaggedReplySplitter do
     feed_all(prose, [ proposal_reply("stage one", "Here is the JSON you asked for:\n#{JSON.generate(json)}\nHope this helps!") ])
     expect(prose.finish[:proposal]).to eq(JSON.parse(JSON.generate(json)))
 
-    corrupted = described_class.new
-    feed_all(corrupted, [ proposal_reply("stage one", '{"topic":"t","stages":[{"name":"s" "corrupted"}]}') ])
-    expect(corrupted.finish[:proposal]).to be_nil
+    # The second LIVE failure shape (2026-11-10): an unescaped ASCII quote
+    # INSIDE a string value — 聊"天不等于工程 — repaired by the quote walk.
+    quoted = described_class.new
+    feed_all(quoted, [ proposal_reply(
+      "stage one",
+      '{"topic":"t","stages":[{"name":"s","nodes":[{"title":"聊"天不等于工程","description":"理解传统"随意聊天"式编码的局限","optional":false}]}]}'
+    ) ])
+    expect(quoted.finish[:proposal]).to eq({
+      "topic" => "t",
+      "stages" => [ {
+        "name" => "s",
+        "nodes" => [ { "title" => "聊\"天不等于工程", "description" => "理解传统\"随意聊天\"式编码的局限", "optional" => false } ]
+      } ]
+    })
+
+    # Structural damage the quote walk cannot bridge: a truncated document
+    # and an object-syntax spill inside an array — still honest nil.
+    truncated = described_class.new
+    feed_all(truncated, [ proposal_reply("stage one", '{"topic":"t","stages":[{"name":"s","nodes":[{"title":"n"}]}]') ])
+    expect(truncated.finish[:proposal]).to be_nil
+
+    spilled = described_class.new
+    feed_all(spilled, [ proposal_reply("stage one", '{"topic":"t","stages":["name":"s"]}') ])
+    expect(spilled.finish[:proposal]).to be_nil
   end
 
   it "exposes the reply tail for the controller's failure log" do
     splitter = described_class.new
     feed_all(splitter, [ "<outline>x</outline>\n<proposal>{broken json</proposal>" ])
     expect(splitter.reply_tail).to include("{broken json")
+  end
+
+  it "salvages the proposal when a WRAPPER tag is missing (2026-11-10 live failure classes)" do
+    json = { topic: "t", stages: [ { name: "s", nodes: [ { title: "n", description: nil, optional: false } ] } ] }
+
+    # No </outline> at all — the outline streamed, the tags for the proposal
+    # are still in the raw reply: salvage, don't fail.
+    no_close = described_class.new
+    feed_all(no_close, [ "<outline>\nstage one\n<proposal>\n#{JSON.generate(json)}\n</proposal>" ])
+    expect(no_close.finish[:proposal]).to eq(JSON.parse(JSON.generate(json)))
+
+    # No <outline> opener either — the reply is bare JSON: same salvage.
+    bare = described_class.new
+    feed_all(bare, [ JSON.generate(json) ])
+    expect(bare.finish[:proposal]).to eq(JSON.parse(JSON.generate(json)))
+
+    # No </proposal> — the reply truncates right after the JSON (the R5 live
+    # shape): the open tag is the anchor, the ladder strips the absent close.
+    no_close_tag = described_class.new
+    feed_all(no_close_tag, [ "<outline>\nstage one\n</outline>\n<proposal>\n#{JSON.generate(json)}\n" ])
+    expect(no_close_tag.finish[:proposal]).to eq(JSON.parse(JSON.generate(json)))
   end
 
   it "flushes a held-back tail when the close tag never arrives" do

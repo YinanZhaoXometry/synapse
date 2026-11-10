@@ -43,7 +43,10 @@ module Ai
       end
 
       def adapter
-        GlmClient.new(**configuration)
+        # AI_THINKING=on restores the endpoint's reasoning mode (default OFF —
+        # see GlmClient's latency note). configuration stays the pinned
+        # 4-key shape; the flag rides as its own kwarg.
+        GlmClient.new(**configuration, thinking_disabled: ENV["AI_THINKING"].to_s.strip != "on")
       end
 
       # One full completion: Success(String) with the raw assistant text;
