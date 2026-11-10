@@ -4,7 +4,7 @@
 
 **Blocked by:** None (parallel with 02).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 **Bound by:** FR-47 (Study Mark — new), ADR-0001 + AD-6/14 untouched (the mark is NOT evidence, can never move a Mastery Score — the mastery-vector anti-drift suite must pass unchanged), AD-12/13 (command-layer-first, closed error enum), backend/AGENTS.md contract. UI copy is 学习中/已完成/已跳过 — the literal string "Done" is a glossary avoid-word and must not appear in any user-facing string or schema description.
 

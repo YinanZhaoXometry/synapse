@@ -4,7 +4,7 @@
 
 **Blocked by:** None (parallel with 01).
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 **Bound by:** FR-5; the ≤16-node scale cap (epic-16 grill decision 3); NFR-6 (zero new runtime deps — pure TS math); determinism contract inherited from the epic-16 layout suites (byte-identical under shuffled input).
 
