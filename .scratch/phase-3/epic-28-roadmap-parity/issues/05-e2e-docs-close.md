@@ -4,7 +4,7 @@
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-11)
 
 **Bound by:** the e2e harness contract (stub AI provider, deterministic 16-node plan, fresh registered users); docs discipline (BMAD owns product docs — PRD edit is a delta record, not a rewrite); the spine delta-record convention (workflow.md).
 

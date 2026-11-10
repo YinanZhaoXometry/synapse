@@ -1,6 +1,6 @@
 # Epic 28 (Phase 3) — Roadmap parity: full-page spine, roadmap.sh skin, Study Mark
 
-Status: ready-for-agent
+Status: done (closed 2026-11-11; T1–T5 all landed — see the close-out note in Coordination notes)
 Milestone: Phase 3 — optimization season
 
 ## Parent
@@ -24,6 +24,7 @@ Roadmap renders as a full-page spine browsable by scroll alone (no zoom/pan/pinc
 ## Coordination notes
 
 - Worktree: `../project-new-roadmap-parity`, branch `epic/p3-28-roadmap-parity` (cut @ `6dcdb16`). T1 (backend) and T2 (frontend pure module) can proceed in parallel; T3 integrates both; T4 rides T3's canvas; T5 closes.
+- **Close-out (2026-11-11):** all five tickets landed on `epic/p3-28-roadmap-parity` (W0 `3a98398`, T1 `5b95fbb`, T2 `0116d24`, T3 `9ea394f`, T4 `b5c3eb6`, T5 `467c870`). Final gates: **rspec 1494/1494** (+12 Study Mark examples; rubocop 502 files clean) · **vitest 1035 + coverage thresholds** (the two retired layout suites deleted with their engines; graph suite rewritten: 28 cases) · **e2e 23/23** (5 skipped = the opt-in visual smoke; the opt-in spec rewritten for scroll+keyboard flows) · codegen fresh · build green · **mastery-vector anti-drift byte-identical** (the ADR-0002 orthogonality proof). One live e2e lesson folded into T5: the chip strip's hide trigger is the CONTAINER's pointerleave — Chromium never synthesizes enter/leave for an element appearing beneath a stationary pointer, so per-element pairs flickered the strip dead at top rows. Worktree merge follows the discipline (merge → delete worktree + branch).
 - The existing graph test suite pins pan/zoom/pinch/wheel/fit behaviors **by design** — those blocks are deleted together with the features in T3; every aria/keyboard/deep-link assertion that survives the redesign must carry over. This is pinned behavior changing, not test rot (same precedent as epic-16's flip of epic-10's derived edges).
 - mastery-vector anti-drift is the standing proof that Study Mark never touched mastery math; the suite must not change in this epic.
 - i18n: every new user-facing string is a dotted key with zh+en (parity test enforces over the full table).
