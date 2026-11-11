@@ -122,7 +122,7 @@ test.describe("the AI 讲义 flows (epic-36 T3)", () => {
     await expect(page).toHaveURL(/\/materials/);
     const row = page.locator("div.group").filter({ hasText: MATERIAL_TITLE }).first();
     await expect(row.getByTestId("material-lesson")).toBeVisible();
-    await expect(row.getByTestId("material-lesson")).toHaveTextContent("生成讲义");
+    await expect(row.getByTestId("material-lesson")).toHaveText("生成讲义");
     await row.getByTestId("material-lesson").click();
 
     // The READ-ONLY outline gate: the propose call lands (1 cap-counted
@@ -162,6 +162,6 @@ test.describe("the AI 讲义 flows (epic-36 T3)", () => {
       .filter({ has: page.getByTestId("material-lesson") })
       .filter({ hasText: "已解析 · 3 节" });
     await expect(sourceRow).toHaveCount(1);
-    await expect(sourceRow.getByTestId("material-lesson")).toHaveTextContent("打开讲义");
+    await expect(sourceRow.getByTestId("material-lesson")).toHaveText("打开讲义");
   });
 });
