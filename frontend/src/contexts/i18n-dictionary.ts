@@ -926,6 +926,12 @@ export const translations = {
       'mapping.capReached': '今日 AI 使用次数已达上限，请明天再来',
       'mapping.errorInternal': 'AI 服务暂时不可用，请重试',
       'mapping.failed': '映射失败，请重试',
+      // epic-34 T3（Auto-mapping · 覆盖诚实）：自动映射的面板状态 + 计算出的
+      // 未映射节点摘要行（材料映射轴——GLOSSARY Unmapped node，措辞绝不与
+      // 掌握度轴的「未覆盖/uncovered」混淆）。
+      'mapping.autoWorking': '正在 AI 映射…',
+      'mapping.capExhausted': '今日 AI 额度已用完——自动映射已暂停，明天再回来即可继续。',
+      'mapping.unmappedNodesSummary': '未映射节点：{n}',
       'notes.title': '学习笔记',
       'notes.generate': '生成笔记',
       'notes.generating': '正在生成…',
@@ -1948,6 +1954,13 @@ export const translations = {
       'mapping.capReached': 'Daily AI limit reached — try again tomorrow',
       'mapping.errorInternal': 'The AI service is unavailable — please retry',
       'mapping.failed': 'Mapping failed — please retry',
+      // epic-34 T3 (Auto-mapping · coverage honesty): the panel's auto states
+      // + the computed unmapped-nodes summary line — the material-mapping axis
+      // (GLOSSARY Unmapped node), wording never blurred with the mastery
+      // axis's uncovered.
+      'mapping.autoWorking': 'AI mapping in progress…',
+      'mapping.capExhausted': 'Daily AI limit reached — auto-mapping is paused; come back tomorrow to continue.',
+      'mapping.unmappedNodesSummary': 'Unmapped nodes: {n}',
       'notes.title': 'Study notes',
       'notes.generate': 'Generate note',
       'notes.generating': 'Generating…',

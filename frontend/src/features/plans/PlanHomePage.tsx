@@ -48,6 +48,8 @@ import { cn } from "@/lib/utils";
 import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "./display-shaping";
+import { unmappedNodeCount } from "./auto-mapping";
+import { useAutoMapping } from "./use-auto-mapping";
 import NodeRow from "./node-row";
 import RoadmapGraph from "./RoadmapGraph";
 import { localeTag } from "./locale";
@@ -109,6 +111,16 @@ export default function PlanHomePage() {
   // pre-fills the composer. The generic quick action hands null (clears).
   const [teachRequest, setTeachRequest] = useState<TeachPrefill | null>(null);
   const teachNonceRef = useRef(0);
+  // Epic-34 T3 (Auto-mapping; GLOSSARY Auto-mapping): the ONE trigger point —
+  // while this page is mounted, every parsed material with sections and zero
+  // mapping rows gets the mapping mutation fired once per mount session
+  // (CreationChat deliberately isn't instrumented: it navigates here and the
+  // effect catches the staged materials on arrival). The coverage panel's
+  // auto states + the computed unmapped-nodes summary ride the returned state.
+  const { autoRunningFor, capReached } = useAutoMapping({
+    materials: materialsQuery.data,
+    mappingRows: mappingsQuery.data,
+  });
 
   const openCompanion = () => {
     setTeachRequest(null);
@@ -212,6 +224,10 @@ export default function PlanHomePage() {
   const activity = planRecentActivity(nodes, evidence);
   const views = nodeRowViews(nodes, evidence);
   const hasMaterials = materials.length > 0;
+  // Epic-34 T3: the coverage-honesty summary — plan nodes with zero CONFIRMED
+  // mapping rows (GLOSSARY Unmapped node), derived from the batch mapping read
+  // the page already loads; pure derivation, no new query fields.
+  const unmappedNodes = unmappedNodeCount(nodes, mappingsQuery.data ?? []);
   // Quiz generation needs parsed sections (FR-18 sourcing honesty) — pending/
   // failed/empty materials cannot serve a quiz, so they don't unlock the tile.
   const quizable = quizableMaterials(materials);
@@ -413,7 +429,13 @@ export default function PlanHomePage() {
                       onToggleCoverage={() => setCoverageFor(coverageFor === material.id ? null : material.id)}
                     />
                     {coverageFor === material.id && (
-                      <MaterialCoveragePanel material={material} nodes={nodes} />
+                      <MaterialCoveragePanel
+                        material={material}
+                        nodes={nodes}
+                        autoRunning={autoRunningFor === material.id}
+                        capReached={capReached}
+                        unmappedNodes={unmappedNodes}
+                      />
                     )}
                   </div>
                 ))}
