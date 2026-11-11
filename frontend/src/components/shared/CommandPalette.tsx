@@ -42,15 +42,33 @@ export function CommandPalette({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
+  // ⌘K/Ctrl+K interception (T03 owner round): CAPTURE phase + preventDefault
+  // + stopPropagation — renderer-level browser defaults (Chrome/Firefox's
+  // address-bar search) are blocked before they act, and no other page
+  // handler sees the key. The keyup listener only preventDefaults: a few
+  // browsers act on release, and keyup must never toggle the palette twice.
+  // Honest limit: a BROWSER-level ⌘K (Arc's command bar, extension-bound
+  // shortcuts) is consumed before the page receives any event — no web page
+  // can intercept that; the fix lives in the browser's own shortcut
+  // settings, not here.
   useEffect(() => {
+    const isToggleCombo = (e: KeyboardEvent) =>
+      e.key === "k" && (e.metaKey || e.ctrlKey);
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        onOpenChange(!open);
-      }
+      if (!isToggleCombo(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onOpenChange(!open);
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (isToggleCombo(e)) e.preventDefault();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+    };
   }, [open, onOpenChange]);
 
   // Fresh query each open — the last search never pre-filters the next.

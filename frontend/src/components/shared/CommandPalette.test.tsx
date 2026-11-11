@@ -3,7 +3,7 @@ import type { MockedResponse } from "@apollo/client/testing";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { MaterialsDocument, PlansDocument, TasksDocument } from "@/types/graphql";
 import { CommandPalette } from "./CommandPalette";
@@ -200,5 +200,39 @@ describe("CommandPalette entity search", () => {
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent("/plan/plan-1");
     });
+  });
+
+  it("T03: ⌘K is intercepted at capture phase — preventDefault + toggle; keyup never toggles", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <MockedProvider mocks={baseMocks()}>
+        <MemoryRouter>
+          <LanguageProvider>
+            <CommandPalette open={false} onOpenChange={onOpenChange} />
+          </LanguageProvider>
+        </MemoryRouter>
+      </MockedProvider>
+    );
+
+    // The keydown is consumed before it can reach any browser default or
+    // another page handler.
+    const down = new KeyboardEvent("keydown", { key: "k", metaKey: true, cancelable: true });
+    window.dispatchEvent(down);
+    expect(down.defaultPrevented).toBe(true);
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(true);
+
+    // The release is swallowed too — and never toggles the palette twice.
+    onOpenChange.mockClear();
+    const up = new KeyboardEvent("keyup", { key: "k", metaKey: true, cancelable: true });
+    window.dispatchEvent(up);
+    expect(up.defaultPrevented).toBe(true);
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    // Plain k (no modifier) is untouched.
+    const plain = new KeyboardEvent("keydown", { key: "k", cancelable: true });
+    window.dispatchEvent(plain);
+    expect(plain.defaultPrevented).toBe(false);
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 });

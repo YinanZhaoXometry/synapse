@@ -32,8 +32,10 @@ export default function SidebarPlanTree({ onNavigate }: { onNavigate?: () => voi
 
   const subRowClass = (isActive: boolean) =>
     cn(
-      // Sub-row of the 学习 group's entries: indented, one step smaller.
-      "group flex h-9 items-center gap-2 rounded-lg pl-6 pr-2.5 text-[13px] font-medium transition-all duration-150",
+      // Sub-row of the 学习 group's entries: indented, one height step below
+      // the h-10 nav rows but the SAME type — 14px medium (T03: aligned to
+      // the main nav's text after the owner round).
+      "group flex h-9 items-center gap-2 rounded-lg pl-6 pr-2.5 text-sm font-medium transition-all duration-150",
       isActive
         ? "bg-[var(--glass-4)] text-foreground shadow-soft"
         : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-2)]"
@@ -41,7 +43,9 @@ export default function SidebarPlanTree({ onNavigate }: { onNavigate?: () => voi
 
   return (
     <div className="pt-1">
-      <p className="px-2.5 pb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-caption">
+      {/* Regular small label, deliberately NOT the group headings' 9px
+          uppercase eyebrow — this names records, not a nav region. */}
+      <p className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">
         {t("nav.plansRecent")}
       </p>
       <div className="space-y-0.5">
@@ -60,8 +64,10 @@ export default function SidebarPlanTree({ onNavigate }: { onNavigate?: () => voi
               className={subRowClass(isActive)}
             >
               <span className="min-w-0 flex-1 truncate">{plan.topic}</span>
+              {/* Bare accent number — no chip background (T03). The server
+                  rollup verbatim, AD-14. */}
               <span
-                className="ml-auto flex-none rounded bg-[var(--glass-4)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-caption group-hover:text-muted-foreground"
+                className="ml-auto flex-none text-[11px] font-semibold tabular-nums text-accent-ink"
                 aria-label={t("nav.planMastery", { n: plan.masteryScore })}
               >
                 {plan.masteryScore}%
@@ -73,7 +79,7 @@ export default function SidebarPlanTree({ onNavigate }: { onNavigate?: () => voi
           to="/plans"
           onClick={onNavigate}
           aria-current={location.pathname === "/plans" ? "page" : undefined}
-          className={cn(subRowClass(location.pathname === "/plans"), "text-caption")}
+          className={cn(subRowClass(location.pathname === "/plans"), "text-muted-foreground")}
         >
           {t("nav.plansViewAll")}
         </Link>

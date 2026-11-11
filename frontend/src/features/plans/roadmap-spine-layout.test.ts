@@ -244,8 +244,8 @@ describe("the two-line hub geometry", () => {
     const box0 = layout.boxes[hub0.id];
     const box1 = layout.boxes[layout.hubs[1].id];
     // The two-line hub is one second-line taller…
-    expect(box0.h).toBe(51 + SPINE_HUB_SECOND_LINE);
-    expect(box1.h).toBe(51);
+    expect(box0.h).toBe(SPINE_NODE_H + SPINE_HUB_SECOND_LINE);
+    expect(box1.h).toBe(SPINE_NODE_H);
     // …the spine edge leaves from the TALLER box's real bottom…
     const spine = layout.edges.find((edge) => edge.kind === "spine")!;
     expect(spine.d).toBe(`M ${SPINE_CENTER_X} ${box0.y + box0.h} L ${SPINE_CENTER_X} ${box1.y}`);

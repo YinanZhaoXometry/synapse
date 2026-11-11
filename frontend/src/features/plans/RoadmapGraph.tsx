@@ -60,7 +60,7 @@ const MARK_DISPLAY: Record<StudyMark, { colorVar: string; labelKey: string }> = 
 };
 
 /**
- * Title truncation for the copied 28px face inside a 297px box: walk the
+ * Title truncation for the copied 30px face inside a 310px box: walk the
  * string, count CJK glyphs at full width and everything else at ~0.52em,
  * stop at the budget. Deterministic; the full title lives in the sheet
  * (and the hover overlay).
@@ -70,7 +70,7 @@ function truncateForBox(title: string, maxPx: number): string {
   for (let i = 0; i < title.length; i += 1) {
     const code = title.codePointAt(i) ?? 0;
     const wide = code > 0x2e7f; // CJK ranges and above
-    used += wide ? 28 : 14.5;
+    used += wide ? 30 : 15.5;
     if (used > maxPx) return `${title.slice(0, i)}…`;
   }
   return title;
@@ -179,6 +179,15 @@ export default function RoadmapGraph({
   const hoverIntentRef = useRef<number | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const nodeRefs = useRef(new Map<string, SVGElement>());
+  // The chip strip's rendered half-width, measured for the horizontal clamp
+  // (T03: the strip centers on the node but never overflows the canvas). The
+  // default covers the widest common content until the first measurement.
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const [chipsHalf, setChipsHalf] = useState(150);
+  useEffect(() => {
+    const w = chipsRef.current?.offsetWidth ?? 0;
+    if (w > 0) setChipsHalf(w / 2);
+  }, [hoveredId, chipsVisible]);
 
   // The hover chip strip (epic-28 T4): ~150ms hover-intent so brushing the
   // canvas never flickers chips; leaving schedules a ~120ms GRACE hide that
@@ -458,7 +467,7 @@ export default function RoadmapGraph({
             // owner's overflow report); the box grew with it in the layout.
             const lines = hub.stage === null ? hubTitleLines(t("plans.stageUngrouped")) : hub.lines;
             const lineBaseline = (index: number) =>
-              box.y + box.h / 2 + 10 + (index - (lines.length - 1) / 2) * 30;
+              box.y + box.h / 2 + 11 + (index - (lines.length - 1) / 2) * 32;
             return (
               <g key={hub.id} data-testid="roadmap-stage-group" data-stage={hub.stage}>
                 <rect
@@ -466,7 +475,7 @@ export default function RoadmapGraph({
                   y={box.y}
                   width={SPINE_NODE_W}
                   height={box.h}
-                  rx={5}
+                  rx={10}
                   style={{ fill: "var(--roadmap-hub-face)", stroke: "var(--roadmap-node-border)" }}
                   strokeWidth={2.7}
                 />
@@ -476,7 +485,7 @@ export default function RoadmapGraph({
                     data-testid="roadmap-stage-label"
                     x={box.x + SPINE_NODE_W / 2}
                     y={lineBaseline(index)}
-                    fontSize={28}
+                    fontSize={30}
                     textAnchor="middle"
                     style={{ fill: "var(--roadmap-node-ink)" }}
                   >
@@ -485,9 +494,9 @@ export default function RoadmapGraph({
                 ))}
                 <text
                   data-testid="roadmap-stage-progress"
-                  x={box.x + SPINE_NODE_W - 12}
-                  y={box.y + 16}
-                  fontSize={13}
+                  x={box.x + SPINE_NODE_W - 14}
+                  y={box.y + 18}
+                  fontSize={14}
                   textAnchor="end"
                   fillOpacity={0.62}
                   style={{ fill: "var(--roadmap-node-ink)" }}
@@ -509,7 +518,7 @@ export default function RoadmapGraph({
             const focused = focusedId === id;
             const mark = view.node.studyMark;
             const markDisplay = mark ? MARK_DISPLAY[mark] : null;
-            const title = truncateForBox(view.node.title, SPINE_NODE_W - 60);
+            const title = truncateForBox(view.node.title, SPINE_NODE_W - 66);
             const markSuffix = markDisplay ? t("plans.markAriaSuffix", { mark: t(markDisplay.labelKey) }) : "";
             const ariaLabel =
               (view.node.optional
@@ -545,7 +554,7 @@ export default function RoadmapGraph({
                   y={box.y}
                   width={SPINE_NODE_W}
                   height={SPINE_NODE_H}
-                  rx={5}
+                  rx={10}
                   style={{
                     fill: "var(--roadmap-leaf-face)",
                     stroke: focused ? "hsl(var(--ring))" : "var(--roadmap-node-border)",
@@ -560,7 +569,7 @@ export default function RoadmapGraph({
                     y={box.y - 4}
                     width={SPINE_NODE_W + 8}
                     height={SPINE_NODE_H + 8}
-                    rx={9}
+                    rx={13}
                     fill="none"
                     stroke="hsl(var(--ring))"
                     strokeWidth={2.5}
@@ -570,18 +579,18 @@ export default function RoadmapGraph({
                     not-color-only; the server state rendered, AD-14). */}
                 <text
                   data-testid="roadmap-node-glyph"
-                  x={box.x + 18}
-                  y={box.y + SPINE_NODE_H / 2 + 10}
-                  fontSize={22}
+                  x={box.x + 20}
+                  y={box.y + SPINE_NODE_H / 2 + 11}
+                  fontSize={24}
                   aria-hidden="true"
                   style={{ fill: "var(--roadmap-node-ink)" }}
                 >
                   {display.glyph}
                 </text>
                 <text
-                  x={box.x + 50}
-                  y={box.y + SPINE_NODE_H / 2 + 10}
-                  fontSize={28}
+                  x={box.x + 56}
+                  y={box.y + SPINE_NODE_H / 2 + 11}
+                  fontSize={30}
                   style={{ fill: "var(--roadmap-node-ink)" }}
                 >
                   {title}
@@ -591,8 +600,8 @@ export default function RoadmapGraph({
                 {view.node.optional && (
                   <g data-testid="roadmap-node-optional">
                     <rect
-                      x={box.x + SPINE_NODE_W - 60}
-                      y={box.y + 8}
+                      x={box.x + SPINE_NODE_W - 66}
+                      y={box.y + 9}
                       width={8}
                       height={8}
                       rx={2}
@@ -602,9 +611,9 @@ export default function RoadmapGraph({
                       strokeDasharray="3 2"
                     />
                     <text
-                      x={box.x + SPINE_NODE_W - 47}
-                      y={box.y + 16}
-                      fontSize={11}
+                      x={box.x + SPINE_NODE_W - 53}
+                      y={box.y + 17}
+                      fontSize={12}
                       fill="hsl(var(--muted-foreground))"
                     >
                       {t("plans.nodeOptional")}
@@ -617,36 +626,54 @@ export default function RoadmapGraph({
           })}
         </svg>
 
-        {/* The hover chip strip (epic-28 T4): row 1 = the Study Mark
-            toggles, row 2 = the node's actions (NodeActions verbatim — one
-            implementation everywhere). Anchored above the node; pointer
-            events ON (the chips are clickable); hidden while unhovered,
-            during the intent delay, and for touch (tap = the sheet). */}
+        {/* The hover chip strip (epic-28 T4, repositioned in T03): row 1 =
+            the Study Mark toggles, row 2 = the node's actions (NodeActions
+            verbatim — one implementation everywhere). The zero-width ANCHOR
+            sits on the node's top edge (top = nodeTop·scale, left = the
+            node's top-center X clamped inside the canvas) and the strip
+            hangs off it with bottom-2 + -translate-x-1/2: structurally
+            ALWAYS above the node and centered on it — no top clamp exists
+            anywhere, so the canvas-top row can never make the strip land on
+            its own node (the old Math.max(0, top−76) bug). The glass
+            background is the --popover-glass token (skin guard: no raw
+            rgba/hex in this file). Pointer events ON the strip (the chips
+            are clickable), OFF the anchor; hidden while unhovered, during
+            the intent delay, and for touch (tap = the sheet). */}
         {hovered && hoveredBox && chipsVisible && (
           <div
-            data-testid="roadmap-chips"
-            className="absolute z-10 flex flex-col items-start gap-1 rounded-xl border border-border-soft bg-popover px-2 py-1.5 shadow-raised"
+            data-testid="roadmap-chips-anchor"
+            className="pointer-events-none absolute z-10 w-0"
             style={{
-              left: Math.max(0, hoveredBox.x * scale),
-              top: Math.max(0, hoveredBox.y * scale - 76),
+              left: (() => {
+                const centerX = hoveredBox.x * scale + (SPINE_NODE_W * scale) / 2;
+                const canvasW = containerRef.current?.clientWidth ?? 0;
+                if (canvasW <= 0) return centerX;
+                return Math.min(Math.max(centerX, chipsHalf + 8), canvasW - chipsHalf - 8);
+              })(),
+              top: hoveredBox.y * scale,
             }}
-
           >
-            <div className="flex items-center gap-2">
-              <span className="max-w-[260px] truncate text-xs font-semibold text-foreground">{hovered.node.title}</span>
-              <span className="text-[10px] text-muted-foreground">
-                {t(NODE_STATE_DISPLAY[hovered.state].labelKey)}
-                {hovered.node.optional ? ` · ${t("plans.nodeOptional")}` : ""}
-              </span>
+            <div
+              data-testid="roadmap-chips"
+              ref={chipsRef}
+              className="pointer-events-auto absolute bottom-2 left-0 flex w-max -translate-x-1/2 flex-col items-start gap-1 rounded-xl border border-border-soft bg-[var(--popover-glass)] px-2 py-1.5 shadow-raised backdrop-blur-[6px]"
+            >
+              <div className="flex items-center gap-2">
+                <span className="max-w-[260px] truncate text-xs font-semibold text-foreground">{hovered.node.title}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {t(NODE_STATE_DISPLAY[hovered.state].labelKey)}
+                  {hovered.node.optional ? ` · ${t("plans.nodeOptional")}` : ""}
+                </span>
+              </div>
+              <StudyMarkToggleRow nodeId={hovered.node.id} mark={hovered.node.studyMark} compact />
+              <NodeActions
+                targets={hoveredTargets}
+                failed={mappingsFailed}
+                planId={planId}
+                nodeId={hovered.node.id}
+                nodeTitle={hovered.node.title}
+              />
             </div>
-            <StudyMarkToggleRow nodeId={hovered.node.id} mark={hovered.node.studyMark} compact />
-            <NodeActions
-              targets={hoveredTargets}
-              failed={mappingsFailed}
-              planId={planId}
-              nodeId={hovered.node.id}
-              nodeTitle={hovered.node.title}
-            />
           </div>
         )}
       </div>

@@ -283,7 +283,10 @@ export default function PlanHomePage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_400px] gap-6 mt-5 items-start">
+      {/* T03 owner round: the graph zone takes the extra room — the rail
+          (materials + notes + quick actions + activity since the feedback
+          round) gives back 20/32px. */}
+      <div className="grid lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_368px] gap-6 mt-5 items-start">
         {/* left zone: the nodes view (spine roadmap / list) */}
         <div className="min-w-0">
           <Tabs value={nodesView} onValueChange={(value) => setNodesView(value as "list" | "graph")}>

@@ -8,6 +8,7 @@ import { translations } from "@/contexts/i18n-dictionary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, StudyMark } from "@/api/views";
 import { nodeRowViews, type NodeRowView } from "./display-shaping";
+import { SPINE_NODE_H, SPINE_NODE_W } from "./roadmap-spine-layout";
 import RoadmapGraph from "./RoadmapGraph";
 
 /**
@@ -219,7 +220,15 @@ describe("RoadmapGraph spine render", () => {
     const labels = screen.getAllByTestId("roadmap-stage-label").map((el) => el.textContent);
     expect(labels).toEqual(["第 1 阶段：", "GraphQL 基础"]);
     const hubRect = screen.getByTestId("roadmap-stage-group").querySelector("rect")!;
-    expect(Number(hubRect.getAttribute("height"))).toBeGreaterThan(51);
+    expect(Number(hubRect.getAttribute("height"))).toBeGreaterThan(SPINE_NODE_H);
+  });
+
+  it("T03: hub and leaf rects carry the chunky roadmap.sh radius (rx=10)", () => {
+    mountGraph();
+    const hubRect = screen.getAllByTestId("roadmap-stage-group")[0].querySelector("rect")!;
+    expect(hubRect.getAttribute("rx")).toBe("10");
+    const leafRect = nodeEl("node-00")!.querySelector("rect")!;
+    expect(leafRect.getAttribute("rx")).toBe("10");
   });
 });
 
@@ -444,6 +453,28 @@ describe("RoadmapGraph hover chip strip (epic-28 T4)", () => {
     fireEvent.pointerEnter(nodeEl("node-00")!, { pointerType: "touch" });
     await new Promise((resolve) => setTimeout(resolve, 220));
     expect(screen.queryByTestId("roadmap-chips")).toBeNull();
+  });
+
+  it("T03: anchors on the node's top edge, centered, glass-faced — no top clamp anywhere", async () => {
+    mountGraph();
+    fireEvent.pointerEnter(nodeEl("node-05")!, { pointerType: "mouse" });
+    await new Promise((resolve) => setTimeout(resolve, 220));
+
+    const anchor = screen.getByTestId("roadmap-chips-anchor");
+    const nodeRect = nodeEl("node-05")!.querySelector("rect")!;
+    // jsdom renders unmeasured (scale 1, clientWidth 0 → no clamp): the
+    // anchor sits exactly on the node's TOP EDGE at its horizontal center —
+    // the strip hangs off it, so it can never cover the node.
+    expect(Number.parseFloat(anchor.style.top)).toBeCloseTo(Number(nodeRect.getAttribute("y")));
+    const expectedCenter = Number(nodeRect.getAttribute("x")) + SPINE_NODE_W / 2;
+    expect(Number.parseFloat(anchor.style.left)).toBeCloseTo(expectedCenter);
+    // The strip itself: bottom-anchored + centered, glass token — bg-popover
+    // is gone.
+    const strip = screen.getByTestId("roadmap-chips");
+    expect(strip.className).toContain("bottom-2");
+    expect(strip.className).toContain("-translate-x-1/2");
+    expect(strip.className).toContain("bg-[var(--popover-glass)]");
+    expect(strip.className).not.toContain("bg-popover");
   });
 
   it("the sheet carries the mark toggles + the evidence bar", () => {

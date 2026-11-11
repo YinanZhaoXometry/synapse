@@ -99,14 +99,22 @@ export default function PlansHomePage() {
         )}
       </div>
 
-      {/* The 广场 toggle (delta decision 3): 我的计划 / 广场 pill pair — the
-          plans front door hosts external-plan discovery; no new sidebar slot. */}
+      {/* The 广场 toggle (delta decision 3): 我的计划 / 广场 pair — the
+          plans front door hosts external-plan discovery; no new sidebar slot.
+          T03 (owner feedback round): the pills grow into the sidebar-row
+          vocabulary — the same active/hover states as the nav's records tree,
+          one size step down from a nav row's h-10. */}
       <div className="flex items-center gap-2 mt-3" role="group" aria-label={t("square.tabAria")} data-testid="plans-home-tabs">
         <button
           type="button"
           aria-pressed={tab === "mine"}
           onClick={() => setTab("mine")}
-          className={cn("pill cursor-pointer", tab !== "mine" && "pill-muted")}
+          className={cn(
+            "flex h-9 cursor-pointer items-center rounded-lg px-4 text-sm font-medium transition-all duration-150",
+            tab === "mine"
+              ? "bg-[var(--glass-4)] text-foreground shadow-soft"
+              : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-2)]"
+          )}
         >
           {t("square.tabMine")}
         </button>
@@ -114,7 +122,12 @@ export default function PlansHomePage() {
           type="button"
           aria-pressed={tab === "square"}
           onClick={() => setTab("square")}
-          className={cn("pill cursor-pointer", tab !== "square" && "pill-muted")}
+          className={cn(
+            "flex h-9 cursor-pointer items-center rounded-lg px-4 text-sm font-medium transition-all duration-150",
+            tab === "square"
+              ? "bg-[var(--glass-4)] text-foreground shadow-soft"
+              : "text-muted-foreground hover:text-foreground hover:bg-[var(--glass-2)]"
+          )}
         >
           {t("square.tabSquare")}
         </button>

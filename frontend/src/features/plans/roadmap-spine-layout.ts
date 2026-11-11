@@ -54,20 +54,22 @@ export interface SpinePrereqInput {
   to: string;
 }
 
-/** Fixed node box geometry — the copied roadmap.sh proportions. */
-export const SPINE_NODE_W = 297;
-export const SPINE_NODE_H = 51;
-/** The measured leaf stack pitch (their rows run 57.5 apart at h=50.8). */
-export const SPINE_ROW_PITCH = 57.5;
-/** The measured horizontal gap between a hub's edge and a fan's inner edge. */
-export const SPINE_FAN_GAP = 122;
+/** Fixed node box geometry — the copied roadmap.sh proportions, scaled up
+ *  one step (T03 owner round: bigger nodes, airier rows; FAN_GAP narrows so
+ *  the frame stays ≈1190 and the nodes' on-screen share grows). */
+export const SPINE_NODE_W = 310;
+export const SPINE_NODE_H = 62;
+/** Leaf stack pitch — the gap between rows opens 6.5 → 16px. */
+export const SPINE_ROW_PITCH = 78;
+/** The horizontal gap between a hub's edge and a fan's inner edge. */
+export const SPINE_FAN_GAP = 100;
 /** The vertical gap between consecutive stage blocks. */
-export const SPINE_BLOCK_GAP = 40;
-export const SPINE_PADDING = 28;
-/** A two-line hub's extra height (the second 28px line + its leading). */
-export const SPINE_HUB_SECOND_LINE = 33;
+export const SPINE_BLOCK_GAP = 56;
+export const SPINE_PADDING = 30;
+/** A two-line hub's extra height (the second 30px line + its leading). */
+export const SPINE_HUB_SECOND_LINE = 40;
 /** The hub title's per-line width budget (the box minus side insets). */
-export const SPINE_HUB_LINE_PX = SPINE_NODE_W - 40;
+export const SPINE_HUB_LINE_PX = SPINE_NODE_W - 44;
 
 /**
  * Split a hub title into 1–2 renderable lines at the measured width
@@ -78,7 +80,7 @@ export const SPINE_HUB_LINE_PX = SPINE_NODE_W - 40;
  */
 export function hubTitleLines(title: string): string[] {
   const width = (text: string) =>
-    [...text].reduce((sum, ch) => sum + (ch.codePointAt(0)! > 0x2e7f ? 28 : 14.5), 0);
+    [...text].reduce((sum, ch) => sum + (ch.codePointAt(0)! > 0x2e7f ? 30 : 15.5), 0);
   if (width(title) <= SPINE_HUB_LINE_PX) return [title];
 
   const separators = ["：", ":", "—", "·", " "];
@@ -94,7 +96,7 @@ export function hubTitleLines(title: string): string[] {
   let used = 0;
   let at = title.length;
   for (let i = 0; i < title.length; i += 1) {
-    used += title.codePointAt(i)! > 0x2e7f ? 28 : 14.5;
+    used += title.codePointAt(i)! > 0x2e7f ? 30 : 15.5;
     if (used > SPINE_HUB_LINE_PX) {
       at = i;
       break;

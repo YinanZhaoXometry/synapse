@@ -38,6 +38,9 @@
 
     --popover: 0 0% 100%;
     --popover-foreground: 240 9% 11%;
+    /* The roadmap hover chip strip's translucent face (T03 — roadmap.sh's
+       glass tooltip): the popover hue at ~86% opacity, blurred behind. */
+    --popover-glass: rgba(255, 253, 250, 0.86);
 
     --primary: 0 100% 69%;
     --primary-foreground: 0 0% 100%;
@@ -180,6 +183,7 @@
     --card-foreground: 23 27% 94%;
     --popover: 285 12% 13%;
     --popover-foreground: 23 27% 94%;
+    --popover-glass: rgba(30, 26, 34, 0.86);
 
     --secondary: 300 10% 16%;      /* #2d252d */
     --secondary-foreground: 23 27% 94%;
