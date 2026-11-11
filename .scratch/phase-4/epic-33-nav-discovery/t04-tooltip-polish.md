@@ -8,7 +8,7 @@
 
 **Blocked by:** None.
 
-**Status:** in-progress — claimed 2026-11-11 (epic-33 follow-up run, worktree `project-new-epic33-tooltip`, branch `p4-33/t04-tooltip-polish`)
+**Status:** done — shipped in PR #31 @ `09753c4` (2026-11-11)
 
 - [ ] Per-node pointerLeave hides (120ms grace); strip enter cancels, strip leave schedules; container fallback kept; the 150ms intent + touch-never-opens contracts unchanged
 - [ ] Anchor left = exact node-center X (clamp + chipsHalf measurement deleted); strip `bottom-1`
