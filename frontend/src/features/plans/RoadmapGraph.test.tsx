@@ -455,26 +455,57 @@ describe("RoadmapGraph hover chip strip (epic-28 T4)", () => {
     expect(screen.queryByTestId("roadmap-chips")).toBeNull();
   });
 
-  it("T03: anchors on the node's top edge, centered, glass-faced — no top clamp anywhere", async () => {
+  it("T03/T04: anchors on the node's top edge at its EXACT center, glass-faced, 4px gap", async () => {
     mountGraph();
     fireEvent.pointerEnter(nodeEl("node-05")!, { pointerType: "mouse" });
     await new Promise((resolve) => setTimeout(resolve, 220));
 
     const anchor = screen.getByTestId("roadmap-chips-anchor");
     const nodeRect = nodeEl("node-05")!.querySelector("rect")!;
-    // jsdom renders unmeasured (scale 1, clientWidth 0 → no clamp): the
-    // anchor sits exactly on the node's TOP EDGE at its horizontal center —
-    // the strip hangs off it, so it can never cover the node.
+    // The anchor sits exactly on the node's TOP EDGE at its horizontal
+    // CENTER — no clamp anywhere (T04 deleted the canvas clamp), so the
+    // strip's axis is always the node's axis.
     expect(Number.parseFloat(anchor.style.top)).toBeCloseTo(Number(nodeRect.getAttribute("y")));
     const expectedCenter = Number(nodeRect.getAttribute("x")) + SPINE_NODE_W / 2;
     expect(Number.parseFloat(anchor.style.left)).toBeCloseTo(expectedCenter);
-    // The strip itself: bottom-anchored + centered, glass token — bg-popover
-    // is gone.
+    // The strip itself: 4px above the anchor, centered, glass token.
     const strip = screen.getByTestId("roadmap-chips");
-    expect(strip.className).toContain("bottom-2");
+    expect(strip.className).toContain("bottom-1");
     expect(strip.className).toContain("-translate-x-1/2");
     expect(strip.className).toContain("bg-[var(--popover-glass)]");
     expect(strip.className).not.toContain("bg-popover");
+  });
+
+  it("T04: leaving the NODE hides the strip (120ms grace) — no container trip needed", async () => {
+    mountGraph();
+    fireEvent.pointerEnter(nodeEl("node-05")!, { pointerType: "mouse" });
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    expect(screen.getByTestId("roadmap-chips")).toBeInTheDocument();
+
+    // Pointer leaves the node into empty canvas (never leaves the canvas
+    // div) — the strip must still hide.
+    fireEvent.pointerLeave(nodeEl("node-05")!);
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(screen.queryByTestId("roadmap-chips")).toBeNull();
+  });
+
+  it("T04: entering the strip cancels the grace hide — the chips stay clickable", async () => {
+    mountGraph();
+    fireEvent.pointerEnter(nodeEl("node-05")!, { pointerType: "mouse" });
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    const strip = screen.getByTestId("roadmap-chips");
+
+    // Node leave schedules; strip enter (the pointer rides up onto it)
+    // cancels inside the grace window.
+    fireEvent.pointerLeave(nodeEl("node-05")!);
+    fireEvent.pointerEnter(strip, { pointerType: "mouse" });
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(screen.getByTestId("roadmap-chips")).toBeInTheDocument();
+
+    // Leaving the strip re-schedules the hide.
+    fireEvent.pointerLeave(strip);
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(screen.queryByTestId("roadmap-chips")).toBeNull();
   });
 
   it("the sheet carries the mark toggles + the evidence bar", () => {
