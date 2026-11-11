@@ -286,6 +286,115 @@ RSpec.describe "GET /api/stream?op=lesson (epic-36 T1 — the generated-lesson s
         expect(reloaded.sections.map { |section| section["id"] }).to eq(%w[ch-1])
       end
     end
+
+    # Review F1 (P0): the in-stream MATERIAL outline chapters carry only
+    # sourceSectionIds — the anchors must be minted server-side, or the
+    # section fills ground on nothing and the persisted sections carry
+    # anchors: [] (the reader's source lines vanish). The hub's 重新生成 on
+    # such a row is the empty-outline in-stream path with the regenerate
+    # flag riding.
+    it "the ① regenerate over an empty outline re-derives it with server-minted anchors (source lines never vanish)" do
+      lesson = create_lesson(outline: [])
+      outline_reply = { chapters: [
+        { title: "选举", sourceSectionIds: [ "sec-1" ] },
+        { title: "链式", sourceSectionIds: [ "sec-2" ] }
+      ] }.to_json
+      section_prompts = []
+      allow(adapter).to receive(:complete).and_return(outline_reply)
+      allow(adapter).to receive(:stream) do |messages|
+        section_prompts << messages.map { |message| message[:content] }.join
+        %w[新正文].each
+      end
+
+      stream(mint(lesson, regenerate: true))
+      reloaded = lesson.reload
+      aggregate_failures do
+        expect(events.first["event"]).to eq("outline_ready")
+        expect(events.first["data"]["outline"]).to eq([
+          { "id" => "ch-1", "title" => "选举", "anchors" => [ { "materialId" => source.id, "sectionId" => "sec-1" } ], "status" => "pending" },
+          { "id" => "ch-2", "title" => "链式", "anchors" => [ { "materialId" => source.id, "sectionId" => "sec-2" } ], "status" => "pending" }
+        ])
+        # the section fills GROUND on the minted anchors — never an empty context
+        expect(section_prompts.first).to include("leader election and log replication")
+        expect(section_prompts.second).to include("chain replication passes writes down a chain")
+        expect(events.last["data"]).to eq({ "code" => "OK" })
+      end
+      expect(reloaded.sections.map { |section| section["anchors"] }).to eq([
+        [ { "materialId" => source.id, "sectionId" => "sec-1" } ],
+        [ { "materialId" => source.id, "sectionId" => "sec-2" } ]
+      ])
+    end
+
+    # Review F3 (P2): a FAILED in-stream outline lands pausedKind on the row;
+    # the next successful stream (a fresh ticket — no auto-resume) must end
+    # with the pause CLEARED, never a false banner over a complete lesson.
+    it "a failed in-stream outline pauses the row; the next successful stream ends with pausedKind nil and the outline all ready" do
+      lesson = create_lesson(outline: [])
+      allow(adapter).to receive(:complete).and_raise(Ai::ProviderError, "provider returned HTTP 500")
+
+      stream(mint(lesson))
+      expect(lesson.reload.generation["pausedKind"]).to eq("provider")
+
+      outline_reply = { chapters: [ { title: "选举", sourceSectionIds: [ "sec-1" ] } ] }.to_json
+      allow(adapter).to receive(:complete).and_return(outline_reply)
+      allow(adapter).to receive(:stream).and_return(%w[正文].each)
+
+      stream(mint(lesson))
+      reloaded = lesson.reload
+      aggregate_failures do
+        expect(events.last["data"]).to eq({ "code" => "OK" })
+        expect(reloaded.generation["pausedKind"]).to be_nil
+        expect(reloaded.generation["outline"].map { |chapter| chapter["status"] }).to eq(%w[ready])
+        expect(reloaded.generation["outline"].first["anchors"]).to eq([ { "materialId" => source.id, "sectionId" => "sec-1" } ])
+      end
+    end
+  end
+
+  # Review F2 (P1, spec decision 8's 后端半边): the engine never lets a
+  # lesson feed a lesson. A generated lesson manually mapped onto a node
+  # (the server-side mapping refusal is deferred defense-in-depth) must stay
+  # out of ②'s grounding — outline call AND section fills alike — while the
+  # node's confirmed UPLOADED mappings still ground it.
+  describe "the engine grounding's origin wall (a lesson never feeds a lesson)" do
+    it "the node-variant in-stream outline grounds on confirmed UPLOADED mappings only, even with a generated lesson mapped onto the node" do
+      plan = create(:study_plan, user: user, topic: "Distributed systems")
+      node = create(:knowledge_node, user: user, plan: plan, title: "Raft 选举", order: 0)
+      plan_source = create(:material, user: user, plan: plan, parse_state: "parsed", title: "Uploaded notes", sections: [
+        { "id" => "sec-1", "title" => "Raft", "text" => "leader election and log replication" }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: plan_source, node: node, section_id: "sec-1")
+      old_lesson = create(:material, user: user, plan: plan, origin: "generated", parse_state: "parsed", kind: "markdown",
+                                     size_bytes: 0, title: "旧讲义",
+                                     sections: [ { "id" => "les-sec", "title" => "讲义节", "text" => "讲义喂讲义标记正文" } ],
+                                     generation: { "variant" => "material", "sourceMaterialIds" => [ plan_source.id ],
+                                                   "outline" => [], "pausedKind" => nil, "generatedAt" => Time.current.iso8601 })
+      create(:material_node_mapping, :confirmed, user: user, material: old_lesson, node: node, section_id: "les-sec")
+      node_lesson = create(:material, user: user, plan: plan, origin: "generated", node: node, parse_state: "parsed",
+                                      kind: "markdown", size_bytes: 0, sections: [],
+                                      generation: { "variant" => "node", "sourceMaterialIds" => [],
+                                                    "outline" => [], "pausedKind" => nil, "generatedAt" => Time.current.iso8601 })
+
+      outline_reply = { chapters: [ { title: "选举", sourceSectionIds: [ "sec-1" ] } ] }.to_json
+      prompts = []
+      allow(adapter).to receive(:complete) do |messages|
+        prompts << messages.map { |message| message[:content] }.join
+        outline_reply
+      end
+      allow(adapter).to receive(:stream) do |messages|
+        prompts << messages.map { |message| message[:content] }.join
+        %w[正文].each
+      end
+
+      stream(mint(node_lesson))
+      reloaded = node_lesson.reload
+      aggregate_failures do
+        expect(events.last["data"]).to eq({ "code" => "OK" })
+        expect(prompts.join).to include("leader election and log replication") # the uploaded mapping still grounds
+        expect(prompts.join).not_to include("讲义喂讲义标记正文") # the mapped lesson's text NEVER rides — outline call or section fill
+        expect(events.first["data"]["outline"].first["anchors"]).to eq([ { "materialId" => plan_source.id, "sectionId" => "sec-1" } ])
+        expect(reloaded.generation["outline"].map { |chapter| chapter["status"] }).to eq(%w[ready])
+      end
+    end
   end
 
   # epic-36 T2 (spec story 5 + the ticket's 重新生成 box): the reader's

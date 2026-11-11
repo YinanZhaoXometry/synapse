@@ -74,4 +74,31 @@ RSpec.describe Ai::Lessons do
       end
     end
   end
+
+  describe ".node_confirmed_pairs" do
+    # Review F2 (spec decision 8's 后端半边): the engine's pairs carry
+    # confirmed UPLOADED mappings only — a generated lesson mapped onto the
+    # node never becomes a chapter's anchor material.
+    it "keeps confirmed uploaded mappings only; a generated lesson mapped onto the node never enters the pairs" do
+      user = create(:user)
+      plan = create(:study_plan, user: user)
+      node = create(:knowledge_node, user: user, plan: plan)
+      uploaded = create(:material, user: user, plan: plan, parse_state: "parsed", sections: [
+        { "id" => "sec-1", "title" => "Raft", "text" => "leader election" }
+      ])
+      lesson = create(:material, user: user, plan: plan, origin: "generated", parse_state: "parsed",
+                                 sections: [ { "id" => "les-sec", "title" => "讲义节", "text" => "讲义正文" } ],
+                                 generation: { "variant" => "material", "sourceMaterialIds" => [],
+                                               "outline" => [], "pausedKind" => nil, "generatedAt" => Time.current.iso8601 })
+      create(:material_node_mapping, :confirmed, user: user, material: uploaded, node: node, section_id: "sec-1")
+      create(:material_node_mapping, :confirmed, user: user, material: lesson, node: node, section_id: "les-sec")
+
+      pairs = described_class.node_confirmed_pairs(node)
+
+      aggregate_failures do
+        expect(pairs.keys).to eq(%w[sec-1])
+        expect(pairs["sec-1"].id).to eq(uploaded.id)
+      end
+    end
+  end
 end

@@ -111,7 +111,8 @@ RSpec.describe Ai::CreateLessonCommand do
     it_behaves_like "the generated lesson row shape"
 
     it "creates the lesson pinned to its node (attachment_scope=node) on the plan, one cap-counted call" do
-      result = call_node
+      uuid = SecureRandom.uuid
+      result = call_node(client_uuid: uuid)
 
       aggregate_failures do
         expect(result).to be_success
@@ -120,7 +121,7 @@ RSpec.describe Ai::CreateLessonCommand do
         expect(lesson.node_id).to eq(node.id)
         expect(lesson.attachment_scope).to eq("node")
         expect(lesson.title).to eq(node.title)
-        expect(lesson.id).to eq(lesson.generation["outline"] && lesson.id) # uuid lands as the row id
+        expect(lesson.id).to eq(uuid) # the client uuid IS the row id (delta-3 replay-exact)
       end
       expect(completions.length).to eq(1)
       expect(AiUsageCounter.find_by(user: user).call_count).to eq(1)
@@ -139,6 +140,26 @@ RSpec.describe Ai::CreateLessonCommand do
         expect(prompt).not_to include("plan-wide pool body")
         expect(prompt).to include("At most #{Ai::Lessons::NODE_SECTION_MAX} chapters")
         expect(prompt).to include(node.title)
+      end
+    end
+
+    # Review F2 (spec decision 8's 后端半边): a generated lesson manually
+    # mapped onto the node (the mapping refusal is deferred defense-in-depth)
+    # never feeds the ② engine grounding — lesson feeding lesson stays off.
+    it "a generated lesson confirmed-mapped onto the node never enters the outline grounding" do
+      lesson_source = create(:material, user: user, plan: plan, origin: "generated", parse_state: "parsed", kind: "markdown",
+                                        size_bytes: 0, title: "旧讲义",
+                                        sections: [ { "id" => "les-sec", "title" => "讲义节", "text" => "讲义喂讲义标记正文" } ],
+                                        generation: { "variant" => "material", "sourceMaterialIds" => [ source_material.id ],
+                                                      "outline" => [], "pausedKind" => nil, "generatedAt" => Time.current.iso8601 })
+      create(:material_node_mapping, :confirmed, user: user, material: lesson_source, node: node, section_id: "les-sec")
+
+      call_node
+
+      prompt = completions.sole
+      aggregate_failures do
+        expect(prompt).to include("leader election and log replication") # the uploaded mapping still grounds
+        expect(prompt).not_to include("讲义喂讲义标记正文")
       end
     end
 
