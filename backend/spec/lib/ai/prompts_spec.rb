@@ -46,6 +46,37 @@ RSpec.describe Ai::Prompts do
     end
   end
 
+  # epic-34 T1's single point: EVERY builder's reply-language line comes from
+  # one directive helper — uniform application is the property under test
+  # (a builder growing its own hand-written language line would drift).
+  it "applies the language directive uniformly on every builder (zh | en)" do
+    zh_calls = {
+      quiz: { mode: "open", language: "zh", context: context },
+      flashcards: { language: "zh", context: context },
+      mapping: { language: "zh", context: context },
+      note: { language: "zh", context: context },
+      study_focus: { language: "zh", context: context },
+      today_suggestion: { language: "zh", candidates: [] },
+      grade: { answer: "My answer.", keywords: %w[k], source_text: "Raft elects a leader.", language: "zh" },
+      companion: { question: "为什么？", position_text: "I am here.", language: "zh", escalated: false, context: context },
+      plan_companion: { question: "重点？", language: "zh", context: context },
+      proposal: { message: "m", materials: [], language: "zh" }
+    }
+    aggregate_failures do
+      zh_calls.each do |name, kwargs|
+        content = described_class.public_send(name, **kwargs)[1][:content]
+        expect(content).to include("in 简体中文."), "#{name} lacks the zh language directive"
+      end
+
+      en_calls = zh_calls.to_h { |name, kwargs| [ name, kwargs.except(:language).merge(language: "en") ] }
+      en_calls.each do |name, kwargs|
+        content = described_class.public_send(name, **kwargs)[1][:content]
+        expect(content).to include("in English."), "#{name} lacks the en language directive"
+        expect(content).not_to include("简体中文"), "#{name} leaked the zh directive on an en call"
+      end
+    end
+  end
+
   it "states the mode rule for open, choice, and mix" do
     open = described_class.quiz(mode: "open", language: "zh", context: context)[1][:content]
     choice = described_class.quiz(mode: "choice", language: "zh", context: context)[1][:content]

@@ -25,6 +25,21 @@ module Ai
     DEFAULT_MODEL = "glm-4.5-flash"
     DEFAULT_TIMEOUT_SECONDS = 120
 
+    # The bounded auto-retry (epic-34 T1): exactly ONE extra attempt after a
+    # ~2s backoff, ONLY for these transport fault details — a timeout, an
+    # unreachable service, or a rate limit. `unparseable` never retries (the
+    # reply came back; the same call returns the same reply), cap failures
+    # never retry (the refusal is monotonic and adapter-free), and an
+    # unclassified fault (detail nil) never retries. The retry is a NEW
+    # provider call — it re-enters dispatch, so the DailyCap consumes per
+    # attempt (AD-16's single honest budget: a retry is never free).
+    # `.stream` sits deliberately OUTSIDE the retry: its faults raise at
+    # pull time inside the consumer's rescue region (the frozen SSE ticket
+    # contract — the endpoint never retries), beyond anything the seam could
+    # wrap.
+    RETRYABLE_DETAILS = %i[timeout unreachable rate_limited].freeze
+    RETRY_BACKOFF_SECONDS = 2
+
     class << self
       # Resolve the full client configuration; `api_key` stays blank when
       # unset (dev/test pre-cutover), and `configured?` answers whether real
@@ -52,8 +67,16 @@ module Ai
       # One full completion: Success(String) with the raw assistant text;
       # Failure(:CAP_REACHED) once the user's daily count passes the cap
       # (FR-34); Failure(:INTERNAL) when the provider is unconfigured,
-      # unreachable, or returns something unusable.
+      # unreachable, or returns something unusable — with the transport
+      # fault's `detail` class in the failure context (epic-34 T1:
+      # rate_limited | timeout | unreachable | unparseable; the
+      # GraphQL-facing codes never change). A retryable transport fault
+      # (RETRYABLE_DETAILS) gets the one bounded retry before failing.
       def complete(user:, messages:)
+        result = dispatch(user:) { |client| client.complete(messages) }
+        return result unless retryable_failure?(result)
+
+        sleep(RETRY_BACKOFF_SECONDS)
         dispatch(user:) { |client| client.complete(messages) }
       end
 
@@ -62,7 +85,8 @@ module Ai
       # at pull time, inside the consumer's rescue region — the SSE endpoint
       # turns them into a `terminal` event. The cap consumes one call per
       # `.stream` invocation (a client restart mints a fresh ticket → a new
-      # invocation → counted, AD-16).
+      # invocation → counted, AD-16). No bounded retry here — see
+      # RETRYABLE_DETAILS's comment.
       def stream(user:, messages:)
         dispatch(user:) { |client| client.stream(messages) }
       end
@@ -86,8 +110,15 @@ module Ai
         Success(yield adapter)
       rescue ProviderError => e
         Failure(ApplicationErrors::Failure.new(
-          code: :INTERNAL, context: { message: "ai provider call failed: #{e.message}" }
+          code: :INTERNAL, context: { message: "ai provider call failed: #{e.message}", detail: e.detail }
         ))
+      end
+
+      def retryable_failure?(result)
+        return false unless result.failure?
+
+        failure = result.failure
+        failure.code == :INTERNAL && RETRYABLE_DETAILS.include?(failure.context[:detail])
       end
 
       def positive_int(raw)

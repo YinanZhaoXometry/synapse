@@ -111,6 +111,121 @@ RSpec.describe Ai::Provider do
       refused = described_class.complete(user: user, messages: [])
       expect(refused.failure.code).to eq(:CAP_REACHED)
     end
+
+    # epic-34 T1: transport faults classify into a `detail` symbol riding the
+    # EXISTING Failure context — the GraphQL-facing codes never change
+    # (INTERNAL + context.detail; CAP_REACHED stays its own code above).
+    describe "fault classification" do
+      {
+        timeout: "provider transport failure: Net::ReadTimeout: read timed out",
+        unreachable: "provider transport failure: Errno::ECONNREFUSED: refused",
+        rate_limited: "provider returned HTTP 429",
+        unparseable: "provider returned a non-JSON completion body"
+      }.each do |detail, message|
+        it "carries detail :#{detail} on the INTERNAL failure" do
+          allow(described_class).to receive(:sleep)
+          allow(adapter).to receive(:complete).and_raise(Ai::ProviderError.new(message, detail: detail))
+
+          result = described_class.complete(user: user, messages: [])
+          aggregate_failures do
+            expect(result.failure.code).to eq(:INTERNAL)
+            expect(result.failure.context[:detail]).to eq(detail)
+            expect(result.failure.context[:message]).to include(message)
+          end
+        end
+      end
+    end
+
+    # epic-34 T1: one bounded auto-retry (~2s backoff) ONLY for
+    # timeout/unreachable/rate_limited. The retry is a NEW provider call —
+    # the DailyCap consumes per attempt (AD-16's single honest budget).
+    describe "bounded auto-retry" do
+      before { allow(described_class).to receive(:sleep) }
+
+      it "retries once after the ~2s backoff when the first attempt times out, then succeeds" do
+        attempts = 0
+        allow(adapter).to receive(:complete) do
+          attempts += 1
+          attempts == 1 ? raise(Ai::ProviderError.new("timed out", detail: :timeout)) : "raw text"
+        end
+
+        result = described_class.complete(user: user, messages: [])
+        aggregate_failures do
+          expect(result).to be_success
+          expect(result.value!).to eq("raw text")
+          expect(attempts).to eq(2)
+          expect(described_class).to have_received(:sleep).with(2)
+        end
+      end
+
+      it "consumes the cap PER ATTEMPT — a retry is a new provider call (AD-16)" do
+        attempts = 0
+        allow(adapter).to receive(:complete) do
+          attempts += 1
+          attempts == 1 ? raise(Ai::ProviderError.new("down", detail: :unreachable)) : "ok"
+        end
+
+        described_class.complete(user: user, messages: [])
+        expect(user.ai_usage_counters.sole.call_count).to eq(2)
+      end
+
+      it "retries rate_limited exactly like the other transport faults" do
+        attempts = 0
+        allow(adapter).to receive(:complete) do
+          attempts += 1
+          attempts == 1 ? raise(Ai::ProviderError.new("HTTP 429", detail: :rate_limited)) : "ok"
+        end
+
+        expect(described_class.complete(user: user, messages: [])).to be_success
+        expect(attempts).to eq(2)
+      end
+
+      it "never retries :unparseable — the reply came back, unusable is final" do
+        allow(adapter).to receive(:complete).and_raise(Ai::ProviderError.new("non-JSON body", detail: :unparseable))
+
+        result = described_class.complete(user: user, messages: [])
+        aggregate_failures do
+          expect(result.failure.code).to eq(:INTERNAL)
+          expect(result.failure.context[:detail]).to eq(:unparseable)
+          expect(adapter).to have_received(:complete).once
+          expect(described_class).not_to have_received(:sleep)
+        end
+      end
+
+      it "never retries an unclassified (detail-less) fault" do
+        allow(adapter).to receive(:complete).and_raise(Ai::ProviderError, "unclassified")
+
+        result = described_class.complete(user: user, messages: [])
+        aggregate_failures do
+          expect(result.failure.code).to eq(:INTERNAL)
+          expect(result.failure.context[:detail]).to be_nil
+          expect(adapter).to have_received(:complete).once
+        end
+      end
+
+      it "never retries CAP_REACHED — the refusal is monotonic and adapter-free" do
+        create(:ai_usage_counter, user: user, call_count: 50)
+        allow(adapter).to receive(:complete)
+
+        result = described_class.complete(user: user, messages: [])
+        aggregate_failures do
+          expect(result.failure.code).to eq(:CAP_REACHED)
+          expect(adapter).not_to have_received(:complete)
+          expect(described_class).not_to have_received(:sleep)
+        end
+      end
+
+      it "does not retry an exhausted retry either — exactly one extra attempt" do
+        allow(adapter).to receive(:complete).and_raise(Ai::ProviderError.new("down", detail: :timeout))
+
+        result = described_class.complete(user: user, messages: [])
+        aggregate_failures do
+          expect(result.failure.code).to eq(:INTERNAL)
+          expect(adapter).to have_received(:complete).twice
+          expect(described_class).to have_received(:sleep).once
+        end
+      end
+    end
   end
 
   describe ".stream" do
@@ -144,6 +259,22 @@ RSpec.describe Ai::Provider do
       result = described_class.stream(user: user, messages: [])
       expect(result.failure.code).to eq(:CAP_REACHED)
       expect(adapter).not_to have_received(:stream) # refusal never touches the transport
+    end
+
+    it "never retries a stream — faults surface at pull time by the frozen SSE contract (epic-34 T1)" do
+      allow(described_class).to receive(:sleep)
+      allow(adapter).to receive(:stream).and_return(
+        Enumerator.new { |_yielder| raise Ai::ProviderError.new("mid-stream drop", detail: :timeout) }
+      )
+
+      result = described_class.stream(user: user, messages: [])
+      aggregate_failures do
+        expect(result).to be_success # the enumerator hands back normally
+        expect { result.value!.next }.to raise_error(Ai::ProviderError)
+        expect(adapter).to have_received(:stream).once
+        expect(described_class).not_to have_received(:sleep)
+        expect(user.ai_usage_counters.sole.call_count).to eq(1)
+      end
     end
   end
 end
