@@ -4,7 +4,7 @@
 
 **Blocked by:** None（建议 01 先并——失败分类 detail 让讲解轮的降级文案更细，但非硬依赖）。
 
-**Status:** queued — claimed 2026-11-11 by the same implement-spec run (serial lane 01→02→03 in worktree `project-new-epic34-plan-content-loop`); starts after t01 merges to the integration branch
+**Status:** done on the integration branch — merged @ `d74fc4d` (backend `fe96702` + frontend; PR #32 draft). Gates: rubocop 0 · rspec 1541/0 · SimpleCov 98.5% · tsc/eslint/vitest 1093 green（coverage 76.14/72.99/74.16/77.38 vs floors 71/69/69/72）· codegen fresh · i18n parity green · mastery vectors stamp-clean. Schema delta: `nodeId: String` on CreateStreamTicketInput only. T3 handoff recorded in the ticket thread: prompt builder `plan_companion(teach_node:)`, hook API `teachNode/beginTeaching/clearTeaching`, e2e selector `data-testid="node-teach"`（`node-ask-ai` 已消亡）。Deviations: node block carries title+description（ER 无独立 objectives 字段）; nodeId 与 mistakeEntryId 同票时 node grounding 胜出; light/dark 以 token 构造核验（零新色值）。
 
 - [ ] 节点 Sheet + hover chip 常显「AI 讲解」（无映射门槛）；节点面上「问 AI 导师」消失；reader 的 companionAsk 路径行为不变
 - [ ] Stream ticket 收可选 nodeId（plan_companion 专用），ownership 校验同 mistake-entry 先例；缺省 = 今日 plan 级 grounding；codegen 重生成 + committed schema 更新（CI freshness gate 绿）
