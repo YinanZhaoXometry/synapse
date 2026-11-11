@@ -4,7 +4,7 @@
 
 **Blocked by:** None（CAP_REACHED 已独立成码；01 只改善传输故障类文案细节）。
 
-**Status:** queued — claimed 2026-11-11 by the same implement-spec run (serial lane 01→02→03 in worktree `project-new-epic34-plan-content-loop`); starts after t02 merges to the integration branch
+**Status:** done on the integration branch — merged @ `c330e46`（core `ccea51a` + e2e；PR #32 draft）. Gates: tsc/eslint 0 errors（21 pre-existing warnings）/ vitest 128 files·1114 tests（coverage 76.21/73.05/74.25/77.43 vs floors 71/69/69/72）/ codegen zero-diff / build OK / i18n parity green / **e2e 24 passed · 0 failed**（新段：建计划带文件→自动映射行→未映射节点：16→讲解预填）· mastery vectors clean. 词汇钉死在测试里（未映射节点，never 未覆盖）。vite.config.ts 增加 `VITE_API_PROXY_TARGET` 代理覆盖（默认 :3000 不变，并行 worktree 用）。
 
 - [ ] 效应：parsed ∧ sections ∧ 零映射行 ∧ 本挂载未触发过 → 每材料恰一次映射调用；CreationChat 路径不装触发器（跳转后由 plan 页效应接住）
 - [ ] 会话 guard：失败后本挂载会话不再自动重试；下次访问自然重试；confirmed/rejected 行永不被覆盖
