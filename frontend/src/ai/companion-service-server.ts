@@ -244,11 +244,12 @@ export class ServerCompanionService implements CompanionService {
    * Plan-level chat (FR-46, epic P2-12 T3): the third stream op rides the
    * same SSE wrapper — one minted single-use ticket per generation, the
    * grounding inputs INSIDE the ticket (planId + the optional
-   * mistakeEntryId), drop → fresh-ticket restart, restarts counted against
-   * the daily AI cap. The reply contract is chat's verbatim; the plan
-   * stream's rung is always hint-first with canEscalate false (the payload
-   * has no escalation flag), and the citation list carries the mistake's
-   * own source locator when a mistakeEntryId rode (empty otherwise).
+   * mistakeEntryId + the optional AI 讲解 nodeId, epic-34 T2), drop →
+   * fresh-ticket restart, restarts counted against the daily AI cap. The
+   * reply contract is chat's verbatim; the plan stream's rung is always
+   * hint-first with canEscalate false (the payload has no escalation flag),
+   * and the citation list carries the mistake's own source locator when a
+   * mistakeEntryId rode (empty otherwise).
    */
   async planChat(
     request: PlanChatRequest,
@@ -264,6 +265,7 @@ export class ServerCompanionService implements CompanionService {
         planId: request.planId,
         question: request.question,
         mistakeEntryId: request.mistakeEntryId,
+        nodeId: request.nodeId,
         language: request.language,
       },
       {

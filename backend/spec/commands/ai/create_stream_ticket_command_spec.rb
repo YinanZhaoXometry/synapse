@@ -186,6 +186,51 @@ RSpec.describe Ai::CreateStreamTicketCommand do
       })
     end
 
+    # epic-34 T2 (AI 讲解): the optional node grounding input — ownership-checked
+    # against the ticket's plan exactly like the mistake entry above (uniform
+    # NOT_FOUND for foreign/malformed), the key riding only when present.
+    it "carries node_id resolved through the ticket plan's OWN node" do
+      node = create(:knowledge_node, user: user, plan: plan)
+
+      result = plan_call(node_id: node.id)
+      expect(result.value![:ticket].payload).to eq({
+        "plan_id" => plan.id,
+        "question" => "这个计划我该先学什么？",
+        "language" => "zh",
+        "node_id" => node.id
+      })
+    end
+
+    it "carries mistake_entry_id and node_id together (orthogonal optional inputs, frozen shape)" do
+      node = create(:knowledge_node, user: user, plan: plan)
+      question = create(:question, user: user, node: node)
+      entry = create(:mistake_entry, user: user, question: question, node: node)
+
+      result = plan_call(node_id: node.id, mistake_entry_id: entry.id)
+      expect(result.value![:ticket].payload).to eq({
+        "plan_id" => plan.id,
+        "question" => "这个计划我该先学什么？",
+        "language" => "zh",
+        "mistake_entry_id" => entry.id,
+        "node_id" => node.id
+      })
+    end
+
+    it "refuses foreign, other-plan, unknown, and malformed nodes with uniform NOT_FOUND" do
+      other = create(:user)
+      foreign_node = create(:knowledge_node, user: other)
+      own_other_plan = create(:study_plan, user: user)
+      other_plan_node = create(:knowledge_node, user: user, plan: own_other_plan)
+
+      aggregate_failures do
+        expect(plan_call(node_id: foreign_node.id).failure.code).to eq(:NOT_FOUND)
+        expect(plan_call(node_id: other_plan_node.id).failure.code).to eq(:NOT_FOUND)
+        expect(plan_call(node_id: "00000000-0000-0000-0000-000000000000").failure.code).to eq(:NOT_FOUND)
+        expect(plan_call(node_id: "not-a-uuid").failure.code).to eq(:NOT_FOUND)
+      end
+      expect(user.stream_tickets.count).to eq(0) # nothing minted on any refusal
+    end
+
     it "refuses a missing plan, foreign/unknown/malformed plans, and foreign/unknown/malformed mistake entries with uniform NOT_FOUND" do
       other = create(:user)
       foreign_plan = create(:study_plan, user: other)

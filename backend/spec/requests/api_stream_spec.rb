@@ -301,10 +301,11 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
   describe "the plan_companion stream" do
     let(:plan) { create(:study_plan, user: user) }
 
-    def mint_plan_companion(mistake_entry: nil, language: "zh", question: "这个计划的重点是什么？")
+    def mint_plan_companion(mistake_entry: nil, node: nil, language: "zh", question: "这个计划的重点是什么？")
       result = ::Ai::CreateStreamTicketCommand.call(
         current_user: user, op: "plan_companion", language: language,
-        plan_id: plan.id, question: question, mistake_entry_id: mistake_entry&.id
+        plan_id: plan.id, question: question, mistake_entry_id: mistake_entry&.id,
+        node_id: node&.id
       )
       result.value![:ticket]
     end
@@ -401,6 +402,69 @@ RSpec.describe "GET /api/stream (epic P2-5 ticket 04 — the ONE non-GraphQL sur
 
       stream(mint_plan_companion)
       expect(events.last["data"]["code"]).to eq("CAP_REACHED")
+    end
+
+    # epic-34 T2 (AI 讲解): a nodeId turn grounds on the single node + its
+    # confirmed mapped sections — the plan-wide pool never rides — and a
+    # mapped node's prompt carries no honesty clause.
+    it "grounds a node-teaching turn on the single node + its confirmed mapped sections" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "Raft 选举")
+      material = create(:material, user: user, plan: plan, title: "讲义", sections: [
+        { "id" => "sec-1", "title" => "Election", "text" => "Raft elects a leader." },
+        { "id" => "sec-2", "title" => "Log", "text" => "replicated log body" }
+      ])
+      other = create(:material, user: user, plan: plan, title: "Plan-wide notes", sections: [
+        { "id" => "o-1", "title" => "O", "text" => "plan wide pool body" }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-1")
+      captured = nil
+      allow(adapter).to receive(:stream) do |messages|
+        captured = messages
+        %w[讲解].each
+      end
+
+      stream(mint_plan_companion(node: node, question: "请给我讲解这个节点"))
+
+      user_prompt = captured.second[:content]
+      aggregate_failures do
+        expect(user_prompt).to include("[node id=#{node.id}")
+        expect(user_prompt).to include("Raft 选举")
+        expect(user_prompt).to include("Raft elects a leader.")
+        expect(user_prompt).to include("TEACHES the node")
+        expect(user_prompt).not_to include("replicated log body")
+        expect(user_prompt).not_to include("plan wide pool body")
+        expect(user_prompt).not_to include("no material is attached")
+      end
+      expect(events.last["data"]["code"]).to eq("OK")
+    end
+
+    it "carries the honesty directive for an unmapped node's teaching turn" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "Lonely")
+      captured = nil
+      allow(adapter).to receive(:stream) do |messages|
+        captured = messages
+        %w[诚实].each
+      end
+
+      stream(mint_plan_companion(node: node))
+
+      user_prompt = captured.second[:content]
+      aggregate_failures do
+        expect(user_prompt).to include("[node id=#{node.id}")
+        expect(user_prompt).not_to include("[section id=")
+        expect(user_prompt).to include("no material is attached")
+        expect(user_prompt).to include("NEVER teach the node from your own knowledge")
+      end
+    end
+
+    it "answers terminal{NOT_FOUND} when the teach node vanished between mint and redeem" do
+      node = create(:knowledge_node, user: user, plan: plan)
+      ticket = mint_plan_companion(node: node)
+      node.destroy!
+      allow(adapter).to receive(:stream)
+
+      stream(ticket)
+      expect(events.last["data"]["code"]).to eq("NOT_FOUND")
     end
   end
 

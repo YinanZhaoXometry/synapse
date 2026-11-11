@@ -149,12 +149,38 @@ function proposalReply(text) {
   return [...outline, "<proposal>", JSON.stringify(proposal), "</proposal>"].join("\n");
 }
 
+/**
+ * The mapping reply: {"mappings":[{sectionId, nodeId, proposedNodeTitle}]}
+ * — one entry per real `[section id=…]` regexed out of the assembled
+ * mapping context, all pointing at the FIRST `[node id=…]` there (the stub
+ * proposal's first node, 复杂度分析). The backend's normalize_targets drops
+ * anything unusable, so a missed id costs a section its proposal, not the
+ * contract.
+ */
+function mappingReply(text) {
+  const sectionIds = [...text.matchAll(/\[section id=(.+?)[\]\s]/g)].map((match) => match[1]);
+  const nodeId = (text.match(/\[node id=(.+?)[\]\s]/) ?? [])[1];
+  if (sectionIds.length === 0 || !nodeId) {
+    return "Stub could not find section/node ids in the mapping context.";
+  }
+  return JSON.stringify({
+    mappings: sectionIds.map((sectionId) => ({ sectionId, nodeId, proposedNodeTitle: null })),
+  });
+}
+
 function replyFor(messages) {
   const lastUser = [...messages].reverse().find((message) => message.role === "user");
   const text = lastUser?.content ?? "";
 
   if (text.startsWith("Design a study plan.")) return proposalReply(text);
   if (text.includes("quiz questions")) return quizReply(text);
+  // Section mapping (epic P2-10's AI map run — epic-34 T3 makes it
+  // auto-fired, so the creation-with-file flow hits it unprompted): the
+  // mapping prompt's stable instruction line is the contract matched here.
+  // Every real section id rides out pointing at the plan's FIRST node — the
+  // server normalizes (unknown sections dropped, hallucinated node ids would
+  // land Unmapped), so fabrication would fail loudly, not silently.
+  if (text.includes("Map EVERY [section id=")) return mappingReply(text);
   return "Stub reply.";
 }
 

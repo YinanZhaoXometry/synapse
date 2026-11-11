@@ -29,7 +29,12 @@ import {
   mintStreamTicketWith,
   startStream,
 } from "./sse-client";
-import type { StreamEventSourceLike, StreamRequest, StreamTerminal } from "./sse-client";
+import type {
+  PlanCompanionStreamRequest,
+  StreamEventSourceLike,
+  StreamRequest,
+  StreamTerminal,
+} from "./sse-client";
 import type { CreateStreamTicketMutationVariables } from "@/types/graphql";
 
 // The terminator-registry probe: the real registerStreamTerminator stays in
@@ -150,7 +155,7 @@ const proposalRequest = (): StreamRequest => ({
   language: "zh",
 });
 
-const planCompanionRequest = (): StreamRequest => ({
+const planCompanionRequest = (): PlanCompanionStreamRequest => ({
   op: "plan_companion",
   planId: "plan-1",
   question: "这个计划的重点是什么？",
@@ -283,6 +288,18 @@ describe("startStream (the /api/stream EventSource wrapper — epic P2-8 T4)", (
       },
     });
     expect(harness.sources[0].url).toBe("/api/stream?ticket=tok-1&op=plan_companion");
+  });
+
+  it("epic-34 T2: a teaching turn's nodeId rides the ticket input — and stays OFF generic turns", async () => {
+    const harness = makeDeps();
+    startStream({ ...planCompanionRequest(), nodeId: "node-9" }, {}, harness.deps);
+    await settle();
+    startStream(planCompanionRequest(), {}, harness.deps);
+    await settle();
+
+    expect(harness.mints[0].variables.input.nodeId).toBe("node-9");
+    // the frozen payload discipline: the key never rides when absent
+    expect("nodeId" in harness.mints[1].variables.input).toBe(false);
   });
 
   it("the language parameter follows each stream's request (toggle mid-session applies to the next stream)", async () => {

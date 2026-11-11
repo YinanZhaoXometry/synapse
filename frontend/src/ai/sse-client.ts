@@ -86,7 +86,9 @@ export interface ProposalStreamRequest {
 /**
  * Plan-scope companion chat (FR-46, epic P2-12 T3 — the third stream op):
  * plan-grounded (no ReadingPosition), with the optional mistake entry as the
- * "analyze my mistakes" grounding input. Same event vocabulary as companion;
+ * "analyze my mistakes" grounding input. `nodeId` is the AI 讲解 node-teaching
+ * grounding input (epic-34 T2): when present, the server grounds on THAT node
+ * + its confirmed mapped sections. Same event vocabulary as companion;
  * the citation event carries the mistake's own source locator.
  */
 export interface PlanCompanionStreamRequest {
@@ -94,6 +96,7 @@ export interface PlanCompanionStreamRequest {
   planId: string;
   question: string;
   mistakeEntryId?: string;
+  nodeId?: string;
   language: UiLanguage;
 }
 
@@ -245,6 +248,10 @@ function buildVariables(request: StreamRequest): CreateStreamTicketMutationVaria
     input.planId = request.planId;
     input.question = request.question;
     input.mistakeEntryId = request.mistakeEntryId;
+    // The AI 讲解 node-teaching input (epic-34 T2): absent for generic plan
+    // turns — the frozen payload shape stays unchanged (the server omits
+    // the key).
+    if (request.nodeId) input.nodeId = request.nodeId;
   } else {
     input.message = request.message;
     input.materials = request.materials;

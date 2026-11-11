@@ -83,6 +83,9 @@ const mappingRow = (overrides: Partial<MaterialNodeMappingView> = {}): MaterialN
   ...overrides,
 });
 
+/** The AI 讲解 handoff recorder — the plan shell's callback stands in here. */
+const teachCalls: Array<[string, string]> = [];
+
 /** The full provider wrapper as a standalone tree — lets a test `rerender` with changed views. */
 const treeWith = (
   views: NodeRowView[],
@@ -104,6 +107,7 @@ const treeWith = (
           edges={opts.edges}
             mappings={"mappings" in opts ? opts.mappings : [mappingRow()]}
             mappingsFailed={opts.mappingsFailed ?? false}
+            onTeachNode={(nodeId, nodeTitle) => teachCalls.push([nodeId, nodeTitle])}
           />
         </LanguageProvider>
       </ThemeProvider>
@@ -130,6 +134,7 @@ const edges = () => Array.from(document.querySelectorAll("[data-testid='roadmap-
 
 beforeEach(() => {
   localStorage.clear();
+  teachCalls.length = 0;
 });
 
 describe("RoadmapGraph spine render", () => {
@@ -536,14 +541,34 @@ describe("RoadmapGraph hover chip strip (epic-28 T4)", () => {
     expect(marks!.textContent).toContain(zhDict["plans.noEvidence"]);
   });
 
-  it("the ask-AI handoff href carries the encoded draft before the anchor", () => {
-    mountGraph();
+  it("epic-34 T2: the AI 讲解 action replaces the ask-AI handoff and is never mapping-gated", () => {
+    // Zero confirmed mappings — the unmapped node STILL carries the teach
+    // entry (GLOSSARY AI 讲解: always rendered, never mapping-gated); the
+    // retired mapping-gated 「问 AI 导师」 is gone from the sheet.
+    mountGraph({ mappings: [] });
     fireEvent.click(nodeEl("node-05")!);
-    const ask = screen.getByTestId("node-ask-ai");
-    const href = ask.getAttribute("href")!;
-    expect(href.startsWith("/read/m-md?hl=1&companionAsk=")).toBe(true);
-    expect(href.endsWith("#sec-1")).toBe(true);
-    const draft = decodeURIComponent(href.split("companionAsk=")[1].split("#")[0]);
-    expect(draft).toBe(zh("plans.companionAskDraft", { node: "Node 5 学习节点" }));
+    expect(screen.queryByTestId("node-ask-ai")).toBeNull();
+
+    const teach = screen.getByTestId("node-teach");
+    expect(teach).toHaveTextContent(zhDict["plans.nodeTeachAction"]);
+    fireEvent.click(teach);
+    expect(teachCalls).toEqual([["node-05", "Node 5 学习节点"]]);
+    // The sheet closed on the teach click — the drawer it opens lives on the
+    // plan page shell underneath.
+    expect(screen.queryByTestId("roadmap-detail")).toBeNull();
+  });
+
+  it("epic-34 T2: the hover strip carries the teach chip beside the actions", async () => {
+    mountGraph();
+    fireEvent.pointerEnter(nodeEl("node-05")!, { pointerType: "mouse" });
+    await new Promise((resolve) => setTimeout(resolve, 220));
+
+    const strip = screen.getByTestId("roadmap-chips");
+    const teach = strip.querySelector("[data-testid='node-teach']") as HTMLButtonElement;
+    expect(teach).not.toBeNull();
+    expect(teach).toHaveTextContent(zhDict["plans.nodeTeachAction"]);
+
+    fireEvent.click(teach);
+    expect(teachCalls).toEqual([["node-05", "Node 5 学习节点"]]);
   });
 });

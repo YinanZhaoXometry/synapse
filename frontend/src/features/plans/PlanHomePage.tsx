@@ -25,7 +25,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
-import { CompanionPanel } from "@/features/companion";
+import { CompanionPanel, type TeachPrefill } from "@/features/companion";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import MaterialScopeControls from "./MaterialScopeControls";
 import NotesSection from "./NotesSection";
@@ -48,6 +48,8 @@ import { cn } from "@/lib/utils";
 import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "./display-shaping";
+import { unmappedNodeCount } from "./auto-mapping";
+import { useAutoMapping } from "./use-auto-mapping";
 import NodeRow from "./node-row";
 import RoadmapGraph from "./RoadmapGraph";
 import { localeTag } from "./locale";
@@ -104,6 +106,39 @@ export default function PlanHomePage() {
   const mistakesQuery = usePlanMistakeEntriesQuery(id ?? "");
   const [companionOpen, setCompanionOpen] = useState(false);
   const companionSectionRef = useRef<HTMLElement>(null);
+  // Epic-34 T2 (AI 讲解): a node's teach action hands the drawer its session
+  // request — the panel marks the node (every turn rides the nodeId) and
+  // pre-fills the composer. The generic quick action hands null (clears).
+  const [teachRequest, setTeachRequest] = useState<TeachPrefill | null>(null);
+  const teachNonceRef = useRef(0);
+  // Epic-34 T3 (Auto-mapping; GLOSSARY Auto-mapping): the ONE trigger point —
+  // while this page is mounted, every parsed material with sections and zero
+  // mapping rows gets the mapping mutation fired once per mount session
+  // (CreationChat deliberately isn't instrumented: it navigates here and the
+  // effect catches the staged materials on arrival). The coverage panel's
+  // auto states + the computed unmapped-nodes summary ride the returned state.
+  const { autoRunningFor, capReached } = useAutoMapping({
+    materials: materialsQuery.data,
+    mappingRows: mappingsQuery.data,
+  });
+
+  // The shared drawer tail (review round): open + smooth-scroll the drawer
+  // into view — both the generic entry and a node's 讲解 handoff land here.
+  const openDrawer = () => {
+    setCompanionOpen(true);
+    requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const openCompanion = () => {
+    setTeachRequest(null);
+    openDrawer();
+  };
+
+  const openTeaching = (nodeId: string, nodeTitle: string) => {
+    teachNonceRef.current += 1;
+    setTeachRequest({ nodeId, nodeTitle, nonce: teachNonceRef.current });
+    openDrawer();
+  };
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -194,6 +229,10 @@ export default function PlanHomePage() {
   const activity = planRecentActivity(nodes, evidence);
   const views = nodeRowViews(nodes, evidence);
   const hasMaterials = materials.length > 0;
+  // Epic-34 T3: the coverage-honesty summary — plan nodes with zero CONFIRMED
+  // mapping rows (GLOSSARY Unmapped node), derived from the batch mapping read
+  // the page already loads; pure derivation, no new query fields.
+  const unmappedNodes = unmappedNodeCount(nodes, mappingsQuery.data ?? []);
   // Quiz generation needs parsed sections (FR-18 sourcing honesty) — pending/
   // failed/empty materials cannot serve a quiz, so they don't unlock the tile.
   const quizable = quizableMaterials(materials);
@@ -223,11 +262,10 @@ export default function PlanHomePage() {
       desc: t("plans.quickCompanionDesc"),
       off: false,
       // Epic P2-12 T3 (FR-46): opens the plan-grounded chat drawer (the
-      // retired slice-4 placeholder toast is gone).
-      run: () => {
-        setCompanionOpen(true);
-        requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-      },
+      // retired slice-4 placeholder toast is gone). The GENERIC entry —
+      // epic-34 T2: it also clears any AI 讲解 node session the drawer
+      // was carrying (context follows intent, not stale memory).
+      run: openCompanion,
     },
   ] as const;
 
@@ -308,6 +346,7 @@ export default function PlanHomePage() {
                 edges={plan.edges}
                 mappings={mappingsQuery.data}
                 mappingsFailed={!!mappingsQuery.error}
+                onTeachNode={openTeaching}
               />
             </section>
           ) : (
@@ -323,6 +362,7 @@ export default function PlanHomePage() {
                       materials={materials}
                       mappings={mappingsQuery.data}
                       mappingsFailed={!!mappingsQuery.error}
+                      onTeach={openTeaching}
                     />
                   ))}
                 </div>
@@ -394,7 +434,13 @@ export default function PlanHomePage() {
                       onToggleCoverage={() => setCoverageFor(coverageFor === material.id ? null : material.id)}
                     />
                     {coverageFor === material.id && (
-                      <MaterialCoveragePanel material={material} nodes={nodes} />
+                      <MaterialCoveragePanel
+                        material={material}
+                        nodes={nodes}
+                        autoRunning={autoRunningFor === material.id}
+                        capReached={capReached}
+                        unmappedNodes={unmappedNodes}
+                      />
                     )}
                   </div>
                 ))}
@@ -488,6 +534,7 @@ export default function PlanHomePage() {
             planId={plan.id}
             materials={materials}
             mistakeEntries={mistakesQuery.data ?? []}
+            teachPrefill={teachRequest}
           />
         </div>
       </section>

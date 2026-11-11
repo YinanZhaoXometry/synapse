@@ -99,14 +99,19 @@ export interface PlanProposalOptions {
  * (no ReadingPosition). `mistakeEntryId` is the "analyze my mistakes"
  * grounding input — the entry's question + its source section ride the
  * server's plan grounding first, and the stream's citation event carries the
- * entry's own source locator. The onNotice channel is the same
- * cap-counted-restart pass-through as chat.
+ * entry's own source locator. `nodeId` is the AI 讲解 node-teaching input
+ * (epic-34 T2): when it rides, the server grounds the turn on THAT node (its
+ * description + its confirmed mapped sections) instead of the plan-wide
+ * assembly, and an unmapped node's reply says honestly that no material is
+ * attached. The onNotice channel is the same cap-counted-restart pass-through
+ * as chat.
  */
 export interface PlanChatRequest {
   planId: string;
   question: string;
   language: UiLanguage;
   mistakeEntryId?: string;
+  nodeId?: string;
   onNotice?: (messageKey: string) => void;
 }
 

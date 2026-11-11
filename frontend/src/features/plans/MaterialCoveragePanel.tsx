@@ -10,6 +10,14 @@
  * failure + retry — never the affirmative empty state. All copy bilingual
  * via the dictionary; error toasts map the closed api enum through
  * apiErrorKeys("mapping.").
+ *
+ * epic-34 T3 (Auto-mapping · coverage honesty): the panel surfaces the
+ * plan-page effect's states without ever firing anything itself —
+ * `autoRunning` renders the「正在 AI 映射…」line (and holds the manual
+ * button for the moment), `capReached` renders the「额度已用完」state in
+ * place of the empty state (the manual button stays the explicit retry),
+ * and `unmappedNodes` is the page-computed summary line (GLOSSARY Unmapped
+ * node — the material-mapping axis, never the mastery axis's wording).
  */
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowRight, ChevronDown, CircleSlash, ListChecks, Map as MapIcon, RotateCw, Sparkles } from "lucide-react";
@@ -74,7 +82,22 @@ function GroupShell({
   );
 }
 
-export default function MaterialCoveragePanel({ material, nodes }: { material: MaterialView; nodes: KnowledgeNodeView[] }) {
+export default function MaterialCoveragePanel({
+  material,
+  nodes,
+  autoRunning = false,
+  capReached = false,
+  unmappedNodes = 0,
+}: {
+  material: MaterialView;
+  nodes: KnowledgeNodeView[];
+  /** epic-34 T3: the plan-page effect is mapping THIS material right now. */
+  autoRunning?: boolean;
+  /** epic-34 T3: the daily AI cap is exhausted — the honest paused state. */
+  capReached?: boolean;
+  /** epic-34 T3: the page-computed unmapped-nodes count (zero CONFIRMED rows). */
+  unmappedNodes?: number;
+}) {
   const { language, t } = useLanguage();
   const mappingsQuery = useMaterialNodeMappingsQuery(material.id);
   const [mapSections, mapResult] = useMapMaterialSectionsMutation();
@@ -141,7 +164,7 @@ export default function MaterialCoveragePanel({ material, nodes }: { material: M
         <button
           type="button"
           onClick={runMap}
-          disabled={mapping}
+          disabled={mapping || autoRunning}
           className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline disabled:opacity-60 disabled:cursor-wait"
         >
           {mapping ? (
@@ -152,6 +175,18 @@ export default function MaterialCoveragePanel({ material, nodes }: { material: M
           {mapping ? t("mapping.working") : hasRows ? t("mapping.remapping") : t("mapping.mapAction")}
         </button>
       </div>
+
+      {/* epic-34 T3: the computed coverage-honesty summary — the plan's nodes
+          with zero CONFIRMED mappings (the page derives it from the batch
+          mapping read it already loads). Always visible; the count answers
+          "which nodes have nothing to study FROM" (the material-mapping
+          axis), distinct from anything mastery-related. */}
+      <p
+        className="text-[11px] leading-[1.5] text-muted-foreground px-1 pt-1"
+        data-testid="coverage-unmapped-summary"
+      >
+        {t("mapping.unmappedNodesSummary", { n: unmappedNodes })}
+      </p>
 
       {loadFailed && (
         <div className="flex items-center gap-2 px-1 py-2" data-testid="coverage-load-failed">
@@ -168,7 +203,23 @@ export default function MaterialCoveragePanel({ material, nodes }: { material: M
         </div>
       )}
 
-      {!hasRows && !mapping && !loadFailed && (
+      {/* The zero-rows states, most specific first (epic-34 T3): the effect's
+          in-flight line, then the cap-exhausted state (the manual button
+          stays the explicit retry), then the honest initial empty state. */}
+      {!hasRows && !loadFailed && autoRunning && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground px-1 py-2" data-testid="coverage-auto-working">
+          <RotateCw className="w-3 h-3 animate-spin flex-none" aria-hidden="true" />
+          {t("mapping.autoWorking")}
+        </p>
+      )}
+
+      {!hasRows && !loadFailed && !autoRunning && capReached && (
+        <p className="text-xs text-muted-foreground px-1 py-2" data-testid="coverage-cap">
+          {t("mapping.capExhausted")}
+        </p>
+      )}
+
+      {!hasRows && !mapping && !loadFailed && !autoRunning && !capReached && (
         <p className="text-xs text-muted-foreground px-1 py-2">{t("mapping.noMappings")}</p>
       )}
 

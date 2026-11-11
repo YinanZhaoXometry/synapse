@@ -48,11 +48,15 @@ module Ai
       http = build_http
       request = build_request(messages, stream: false)
       response = http.start { |connection| connection.request(request) }
-      raise ProviderError, "provider returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+      unless response.is_a?(Net::HTTPSuccess)
+        raise ProviderError.new("provider returned HTTP #{response.code}", detail: http_fault_detail(response.code))
+      end
 
       parse_completion(response.body)
-    rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNREFUSED, SocketError, OpenSSL::SSL::SSLError => e
-      raise ProviderError, "provider transport failure: #{e.class}: #{e.message}"
+    rescue Net::OpenTimeout, Net::ReadTimeout => e
+      raise ProviderError.new("provider transport failure: #{e.class}: #{e.message}", detail: :timeout)
+    rescue Errno::ECONNREFUSED, SocketError, OpenSSL::SSL::SSLError => e
+      raise ProviderError.new("provider transport failure: #{e.class}: #{e.message}", detail: :unreachable)
     end
 
     # Token deltas as a lazy Enumerator (the SSE endpoint's upstream). The
@@ -71,7 +75,7 @@ module Ai
           http.start do |connection|
             connection.request(request) do |response|
               unless response.is_a?(Net::HTTPSuccess)
-                raise ProviderError, "provider returned HTTP #{response.code}"
+                raise ProviderError.new("provider returned HTTP #{response.code}", detail: http_fault_detail(response.code))
               end
 
               response.read_body do |chunk|
@@ -82,14 +86,24 @@ module Ai
           buffer.flush.each { |delta| yielder << delta }
         rescue ProviderError
           raise
-        rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNREFUSED, Errno::ECONNRESET,
-               Errno::EPIPE, IOError, EOFError, SocketError, OpenSSL::SSL::SSLError => e
-          raise ProviderError, "provider transport failure: #{e.class}: #{e.message}"
+        rescue Net::OpenTimeout, Net::ReadTimeout => e
+          raise ProviderError.new("provider transport failure: #{e.class}: #{e.message}", detail: :timeout)
+        rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::EPIPE, IOError, EOFError,
+               SocketError, OpenSSL::SSL::SSLError => e
+          raise ProviderError.new("provider transport failure: #{e.class}: #{e.message}", detail: :unreachable)
         end
       end
     end
 
     private
+
+    # The non-200 fault class (epic-34 T1): the rate limit has its own
+    # detail (the seam retries it); every other HTTP refusal is the service
+    # failing at its side — unreachable, not unparseable (nothing usable
+    # arrived, but a reply-shaped refusal is not a malformed reply).
+    def http_fault_detail(code)
+      code == "429" ? :rate_limited : :unreachable
+    end
 
     def build_http
       http = Net::HTTP.new(@request_uri.host, @request_uri.port)
@@ -114,16 +128,16 @@ module Ai
     def parse_completion(raw)
       payload = JSON.parse(raw)
       if payload.is_a?(Hash) && payload["error"]
-        raise ProviderError, "provider error payload: #{payload["error"].to_s[0, 200]}"
+        raise ProviderError.new("provider error payload: #{payload["error"].to_s[0, 200]}", detail: :unreachable)
       end
 
       choices = payload.is_a?(Hash) ? payload["choices"] : nil
       content = choices.is_a?(Array) ? choices.dig(0, "message", "content") : nil
-      raise ProviderError, "provider response missing choices[0].message.content" if content.nil?
+      raise ProviderError.new("provider response missing choices[0].message.content", detail: :unparseable) if content.nil?
 
       content
     rescue JSON::ParserError
-      raise ProviderError, "provider returned a non-JSON completion body"
+      raise ProviderError.new("provider returned a non-JSON completion body", detail: :unparseable)
     end
 
     # Incremental SSE line buffer: `feed` takes a raw TCP chunk, extracts
@@ -179,7 +193,7 @@ module Ai
 
         parsed = JSON.parse(payload)
         if parsed.is_a?(Hash) && parsed["error"]
-          raise ProviderError, "provider stream error payload: #{parsed["error"].to_s[0, 200]}"
+          raise ProviderError.new("provider stream error payload: #{parsed["error"].to_s[0, 200]}", detail: :unreachable)
         end
 
         content = parsed.dig("choices", 0, "delta", "content")

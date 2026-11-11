@@ -28,6 +28,19 @@ module Ai
     # was dropped or cut.
     Assembled = Struct.new(:text, :truncated, keyword_init: true)
 
+    # The node-teaching grounding result (epic-34 T2, AI 讲解): the assembled
+    # context plus `unmapped` — the honesty flag (no USABLE confirmed mapping)
+    # the plan-companion prompt's honesty directive reads. A distinct struct,
+    # not an Assembled extension: the teaching turn's honesty posture is
+    # assembly-derived here, never re-derived by its consumers.
+    NodeGrounding = Struct.new(:text, :truncated, :unmapped, keyword_init: true)
+
+    # The teaching turn's directive facts (epic-34 T2 review round): the node
+    # being taught + the grounding's honesty posture, traveling as a value —
+    # never a bare hash — from the stream controller through
+    # Prompts.plan_companion into the teaching directive.
+    TeachingNode = Struct.new(:title, :unmapped, keyword_init: true)
+
     class << self
       def default_budget
         positive_int(ENV["AI_CONTEXT_BUDGET_TOKENS"]) || DEFAULT_CONTEXT_BUDGET_TOKENS
@@ -143,15 +156,7 @@ module Ai
             parts << block
             consumed += tokens
           else
-            header = "[mistake entry]\n"
-            header_tokens = estimate_tokens(header)
-            remaining = budget - consumed
-            if remaining > header_tokens + 1
-              cut, cut_short = hard_truncate(block, remaining - header_tokens - 1)
-              parts << header << cut << "\n\n"
-              truncated ||= cut_short
-            end
-            consumed = budget
+            consumed, = append_bounded(parts, "[mistake entry]\n", block, consumed, budget)
             truncated = true
           end
 
@@ -165,15 +170,7 @@ module Ai
               parts << block
               consumed += tokens
             else
-              header = "[section id=#{section["id"]} title=\"#{section["title"]}\"]\n"
-              header_tokens = estimate_tokens(header)
-              remaining = budget - consumed
-              if remaining > header_tokens + 1
-                cut, cut_short = hard_truncate(section_text(section), remaining - header_tokens - 1)
-                parts << header << cut << "\n\n"
-                truncated ||= cut_short
-              end
-              consumed = budget
+              consumed, = append_bounded(parts, section_header(section), section_text(section), consumed, budget)
               truncated = true
             end
           end
@@ -202,6 +199,83 @@ module Ai
         end
 
         Assembled.new(text: parts.strip, truncated: truncated)
+      end
+
+      # Node teaching grounding (epic-34 T2, AI 讲解 — the plan-companion
+      # stream's nodeId turns): THE single node — its nodes-block line plus
+      # its description (the node's stated coverage, when the row carries
+      # one) — then THIS node's confirmed mapped sections' text, budget
+      # bounded. Deliberately NOT node_scope: the plan-wide materials pool
+      # never rides a teaching turn (decision 6 — the turn is about this
+      # node), and another node's pinned material stays with its node (the
+      # FR-44 semantics, unchanged). The result's `unmapped` flag is the
+      # honesty posture: Prompts.plan_companion reads it to say no material
+      # is attached. It reflects USABLE mapped text, never row existence —
+      # zero confirmed rows AND rows whose sections no longer resolve
+      # (deleted/renumbered sections) both leave the context section-less,
+      # and an empty context MUST read as unmapped so the honesty directive
+      # fires: "teach from confirmed sections" with none present would be
+      # the dishonest shape. Budget discipline is plan_grounding's: whole
+      # sections while they fit, the honest hard cut (marker reserved) when
+      # nothing fits, the estimate never exceeds the budget, `truncated`
+      # honest.
+      def node_grounding(plan, node, budget: default_budget)
+        rows = node_teaching_mappings(plan, node)
+        parts = +""
+        truncated = false
+        consumed = 0
+        mapped_usable = false
+
+        head = teaching_node_block(node)
+        parts << head
+        consumed += estimate_tokens(head)
+
+        reserve = estimate_tokens(TRUNCATION_MARKER) + 1
+        rows.each do |row|
+          section = section_by_id(row.material, row.section_id)
+          next unless section
+
+          remaining = budget - consumed
+          break if remaining <= reserve
+
+          block = render_section(section)
+          tokens = estimate_tokens(block)
+          if tokens <= remaining
+            parts << block
+            consumed += tokens
+            mapped_usable = true
+          else
+            consumed, appended = append_bounded(parts, section_header(section), section_text(section),
+                                                consumed, budget)
+            truncated = true
+            mapped_usable ||= appended
+            break
+          end
+        end
+
+        NodeGrounding.new(text: parts.strip, truncated: truncated, unmapped: !mapped_usable)
+      end
+
+      # The teaching turn's confirmed mapping rows (epic-34 T2): THIS node's
+      # confirmed rows on the plan's own materials, stable created_at/id
+      # order (the confirmed_mapping_block discipline). The mapping itself is
+      # the justification — a confirmed row on a node-pinned material teaches
+      # this node too; the plan-wide/pinned scopes are irrelevant here.
+      def node_teaching_mappings(plan, node)
+        MaterialNodeMapping.where(user_id: plan.user_id, status: "confirmed", node_id: node.id)
+                           .joins(:material).where(materials: { plan_id: plan.id })
+                           .order(:created_at, :id).includes(:material)
+      end
+
+      # The single-node head block: the shared nodes_block line (id/stage/
+      # order/title vocabulary) plus the node's description — the teaching
+      # turn's title/description grounding (decision 6; the ER has no
+      # separate objectives field, the description IS the node's stated
+      # coverage). A legacy description-less node rides the plain block.
+      def teaching_node_block(node)
+        block = nodes_block([ node ])
+        description = node.description.to_s.strip
+        description.empty? ? block : "#{block}[node description] #{description}\n"
       end
 
       # The confirmed section→node relationships (epic-10's mapping read,
@@ -423,7 +497,31 @@ module Ai
       end
 
       def render_section(section)
-        "[section id=#{section["id"]} title=\"#{section["title"]}\"]\n#{section_text(section)}\n\n"
+        "#{section_header(section)}#{section_text(section)}\n\n"
+      end
+
+      def section_header(section)
+        "[section id=#{section["id"]} title=\"#{section["title"]}\"]\n"
+      end
+
+      # The truncate-packing step shared by the grounding surfaces (the
+      # review round's dedupe): the whole block no longer fits, so its
+      # header + a hard cut of the body ride while the remaining budget
+      # allows (+1 reserved for the block's trailing padding), and the
+      # budget is spent either way. Returns `[new_consumed, appended?]` —
+      # the second value is the honest "some text landed" signal the
+      # node_grounding usability flag reads (a cut too big for even its
+      # header lands nothing).
+      def append_bounded(parts, header, body_text, consumed, budget)
+        header_tokens = estimate_tokens(header)
+        remaining = budget - consumed
+        if remaining > header_tokens + 1
+          cut, = hard_truncate(body_text, remaining - header_tokens - 1)
+          parts << header << cut << "\n\n"
+          return [ budget, true ]
+        end
+
+        [ budget, false ]
       end
 
       def section_text(section)

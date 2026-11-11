@@ -111,6 +111,48 @@ RSpec.describe Ai::GlmClient do
       @server = StubHttpServer.new([ http_ok("not json at all") ])
       expect { client(@server).complete(messages) }.to raise_error(Ai::ProviderError)
     end
+
+    # epic-34 T1: every raise site stamps the fault class — the seam's
+    # Failure context detail (and the bounded retry) reads these.
+    it "stamps detail :rate_limited on an HTTP 429, :unreachable on other non-200s" do
+      @server = StubHttpServer.new([ "HTTP/1.1 429 Too Many Requests\r\nContent-Length: 0\r\n\r\n" ])
+      expect { client(@server).complete(messages) }.to raise_error(Ai::ProviderError) { |e| expect(e.detail).to eq(:rate_limited) }
+
+      @server = StubHttpServer.new([ "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n" ])
+      expect { client(@server).complete(messages) }.to raise_error(Ai::ProviderError) { |e| expect(e.detail).to eq(:unreachable) }
+    end
+
+    it "stamps detail :unparseable on a non-JSON completion body and a missing reply content" do
+      @server = StubHttpServer.new([ http_ok("not json at all") ])
+      expect { client(@server).complete(messages) }.to raise_error(Ai::ProviderError) { |e| expect(e.detail).to eq(:unparseable) }
+
+      @server = StubHttpServer.new([ http_ok({ choices: [ { message: {} } ] }.to_json) ])
+      expect { client(@server).complete(messages) }.to raise_error(Ai::ProviderError) { |e| expect(e.detail).to eq(:unparseable) }
+    end
+
+    it "stamps detail :unreachable on a completion error payload" do
+      @server = StubHttpServer.new([ http_ok({ error: { message: "quota" } }.to_json) ])
+      expect { client(@server).complete(messages) }.to raise_error(Ai::ProviderError) { |e| expect(e.detail).to eq(:unreachable) }
+    end
+
+    it "stamps detail :timeout on a hung completion (read timeout)" do
+      tcp = TCPServer.new("127.0.0.1", 0)
+      accept_thread = Thread.new do
+        Thread.new(tcp.accept) { |s| sleep 10 rescue nil }
+      rescue IOError, Errno::EBADF
+        nil
+      end
+      hung = described_class.new(
+        base_url: "http://127.0.0.1:#{tcp.addr[1]}/v4",
+        api_key: "test-key", model: "test-model", timeout_seconds: 1
+      )
+      begin
+        expect { hung.complete(messages) }.to raise_error(Ai::ProviderError) { |e| expect(e.detail).to eq(:timeout) }
+      ensure
+        tcp.close
+        accept_thread.join(1) rescue nil
+      end
+    end
   end
 
   describe ".stream" do

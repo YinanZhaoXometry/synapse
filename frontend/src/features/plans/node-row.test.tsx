@@ -1,8 +1,9 @@
 import { MockedProvider } from "@apollo/client/testing/react";
 import type { MockedResponse } from "@apollo/client/testing";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { usePlanNodeMappingsQuery, usePlanNodesQuery, usePlanQuery, useRecordEvidenceMutation } from "@/api";
@@ -130,6 +131,7 @@ function RowHarness() {
           materials={MATERIALS}
           mappings={mappings.data}
           mappingsFailed={!!mappings.error}
+          onTeach={(nodeId, nodeTitle) => teachCalls.push([nodeId, nodeTitle])}
         />
       ))}
     </>
@@ -149,6 +151,13 @@ function mount(mocks: MockedResponse[]) {
 }
 
 const emptyMappings = mappingsMock([]);
+
+/** The AI 讲解 handoff recorder (epic-34 T2) — the plan shell's callback stand-in. */
+const teachCalls: Array<[string, string]> = [];
+
+beforeEach(() => {
+  teachCalls.length = 0;
+});
 
 describe("NodeRow regression (the shared state contract)", () => {
   it("renders the server state as badge (glyph + label, distinct aria) with the em-dash score when no evidence", async () => {
@@ -215,6 +224,21 @@ describe("NodeRow click-through (FR-7)", () => {
     expect(quickTest).toHaveAttribute("href", "/plan/plan-1/quiz?nodeId=n-1");
     expect(screen.queryByTestId("node-study-action")).not.toBeInTheDocument();
     expect(screen.queryByTestId("node-jump-trigger")).not.toBeInTheDocument();
+  });
+
+  it("epic-34 T2: the AI 讲解 entry is ALWAYS rendered — unmapped too — and hands the node to the plan shell", async () => {
+    // Zero confirmed rows: the teach entry rides beside the Quick Test
+    // fallback (never mapping-gated — GLOSSARY AI 讲解), and the retired
+    // mapping-gated 「问 AI 导师」 reader jump is gone from the row.
+    mount([planMock(), emptyMappings]);
+
+    const teach = await screen.findByTestId("node-teach");
+    expect(teach).toHaveTextContent(zhDict["plans.nodeTeachAction"]);
+    expect(teach.getAttribute("aria-label")).toBe(zhDict["plans.nodeTeachAria"].replace("{node}", "Consensus"));
+    expect(screen.queryByTestId("node-ask-ai")).not.toBeInTheDocument();
+
+    await userEvent.click(teach);
+    expect(teachCalls).toEqual([["n-1", "Consensus"]]);
   });
 });
 

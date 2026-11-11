@@ -179,9 +179,9 @@ export const translations = {
       'plans.graphHint': '上下滚动浏览 · 方向键在节点间移动焦点，回车打开详情',
       'plans.markLearning': '学习中',
       'plans.markGroupAria': '学习标记',
-      'plans.askAiAction': '问 AI 导师',
-      'plans.askAiAria': '在 AI 导师中提问「{node}」',
-      'plans.companionAskDraft': '关于《{node}》我想问：',
+      'plans.nodeTeachAction': 'AI 讲解',
+      'plans.nodeTeachAria': 'AI 讲解「{node}」',
+      'plans.nodeTeachPrefill': '请给我讲解这个节点',
       'plans.markFinished': '已完成',
       'plans.markSkipped': '已跳过',
       'plans.markAriaSuffix': '，学习标记：{mark}',
@@ -337,6 +337,7 @@ export const translations = {
       'companion.requestFailed': 'Companion 没能回答这条问题，请重试。',
       'companion.replyComplete': 'Companion 已回复',
       'companion.planBadge': '基于计划材料',
+      'companion.teachBadge': '讲解 · {node}',
       'companion.planPlaceholder': '问一个关于这个计划的问题…（Enter 发送 · Shift+Enter 换行）',
       'companion.planNote': '回答基于计划附带的全部材料，并标注出处。',
       'companion.planSectionTitle': '问 Companion',
@@ -925,6 +926,12 @@ export const translations = {
       'mapping.capReached': '今日 AI 使用次数已达上限，请明天再来',
       'mapping.errorInternal': 'AI 服务暂时不可用，请重试',
       'mapping.failed': '映射失败，请重试',
+      // epic-34 T3（Auto-mapping · 覆盖诚实）：自动映射的面板状态 + 计算出的
+      // 未映射节点摘要行（材料映射轴——GLOSSARY Unmapped node，措辞绝不与
+      // 掌握度轴的「未覆盖/uncovered」混淆）。
+      'mapping.autoWorking': '正在 AI 映射…',
+      'mapping.capExhausted': '今日 AI 额度已用完——自动映射已暂停，明天再回来即可继续。',
+      'mapping.unmappedNodesSummary': '未映射节点：{n}',
       'notes.title': '学习笔记',
       'notes.generate': '生成笔记',
       'notes.generating': '正在生成…',
@@ -1197,9 +1204,9 @@ export const translations = {
       'plans.graphHint': 'Scroll up/down to browse · Arrow keys move focus between nodes, Enter opens the detail',
       'plans.markLearning': 'Learning',
       'plans.markGroupAria': 'Study mark',
-      'plans.askAiAction': 'Ask AI Tutor',
-      'plans.askAiAria': "Ask the AI Tutor about {node}",
-      'plans.companionAskDraft': 'About "{node}", I want to ask: ',
+      'plans.nodeTeachAction': 'Teach me',
+      'plans.nodeTeachAria': 'Teach me "{node}"',
+      'plans.nodeTeachPrefill': 'Teach me this node',
       'plans.markFinished': 'Finished',
       'plans.markSkipped': 'Skipped',
       'plans.markAriaSuffix': ', study mark: {mark}',
@@ -1355,6 +1362,7 @@ export const translations = {
       'companion.requestFailed': "The Companion couldn't answer this one — please retry.",
       'companion.replyComplete': 'Companion replied',
       'companion.planBadge': 'Grounded in plan materials',
+      'companion.teachBadge': 'Teaching · {node}',
       'companion.planPlaceholder': 'Ask about this plan… (Enter to send · Shift+Enter for a new line)',
       'companion.planNote': 'Answers draw on every attached plan material, cited.',
       'companion.planSectionTitle': 'Ask Companion',
@@ -1946,6 +1954,13 @@ export const translations = {
       'mapping.capReached': 'Daily AI limit reached — try again tomorrow',
       'mapping.errorInternal': 'The AI service is unavailable — please retry',
       'mapping.failed': 'Mapping failed — please retry',
+      // epic-34 T3 (Auto-mapping · coverage honesty): the panel's auto states
+      // + the computed unmapped-nodes summary line — the material-mapping axis
+      // (GLOSSARY Unmapped node), wording never blurred with the mastery
+      // axis's uncovered.
+      'mapping.autoWorking': 'AI mapping in progress…',
+      'mapping.capExhausted': 'Daily AI limit reached — auto-mapping is paused; come back tomorrow to continue.',
+      'mapping.unmappedNodesSummary': 'Unmapped nodes: {n}',
       'notes.title': 'Study notes',
       'notes.generate': 'Generate note',
       'notes.generating': 'Generating…',

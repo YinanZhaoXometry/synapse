@@ -116,17 +116,3 @@ export function nodePrimaryAction(targets: NodeJumpTarget[], planId: string, nod
   if (targets.length > 0) return { kind: "study", targets };
   return { kind: "quiz", href: nodeQuickTestHref(planId, nodeId) };
 }
-
-/**
- * The ask-AI handoff (epic-28 T4): inject the one-shot companionAsk draft
- * question into a reader href — BEFORE the hash (the anchor channel stays
- * intact), as `&` or `?` per the href's existing query. The reader consumes
- * the param once on mount (prefill WITHOUT send) and strips it.
- */
-export function withCompanionAsk(href: string, question: string): string {
-  const hashIndex = href.indexOf("#");
-  const base = hashIndex < 0 ? href : href.slice(0, hashIndex);
-  const hash = hashIndex < 0 ? "" : href.slice(hashIndex);
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}companionAsk=${encodeURIComponent(question)}${hash}`;
-}

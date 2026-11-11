@@ -46,6 +46,37 @@ RSpec.describe Ai::Prompts do
     end
   end
 
+  # epic-34 T1's single point: EVERY builder's reply-language line comes from
+  # one directive helper — uniform application is the property under test
+  # (a builder growing its own hand-written language line would drift).
+  it "applies the language directive uniformly on every builder (zh | en)" do
+    zh_calls = {
+      quiz: { mode: "open", language: "zh", context: context },
+      flashcards: { language: "zh", context: context },
+      mapping: { language: "zh", context: context },
+      note: { language: "zh", context: context },
+      study_focus: { language: "zh", context: context },
+      today_suggestion: { language: "zh", candidates: [] },
+      grade: { answer: "My answer.", keywords: %w[k], source_text: "Raft elects a leader.", language: "zh" },
+      companion: { question: "为什么？", position_text: "I am here.", language: "zh", escalated: false, context: context },
+      plan_companion: { question: "重点？", language: "zh", context: context },
+      proposal: { message: "m", materials: [], language: "zh" }
+    }
+    aggregate_failures do
+      zh_calls.each do |name, kwargs|
+        content = described_class.public_send(name, **kwargs)[1][:content]
+        expect(content).to include("in 简体中文."), "#{name} lacks the zh language directive"
+      end
+
+      en_calls = zh_calls.to_h { |name, kwargs| [ name, kwargs.except(:language).merge(language: "en") ] }
+      en_calls.each do |name, kwargs|
+        content = described_class.public_send(name, **kwargs)[1][:content]
+        expect(content).to include("in English."), "#{name} lacks the en language directive"
+        expect(content).not_to include("简体中文"), "#{name} leaked the zh directive on an en call"
+      end
+    end
+  end
+
   it "states the mode rule for open, choice, and mix" do
     open = described_class.quiz(mode: "open", language: "zh", context: context)[1][:content]
     choice = described_class.quiz(mode: "choice", language: "zh", context: context)[1][:content]
@@ -113,6 +144,37 @@ RSpec.describe Ai::Prompts do
       expect(plan).to include("Stay hint-first")
       expect(plan).to include("cite them inline")
       expect(plan).to include("never JSON")
+    end
+  end
+
+  # Node teaching (epic-34 T2, AI 讲解): the optional teach_node directive —
+  # names the node being taught; with no usable confirmed mapping the
+  # honesty clause rides (say no material is attached, point to
+  # upload/mapping, never teach from parametric memory). The directive
+  # travels as the assembler's TeachingNode struct (review round), never a
+  # bare hash. Absent teach_node keeps the prompt free of the directive
+  # (the generic plan companion, byte-neutral).
+  it "adds the node-teaching directive to plan_companion only when a teach node rides" do
+    plain = described_class.plan_companion(question: "重点？", language: "zh", context: context)[1][:content]
+    mapped = described_class.plan_companion(
+      question: "请给我讲解这个节点", language: "zh", context: context,
+      teach_node: Ai::ContextAssembler::TeachingNode.new(title: "Raft 选举", unmapped: false)
+    )[1][:content]
+    unmapped = described_class.plan_companion(
+      question: "请给我讲解这个节点", language: "zh", context: context,
+      teach_node: Ai::ContextAssembler::TeachingNode.new(title: "Raft 选举", unmapped: true)
+    )[1][:content]
+    aggregate_failures do
+      expect(plain).not_to include("TEACHES the node")
+      expect(plain).not_to include("no material is attached")
+      expect(mapped).to include("TEACHES the node")
+      expect(mapped).to include("Raft 选举")
+      # the honesty clause is the unmapped node's clause, never a mapped turn's
+      expect(mapped).not_to include("no material is attached")
+      expect(unmapped).to include("TEACHES the node")
+      expect(unmapped).to include("no material is attached")
+      expect(unmapped).to include("upload")
+      expect(unmapped).to include("NEVER teach the node from your own knowledge")
     end
   end
 
