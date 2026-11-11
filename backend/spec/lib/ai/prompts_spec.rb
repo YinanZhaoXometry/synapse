@@ -147,6 +147,31 @@ RSpec.describe Ai::Prompts do
     end
   end
 
+  # Node teaching (epic-34 T2, AI 讲解): the optional teach_node directive —
+  # names the node being taught; with zero confirmed mappings the honesty
+  # clause rides (say no material is attached, point to upload/mapping, never
+  # teach from parametric memory). Absent teach_node keeps the prompt free of
+  # the directive (the generic plan companion, byte-neutral).
+  it "adds the node-teaching directive to plan_companion only when a teach node rides" do
+    plain = described_class.plan_companion(question: "重点？", language: "zh", context: context)[1][:content]
+    mapped = described_class.plan_companion(question: "请给我讲解这个节点", language: "zh", context: context,
+                                            teach_node: { title: "Raft 选举", unmapped: false })[1][:content]
+    unmapped = described_class.plan_companion(question: "请给我讲解这个节点", language: "zh", context: context,
+                                              teach_node: { title: "Raft 选举", unmapped: true })[1][:content]
+    aggregate_failures do
+      expect(plain).not_to include("TEACHES the node")
+      expect(plain).not_to include("no material is attached")
+      expect(mapped).to include("TEACHES the node")
+      expect(mapped).to include("Raft 选举")
+      # the honesty clause is the unmapped node's clause, never a mapped turn's
+      expect(mapped).not_to include("no material is attached")
+      expect(unmapped).to include("TEACHES the node")
+      expect(unmapped).to include("no material is attached")
+      expect(unmapped).to include("upload")
+      expect(unmapped).to include("NEVER teach the node from your own knowledge")
+    end
+  end
+
   it "carries the companion quiz-block contract (epic-24 T4) in companion AND plan_companion" do
     hint = described_class.companion(question: "考考我", position_text: "I am here.",
                                      language: "zh", escalated: false, context: context)[1][:content]

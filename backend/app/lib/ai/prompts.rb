@@ -338,14 +338,19 @@ module Ai
       # rest on — FR-46's citations without a document). Always hint-first:
       # the plan_companion payload has no escalation flag (delta decision 6),
       # so the ladder input never crosses the ticket.
-      def plan_companion(question:, language:, context:)
+      # `teach_node` is epic-34 T2's AI 讲解 directive ({title:, unmapped:} —
+      # the assembler's NodeGrounding facts): it names the node being taught
+      # and, when the node has no confirmed mappings, carries the honesty
+      # clause (decision 7). nil keeps the prompt byte-identical to the
+      # pre-T2 shape (pinned by the prompt specs).
+      def plan_companion(question:, language:, context:, teach_node: nil)
         [ system,
           user(<<~PROMPT)
             The learner is asking about their whole study plan. Study material context (the ONLY allowed source):
             ---
             #{context.text}
             ---
-            #{context_note(context)}
+            #{context_note(context)}#{teaching_directive(teach_node)}
             When an answer rests on specific parts, cite them inline by the material and section names from the context (e.g. 「《…》的「…」一节」 / "the section '…' of '…'").
 
             Their question: #{question}
@@ -455,6 +460,25 @@ module Ai
 
       def context_note(context)
         context.truncated ? "Note: the context above is PARTIAL (truncated to the budget) — cite only sections you can see." : ""
+      end
+
+      # The node-teaching directive (epic-34 T2, AI 讲解): names the node the
+      # turn teaches; the unmapped case (zero confirmed mappings — the
+      # assembler's honesty flag) carries decision 7's honesty clause — say
+      # no material is attached, point to upload/mapping, never teach from
+      # parametric memory. Blank → nothing (the generic plan-companion
+      # shape, byte-neutral).
+      def teaching_directive(teach_node)
+        return "" if teach_node.blank?
+
+        line = "This turn TEACHES the node \"#{teach_node[:title]}\" (see the [nodes] block above) — keep the whole explanation about THAT node."
+        line +=
+          if teach_node[:unmapped]
+            " This node has NO confirmed material mapping: say so honestly — no material is attached to it yet — and point the learner to upload a material and confirm its section mapping. NEVER teach the node from your own knowledge: with no material there is nothing to teach from."
+          else
+            " Teach ONLY from its confirmed mapped sections in the context above."
+          end
+        "\n#{line}\n"
       end
 
       # T5's weak-spot quota block (FR-21): the deterministic server-side

@@ -509,6 +509,119 @@ RSpec.describe Ai::ContextAssembler do
     end
   end
 
+  # Node teaching grounding (epic-34 T2, AI 讲解): THE single node (title +
+  # its description) + its confirmed mapped sections' text — the plan-wide
+  # materials pool never rides (decision 6: the teaching turn is about THIS
+  # node). The result carries `unmapped` — the honesty flag (zero confirmed
+  # mappings) the plan-companion prompt's honesty directive reads. Budget
+  # discipline is plan_grounding's: whole sections while they fit, the
+  # honest hard cut when nothing fits, the estimate never exceeds the budget.
+  describe ".node_grounding" do
+    let(:user) { create(:user) }
+    let(:plan) { create(:study_plan, user: user) }
+
+    it "assembles the single node + its confirmed mapped sections, and flags mapped" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "Raft 选举", order: 1,
+                                     description: "Leader election and terms.")
+      material = create(:material, user: user, plan: plan, title: "讲义", sections: [
+        { "id" => "sec-1", "title" => "Election", "text" => "Raft elects a leader." },
+        { "id" => "sec-2", "title" => "Log", "text" => "replicated log body" }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-1")
+
+      assembled = described_class.node_grounding(plan, node)
+
+      aggregate_failures do
+        expect(assembled.unmapped).to be(false)
+        expect(assembled.truncated).to be(false)
+        expect(assembled.text).to include("[node id=#{node.id}")
+        expect(assembled.text).to include("Raft 选举")
+        expect(assembled.text).to include("[node description] Leader election and terms.")
+        expect(assembled.text).to include("[section id=sec-1")
+        expect(assembled.text).to include("Raft elects a leader.")
+        # the unmapped sibling section never rides — mapped sections only
+        expect(assembled.text).not_to include("replicated log body")
+        expect(described_class.estimate_tokens(assembled.text)).to be <= described_class.default_budget
+      end
+    end
+
+    it "excludes the plan-wide pool and other nodes' pinned materials (node teaching is not node_scope)" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "N", order: 1)
+      other_node = create(:knowledge_node, user: user, plan: plan, title: "Other", order: 2)
+      create(:material, user: user, plan: plan, title: "Plan-wide notes", sections: [
+        { "id" => "pw-1", "title" => "PW", "text" => "PLAN-WIDE-POOL-TEXT" }
+      ])
+      create(:material, user: user, plan: plan, title: "Pinned elsewhere", attachment_scope: "node", node: other_node, sections: [
+        { "id" => "pin-1", "title" => "Pinned", "text" => "OTHER-NODE-PINNED-TEXT" }
+      ])
+
+      assembled = described_class.node_grounding(plan, node)
+
+      aggregate_failures do
+        expect(assembled.text).not_to include("PLAN-WIDE-POOL-TEXT")
+        expect(assembled.text).not_to include("[material id=")
+        expect(assembled.text).not_to include("OTHER-NODE-PINNED-TEXT")
+        expect(assembled.truncated).to be(false) # scoped away, never truncated away
+      end
+    end
+
+    it "unmapped node: empty section assembly with the honesty flag true (proposed/rejected never count)" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "Lonely", order: 1)
+      material = create(:material, user: user, plan: plan, title: "M", sections: [
+        { "id" => "sec-1", "title" => "S", "text" => "proposed body" },
+        { "id" => "sec-2", "title" => "S2", "text" => "rejected body" }
+      ])
+      # (user, material, section) is unique — one row per non-confirmed status
+      create(:material_node_mapping, user: user, material: material, node: node, section_id: "sec-1")
+      create(:material_node_mapping, :rejected, user: user, material: material, node: node, section_id: "sec-2")
+
+      assembled = described_class.node_grounding(plan, node)
+
+      aggregate_failures do
+        expect(assembled.unmapped).to be(true)
+        expect(assembled.truncated).to be(false)
+        expect(assembled.text).to include("[node id=#{node.id}")
+        expect(assembled.text).not_to include("[section id=")
+        expect(assembled.text).not_to include("proposed body")
+        expect(assembled.text).not_to include("rejected body")
+      end
+    end
+
+    it "stays mapped when a stale section id skips its row but another resolves" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "N", order: 1)
+      material = create(:material, user: user, plan: plan, title: "M", sections: [
+        { "id" => "sec-1", "title" => "S", "text" => "resolvable body" }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "missing")
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-1")
+
+      assembled = described_class.node_grounding(plan, node)
+
+      aggregate_failures do
+        expect(assembled.unmapped).to be(false)
+        expect(assembled.text).to include("[section id=sec-1")
+        expect(assembled.text).not_to include("missing")
+      end
+    end
+
+    it "keeps the never-exceeds-budget invariant with the honest cut" do
+      node = create(:knowledge_node, user: user, plan: plan, title: "N", order: 1)
+      material = create(:material, user: user, plan: plan, title: "M", sections: [
+        { "id" => "s1", "title" => "S1", "text" => ("a" * 900) }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "s1")
+
+      assembled = described_class.node_grounding(plan, node, budget: 150)
+
+      aggregate_failures do
+        expect(assembled.truncated).to be(true)
+        expect(assembled.unmapped).to be(false)
+        expect(assembled.text).to include(Ai::ContextAssembler::TRUNCATION_MARKER)
+        expect(described_class.estimate_tokens(assembled.text)).to be <= 150
+      end
+    end
+  end
+
   describe ".default_budget" do
     around do |example|
       original = ENV["AI_CONTEXT_BUDGET_TOKENS"]

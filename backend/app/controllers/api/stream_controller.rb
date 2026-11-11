@@ -152,6 +152,13 @@ module Api
     # rides the mistake entry's OWN source locator (AD-5: citations are
     # derived server-side, never guessed); with no mistake entry there is no
     # single grounded locator, so no citation event rides.
+    # epic-34 T2 (AI 讲解): when the ticket carried node_id, the grounding
+    # switches to the node assembly (ContextAssembler.node_grounding — the
+    # single node + its confirmed mapped sections) and the prompt gains the
+    # teaching directive with the assembler's unmapped honesty flag. The
+    # node wins the grounding (the teaching turn is about the node); the
+    # mistake citation still rides when an entry came along — the two inputs
+    # are orthogonal, and the citation is about the entry, not the ground.
     def stream_plan_companion(user, payload)
       plan = user.study_plans.find_by(id: payload["plan_id"])
       return terminal(code: "NOT_FOUND") unless plan
@@ -162,6 +169,12 @@ module Api
         return terminal(code: "NOT_FOUND") unless mistake_entry
       end
 
+      node = nil
+      if payload["node_id"]
+        node = user.knowledge_nodes.find_by(id: payload["node_id"], plan_id: plan.id)
+        return terminal(code: "NOT_FOUND") unless node
+      end
+
       language = payload["language"]
       sse("rung", {
         "intent" => "explain",
@@ -170,11 +183,19 @@ module Api
         "language" => language
       })
 
-      context = Ai::ContextAssembler.plan_grounding(plan, mistake_entry: mistake_entry)
+      if node
+        grounding = Ai::ContextAssembler.node_grounding(plan, node)
+        teach_node = { title: node.title, unmapped: grounding.unmapped }
+        context = grounding
+      else
+        context = Ai::ContextAssembler.plan_grounding(plan, mistake_entry: mistake_entry)
+        teach_node = nil
+      end
       messages = Ai::Prompts.plan_companion(
         question: payload["question"].to_s,
         language: language,
-        context: context
+        context: context,
+        teach_node: teach_node
       )
       failure = catch(:client_gone) do
         stream_to_tokens(user, messages, ->(delta) { sse("token", { "text" => delta }) })
