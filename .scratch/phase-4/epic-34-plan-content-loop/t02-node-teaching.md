@@ -4,7 +4,7 @@
 
 **Blocked by:** None（建议 01 先并——失败分类 detail 让讲解轮的降级文案更细，但非硬依赖）。
 
-**Status:** ready-for-agent
+**Status:** queued — claimed 2026-11-11 by the same implement-spec run (serial lane 01→02→03 in worktree `project-new-epic34-plan-content-loop`); starts after t01 merges to the integration branch
 
 - [ ] 节点 Sheet + hover chip 常显「AI 讲解」（无映射门槛）；节点面上「问 AI 导师」消失；reader 的 companionAsk 路径行为不变
 - [ ] Stream ticket 收可选 nodeId（plan_companion 专用），ownership 校验同 mistake-entry 先例；缺省 = 今日 plan 级 grounding；codegen 重生成 + committed schema 更新（CI freshness gate 绿）

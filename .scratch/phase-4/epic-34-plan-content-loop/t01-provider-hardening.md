@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately; backend-only，code-disjoint from 02/03).
 
-**Status:** ready-for-agent
+**Status:** in-progress — claimed 2026-11-11 by the implement-spec run; integration worktree `project-new-epic34-plan-content-loop`, branch `epic/p4-34-plan-content-loop`, ticket branch `p4-34/t01-provider-hardening`
 
 - [ ] 提取顺序：平衡扫描 → 修复候选（截断尾部补全：闭合开放字符串/括号；尾逗号移除）→ nil；提取成功但 schema 校验失败仍走 INTERNAL 路径，绝不静默接受
 - [ ] 传输故障带 context detail 四分类；对外失败码集合不变（CAP_REACHED / INTERNAL / VALIDATION_* 现状照旧）——错误枚举与前端契约零破坏

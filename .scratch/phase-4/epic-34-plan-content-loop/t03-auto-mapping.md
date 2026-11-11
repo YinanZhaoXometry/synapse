@@ -4,7 +4,7 @@
 
 **Blocked by:** None（CAP_REACHED 已独立成码；01 只改善传输故障类文案细节）。
 
-**Status:** ready-for-agent
+**Status:** queued — claimed 2026-11-11 by the same implement-spec run (serial lane 01→02→03 in worktree `project-new-epic34-plan-content-loop`); starts after t02 merges to the integration branch
 
 - [ ] 效应：parsed ∧ sections ∧ 零映射行 ∧ 本挂载未触发过 → 每材料恰一次映射调用；CreationChat 路径不装触发器（跳转后由 plan 页效应接住）
 - [ ] 会话 guard：失败后本挂载会话不再自动重试；下次访问自然重试；confirmed/rejected 行永不被覆盖
