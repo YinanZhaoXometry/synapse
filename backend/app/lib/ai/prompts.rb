@@ -416,7 +416,7 @@ module Ai
         ]
       end
 
-        # Lesson outline gate (epic-36 T1, spec decisions 5+7+8 — ① 材料讲义):
+      # Lesson outline gate (epic-36 T1, spec decisions 5+7+8 — ① 材料讲义):
       # a parsed material's budget-sliced sections become a chapter proposal —
       # stateless (nothing persists; a re-roll is simply another call). The
       # reply contract is the JSON the command normalizes: chapters with

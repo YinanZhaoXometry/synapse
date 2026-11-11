@@ -54,7 +54,21 @@ module Types
 
     field :sections, [ Types::MaterialSectionType ],
           null: false,
-          description: "The extracted sections in document order (empty until a parse succeeded — jsonb preserves the order)."
+          description: "The extracted sections in document order (empty until a parse succeeded — jsonb preserves the order; on a generated lesson, the sections the stream op has already landed, each carrying its anchors)."
+
+    # The origin axis (epic-36 T1, spec decision 1): "uploaded" (the user's
+    # own document — the default) vs "generated" (an AI 讲义, the lesson
+    # engine's row — no blob is legal for it).
+    field :origin, String,
+          null: false,
+          description: "\"uploaded\" (the user's own document — the default) or \"generated\" (an AI 讲义 the lesson engine created; epic-36). Generated lessons are never generation sources and never auto-mapped."
+
+    # The live generation state (epic-36 T1, spec decision 2): present only
+    # on origin=generated rows — the reader's pending/streaming/paused
+    # surfaces read THIS, never parseState.
+    field :generation, Types::MaterialGenerationType,
+          null: true,
+          description: "The lesson's live generation state (variant, source pool, outline placeholders, pause kind) — present only on origin=generated materials; null for uploads."
 
     field :created_at, Types::DateTime,
           null: false,

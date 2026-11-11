@@ -456,6 +456,28 @@ module Types
       current_user!.study_focus_sets.find_by(material_id: material.id)
     end
 
+    # The generated-lesson call estimate (epic-36 T1, spec decision 10): the
+    # template constants' ONLY GraphQL window — the entry pages (a
+    # template-shaped range) and the outline confirm page (an exact count
+    # from the confirmed outline size) share this ONE source, never a
+    # hand-written cost table. An unknown variant is a client bug: the closed
+    # VALIDATION_FAILED code, not a null.
+    field :lesson_estimate, Types::LessonEstimateType, null: false,
+      description: "The expected provider-call band for one generated lesson (epic-36) — derived from the template constants (② outline 1 + sections 4–6; ① outline 1 + sections ≤8), shared by the entry and confirm surfaces. sectionCount pins an exact band for a confirmed outline." do
+      argument :variant, String, required: true, description: "The lesson shape: \"node\" (②) or \"material\" (①)."
+      argument :section_count, Int, required: false, description: "① confirm-time input: the confirmed outline's chapter count (pinned to the ≤8 cap)."
+    end
+
+    def lesson_estimate(variant:, section_count: nil)
+      estimate = ::Ai::Lessons.estimate(variant: variant, section_count: section_count)
+      unless estimate
+        raise GraphQL::ExecutionError.new("variant is invalid — \"node\" or \"material\"",
+                                          extensions: { code: "VALIDATION_FAILED" })
+      end
+
+      estimate
+    end
+
     private
 
     # The scope ids are ownership-checked addresses (delta 2): unknown,

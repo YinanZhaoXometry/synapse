@@ -13,7 +13,7 @@ module Mutations
 
       argument :op, String,
                required: true,
-               description: "The streamed op: \"companion\" | \"proposal\" | \"plan_companion\"."
+               description: "The streamed op: \"companion\" | \"proposal\" | \"plan_companion\" | \"lesson\"."
       argument :language, String,
                required: true,
                description: "The reply language: \"zh\" | \"en\" (AD-16 — one parameter, one policy)."
@@ -47,6 +47,9 @@ module Mutations
       argument :node_id, String,
                required: false,
                description: "plan_companion only: the optional knowledge node's uuid — the AI 讲解 node-teaching grounding input (epic-34 T2; ownership-checked against the ticket's plan — a node of another plan, a task node, or a foreign node is NOT_FOUND)."
+      argument :lesson_id, String,
+               required: false,
+               description: "lesson only: the generated lesson's uuid (epic-36 — an owned origin=generated Material; a foreign, uploaded, or generation-less id is NOT_FOUND)."
 
       field :token, String,
             null: false,
@@ -55,7 +58,7 @@ module Mutations
             null: false,
             description: "When the ticket dies (~60s TTL; expired → 401)."
 
-      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, message: nil, materials: nil, plan_id: nil, mistake_entry_id: nil, node_id: nil)
+      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, message: nil, materials: nil, plan_id: nil, mistake_entry_id: nil, node_id: nil, lesson_id: nil)
         result = command_result(::Ai::CreateStreamTicketCommand.call(
           current_user: current_user!,
           op: op,
@@ -69,7 +72,8 @@ module Mutations
           materials: materials&.map(&:to_h),
           plan_id: plan_id,
           mistake_entry_id: mistake_entry_id,
-          node_id: node_id
+          node_id: node_id,
+          lesson_id: lesson_id
         ))
         ticket = result[:ticket]
         { token: ticket.token, expires_at: ticket.expires_at }
