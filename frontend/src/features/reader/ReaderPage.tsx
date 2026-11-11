@@ -65,6 +65,7 @@ import {
   useGenerateStudyFocusMutation,
   useMaterialNodeMappingsQuery,
   useMaterialQuery,
+  usePlanMaterialsQuery,
   usePlanQuery,
   useReadingProgressQuery,
   useRemoveAnnotationMutation,
@@ -92,6 +93,11 @@ import { QuickTestFlow } from "./quick-test-flow";
 import { quickTestGate } from "./quick-test-gate";
 import { dispatchQuickTest } from "./quick-test-seam";
 import { markingQuickTestScope, openClaimsBySection } from "./marking";
+import LessonFlow from "./lesson-flow";
+import { lessonRows } from "./lesson-display";
+import { useLessonStream } from "./use-lesson-stream";
+import { STREAM_TERMINAL_KEYS } from "@/ai/sse-client";
+import type { ApiErrorCode } from "@/api/errors";
 import { SelectionBar, SELECTION_BAR_HEIGHT, SELECTION_BAR_WIDTH } from "./selection-bar";
 import { barAnchor, captureSelection, MAX_SELECTION_CHARS, type CapturedSelection } from "./selection-capture";
 import {
@@ -222,6 +228,28 @@ export default function ReaderPage() {
       },
     });
   }, [material, generateStudyFocusMutation, language, t]);
+
+  // ── AI 讲义 (epic-36 T2): the reader IS the generation progress face ────
+  // A lesson material (generation present) renders LessonFlow; ordinary
+  // materials never enter this branch (generation is null for uploads —
+  // their code path below is untouched by construction). The stream hook
+  // owns the SSE op: outline/section landings sweep the material read (the
+  // server's atomic writes ARE the render truth), the terminal toasts
+  // through the closed enum (cap included — a cap mid-lesson ALSO lands
+  // pausedKind on the row, which the banner reads after the sweep).
+  const lessonStream = useLessonStream(materialId ?? "", {
+    refetchMaterial: () => materialQuery.refetch(),
+    onTerminal: (code) => {
+      const key = STREAM_TERMINAL_KEYS[code as ApiErrorCode] ?? "ai.stream.failed";
+      toast.error(t(key));
+    },
+  });
+  // The source-anchor labels resolve 《材料名》· §title off the plan's FULL
+  // material rows (the summary list carries no sections) — the read runs
+  // ONLY on a lesson page (empty id skips it otherwise).
+  const lessonSourceMaterialsQuery = usePlanMaterialsQuery(
+    material?.generation && material.planId ? material.planId : "",
+  );
 
   const [panelChoice, setPanelChoice] = useState<boolean | null>(null);
   const [immersive, setImmersive] = useState(false);
@@ -563,6 +591,27 @@ export default function ReaderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materialId, parseState, hasBytes]);
 
+  // The ONE-SHOT stream-now command (epic-36 T2): the node lesson's create
+  // flow navigates here with ?generate=1 — the explicit commitment. The
+  // reader consumes it exactly once (stripped like ?hl=1 — a refresh never
+  // re-streams), and only over a loaded lesson row (no auto-resume without
+  // the command — spec decision 9: returning to a half-done lesson shows the
+  // honest 继续 posture instead).
+  const generateRequested = searchParams.get("generate") === "1";
+  const autoStreamedRef = useRef(false);
+  const materialLoaded = material !== undefined;
+  useEffect(() => {
+    if (!generateRequested || !materialLoaded) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("generate");
+    setSearchParams(next, { replace: true });
+    if (autoStreamedRef.current) return;
+    autoStreamedRef.current = true;
+    if (material?.generation) lessonStream.start(false);
+    // One consume per mount; the stream command is stable per lesson.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generateRequested, materialLoaded]);
+
   // Re-upload (FR-29 relaxed; the epic-2 contract): fresh session bytes for the
   // SAME material — metadata and extracted sections stay the row's truth — and
   // a pending/failed material re-runs the parse right away.
@@ -746,6 +795,33 @@ export default function ReaderPage() {
             ) : (
               <ReuploadCard onReupload={() => fileInputRef.current?.click()} />
             )
+          ) : material.generation ? (
+            // The AI 讲义 face (epic-36 T2): the outline placeholders + live
+            // stream + pause banner + source lines. The marking/annotation
+            // props ride through unchanged — a ready section IS a material
+            // section (no special-casing anywhere).
+            <LessonFlow
+              material={material}
+              rows={lessonRows(material.generation, material.sections, {
+                activeSectionId: lessonStream.activeSectionId,
+                streamText: lessonStream.streamText,
+              })}
+              streaming={lessonStream.streaming}
+              activeSectionId={lessonStream.activeSectionId}
+              streamText={lessonStream.streamText}
+              sourceMaterials={lessonSourceMaterialsQuery.data}
+              onResume={() => lessonStream.start(false)}
+              onRegenerate={() => lessonStream.start(true)}
+              annotations={annotationItems}
+              introSectionId={introSectionId}
+              staleTitle={t("reader.annotationStale")}
+              onAnnotationsApplied={handleAnnotationsApplied}
+              onRemoveAnnotation={handleRemoveAnnotation}
+              claimedSectionIds={claimedSectionIds}
+              onToggleClaim={claimedSectionIds === undefined ? undefined : handleToggleClaim}
+              onConfirmQuiz={claimedSectionIds === undefined ? undefined : handleConfirmQuiz}
+              quickTestGate={quickTestGateState}
+            />
           ) : material.kind === "markdown" ? (
             // Markdown branch (FR-9): the full document from the session
             // bytes; the byteless post-reload contract is the re-upload card,
