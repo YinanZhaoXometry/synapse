@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] NodeActions「生成讲义」与 AI 讲解并列独立；mapped 可点（含成本+剩余额度提示）/ unmapped 禁用+理由；已有讲义 → 「打开讲义」；light+dark 双模式核验
-- [ ] 点击 → createLesson → 导航 reader；生成中刷新/断线不丢已就绪小节（服务端原子落盘的自然结果——UI 侧验证重进恢复进度）
-- [ ] reader 讲义态：占位卡三态（pending/流式中/ready）、顶栏暂停条（cap/provider 文案区分）、「继续生成」新票据只补欠账、「重新生成」二次确认原位替换
-- [ ] lesson 流 hook：票据 payload {lessonId}、事件驱动 refetch、resetApiClient 终止器登记；普通材料路径零改动（无 generation 字段分支不存在）
-- [ ] 已就绪小节上标注/quiz 可用（复用现有面，无特判代码）；小节尾来源行渲染 + 点击跳原文 reader（`/read/:materialId`，锚点定位既有）
-- [ ] i18n：新键全 zh/en 点式（full-parity CI 绿）；成本文案与估算函数同源
-- [ ] Tests：NodeActions userEvent 两态+变形；reader 讲义态组件测试（占位/暂停条/续/重生成）；lesson hook（payload/事件→refetch/终止器）；typed-hooks 层 mapper 测试（generation 视图形状）
-- [ ] Gates：tsc/eslint/vitest --coverage/vite build 全绿 + rspec 不回退；e2e 既有 24 段零回归
+- [x] NodeActions「生成讲义」与 AI 讲解并列独立；mapped 可点（含成本+剩余额度提示）/ unmapped 禁用+理由；已有讲义 → 「打开讲义」；light+dark 双模式核验
+- [x] 点击 → createLesson → 导航 reader；生成中刷新/断线不丢已就绪小节（服务端原子落盘的自然结果——UI 侧验证重进恢复进度）
+- [x] reader 讲义态：占位卡三态（pending/流式中/ready）、顶栏暂停条（cap/provider 文案区分）、「继续生成」新票据只补欠账、「重新生成」二次确认原位替换
+- [x] lesson 流 hook：票据 payload {lessonId}、事件驱动 refetch、resetApiClient 终止器登记；普通材料路径零改动（无 generation 字段分支不存在）
+- [x] 已就绪小节上标注/quiz 可用（复用现有面，无特判代码）；小节尾来源行渲染 + 点击跳原文 reader（`/read/:materialId`，锚点定位既有）
+- [x] i18n：新键全 zh/en 点式（full-parity CI 绿）；成本文案与估算函数同源
+- [x] Tests：NodeActions userEvent 两态+变形；reader 讲义态组件测试（占位/暂停条/续/重生成）；lesson hook（payload/事件→refetch/终止器）；typed-hooks 层 mapper 测试（generation 视图形状）
+- [x] Gates：tsc/eslint/vitest --coverage/vite build 全绿 + rspec 不回退；e2e 既有 24 段零回归（1 败=hub-tails 已知环境 flake，T1 tip 复现验证非本票回归）
