@@ -257,6 +257,11 @@ export type CreateStreamTicketInput = {
   escalated?: boolean | null | undefined;
   /** The reply language: "zh" | "en" (AD-16 — one parameter, one policy). */
   language: string;
+  /**
+   * lesson only: the generated lesson's uuid (epic-36 — an owned origin=generated
+   * Material; a foreign, uploaded, or generation-less id is NOT_FOUND).
+   */
+  lessonId?: string | null | undefined;
   /** companion only: the material's uuid (ownership-checked). */
   materialId?: string | null | undefined;
   /** proposal only: the attached materials' client-extracted content (≤ 5; parsing stays client-side, AD-7 — epic-27). */
@@ -271,7 +276,7 @@ export type CreateStreamTicketInput = {
    * ticket's plan — a node of another plan, a task node, or a foreign node is NOT_FOUND).
    */
   nodeId?: string | null | undefined;
-  /** The streamed op: "companion" | "proposal" | "plan_companion". */
+  /** The streamed op: "companion" | "proposal" | "plan_companion" | "lesson". */
   op: string;
   /** plan_companion only: the plan's uuid (ownership-checked — FR-46, epic P2-12 T3). */
   planId?: string | null | undefined;
