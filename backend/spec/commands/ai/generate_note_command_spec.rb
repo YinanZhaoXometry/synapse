@@ -285,15 +285,16 @@ RSpec.describe Ai::GenerateNoteCommand do
     end
 
     describe "targeting absent (nil — the byte-for-byte default)" do
-      # T2's default-safe promise: targeting ABSENT keeps the T1 prompt shape
-      # byte-for-byte — the coverage block's blank branch and the untouched
-      # template must never drift. This pin is the FULL-STRING eq a regression
-      # cannot slip past (the quiz targeting's pre-T5 pin, mirrored): any
-      # reworded line, lost blank line, or coverage-note leak fails here even
-      # with every other spec green. The literal is T1's Prompts.note (the
-      # landed template at c3eccfd) with this fixture's assembled plan_scope
-      # text interpolated where the command interpolates it.
-      it "builds the EXACT T1 template for a plan-scope call — full-string eq, no coverage plan" do
+      # T2's default-safe promise: targeting ABSENT keeps the no-quota prompt
+      # shape byte-for-byte — the coverage block's blank branch and the
+      # untouched template must never drift. This pin is the FULL-STRING eq a
+      # regression cannot slip past (the quiz targeting's pre-T5 pin,
+      # mirrored): any reworded line, lost blank line, or coverage-note leak
+      # fails here even with every other spec green. The literal is
+      # Prompts.note (T1's template at c3eccfd with epic-35 T03's teaching
+      # directives) with this fixture's assembled plan_scope text
+      # interpolated where the command interpolates it.
+      it "builds the EXACT no-quota template for a plan-scope call — full-string eq, no coverage plan" do
         prompt = generated_prompt(targeting: nil, payload: reply)
 
         expected = <<~PROMPT
@@ -305,17 +306,21 @@ RSpec.describe Ai::GenerateNoteCommand do
 
           Write a standalone, exportable Markdown study note from ONLY the material above — a learner must be able to read it without the original material at hand.
           Begin the note with a single level-1 heading ("# …") that names the note; structure it with headings and short paragraphs.
-          Aim for 800–1200 words (target: 1000).
+          Teach, don't summarize: lead each concept with why it matters and the intuition BEFORE the formal statement, and make prerequisites and assumptions explicit.
+          Where the material allows, work at least one example completely — show the reasoning step by step and end with a quick sanity check of the result.
+          Prefer a Markdown table when comparing alternatives; draw structure or flow as a small ASCII diagram inside a code fence; write math inline in plain text (Unicode symbols) — LaTeX source and diagram-syntax blocks are never rendered, so a real figure rides only an enrichment marker.
+          State plainly when the material is ambiguous or assumes prior knowledge — flag it, never paper over it and never invent what the material does not ground.
+          Aim for 800–1200 words (target: 1000); depth over decoration — no filler.
           Where a visual would genuinely aid understanding, insert an enrichment marker on its own line, in EXACTLY this form:
           [[enrich|kind|what the visual should show]]
           kind is one of: "diagram", "chart", "image". Placement is your call — only where a picture truly helps; never place a marker for something the material does not ground.
           Write every user-facing string in 简体中文.
 
-          Reply ONLY with the Markdown note itself — no code fences, no commentary before or after.
+          Reply ONLY with the Markdown note itself — do not wrap the reply in a code fence; no commentary before or after.
         PROMPT
         # Two blank lines between the context fence and "Write": the empty
         # notes slot (context untruncated + coverage note absent) is part of
-        # the pinned T1 shape.
+        # the pinned no-quota shape.
         aggregate_failures do
           expect(prompt).to eq(expected)
           expect(prompt).not_to include("Weak-spot coverage plan")
