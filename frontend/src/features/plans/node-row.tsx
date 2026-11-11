@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { MaterialNodeMappingView, MaterialView } from "@/api/views";
 import type { NodeRowView } from "./display-shaping";
 import NodeActions from "./node-actions";
+import { nodeLessonMaterial } from "./lesson-entry";
 import { NodeStateBadge } from "./node-state-badge";
 import { nodeJumpTargets } from "./node-state";
 
@@ -37,6 +38,8 @@ export default function NodeRow({
   mappings,
   mappingsFailed = false,
   onTeach,
+  onLesson,
+  lessonHint = null,
 }: {
   view: NodeRowView;
   planId: string;
@@ -46,11 +49,18 @@ export default function NodeRow({
   mappingsFailed?: boolean;
   /** The AI 讲解 entry (epic-34 T2): the plan page shell opens its drawer. */
   onTeach: (nodeId: string, nodeTitle: string) => void;
+  /** epic-36 T2 (生成讲义): the shell creates/opens the node's lesson. */
+  onLesson?: (nodeId: string, nodeTitle: string) => void;
+  /** The composed entry hint (estimate × remaining); null while either read is in flight. */
+  lessonHint?: string | null;
 }) {
   const { t } = useLanguage();
   // The node's rows off the batch, resolved into REAL jump targets (the
   // anchor channel — nodeJumpTargets filters confirmed + parsed + present).
   const targets = mappings ? nodeJumpTargets(nodeRowsFor(mappings, view.node.id), materials) : null;
+  // epic-36 T2: the node's existing lesson (the server's per-node singleton,
+  // mirrored off the materials read this row already holds).
+  const lessonMaterialId = onLesson ? (nodeLessonMaterial(materials, view.node.id)?.id ?? null) : null;
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <NodeStateBadge state={view.state} />
@@ -65,6 +75,9 @@ export default function NodeRow({
         nodeId={view.node.id}
         nodeTitle={view.node.title}
         onTeach={onTeach}
+        lessonMaterialId={lessonMaterialId}
+        lessonHint={lessonHint}
+        onLesson={onLesson}
       />
       <Popover>
         <PopoverTrigger asChild>

@@ -17,7 +17,7 @@
  * the presigned GET). Quick actions never promise dead clicks: generation
  * tiles explain their slice, upload opens the real file picker.
  */
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, ChevronUp, FileText, GitFork, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -32,8 +32,14 @@ import NotesSection from "./NotesSection";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlanVisibilityControls from "./PlanVisibilityControls";
 import {
+  apiErrorCode,
+  apiErrorKeys,
+  newClientUuid,
   sessionBlobs,
+  useAiUsageTodayQuery,
   useAllEvidenceQuery,
+  useCreateLessonMutation,
+  useLessonEstimateQuery,
   useMaterialUpload,
   useFlashcardsByPlanQuery,
   usePlanMaterialsQuery,
@@ -49,6 +55,7 @@ import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "./display-shaping";
 import { unmappedNodeCount } from "./auto-mapping";
+import { lessonEntryHint, nodeLessonMaterial } from "./lesson-entry";
 import { useAutoMapping } from "./use-auto-mapping";
 import NodeRow from "./node-row";
 import RoadmapGraph from "./RoadmapGraph";
@@ -57,6 +64,13 @@ import { isPptxUpload, validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
 import { ContractNote, MasteryRing, StreakChip } from "./atoms";
 import PageLoader from "@/components/shared/PageLoader";
+import type { ErrorLike } from "@apollo/client";
+
+// The lesson create's toast keys ride the shared ai.generate. closed enum
+// (the server adapter's map — capReached included); anything unmapped falls
+// to the honest generic failure key.
+const LESSON_ERROR_KEYS: Record<string, string> = apiErrorKeys("ai.generate.");
+const LESSON_CREATE_FAILED_KEY = "ai.generate.failed";
 
 export default function PlanHomePage() {
   const { t, language } = useLanguage();
@@ -121,6 +135,40 @@ export default function PlanHomePage() {
     materials: materialsQuery.data,
     mappingRows: mappingsQuery.data,
   });
+  // Epic-36 T2 (生成讲义): the node sheet's lesson entry — the shell owns the
+  // create → navigate flow. An existing lesson (the server's per-node
+  // singleton, mirrored by nodeLessonMaterial off the materials read) OPENS
+  // instead of creating. The create carries ONE server-side outline call; a
+  // NEW lesson navigates with ?generate=1 — the one-shot "stream now" command
+  // the reader consumes once on mount (the explicit commitment: no auto-resume
+  // ever re-streams a returned-to lesson — spec decision 9).
+  const lessonEstimateQuery = useLessonEstimateQuery("node");
+  const aiUsageQuery = useAiUsageTodayQuery();
+  const lessonHint = lessonEntryHint(lessonEstimateQuery.data, aiUsageQuery.data, t);
+  const [createLessonMutation, createLessonResult] = useCreateLessonMutation();
+  const handleNodeLesson = useCallback(
+    (nodeId: string, _nodeTitle: string) => {
+      const existing = nodeLessonMaterial(materialsQuery.data, nodeId);
+      if (existing) {
+        navigate(`/read/${existing.id}`);
+        return;
+      }
+      if (createLessonResult.loading) return; // one commit per click
+      void createLessonMutation({
+        variables: { input: { clientUuid: newClientUuid(), language, planId: id, nodeId } },
+        onCompleted: (data) => {
+          const lesson = data?.createLesson?.material;
+          if (lesson) navigate(`/read/${lesson.id}?generate=1`);
+          else toast.error(t("ai.generate.failed"));
+        },
+        onError: (error) => {
+          const code = apiErrorCode(error as ErrorLike);
+          toast.error(t(code ? (LESSON_ERROR_KEYS[code] ?? LESSON_CREATE_FAILED_KEY) : LESSON_CREATE_FAILED_KEY));
+        },
+      });
+    },
+    [materialsQuery.data, createLessonMutation, createLessonResult.loading, language, id, navigate, t],
+  );
 
   // The shared drawer tail (review round): open + smooth-scroll the drawer
   // into view — both the generic entry and a node's 讲解 handoff land here.
@@ -347,6 +395,8 @@ export default function PlanHomePage() {
                 mappings={mappingsQuery.data}
                 mappingsFailed={!!mappingsQuery.error}
                 onTeachNode={openTeaching}
+                onLessonNode={handleNodeLesson}
+                lessonHint={lessonHint}
               />
             </section>
           ) : (
@@ -363,6 +413,8 @@ export default function PlanHomePage() {
                       mappings={mappingsQuery.data}
                       mappingsFailed={!!mappingsQuery.error}
                       onTeach={openTeaching}
+                      onLesson={handleNodeLesson}
+                      lessonHint={lessonHint}
                     />
                   ))}
                 </div>

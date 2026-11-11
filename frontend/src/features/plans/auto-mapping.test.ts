@@ -80,6 +80,14 @@ describe("autoMappingTargets", () => {
     expect(autoMappingTargets(materials, [], new Set(), false)).toEqual([]);
   });
 
+  it("never selects a GENERATED lesson — generation cannot compound on itself (epic-36, GLOSSARY AI 讲义)", () => {
+    const materials = [
+      material({ id: "m-1" }),
+      material({ id: "lesson-1", origin: "generated", nodeId: "n-1", attachmentScope: "node" }),
+    ];
+    expect(autoMappingTargets(materials, [], new Set(), false).map((m) => m.id)).toEqual(["m-1"]);
+  });
+
   it("never re-fires a material already fired this mount session", () => {
     const materials = [material({ id: "m-1" })];
     expect(autoMappingTargets(materials, [], new Set(["m-1"]), false)).toEqual([]);

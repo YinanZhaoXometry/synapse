@@ -29,6 +29,10 @@ export function autoMappingTargets(
   const materialIdsWithRows = new Set(mappingRows.map((row) => row.materialId));
   return materials.filter(
     (material) =>
+      // Generated lessons NEVER ride auto-mapping (epic-36, GLOSSARY AI 讲义:
+      // generation cannot compound on itself) — the frontend half of the
+      // backend's source-pool exclusion.
+      material.origin !== "generated" &&
       material.parseState === "parsed" &&
       material.sections.length > 0 &&
       !materialIdsWithRows.has(material.id) &&
