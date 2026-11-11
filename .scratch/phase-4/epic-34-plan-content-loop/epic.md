@@ -33,3 +33,10 @@ Owner 之问「有了计划没有学习内容我怎么学」的 A档答案——
 | 03 | [t03-auto-mapping](t03-auto-mapping.md) | None（CAP_REACHED 今日已独立成码；01 只影响传输故障文案细节） | 建完计划 coverage 自动填 + 诚实摘要 |
 
 无硬阻塞边；一个 epic worktree（`epic/p4-34-plan-content-loop`）串行 01→02→03 落 PR，保持审查面小。
+
+## Review-round accepted outcomes（code review 2026-11-11，T4 fixes）
+
+- 传输故障 detail 到 toast 文案 —— deferred（spec decisions 2/17 sanction：对外失败码不变，detail 仅 context 可读）。
+- teachBadge + sheet 打开讲解时自动关闭 —— accepted，作为小 UX additions 保留。
+- 手动「AI 映射」按钮仅在该材料自己的 auto run 进行中禁用（anti-double-spend；grill intent = 显式重试独立于自动化，其余时刻永远在场）。
+- `VITE_API_PROXY_TARGET` —— 由 AGENTS.md 的 parallel-worktree port-override practice 背书（default :3000 不变）。

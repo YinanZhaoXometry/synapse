@@ -6,11 +6,11 @@
 
 **Status:** queued — claimed 2026-11-11 by the same implement-spec run (serial lane 01→02→03 in worktree `project-new-epic34-plan-content-loop`); starts after t02 merges to the integration branch
 
-- [ ] 效应：parsed ∧ sections ∧ 零映射行 ∧ 本挂载未触发过 → 每材料恰一次映射调用；CreationChat 路径不装触发器（跳转后由 plan 页效应接住）
-- [ ] 会话 guard：失败后本挂载会话不再自动重试；下次访问自然重试；confirmed/rejected 行永不被覆盖
-- [ ] 静默开始/成功；失败恰好一条 toast；CAP_REACHED → 面板「额度已用完」独立状态，不再发起第二次
-- [ ] 「unmapped nodes: N」摘要行由既有读派生（零新查询字段）；措辞与掌握度 uncovered 严格分离
-- [ ] 自动触发选材逻辑为纯 helper（materials × mappings × session-fired → targets），domain 式 vitest；plan 页集成走 mock `@/api` 惯例（AppLayout 测试同款）
-- [ ] e2e stub-provider 段绿：创建带文件 → 自动映射提案行出现 → 节点「AI 讲解」预填出现
-- [ ] i18n 点式键 zh/en（full-parity 绿）；light+dark 核验
-- [ ] Gates：codegen、tsc -b、eslint、vitest --coverage、vite build 全绿；mastery golden vectors 不动
+- [x] 效应：parsed ∧ sections ∧ 零映射行 ∧ 本挂载未触发过 → 每材料恰一次映射调用；CreationChat 路径不装触发器（跳转后由 plan 页效应接住）
+- [x] 会话 guard：失败后本挂载会话不再自动重试；下次访问自然重试；confirmed/rejected 行永不被覆盖
+- [x] 静默开始/成功；失败恰好一条 toast；CAP_REACHED → 面板「额度已用完」独立状态，不再发起第二次
+- [x] 「unmapped nodes: N」摘要行由既有读派生（零新查询字段）；措辞与掌握度 uncovered 严格分离
+- [x] 自动触发选材逻辑为纯 helper（materials × mappings × session-fired → targets），domain 式 vitest；plan 页集成走 mock `@/api` 惯例（AppLayout 测试同款）
+- [x] e2e stub-provider 段绿：创建带文件 → 自动映射提案行出现 → 节点「AI 讲解」预填出现
+- [x] i18n 点式键 zh/en（full-parity 绿）；light+dark 核验
+- [x] Gates：codegen、tsc -b、eslint、vitest --coverage、vite build 全绿；mastery golden vectors 不动
