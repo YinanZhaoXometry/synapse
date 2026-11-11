@@ -275,7 +275,7 @@ function LessonSourceLine({ anchors, sourceMaterials }: { anchors: LessonRow["an
   const { t } = useLanguage();
   if (anchors.length === 0) return null;
   const resolved = anchors
-    .map((anchor) => ({ anchor, label: sourceAnchorLabel(anchor, sourceMaterials) }))
+    .map((anchor) => ({ anchor, label: sourceAnchorLabel(anchor, sourceMaterials, t) }))
     .filter((entry) => entry.label !== null);
   return (
     <div data-testid="lesson-source-line" className="mt-4 pt-3 border-t border-border-soft flex items-center gap-1.5 flex-wrap text-[11px] text-muted-foreground">

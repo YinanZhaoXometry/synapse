@@ -4,6 +4,7 @@
  * LessonFlow renders is derived HERE — the component stays presentational.
  */
 import { describe, expect, it } from "vitest";
+import { translations } from "@/contexts/i18n-dictionary";
 import type { LessonGenerationView, LessonSourceAnchorView, MaterialView } from "@/api/views";
 import type { MaterialSection } from "@/domain/entities";
 import { lessonBannerState, lessonRows, sourceAnchorHref, sourceAnchorLabel } from "./lesson-display";
@@ -132,21 +133,41 @@ describe("sourceAnchorLabel", () => {
     ...overrides,
   });
 
-  it("markdown: 《材料名》· §title — the verify-against-original line", () => {
-    expect(sourceAnchorLabel(anchor("src-1", "sec-1"), [source()])).toBe("《分布式笔记》· §Raft");
+  // The label composes through the i18n table (review F5 — the format never
+  // bypasses it): the tests carry a dictionary-backed t per language, the
+  // real LanguageContext t's structural shape.
+  const dict = (lang: "zh" | "en") => (translations as Record<string, Record<string, string>>)[lang];
+  const translate = (lang: "zh" | "en") => (key: string, vars?: Record<string, string | number>) => {
+    const raw = dict(lang)[key] ?? key;
+    return vars ? Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), raw) : raw;
+  };
+  const zh = translate("zh");
+  const en = translate("en");
+
+  it("markdown: 《材料名》· §title — the verify-against-original line (zh via the table)", () => {
+    expect(sourceAnchorLabel(anchor("src-1", "sec-1"), [source()], zh)).toBe("《分布式笔记》· §Raft");
+  });
+
+  it("markdown composes the ENGLISH format in the English UI (no zh glyphs riding)", () => {
+    expect(sourceAnchorLabel(anchor("src-1", "sec-1"), [source()], en)).toBe('"分布式笔记" · §Raft');
   });
 
   it("an empty section title falls back to the section id — never a dangling label", () => {
-    expect(sourceAnchorLabel(anchor("src-1", "sec-2"), [source()])).toBe("《分布式笔记》· §sec-2");
+    expect(sourceAnchorLabel(anchor("src-1", "sec-2"), [source()], zh)).toBe("《分布式笔记》· §sec-2");
+    expect(sourceAnchorLabel(anchor("src-1", "sec-2"), [source()], en)).toBe('"分布式笔记" · §sec-2');
   });
 
   it("pdf: 《材料名》· 第 N 页 — the page ordinal rides the id convention", () => {
-    expect(sourceAnchorLabel(anchor("src-2", "page-4"), [source({ id: "src-2", kind: "pdf" })])).toBe(
+    expect(sourceAnchorLabel(anchor("src-2", "page-4"), [source({ id: "src-2", kind: "pdf" })], zh)).toBe(
       "《分布式笔记》· 第 4 页",
+    );
+    expect(sourceAnchorLabel(anchor("src-2", "page-4"), [source({ id: "src-2", kind: "pdf" })], en)).toBe(
+      '"分布式笔记" · page 4',
     );
   });
 
   it("a deleted source renders no line (honest gap, never a guessed name)", () => {
-    expect(sourceAnchorLabel(anchor("gone", "sec-1"), [source()])).toBeNull();
+    expect(sourceAnchorLabel(anchor("gone", "sec-1"), [source()], zh)).toBeNull();
+    expect(sourceAnchorLabel(anchor("gone", "sec-1"), [source()], en)).toBeNull();
   });
 });

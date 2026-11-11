@@ -82,15 +82,21 @@ export function sourceAnchorHref(anchor: LessonSourceAnchorView): string {
   return readerSectionHref(anchor.materialId, anchor.sectionId, true);
 }
 
-/** The source line's label (spec story 20): 《材料名》· §title / 第 N 页.
- * A deleted source renders NO line (an honest gap — never a guessed name);
- * an empty section title falls back to the section id (never a dangling §). */
-export function sourceAnchorLabel(anchor: LessonSourceAnchorView, sourceMaterials: MaterialView[] | undefined): string | null {
+/** The translate seam the pure composers take (the LanguageContext t's
+ * structural shape — NodeStateTranslate's same signature). */
+export type LessonDisplayTranslate = (key: string, vars?: Record<string, string | number>) => string;
+
+/** The source line's label (spec story 20): 《材料名》· §title / 第 N 页 —
+ * composed through the i18n table (review F5: the format never bypasses it,
+ * so the English UI renders English glyphs). A deleted source renders NO
+ * line (an honest gap — never a guessed name); an empty section title falls
+ * back to the section id (never a dangling §). */
+export function sourceAnchorLabel(anchor: LessonSourceAnchorView, sourceMaterials: MaterialView[] | undefined, t: LessonDisplayTranslate): string | null {
   const material = sourceMaterials?.find((m) => m.id === anchor.materialId);
   if (!material) return null;
   const page = PDF_PAGE_SECTION.exec(anchor.sectionId);
-  if (page) return `《${material.title}》· 第 ${page[1]} 页`;
+  if (page) return t("reader.lessonSourcePage", { title: material.title, n: Number(page[1]) });
   const section = material.sections.find((s) => s.id === anchor.sectionId);
   const label = section && section.title ? section.title : anchor.sectionId;
-  return `《${material.title}》· §${label}`;
+  return t("reader.lessonSourceSection", { title: material.title, label });
 }

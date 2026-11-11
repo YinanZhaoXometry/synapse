@@ -46,7 +46,10 @@ export function useCreateLessonMutation() {
   return useMutation(CreateLessonDocument, {
     // The lesson is a FULL material: the plan's list + detail association and
     // every material summary list must see it (the attachMaterial sweep).
-    refetchQueries: [MaterialsDocument, PlanDocument],
+    // ② burns ONE outline call server-side, so the cap counter's read is
+    // swept too — the sibling propose mutation's exact posture (the
+    // remaining-cap figure must include the call just spent).
+    refetchQueries: [MaterialsDocument, PlanDocument, AiUsageTodayDocument],
   });
 }
 

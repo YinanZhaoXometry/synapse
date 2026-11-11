@@ -121,7 +121,15 @@ export function MaterialLessonAction({
 
   const title = material.title;
   const label = hasLesson ? t("materials.lessonOpen") : t("materials.lessonAction");
-  const aria = hasLesson ? t("materials.lessonOpenAria", { title }) : t("materials.lessonActionAria", { title });
+  // The disabled gate's reason rides the aria-label too (review F6): the
+  // tooltip-only posture was also tooltip-NEVER (pointer-events-none
+  // suppresses it) — the reason renders as a visible sibling below, and AT
+  // hears the action WITH its reason, not just its name.
+  const aria = disabled && gateCopy
+    ? t("materials.lessonActionGatedAria", { title, reason: gateCopy })
+    : hasLesson
+      ? t("materials.lessonOpenAria", { title })
+      : t("materials.lessonActionAria", { title });
 
   return (
     <>
@@ -179,7 +187,6 @@ export function MaterialLessonAction({
             type="button"
             onClick={(e) => e.stopPropagation()}
             disabled={disabled}
-            title={gateCopy ?? undefined}
             aria-label={aria}
             aria-disabled={disabled || undefined}
             data-testid="material-lesson"
@@ -294,6 +301,18 @@ export function MaterialLessonAction({
           </PopoverContent>
         )}
       </Popover>
+      {disabled && gateCopy && (
+        // The gate reason as a VISIBLE sibling (the node-lesson-hint
+        // precedent, review F6): honesty on a disabled action never rides a
+        // tooltip that pointer-events-none suppresses. Capped width keeps
+        // the two-line row compact.
+        <span
+          data-testid="material-lesson-gate"
+          className="flex-none max-w-[180px] text-[10px] leading-[1.4] text-muted-foreground"
+        >
+          {gateCopy}
+        </span>
+      )}
     </>
   );
 }

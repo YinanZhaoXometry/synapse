@@ -143,6 +143,7 @@ describe("MaterialLessonAction — the row action (gate, deform, popover)", () =
     mountAction(uploaded());
     const button = screen.getByTestId("material-lesson");
     expect(button).toHaveTextContent(zhDict["materials.lessonAction"]);
+    expect(screen.queryByTestId("material-lesson-gate")).not.toBeInTheDocument(); // the gate hint rides ONLY a gated row
     await user.click(button);
     expect(onOpenChange).toHaveBeenCalledWith(true);
   });
@@ -157,19 +158,28 @@ describe("MaterialLessonAction — the row action (gate, deform, popover)", () =
     expect(stopped).toHaveBeenCalled();
   });
 
-  it("renders disabled with the honest gate reason on the title (parsed ∧ sections gate)", () => {
+  it("renders disabled with the honest gate reason VISIBLE beside the action (review F6 — never tooltip-only)", () => {
     mountAction(uploaded({ parseState: "parsing" }), { gateReason: "parsing" });
     const button = screen.getByTestId("material-lesson");
     expect(button).toBeDisabled();
-    expect(button).toHaveAttribute("title", zhDict["materials.lessonGateParsing"]);
+    expect(screen.getByTestId("material-lesson-gate")).toHaveTextContent(zhDict["materials.lessonGateParsing"]);
+    // AT hears the action WITH its reason, not just its name.
+    expect(button).toHaveAttribute(
+      "aria-label",
+      zhDict["materials.lessonActionGatedAria"]
+        .replace("{title}", "分布式笔记")
+        .replace("{reason}", zhDict["materials.lessonGateParsing"]),
+    );
   });
 
-  it("carries the failed and empty gate reasons too", () => {
+  it("carries the failed and empty gate reasons too (visible sibling + in the aria-label)", () => {
     const { unmount } = mountAction(uploaded({ parseState: "failed" }), { gateReason: "failed" });
-    expect(screen.getByTestId("material-lesson")).toHaveAttribute("title", zhDict["materials.lessonGateFailed"]);
+    expect(screen.getByTestId("material-lesson-gate")).toHaveTextContent(zhDict["materials.lessonGateFailed"]);
+    expect(screen.getByTestId("material-lesson").getAttribute("aria-label")).toContain(zhDict["materials.lessonGateFailed"]);
     unmount();
     mountAction(uploaded({ sections: [] }), { gateReason: "empty" });
-    expect(screen.getByTestId("material-lesson")).toHaveAttribute("title", zhDict["materials.lessonGateEmpty"]);
+    expect(screen.getByTestId("material-lesson-gate")).toHaveTextContent(zhDict["materials.lessonGateEmpty"]);
+    expect(screen.getByTestId("material-lesson").getAttribute("aria-label")).toContain(zhDict["materials.lessonGateEmpty"]);
   });
 
   it("deforms into 打开讲义 when the source's lesson exists (repeat entry opens — story 11)", async () => {
