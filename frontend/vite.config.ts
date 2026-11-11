@@ -15,13 +15,17 @@ export default defineConfig(() => ({
     // browser same-origin in dev — no CORS wiring until ticket 06's deployed
     // envelope (CORS_ORIGIN). The client's default uri is the relative
     // /graphql; VITE_API_URL overrides for a deployed build.
+    // VITE_API_PROXY_TARGET (epic-34 T3 harness): a parallel worktree whose
+    // compose project publishes the backend on another port (the
+    // /tmp/*-compose-ports.yaml pattern) can point its own dev server at it
+    // without touching the main checkout's :3000 stack. Default unchanged.
     proxy: {
       "/graphql": {
-        target: "http://localhost:3000",
+        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:3000",
         changeOrigin: true,
       },
       "/api/stream": {
-        target: "http://localhost:3000",
+        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:3000",
         changeOrigin: true,
       },
     },
