@@ -30,6 +30,7 @@ import {
   startStream,
 } from "./sse-client";
 import type {
+  LessonStreamRequest,
   PlanCompanionStreamRequest,
   StreamEventSourceLike,
   StreamRequest,
@@ -595,6 +596,144 @@ describe("mintStreamTicketWith (the real mint over the Apollo seam)", () => {
     await expect(
       mintStreamTicketWith(client, { input: { op: "proposal", language: "en" } }),
     ).rejects.toMatchObject({ code: "INTERNAL", messageKey: "ai.stream.failed" });
+  });
+});
+
+// -- the lesson op (epic-36 T2 — the generated-lesson section fill) -------------
+
+/**
+ * The lesson op's event fixtures ride the frozen stream_controller vocabulary
+ * verbatim: outline_ready (always first) → per PENDING chapter
+ * section_start → token* → section_ready → terminal{OK|enum}. The three new
+ * handlers (outline_ready / section_start / section_ready) are T2's seam
+ * swap — the current handler shape did not carry them.
+ */
+describe("startStream — the lesson op (epic-36 T2)", () => {
+  const lessonRequest = (overrides: Partial<LessonStreamRequest> = {}): LessonStreamRequest => ({
+    op: "lesson",
+    lessonId: "lesson-1",
+    language: "zh",
+    ...overrides,
+  });
+
+  const lessonOutline = [
+    { id: "ch-1", title: "选举与日志", anchors: [{ materialId: "src-1", sectionId: "sec-1" }], status: "pending" },
+    { id: "ch-2", title: "链式复制", anchors: null, status: "ready" },
+  ];
+
+  function makeLessonHandlers() {
+    const outlines: unknown[] = [];
+    const starts: Array<{ sectionId: string; title: string }> = [];
+    const readies: string[] = [];
+    const tokens: string[] = [];
+    const terminals: StreamTerminal[] = [];
+    const restarts: Array<{ attempt: number; messageKey: string }> = [];
+    return {
+      outlines,
+      starts,
+      readies,
+      tokens,
+      terminals,
+      restarts,
+      handlers: {
+        onOutlineReady: (outline: unknown) => outlines.push(outline),
+        onSectionStart: (event: { sectionId: string; title: string }) => starts.push(event),
+        onSectionReady: (sectionId: string) => readies.push(sectionId),
+        onToken: (text: string) => tokens.push(text),
+        onTerminal: (terminal: StreamTerminal) => terminals.push(terminal),
+        onRestart: (notice: { attempt: number; messageKey: string }) => restarts.push(notice),
+      },
+    };
+  }
+
+  it("opens /api/stream with the minted ticket + op=lesson params (ticket-only auth)", async () => {
+    const harness = makeDeps();
+    startStream(lessonRequest(), {}, harness.deps);
+    await settle();
+
+    expect(harness.sources).toHaveLength(1);
+    expect(harness.sources[0].url).toBe("/api/stream?ticket=tok-1&op=lesson");
+  });
+
+  it("mints lesson tickets with the lessonId INSIDE — regenerate rides ONLY when true", async () => {
+    const harness = makeDeps();
+    startStream(lessonRequest(), {}, harness.deps);
+    await settle();
+
+    const harnessRegenerate = makeDeps();
+    startStream(lessonRequest({ regenerate: true }), {}, harnessRegenerate.deps);
+    await settle();
+
+    expect(harness.mints[0].variables).toEqual({ input: { op: "lesson", language: "zh", lessonId: "lesson-1" } });
+    expect(harnessRegenerate.mints[0].variables).toEqual({
+      input: { op: "lesson", language: "zh", lessonId: "lesson-1", regenerate: true },
+    });
+  });
+
+  it("routes the lesson vocabulary to the dedicated handlers (outline_ready / section_start / section_ready)", async () => {
+    const harness = makeDeps();
+    const recorded = makeLessonHandlers();
+    startStream(lessonRequest(), recorded.handlers, harness.deps);
+    await settle();
+    const source = harness.sources[0];
+    source.emit("outline_ready", { outline: lessonOutline });
+    source.emit("section_start", { sectionId: "ch-1", title: "选举与日志" });
+    source.emit("token", { text: "Raft 选举" });
+    source.emit("section_ready", { sectionId: "ch-1" });
+
+    expect(recorded.outlines).toEqual([lessonOutline]);
+    expect(recorded.starts).toEqual([{ sectionId: "ch-1", title: "选举与日志" }]);
+    expect(recorded.tokens).toEqual(["Raft 选举"]);
+    expect(recorded.readies).toEqual(["ch-1"]);
+    expect(recorded.terminals).toHaveLength(0); // mid-lesson — still running
+  });
+
+  it("ends the session at the lesson terminal (CAP_REACHED included) — done resolves it", async () => {
+    const harness = makeDeps();
+    const recorded = makeLessonHandlers();
+    const session = startStream(lessonRequest(), recorded.handlers, harness.deps);
+    await settle();
+    harness.sources[0].emit("terminal", { code: "CAP_REACHED" });
+    const terminal = await session.done;
+
+    expect(terminal?.code).toBe("CAP_REACHED");
+    const failure = terminal as { error?: { messageKey: string } };
+    expect(failure.error?.messageKey).toBe("ai.stream.capReached");
+    expect(recorded.terminals).toHaveLength(1);
+    expect(harness.sources[0].closed).toBe(true);
+  });
+
+  it("restarts a dropped lesson on a FRESH ticket — the server-side resume skips ready sections", async () => {
+    const harness = makeDeps();
+    const recorded = makeLessonHandlers();
+    startStream(lessonRequest(), recorded.handlers, harness.deps);
+    await settle();
+    harness.sources[0].drop();
+    await settle();
+    await settle();
+
+    // The same restart machinery as every op: socket closed, fresh ticket
+    // minted (each redeem counts against the daily cap — the notice fires),
+    // the session stays live for the next attempt's events.
+    expect(harness.sources[0].closed).toBe(true);
+    expect(harness.mintCount()).toBe(2);
+    expect(recorded.restarts).toEqual([{ attempt: 1, messageKey: "ai.stream.connectionLost" }]);
+    harness.sources[1].emit("outline_ready", { outline: lessonOutline });
+    expect(recorded.outlines).toHaveLength(1); // the second attempt's events route
+  });
+
+  it("malformed lesson frames are skipped, never fatal (the parse-data discipline)", async () => {
+    const harness = makeDeps();
+    const recorded = makeLessonHandlers();
+    startStream(lessonRequest(), recorded.handlers, harness.deps);
+    await settle();
+    harness.sources[0].emitRaw("outline_ready", "not-json{");
+    harness.sources[0].emit("section_start", {});
+    harness.sources[0].emit("section_ready", { sectionId: 42 });
+
+    expect(recorded.outlines).toHaveLength(0);
+    expect(recorded.starts).toHaveLength(0);
+    expect(recorded.readies).toHaveLength(0);
   });
 });
 

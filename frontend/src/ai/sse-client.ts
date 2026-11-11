@@ -58,7 +58,7 @@ import type {
 
 // -- public request/response shapes ---------------------------------------------
 
-export type StreamOp = "companion" | "proposal" | "plan_companion";
+export type StreamOp = "companion" | "proposal" | "plan_companion" | "lesson";
 
 /** Companion chat: position-grounded, optionally escalated (the ladder).
  * `selection` is epic-13 T1's additive grounding input (FR-13) — the reader's
@@ -100,7 +100,43 @@ export interface PlanCompanionStreamRequest {
   language: UiLanguage;
 }
 
-export type StreamRequest = CompanionStreamRequest | ProposalStreamRequest | PlanCompanionStreamRequest;
+/**
+ * The generated-lesson section fill (epic-36 T2 — the fourth stream op):
+ * the ticket carries ONLY the lesson id (the outline/sections live on the
+ * row; the resume semantics read the row's state server-side). `regenerate`
+ * is the reader's 「重新生成」 — the in-place replace flag the stream op
+ * consumes before outline_ready (true rides the payload, absent/never
+ * otherwise — the escalated precedent).
+ */
+export interface LessonStreamRequest {
+  op: "lesson";
+  lessonId: string;
+  regenerate?: boolean;
+  language: UiLanguage;
+}
+
+export type StreamRequest =
+  | CompanionStreamRequest
+  | ProposalStreamRequest
+  | PlanCompanionStreamRequest
+  | LessonStreamRequest;
+
+// -- the lesson event vocabulary (the frozen stream_controller contract) --------
+
+/** One source anchor on a lesson chapter (verbatim from the event data). */
+export interface LessonStreamAnchor {
+  materialId: string;
+  sectionId: string;
+}
+
+/** One outline chapter of the outline_ready event (always first per
+ * connection): id/title/anchors/status exactly as the row carries them. */
+export interface LessonStreamOutlineChapter {
+  id: string;
+  title: string;
+  anchors: LessonStreamAnchor[] | null;
+  status: "pending" | "generating" | "ready" | "failed" | null;
+}
 
 /** Structural ReadingPosition (keeps this module import-light). */
 export interface ReadingPositionLike {
@@ -131,6 +167,16 @@ export interface StreamHandlers {
   onRung?: (rung: StreamRung) => void;
   onToken?: (text: string) => void;
   onCitation?: (citation: Citation) => void;
+  /** Lesson op (epic-36 T2): the outline (always first per connection) — the
+   * server has already persisted the placeholders when this fires, so the
+   * consumer's material refetch is the render truth. */
+  onOutlineReady?: (outline: LessonStreamOutlineChapter[]) => void;
+  /** Lesson op: one PENDING chapter begins streaming (the reader's spinner
+   * signal — a refused chapter still announces before the terminal). */
+  onSectionStart?: (event: { sectionId: string; title: string }) => void;
+  /** Lesson op: the chapter JUST persisted atomically — the refetch lands
+   * its section row + outline status flip in one sweep. */
+  onSectionReady?: (sectionId: string) => void;
   /** A drop triggered a fresh-ticket restart — the UI MUST notice it counted
    * against the daily cap (AD-16: never silent). */
   onRestart?: (notice: { attempt: number; messageKey: string }) => void;
@@ -252,6 +298,11 @@ function buildVariables(request: StreamRequest): CreateStreamTicketMutationVaria
     // turns — the frozen payload shape stays unchanged (the server omits
     // the key).
     if (request.nodeId) input.nodeId = request.nodeId;
+  } else if (request.op === "lesson") {
+    input.lessonId = request.lessonId;
+    // 重新生成 (epic-36 T2): rides ONLY when true — the payload shape stays
+    // byte-identical otherwise (the escalated precedent).
+    if (request.regenerate === true) input.regenerate = true;
   } else {
     input.message = request.message;
     input.materials = request.materials;
@@ -286,6 +337,15 @@ function toRung(data: Record<string, unknown>): StreamRung {
 function toCitation(data: Record<string, unknown>): Citation {
   const quote = typeof data.quote === "string" ? data.quote : undefined;
   return { locator: data.locator as ReadingLocator, quote };
+}
+
+/** The outline_ready event's chapter list — narrowed with the same
+ * light-touch discipline as the sibling events (a bad frame skips, never
+ * fatal). */
+function toLessonOutline(data: Record<string, unknown>): LessonStreamOutlineChapter[] | null {
+  const outline = data.outline;
+  if (!Array.isArray(outline)) return null;
+  return outline as LessonStreamOutlineChapter[];
 }
 
 function toTerminal(data: Record<string, unknown>): StreamTerminal {
@@ -407,6 +467,29 @@ export function startStream(
     );
     source.addEventListener("citation", (event) =>
       consume(event, (data) => handlers.onCitation?.(toCitation(data))),
+    );
+    // The lesson op's three dedicated events (epic-36 T2) — the same
+    // light-narrowing discipline as the siblings: a bad frame skips.
+    source.addEventListener("outline_ready", (event) =>
+      consume(event, (data) => {
+        const outline = toLessonOutline(data);
+        if (outline) handlers.onOutlineReady?.(outline);
+      }),
+    );
+    source.addEventListener("section_start", (event) =>
+      consume(event, (data) => {
+        if (typeof data.sectionId === "string") {
+          handlers.onSectionStart?.({
+            sectionId: data.sectionId,
+            title: typeof data.title === "string" ? data.title : "",
+          });
+        }
+      }),
+    );
+    source.addEventListener("section_ready", (event) =>
+      consume(event, (data) => {
+        if (typeof data.sectionId === "string") handlers.onSectionReady?.(data.sectionId);
+      }),
     );
     source.addEventListener("terminal", (event) => {
       if (!live()) return;

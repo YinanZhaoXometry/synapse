@@ -1,0 +1,24 @@
+# The AI 讲义 operations (epic-36): the template-derived cost estimate the
+# entry entries render (FR-16 — the numbers come from the server's ONE source,
+# never a UI table), and the unified create behind both entry shapes (② by
+# plan+node with the internal outline call; ① by material+echoed outline — T3).
+# The lesson returns as a FULL Material row (the same shape attachMaterial
+# lands): it IS a material everywhere (readable, annotatable, quiz-sourceable).
+
+query LessonEstimate($variant: String!, $sectionCount: Int) {
+  lessonEstimate(variant: $variant, sectionCount: $sectionCount) {
+    outlineCalls
+    sectionsMin
+    sectionsMax
+    totalMin
+    totalMax
+  }
+}
+
+mutation CreateLesson($input: CreateLessonInput!) {
+  createLesson(input: $input) {
+    material {
+      ...MaterialParts
+    }
+  }
+}

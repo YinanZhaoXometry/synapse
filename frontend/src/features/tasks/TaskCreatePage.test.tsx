@@ -63,6 +63,8 @@ const NODE_ID = "n-1";
 
 const attachedMaterial = (title: string) => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: MATERIAL_ID,
   title,
   kind: "markdown",

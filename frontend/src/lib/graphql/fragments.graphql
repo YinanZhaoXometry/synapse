@@ -30,6 +30,25 @@ fragment MaterialSummaryParts on Material {
   parseFailureReason
   createdAt
   downloadUrl
+  # epic-36: the origin axis + the live lesson generation state (null on
+  # uploads) — the entry/reader/hub surfaces read them verbatim, never
+  # re-derive.
+  origin
+  generation {
+    variant
+    sourceMaterialIds
+    outline {
+      id
+      title
+      anchors {
+        materialId
+        sectionId
+      }
+      status
+    }
+    pausedKind
+    generatedAt
+  }
 }
 
 # Full material — detail views (reader, attach flows). downloadUrl is the

@@ -79,6 +79,8 @@ const LATER = "2026-11-02T00:00:00Z";
 
 const materialFixture = (): Record<string, unknown> => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: MATERIAL_ID,
   title: "复习讲义.md",
   kind: "markdown",

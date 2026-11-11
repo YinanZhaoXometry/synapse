@@ -45,6 +45,8 @@ const MATERIAL: MaterialView = {
   sections: [{ id: "sec-1", title: "Raft", text: "" }],
   createdAt: "2026-11-05T00:00:00Z",
   downloadUrl: null,
+  origin: "uploaded",
+  generation: null,
 };
 
 const MATERIALS = [ MATERIAL ];
