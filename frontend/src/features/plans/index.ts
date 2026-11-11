@@ -19,6 +19,10 @@ export {
   type UploadValidation,
 } from "./upload-validation";
 export { useSessionBlob } from "./use-session-blob";
+// epic-36 T3: the ① confirm popover consumes the SAME cost-hint composer the
+// node entry renders (one estimate source, two consumers — the materials hub
+// imports it through this seam).
+export { lessonEntryHint } from "./lesson-entry";
 export { OUTCOME_LABEL_KEY } from "./outcome-labels";
 export { localeTag } from "./locale";
 export { ContractNote, MasteryRing, OutcomeMark } from "./atoms";

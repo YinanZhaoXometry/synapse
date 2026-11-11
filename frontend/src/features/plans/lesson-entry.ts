@@ -29,5 +29,12 @@ export function lessonEntryHint(
 ): string | null {
   if (!estimate || !usage) return null;
   const remaining = Math.max(0, usage.dailyLimit - usage.callsToday);
+  // epic-36 T3: the ① confirm popover feeds the SAME composer the exact
+  // outline's estimate (totalMin === totalMax — the server's template math on
+  // the confirmed chapter count), so it renders the single-number copy; the
+  // node variant's band keeps the range copy. One cost source, two consumers.
+  if (estimate.totalMin === estimate.totalMax) {
+    return t("materials.lessonCostExact", { n: estimate.totalMin, r: remaining });
+  }
   return t("plans.nodeLessonHint", { min: estimate.totalMin, max: estimate.totalMax, r: remaining });
 }

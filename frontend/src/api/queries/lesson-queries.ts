@@ -9,10 +9,12 @@
  */
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
+  AiUsageTodayDocument,
   CreateLessonDocument,
   LessonEstimateDocument,
   MaterialsDocument,
   PlanDocument,
+  ProposeLessonOutlineDocument,
 } from "@/types/graphql";
 
 /** The estimate view (FR-16): the server's call-band numbers, rendered verbatim. */
@@ -45,5 +47,18 @@ export function useCreateLessonMutation() {
     // The lesson is a FULL material: the plan's list + detail association and
     // every material summary list must see it (the attachMaterial sweep).
     refetchQueries: [MaterialsDocument, PlanDocument],
+  });
+}
+
+/**
+ * The ① propose gate (epic-36 T3, spec decision 5): one cap-counted, stateless
+ * outline call — nothing persists, so no material reads to sweep; the cap
+ * counter's read IS swept (the confirm popover's remaining-cap figure must
+ * include the propose call just spent). The reply is echoed verbatim into
+ * createLesson — the hook returns the raw payload, the caller maps.
+ */
+export function useProposeLessonOutlineMutation() {
+  return useMutation(ProposeLessonOutlineDocument, {
+    refetchQueries: [AiUsageTodayDocument],
   });
 }

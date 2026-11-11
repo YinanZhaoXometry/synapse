@@ -612,6 +612,26 @@ export default function ReaderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generateRequested, materialLoaded]);
 
+  // The regenerate one-shot command (epic-36 T3): the HUB's 重新生成 carries
+  // the strong confirm itself (the reader's exact copy keys) and navigates
+  // here with ?regenerate=1 — the same consume-once discipline as ?generate=1
+  // above, but dispatching lessonStream.start(true): the server resets the
+  // row in place and re-fills every chapter against the CURRENT sources, each
+  // call re-counted against the cap (T2's regenerate semantics, verbatim).
+  const regenerateRequested = searchParams.get("regenerate") === "1";
+  const autoRegeneratedRef = useRef(false);
+  useEffect(() => {
+    if (!regenerateRequested || !materialLoaded || generateRequested) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("regenerate");
+    setSearchParams(next, { replace: true });
+    if (autoRegeneratedRef.current) return;
+    autoRegeneratedRef.current = true;
+    if (material?.generation) lessonStream.start(true);
+    // One consume per mount; the stream command is stable per lesson.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regenerateRequested, materialLoaded]);
+
   // Re-upload (FR-29 relaxed; the epic-2 contract): fresh session bytes for the
   // SAME material — metadata and extracted sections stay the row's truth — and
   // a pending/failed material re-runs the parse right away.

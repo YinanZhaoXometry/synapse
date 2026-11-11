@@ -86,4 +86,15 @@ describe("lessonEntryHint", () => {
     expect(lessonEntryHint(undefined, usage(7), zh)).toBeNull();
     expect(lessonEntryHint(estimate(), undefined, zh)).toBeNull();
   });
+
+  // epic-36 T3 (the ① confirm popover's consumer): a degenerate band (min ===
+  // max — the exact outline's count) renders the SINGLE-number copy from the
+  // SAME function — one composer, both entries, and the number still comes
+  // from the estimate argument verbatim, never hand-written.
+  it("renders the exact-call copy when the band degenerates (min === max — the confirmed outline's count)", () => {
+    const exact: LessonEstimateView = { outlineCalls: 1, sectionsMin: 3, sectionsMax: 3, totalMin: 4, totalMax: 4 };
+    expect(lessonEntryHint(exact, usage(7), zh)).toBe(
+      zhDict["materials.lessonCostExact"].replace("{n}", "4").replace("{r}", "43"),
+    );
+  });
 });

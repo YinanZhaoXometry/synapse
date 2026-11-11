@@ -22,3 +22,19 @@ mutation CreateLesson($input: CreateLessonInput!) {
     }
   }
 }
+
+# The ① propose gate (epic-36 T3, spec decision 5): stateless outline proposal
+# for the materials-hub entry — one cap-counted call, nothing persisted; the
+# client confirms by echoing the reply verbatim into createLesson (the reply's
+# chapters carry title + sourceSectionIds only — id/anchors/status are null
+# here, the server re-mints them at create).
+mutation ProposeLessonOutline($input: ProposeLessonOutlineInput!) {
+  proposeLessonOutline(input: $input) {
+    outline {
+      id
+      title
+      sourceSectionIds
+    }
+    estimatedCalls
+  }
+}
