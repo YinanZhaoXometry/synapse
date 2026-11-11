@@ -76,6 +76,73 @@ module Ai
           }
         end
       end
+
+      # The shared reply normalization for MATERIAL-grounded outlines (spec
+      # decisions 5+8): well-formed chapters over REAL section ids survive —
+      # title present, ≥1 source id the material actually carries
+      # (per-chapter deduped), unusable chapters drop, the template cap
+      # holds. Consumers: the propose gate (①) and the stream op's in-stream
+      # outline for a material-variant lesson.
+      def normalize_material_outline(raw, material, cap: MATERIAL_MAX_SECTIONS)
+        payload = Ai::ResponseParser.extract_json_object(raw)
+        return [] unless payload
+
+        parsed = JSON.parse(payload)
+        candidates = parsed.is_a?(Hash) ? parsed["chapters"] : nil
+        return [] unless candidates.is_a?(Array)
+
+        candidates.filter_map do |chapter|
+          next unless chapter.is_a?(Hash)
+
+          title = chapter["title"].to_s.strip
+          ids = Array(chapter["sourceSectionIds"]).select { |id| Ai::ContextAssembler.section_by_id(material, id) }.uniq
+          next if title.empty? || ids.empty?
+
+          { "title" => title, "sourceSectionIds" => ids }
+        rescue StandardError
+          next
+        end.first(cap)
+      end
+
+      # The shared reply normalization for NODE-grounded outlines (②): the
+      # node's CONFIRMED mapped sections are the only usable ids — each kept
+      # id maps to the mapping row's material, and the chapter carries the
+      # anchors (materialId+sectionId) plus the resolved source-material ids
+      # the generation jsonb needs. Consumers: CreateLesson's internal
+      # outline and the stream op's in-stream outline for a node-variant
+      # lesson.
+      def normalize_node_outline(raw, node, cap: NODE_SECTION_MAX)
+        payload = Ai::ResponseParser.extract_json_object(raw)
+        return [] unless payload
+
+        parsed = JSON.parse(payload)
+        candidates = parsed.is_a?(Hash) ? parsed["chapters"] : nil
+        return [] unless candidates.is_a?(Array)
+
+        pairs = node_confirmed_pairs(node)
+        candidates.filter_map do |chapter|
+          next unless chapter.is_a?(Hash)
+
+          title = chapter["title"].to_s.strip
+          ids = Array(chapter["sourceSectionIds"]).uniq.select { |id| pairs.key?(id) }
+          next if title.empty? || ids.empty?
+
+          { title: title,
+            anchors: ids.map { |id| { "materialId" => pairs[id].id, "sectionId" => id } },
+            material_ids: ids.map { |id| pairs[id].id } }
+        rescue StandardError
+          next
+        end.first(cap)
+      end
+
+      # THIS node's confirmed section→material pairs (the node_teaching_mappings
+      # query — the grounding's own source of truth); a pair survives only
+      # when its section still resolves on the material.
+      def node_confirmed_pairs(node)
+        Ai::ContextAssembler.node_teaching_mappings(node.plan, node)
+                            .filter_map { |row| [ row.section_id, row.material ] if row.material && Ai::ContextAssembler.section_by_id(row.material, row.section_id) }
+                            .to_h
+      end
     end
   end
 end

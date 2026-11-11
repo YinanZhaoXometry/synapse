@@ -13,10 +13,24 @@ module Api
   #
   # The event vocabulary IS the frozen contract (ticket 04's ## Comments —
   # epic-08's client consumes it verbatim):
-  #   event: rung      data: {"intent":"explain","rung":"hint|answer","canEscalate":bool,"language":"zh|en"}
-  #   event: token     data: {"text":"…"}                      (many, in order)
-  #   event: citation  data: {"locator":{...},"quote":null}    (companion only)
-  #   event: terminal  data: {"code":"OK"} | {"code":"<enum>"} (+ "proposal":{...} for the proposal op)
+  #   event: rung           data: {"intent":"explain","rung":"hint|answer","canEscalate":bool,"language":"zh|en"}
+  #   event: token          data: {"text":"…"}                      (many, in order)
+  #   event: citation       data: {"locator":{...},"quote":null}    (companion only)
+  #   event: terminal       data: {"code":"OK"} | {"code":"<enum>"} (+ "proposal":{...} for the proposal op)
+  # epic-36 T1 adds the lesson op's vocabulary (spec decision 6 — the
+  # generated-lesson section fill; the event list per connection):
+  #   event: outline_ready  data: {"outline":[{id,title,anchors,status}]}  (always first — the
+  #                         current outline, generated in-stream when the row has none)
+  #   event: section_start  data: {"sectionId":"…","title":"…"}     (per pending chapter)
+  #   event: token          data: {"text":"…"}                      (the chapter's single-pass stream)
+  #   event: section_ready  data: {"sectionId":"…"}                 (the chapter just persisted atomically)
+  #   event: terminal       data: {"code":"OK"} | CAP_REACHED | INTERNAL | NOT_FOUND
+  # Resume semantics (the DeepTutor posture on our SSE contract): ready
+  # sections SKIP on a re-opened ticket (重开=只补欠账), each completed
+  # section persists ATOMICALLY (断线不留半句 — a drop never leaves half a
+  # section), CAP_REACHED / provider failure land pausedKind on the lesson
+  # (cap | provider) with the generated sections preserved, and there is no
+  # auto-resume — continuing = an explicit new ticket.
   # The rung is request-derived server-side (escalated → "answer", else
   # "hint" — the ladder amendment); citations are derived from the grounded
   # position (the focus section) — the AD-5 contract is produced here, never
@@ -38,6 +52,8 @@ module Api
         stream_proposal(user, payload)
       elsif redeemed.op == "plan_companion"
         stream_plan_companion(user, payload)
+      elsif redeemed.op == "lesson"
+        stream_lesson(user, payload)
       else
         stream_companion(user, payload)
       end
@@ -207,6 +223,174 @@ module Api
         write_safely { sse("citation", { "locator" => mistake_entry.source_location, "quote" => nil }) }
       end
       terminal(code: "OK")
+    end
+
+    # The generated-lesson stream (epic-36 T1, spec decisions 5+6+9 — the
+    # reader's live section fill): outline_ready first (the current outline,
+    # generated in-stream when the row carries none), then every PENDING
+    # chapter as section_start → token* → section_ready, then terminal.
+    # Ownership is the row lookup itself (user-scoped find — a foreign or
+    # vanished lesson answers NOT_FOUND). Resume semantics: ready sections
+    # SKIP (重开=只补欠账); each completed section persists ATOMICALLY with
+    # its outline status flip (one row update — 断线不留半句: a drop leaves
+    # no half section, and the partial call's cost was already paid, AD-16);
+    # CAP_REACHED pauses with everything generated preserved (pausedKind=cap)
+    # and provider failures pause with pausedKind=provider, both carrying the
+    # code on terminal; there is NO auto-resume — continuing is an explicit
+    # new ticket, whose mint clears the pause banner server-side.
+    def stream_lesson(user, payload)
+      lesson = user.materials.find_by(id: payload["lesson_id"])
+      return terminal(code: "NOT_FOUND") unless lesson && lesson.generated? && lesson.generation.is_a?(Hash)
+
+      language = payload["language"]
+      generation = lesson.generation
+      outline = generation["outline"].is_a?(Array) ? generation["outline"] : []
+
+      if outline.empty?
+        outcome = generate_lesson_outline(user, lesson, language)
+        return outcome[1] if outcome[0] == :fail
+
+        outline = outcome[1]
+      elsif generation["pausedKind"]
+        # The explicit resume attempt clears the pause (the reader's banner
+        # reads this jsonb — a new ticket is the only way back).
+        lesson.update!(generation: generation.merge("pausedKind" => nil))
+      end
+
+      sse("outline_ready", { "outline" => outline })
+
+      failure_code = catch(:client_gone) do
+        outcome = nil
+        outline.each_with_index do |chapter, index|
+          next if chapter["status"] == "ready"
+
+          outcome = stream_lesson_section(user, lesson, outline, index, chapter, language)
+          break unless outcome.nil?
+        end
+        outcome
+      end
+      return if failure_code == :client_gone
+      return terminal(code: failure_code) if failure_code
+
+      terminal(code: "OK")
+    end
+
+    # ONE chapter's single-pass fill: stream the section prompt's tokens as
+    # they arrive (token events + accumulation), then persist ATOMICALLY —
+    # the sections array append and the outline status flip in ONE row
+    # update, so the reader never sees a half section. Failures pause the
+    # lesson (pausedKind) and surface as the terminal code.
+    def stream_lesson_section(user, lesson, outline, index, chapter, language)
+      sse("section_start", { "sectionId" => chapter["id"], "title" => chapter["title"] })
+
+      context = lesson_section_context(user, chapter)
+      messages = Ai::Prompts.lesson_section(language: language, context: context,
+                                            lesson_title: lesson.title, chapter_title: chapter["title"])
+      result = Ai::Provider.stream(user: user, messages: messages)
+      return pause_and_code(lesson, result.failure) if result.failure?
+
+      text = +""
+      begin
+        result.value!.each do |delta|
+          text << delta
+          sse("token", { "text" => delta })
+        end
+      rescue Ai::ProviderError => e
+        Rails.logger.warn("[ai] lesson stream transport failure: #{e.message[0, 200]}")
+        return pause_and_code(lesson, ApplicationErrors::Failure.new(code: :INTERNAL, context: { message: e.message }))
+      end
+
+      body = text.strip
+      if body.empty?
+        return pause_and_code(lesson, ApplicationErrors::Failure.new(
+          code: :INTERNAL, context: { message: "ai lesson section reply was empty" }
+        ))
+      end
+
+      generation = lesson.generation.dup
+      new_outline = generation["outline"].dup
+      new_outline[index] = new_outline[index].merge("status" => "ready")
+      lesson.update!(
+        sections: Array(lesson.sections) + [
+          { "id" => chapter["id"], "title" => chapter["title"], "text" => body, "anchors" => chapter["anchors"] }
+        ],
+        generation: generation.merge("outline" => new_outline)
+      )
+      sse("section_ready", { "sectionId" => chapter["id"] })
+      nil
+    end
+
+    # The chapter's grounding: ONLY its assigned anchor sections, resolved
+    # against the owner's materials (deleted sources drop honestly — the
+    # prompt's honesty clause keeps the model from inventing over a gap).
+    def lesson_section_context(user, chapter)
+      pairs = Array(chapter["anchors"]).filter_map do |anchor|
+        material = user.materials.find_by(id: anchor["materialId"])
+        section = material && Ai::ContextAssembler.section_by_id(material, anchor["sectionId"])
+        next unless material && section
+
+        [ material, section ]
+      end
+      Ai::ContextAssembler.lesson_section_grounding(pairs)
+    end
+
+    # 无 outline 先出 (spec decision 6): the in-stream outline generation for
+    # a lesson row without placeholders. ONE cap-counted call, grounded per
+    # variant (node → the node grounding; material → the source's own
+    # sections), normalized through the SAME functions the create paths use,
+    # placeholders persisted before the first section streams. Returns
+    # [:ok, outline] or [:fail, terminal_code] (the failure paths pause the
+    # lesson first).
+    def generate_lesson_outline(user, lesson, language)
+      generation = lesson.generation
+      messages =
+        if generation["variant"] == Ai::Lessons::VARIANT_NODE
+          node = user.knowledge_nodes.find_by(id: lesson.node_id)
+          return [ :fail, "NOT_FOUND" ] unless node
+
+          grounding = Ai::ContextAssembler.node_grounding(node.plan, node)
+          return [ :fail, "NOT_FOUND" ] if grounding.unmapped
+
+          Ai::Prompts.lesson_outline(language: language, context: grounding, material_title: lesson.title,
+                                     outline_target: Ai::Lessons::NODE_SECTION_MAX)
+        else
+          source = user.materials.find_by(id: Array(generation["sourceMaterialIds"]).first)
+          return [ :fail, "NOT_FOUND" ] unless source
+
+          Ai::Prompts.lesson_outline(language: language, context: Ai::ContextAssembler.material_scope(source),
+                                     material_title: source.title)
+        end
+
+      result = Ai::Provider.complete(user: user, messages: messages)
+      return [ :fail, pause_and_code(lesson, result.failure) ] if result.failure?
+
+      chapters =
+        if generation["variant"] == Ai::Lessons::VARIANT_NODE
+          node = user.knowledge_nodes.find_by(id: lesson.node_id)
+          Ai::Lessons.normalize_node_outline(result.value!, node)
+        else
+          source = user.materials.find_by(id: Array(generation["sourceMaterialIds"]).first)
+          Ai::Lessons.normalize_material_outline(result.value!, source)
+        end
+      if chapters.empty?
+        code = pause_and_code(lesson, ApplicationErrors::Failure.new(
+          code: :INTERNAL, context: { message: "ai lesson outline payload had no usable chapters" }
+        ))
+        return [ :fail, code ]
+      end
+
+      outline = Ai::Lessons.outline_placeholder(chapters.map { |chapter| { title: chapter[:title] || chapter["title"], anchors: chapter[:anchors] || chapter["anchors"] } })
+      lesson.update!(generation: generation.merge("outline" => outline))
+      [ :ok, outline ]
+    end
+
+    # The pause write (spec decision 9): CAP_REACHED → pausedKind=cap,
+    # anything else → pausedKind=provider. Everything already generated
+    # stays on the row (the pause never costs work).
+    def pause_and_code(lesson, failure)
+      kind = failure.code == :CAP_REACHED ? "cap" : "provider"
+      lesson.update!(generation: lesson.generation.merge("pausedKind" => kind))
+      failure.code.to_s
     end
 
     def stream_proposal(user, payload)

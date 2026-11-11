@@ -112,7 +112,7 @@ module Ai
                                        ))
       return provider if provider.failure?
 
-      chapters = mapped_chapters(provider.value!, node.value!)
+      chapters = Ai::Lessons.normalize_node_outline(provider.value!, node.value!)
       return internal_outline_failure if chapters.empty?
 
       Success(material: persist_lesson(
@@ -144,42 +144,6 @@ module Ai
 
       node = current_user.knowledge_nodes.find_by(id: id, plan_id: plan.id)
       node ? Success(node) : Failure(:NOT_FOUND, { message: "node not found" })
-    end
-
-    # The ② reply's chapters survive only over CONFIRMED mapped sections:
-    # each kept section id maps to the mapping row's material, and the
-    # chapter's anchors name that material (the reader's jump-to-source
-    # vocabulary, server-owned).
-    def mapped_chapters(raw, node)
-      payload = Ai::ResponseParser.extract_json_object(raw)
-      return [] unless payload
-
-      parsed = JSON.parse(payload)
-      candidates = parsed.is_a?(Hash) ? parsed["chapters"] : nil
-      return [] unless candidates.is_a?(Array)
-
-      pairs = confirmed_pairs(node) # section_id → the material owning it
-      candidates.filter_map do |chapter|
-        next unless chapter.is_a?(Hash)
-
-        title = chapter["title"].to_s.strip
-        ids = Array(chapter["sourceSectionIds"]).uniq.select { |id| pairs.key?(id) }
-        next if title.empty? || ids.empty?
-
-        { title: title,
-          anchors: ids.map { |id| { "materialId" => pairs[id].id, "sectionId" => id } },
-          material_ids: ids.map { |id| pairs[id].id } }
-      rescue StandardError
-        next
-      end.first(Ai::Lessons::NODE_SECTION_MAX)
-    end
-
-    # THIS node's confirmed section→material pairs (the node_teaching_mappings
-    # query — the grounding's own source of truth).
-    def confirmed_pairs(node)
-      Ai::ContextAssembler.node_teaching_mappings(node.plan, node)
-                          .filter_map { |row| [ row.section_id, row.material ] if row.material && Ai::ContextAssembler.section_by_id(row.material, row.section_id) }
-                          .to_h
     end
 
     # ── ① material ────────────────────────────────────────────────────────

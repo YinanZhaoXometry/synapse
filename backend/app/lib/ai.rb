@@ -16,13 +16,16 @@ module Ai
   LANGUAGES = %w[zh en].freeze
 
   # The stream-op vocabulary (AD-16, ticket 04 — the ticket contract): the
-  # three streamed surfaces. "companion" = position-grounded study chat on a
+  # streamed surfaces. "companion" = position-grounded study chat on a
   # material; "proposal" = the plan-creation chat's staged proposal (the
   # transcript is ephemeral per AD-5 — only the confirmed plan persists,
   # via the existing confirmProposal flow); "plan_companion" = the plan-scope
   # chat (FR-46, epic P2-12 T3 — no ReadingPosition, the plan grounding
-  # carries it, with the optional mistake-entry input).
-  STREAM_OPS = %w[companion proposal plan_companion].freeze
+  # carries it, with the optional mistake-entry input); "lesson" = the
+  # generated-lesson section fill (epic-36 T1, spec decisions 5+6 — resume
+  # semantics: ready sections skip, each completed section persists
+  # atomically).
+  STREAM_OPS = %w[companion proposal plan_companion lesson].freeze
 
   # The stream-ticket TTL (AD-16: "opaque single-use secret, TTL ~60s").
   # Read from ENV at call time; garbage falls back to the default.

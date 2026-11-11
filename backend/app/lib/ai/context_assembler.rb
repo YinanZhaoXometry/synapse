@@ -256,6 +256,39 @@ module Ai
         NodeGrounding.new(text: parts.strip, truncated: truncated, unmapped: !mapped_usable)
       end
 
+      # The lesson section-fill grounding (epic-36 T1, spec decision 7 — the
+      # stream op's per-chapter context): ONE chapter's assigned source
+      # sections, resolved by the caller into (material, section) pairs in
+      # anchor order — nothing else rides (the chapter teaches its own
+      # sources, never the whole corpus). Budget discipline is
+      # node_grounding's: whole sections while they fit, the honest hard cut
+      # when nothing fits, the estimate never exceeds the budget, `truncated`
+      # honest.
+      def lesson_section_grounding(pairs, budget: default_budget)
+        parts = +""
+        truncated = false
+        consumed = 0
+
+        reserve = estimate_tokens(TRUNCATION_MARKER) + 1
+        pairs.each do |material, section|
+          remaining = budget - consumed
+          break if remaining <= reserve
+
+          block = "[material id=#{material.id} title=\"#{material.title}\"]\n#{render_section(section)}"
+          tokens = estimate_tokens(block)
+          if tokens <= remaining
+            parts << block
+            consumed += tokens
+          else
+            consumed, = append_bounded(parts, section_header(section), section_text(section), consumed, budget)
+            truncated = true
+            break
+          end
+        end
+
+        Assembled.new(text: parts.strip, truncated: truncated)
+      end
+
       # The teaching turn's confirmed mapping rows (epic-34 T2): THIS node's
       # confirmed rows on the plan's own materials, stable created_at/id
       # order (the confirmed_mapping_block discipline). The mapping itself is

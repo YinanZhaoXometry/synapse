@@ -46,7 +46,7 @@ module Ai
                                        ))
       return provider if provider.failure?
 
-      chapters = normalize_outline(provider.value!, material.value!)
+      chapters = Ai::Lessons.normalize_material_outline(provider.value!, material.value!)
       return internal_payload_failure if chapters.empty?
 
       Success(outline: chapters,
@@ -73,32 +73,6 @@ module Ai
       end
 
       Success(material)
-    end
-
-    # The reply normalization IS the quality gate (the GenerateQuiz posture):
-    # well-formed chapters over REAL section ids survive — title present,
-    # ≥1 source id the material actually carries (per-chapter deduped) —
-    # and the template cap holds (first N win; a greedy reply never
-    # inflates the cost).
-    def normalize_outline(raw, material)
-      payload = Ai::ResponseParser.extract_json_object(raw)
-      return [] unless payload
-
-      parsed = JSON.parse(payload)
-      candidates = parsed.is_a?(Hash) ? parsed["chapters"] : nil
-      return [] unless candidates.is_a?(Array)
-
-      candidates.filter_map do |chapter|
-        next unless chapter.is_a?(Hash)
-
-        title = chapter["title"].to_s.strip
-        ids = Array(chapter["sourceSectionIds"]).select { |id| Ai::ContextAssembler.section_by_id(material, id) }.uniq
-        next if title.empty? || ids.empty?
-
-        { "title" => title, "sourceSectionIds" => ids }
-      rescue StandardError
-        next
-      end.first(Ai::Lessons::MATERIAL_MAX_SECTIONS)
     end
 
     def internal_payload_failure

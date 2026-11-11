@@ -19,7 +19,9 @@ module Ai
   # the former {topic, goal} shape is retired with the goal chips);
   # plan_companion = {plan_id, question, language, mistake_entry_id?, node_id?}
   # (epic P2-12 T3, FR-46; node_id is epic-34 T2's AI 讲解 teaching input) —
-  # string-keyed, TS keys verbatim.
+  # string-keyed, TS keys verbatim. lesson = {lesson_id, language} (epic-36
+  # T1, spec decision 5 — the generated-lesson section fill; the lesson is
+  # an owned origin=generated Material with a generation jsonb).
   class CreateStreamTicketCommand < ApplicationCommand
     include ReadingLocators
 
@@ -36,6 +38,7 @@ module Ai
     option :plan_id, optional: true
     option :mistake_entry_id, optional: true
     option :node_id, optional: true
+    option :lesson_id, optional: true
 
     MAX_QUESTION_CHARS = 20_000
     MAX_MESSAGE_CHARS = 4_000
@@ -58,6 +61,7 @@ module Ai
       payload = case op.to_s
       when "companion" then companion_payload
       when "proposal" then proposal_payload
+      when "lesson" then lesson_payload
       else plan_companion_payload
       end
       return payload if payload.failure?
@@ -217,6 +221,24 @@ module Ai
       payload["mistake_entry_id"] = entry.id if entry
       payload["node_id"] = node.id if node
       Success(payload)
+    end
+
+    # Lesson inputs (epic-36 T1, spec decision 5): an owned generated
+    # Material with a generation jsonb (uniform NOT_FOUND — foreign,
+    # unknown, malformed, uploaded, or generation-less lessons all answer
+    # the same; never an existence leak). The ticket carries nothing else —
+    # the outline/sections live on the lesson row, the resume semantics read
+    # the row's state, and the language rides for the section prompts.
+    def lesson_payload
+      return Failure(:VALIDATION_FAILED, { message: "the lesson stream needs a lesson", field: :lessonId }) unless lesson_id
+      return Failure(:NOT_FOUND, { message: "lesson not found" }) unless lesson_id.to_s.match?(Accounts::UUID_REGEX)
+
+      lesson = current_user.materials.find_by(id: lesson_id)
+      unless lesson && lesson.generated? && lesson.generation.is_a?(Hash)
+        return Failure(:NOT_FOUND, { message: "lesson not found" })
+      end
+
+      Success({ "lesson_id" => lesson.id, "language" => language })
     end
   end
 end
