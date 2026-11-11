@@ -185,7 +185,7 @@ module Api
 
       if node
         grounding = Ai::ContextAssembler.node_grounding(plan, node)
-        teach_node = { title: node.title, unmapped: grounding.unmapped }
+        teach_node = Ai::ContextAssembler::TeachingNode.new(title: node.title, unmapped: grounding.unmapped)
         context = grounding
       else
         context = Ai::ContextAssembler.plan_grounding(plan, mistake_entry: mistake_entry)

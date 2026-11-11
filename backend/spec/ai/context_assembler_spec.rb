@@ -587,6 +587,31 @@ RSpec.describe Ai::ContextAssembler do
       end
     end
 
+    it "flags unmapped when confirmed rows exist but none of their sections resolve anymore" do
+      # The honesty-guard case (review round): the mapping rows survive a
+      # re-parse/rename that renumbered the material's sections — the
+      # context assembles section-less, and the flag must reflect USABLE
+      # mapped text (empty ⇒ unmapped), never mere row existence, or the
+      # prompt would direct the model to teach from sections that are not
+      # there.
+      node = create(:knowledge_node, user: user, plan: plan, title: "Shifted", order: 1)
+      material = create(:material, user: user, plan: plan, title: "M", sections: [
+        { "id" => "sec-new", "title" => "Renumbered", "text" => "renumbered body" }
+      ])
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-old-1")
+      create(:material_node_mapping, :confirmed, user: user, material: material, node: node, section_id: "sec-old-2")
+
+      assembled = described_class.node_grounding(plan, node)
+
+      aggregate_failures do
+        expect(assembled.unmapped).to be(true)
+        expect(assembled.truncated).to be(false)
+        expect(assembled.text).to include("[node id=#{node.id}")
+        expect(assembled.text).not_to include("[section id=")
+        expect(assembled.text).not_to include("renumbered body")
+      end
+    end
+
     it "stays mapped when a stale section id skips its row but another resolves" do
       node = create(:knowledge_node, user: user, plan: plan, title: "N", order: 1)
       material = create(:material, user: user, plan: plan, title: "M", sections: [
