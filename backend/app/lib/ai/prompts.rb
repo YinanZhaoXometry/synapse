@@ -416,7 +416,64 @@ module Ai
         ]
       end
 
-      private
+        # Lesson outline gate (epic-36 T1, spec decisions 5+7+8 — ① 材料讲义):
+      # a parsed material's budget-sliced sections become a chapter proposal —
+      # stateless (nothing persists; a re-roll is simply another call). The
+      # reply contract is the JSON the command normalizes: chapters with
+      # titles + the [section id=…] ids they teach. `outline_target` rides
+      # from the template constants (Ai::Lessons — the ① cap 8; the ② internal
+      # outline passes the node variant's tighter cap), never hand-written.
+      def lesson_outline(language:, context:, material_title:, outline_target: Ai::Lessons::MATERIAL_MAX_SECTIONS)
+        [ system,
+          user(<<~PROMPT)
+            Study material context (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            Propose a chapter outline for an AI-generated study lesson (AI 讲义) built from the material "#{material_title}" above.
+            At most #{outline_target} chapters. Every chapter MUST carry:
+            - "title": a short chapter name grounded in the material's sections.
+            - "sourceSectionIds": the [section id=…] values from the context that the chapter teaches — at least one, and only ids that appear above.
+            Together the chapters should cover the material; a section that fits no chapter may be left out honestly — never invent content or ids.
+            #{language_directive(language, "every chapter title")}
+
+            Reply ONLY with JSON: {"chapters":[{"title":"…","sourceSectionIds":["…"]}]}
+          PROMPT
+        ]
+      end
+
+      # Lesson section fill (epic-36 T1, spec decision 7 — both variants):
+      # ONE chapter's body written in ONE streamed pass (single-pass, the
+      # budget-first amendment over the research document's two-pass
+      # proposal). The context is ONLY the chapter's assigned source
+      # sections — the grounding discipline the stream op enforces when
+      # assembling. The honesty clause is the GLOSSARY law (AI 讲义 = a
+      # grounded re-presentation of the learner's own materials, never
+      # parametric writing): the lesson teaches nothing the assigned sources
+      # do not ground. The reply is the chapter Markdown itself (the system
+      # prompt's JSON contract overridden, the note builder's posture).
+      def lesson_section(language:, context:, lesson_title:, chapter_title:)
+        [ system,
+          user(<<~PROMPT)
+            Study material context (the ONLY allowed source) — the source sections assigned to ONE chapter:
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            You are writing the chapter "#{chapter_title}" of the generated study lesson "#{lesson_title}" (AI 讲义).
+            Write that ONE chapter as Markdown: begin with a single level-2 heading ("## …") naming the chapter, then short paragraphs; end with a one-line recap.
+            Teach ONLY from the assigned source sections above — the lesson is a grounded re-presentation of the learner's own material, never parametric writing: never state a fact the context does not ground.
+            #{language_directive(language, "the entire chapter")}
+
+            Reply ONLY with the chapter Markdown itself — no code fences, no commentary before or after.
+          PROMPT
+        ]
+      end
+
+    private
 
       def proposal_material_block(materials)
         list = (materials || []).filter_map do |material|

@@ -60,7 +60,9 @@ RSpec.describe Ai::Prompts do
       grade: { answer: "My answer.", keywords: %w[k], source_text: "Raft elects a leader.", language: "zh" },
       companion: { question: "为什么？", position_text: "I am here.", language: "zh", escalated: false, context: context },
       plan_companion: { question: "重点？", language: "zh", context: context },
-      proposal: { message: "m", materials: [], language: "zh" }
+      proposal: { message: "m", materials: [], language: "zh" },
+      lesson_outline: { language: "zh", context: context, material_title: "讲义" },
+      lesson_section: { language: "zh", context: context, lesson_title: "Raft 讲义", chapter_title: "选举" }
     }
     aggregate_failures do
       zh_calls.each do |name, kwargs|
@@ -275,5 +277,47 @@ RSpec.describe Ai::Prompts do
     a = described_class.quiz(mode: "mix", language: "en", context: context, quota_plan: "- N: 2")
     b = described_class.quiz(mode: "mix", language: "en", context: context, quota_plan: "- N: 2")
     expect(a).to eq(b)
+  end
+
+  # The generated-lesson prompts (epic-36 T1, spec decisions 7+8): the
+  # outline gate (①) and the single-pass section fill. The load-bearing
+  # contract: the sourcing law + the honesty clause (只讲所给源材料 — the
+  # lesson is a grounded re-presentation, never parametric writing), the
+  # chapter id vocabulary the reply normalization reads, the chapter cap the
+  # template pins, and the language directive riding the ONE single point.
+  describe "the lesson prompts (epic-36 T1)" do
+    it "lesson_outline keeps the sourcing law, the [section id=…] vocabulary, and the template cap" do
+      content = described_class.lesson_outline(language: "en", context: context,
+                                               material_title: "Distributed notes")[1][:content]
+      aggregate_failures do
+        expect(content).to include("the ONLY allowed source")
+        expect(content).to include("Distributed notes")
+        expect(content).to include("sourceSectionIds")
+        expect(content).to include("At most #{Ai::Lessons::MATERIAL_MAX_SECTIONS} chapters")
+        expect(content).to include("never invent content or ids")
+        expect(content).to include('{"chapters":[{"title":"…","sourceSectionIds":["…"]}]}')
+        expect(content).to include("in English.")
+      end
+    end
+
+    it "lesson_section keeps the single-chapter honesty clause and the Markdown streaming contract" do
+      content = described_class.lesson_section(language: "zh", context: context,
+                                               lesson_title: "Raft 讲义", chapter_title: "选举")[1][:content]
+      aggregate_failures do
+        expect(content).to include("the ONLY allowed source")
+        expect(content).to include("选举")
+        expect(content).to include("Raft 讲义")
+        expect(content).to include("never parametric writing")
+        expect(content).to include("never state a fact the context does not ground")
+        expect(content).to include("Reply ONLY with the chapter Markdown itself")
+        expect(content).to include("in 简体中文.")
+      end
+    end
+
+    it "honors a caller-pinned outline target (the node variant's tighter template)" do
+      content = described_class.lesson_outline(language: "zh", context: context, material_title: "讲义",
+                                               outline_target: Ai::Lessons::NODE_SECTION_MAX)[1][:content]
+      expect(content).to include("At most #{Ai::Lessons::NODE_SECTION_MAX} chapters")
+    end
   end
 end
