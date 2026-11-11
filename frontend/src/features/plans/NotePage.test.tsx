@@ -85,7 +85,7 @@ const planMock: MockedResponse = {
           { __typename: "KnowledgeNode", id: "n-2", planId: "plan-1", taskId: null, stage: null, title: "Replication", description: null, optional: false, studyMark: null, order: 1, masteryScore: "40", state: "partial", createdAt: "2026-11-05T00:00:00Z" },
         ],
         materials: [
-          { __typename: "Material", id: "m-1", title: "Distributed systems notes", kind: "markdown", sizeBytes: 1, planId: "plan-1", taskId: null, attachmentScope: "plan", nodeId: null, parseState: "parsed", parseFailureReason: null, createdAt: "2026-11-05T00:00:00Z", downloadUrl: null },
+          { __typename: "Material", id: "m-1", title: "Distributed systems notes", kind: "markdown", sizeBytes: 1, planId: "plan-1", taskId: null, attachmentScope: "plan", nodeId: null, parseState: "parsed", parseFailureReason: null, createdAt: "2026-11-05T00:00:00Z", downloadUrl: null, origin: "uploaded" },
         ],
       },
     },
