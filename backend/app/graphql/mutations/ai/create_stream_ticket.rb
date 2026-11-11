@@ -50,6 +50,9 @@ module Mutations
       argument :lesson_id, String,
                required: false,
                description: "lesson only: the generated lesson's uuid (epic-36 — an owned origin=generated Material; a foreign, uploaded, or generation-less id is NOT_FOUND)."
+      argument :regenerate, Boolean,
+               required: false,
+               description: "lesson only: the in-place regenerate flag (epic-36 T2 — clear the lesson's outline + sections on the SAME row, then the op re-derives the outline from the CURRENT grounding and re-fills every section; each call re-counts against the daily cap)."
 
       field :token, String,
             null: false,
@@ -58,7 +61,7 @@ module Mutations
             null: false,
             description: "When the ticket dies (~60s TTL; expired → 401)."
 
-      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, message: nil, materials: nil, plan_id: nil, mistake_entry_id: nil, node_id: nil, lesson_id: nil)
+      def resolve(op:, language:, material_id: nil, question: nil, position: nil, selection: nil, escalated: nil, message: nil, materials: nil, plan_id: nil, mistake_entry_id: nil, node_id: nil, lesson_id: nil, regenerate: nil)
         result = command_result(::Ai::CreateStreamTicketCommand.call(
           current_user: current_user!,
           op: op,
@@ -73,7 +76,8 @@ module Mutations
           plan_id: plan_id,
           mistake_entry_id: mistake_entry_id,
           node_id: node_id,
-          lesson_id: lesson_id
+          lesson_id: lesson_id,
+          regenerate: regenerate
         ))
         ticket = result[:ticket]
         { token: ticket.token, expires_at: ticket.expires_at }

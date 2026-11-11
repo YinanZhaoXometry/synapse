@@ -30,7 +30,11 @@ module Api
   # section persists ATOMICALLY (断线不留半句 — a drop never leaves half a
   # section), CAP_REACHED / provider failure land pausedKind on the lesson
   # (cap | provider) with the generated sections preserved, and there is no
-  # auto-resume — continuing = an explicit new ticket.
+  # auto-resume — continuing = an explicit new ticket. The ticket payload's
+  # regenerate flag (epic-36 T2) is the reader's 「重新生成」: one in-place
+  # reset (sections cleared + outline emptied on the SAME row) before the
+  # normal flow re-derives the outline from the current grounding and
+  # re-fills every section.
   # The rung is request-derived server-side (escalated → "answer", else
   # "hint" — the ladder amendment); citations are derived from the grounded
   # position (the focus section) — the AD-5 contract is produced here, never
@@ -245,6 +249,21 @@ module Api
       language = payload["language"]
       generation = lesson.generation
       outline = generation["outline"].is_a?(Array) ? generation["outline"] : []
+
+      # 重新生成 (epic-36 T2, spec story 5): the reader's explicit in-place
+      # replace — one row, one reset: sections cleared and the outline
+      # emptied so the EMPTY-outline path below re-derives it from the
+      # CURRENT grounding (new mappings picked up; the outline call plus
+      # every section fill re-counts against the cap — 重烧额度). Before
+      # outline_ready, so the event carries the fresh placeholder set.
+      if payload["regenerate"] == true && outline.present?
+        lesson.update!(
+          sections: [],
+          generation: generation.merge("outline" => [], "pausedKind" => nil)
+        )
+        generation = lesson.reload.generation
+        outline = []
+      end
 
       if outline.empty?
         outcome = generate_lesson_outline(user, lesson, language)

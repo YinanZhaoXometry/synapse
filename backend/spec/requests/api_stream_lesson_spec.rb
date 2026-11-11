@@ -49,8 +49,10 @@ RSpec.describe "GET /api/stream?op=lesson (epic-36 T1 — the generated-lesson s
                       })
   end
 
-  def mint(lesson)
-    result = ::Ai::CreateStreamTicketCommand.call(current_user: user, op: "lesson", language: "zh", lesson_id: lesson.id)
+  def mint(lesson, regenerate: nil)
+    result = ::Ai::CreateStreamTicketCommand.call(
+      current_user: user, op: "lesson", language: "zh", lesson_id: lesson.id, regenerate: regenerate
+    )
     result.value![:ticket]
   end
 
@@ -282,6 +284,84 @@ RSpec.describe "GET /api/stream?op=lesson (epic-36 T1 — the generated-lesson s
         expect(reloaded.generation["outline"].map { |chapter| chapter["id"] }).to eq(%w[ch-1])
         expect(reloaded.generation["outline"].map { |chapter| chapter["status"] }).to eq(%w[ready])
         expect(reloaded.sections.map { |section| section["id"] }).to eq(%w[ch-1])
+      end
+    end
+  end
+
+  # epic-36 T2 (spec story 5 + the ticket's 重新生成 box): the reader's
+  # explicit in-place replace — the ticket payload's regenerate flag makes
+  # the op reset the SAME row (sections cleared, outline emptied) before
+  # the normal flow re-derives the outline from the CURRENT grounding and
+  # re-fills every section. No new row is ever created (the singleton holds).
+  describe "the regenerate semantics (重新生成)" do
+    it "replaces the lesson in place: sections cleared, outline re-derived, every section re-filled — same row id" do
+      lesson = create_lesson(
+        outline: default_outline,
+        sections: [ { "id" => "ch-1", "title" => "选举与日志", "text" => "旧正文", "anchors" => [ { "materialId" => source.id, "sectionId" => "sec-1" } ] } ]
+      )
+      outline_reply = { chapters: [
+        { title: "新章一", sourceSectionIds: [ "sec-1" ] },
+        { title: "新章二", sourceSectionIds: [ "sec-2" ] }
+      ] }.to_json
+      outline_calls = 0
+      allow(adapter).to receive(:complete) do |messages|
+        outline_calls += 1
+        outline_reply
+      end
+      allow(adapter).to receive(:stream).and_return(%w[新正文].each)
+
+      stream(mint(lesson, regenerate: true))
+      aggregate_failures do
+        expect(outline_calls).to eq(1) # the outline call re-burns (重烧额度)
+        expect(events.first["event"]).to eq("outline_ready")
+        expect(events.first["data"]["outline"].map { |chapter| chapter["title"] }).to eq(%w[新章一 新章二])
+        expect(events.map { |event| event["event"] }).to eq(
+          %w[outline_ready] + %w[section_start token section_ready] + %w[section_start token section_ready] + %w[terminal]
+        )
+        expect(events.last["data"]).to eq({ "code" => "OK" })
+      end
+      reloaded = lesson.reload
+      aggregate_failures do
+        expect(reloaded.id).to eq(lesson.id) # in place — never a second row
+        expect(reloaded.sections.map { |section| section["id"] }).to eq(%w[ch-1 ch-2]) # the old section GONE
+        expect(reloaded.sections.map { |section| section["text"] }).to eq(%w[新正文 新正文])
+        expect(reloaded.generation["outline"].map { |chapter| chapter["title"] }).to eq(%w[新章一 新章二])
+        expect(reloaded.generation["outline"].map { |chapter| chapter["status"] }).to eq(%w[ready ready])
+        expect(reloaded.generation["pausedKind"]).to be_nil
+      end
+    end
+
+    it "clears a cap pause and re-fills everything (the explicit replace is its own way back)" do
+      lesson = create_lesson(
+        outline: default_outline(statuses: %w[ready pending]),
+        sections: [ { "id" => "ch-1", "title" => "选举与日志", "text" => "旧正文", "anchors" => [ { "materialId" => source.id, "sectionId" => "sec-1" } ] } ],
+        paused: "cap"
+      )
+      outline_reply = { chapters: [ { title: "新章", sourceSectionIds: [ "sec-1" ] } ] }.to_json
+      allow(adapter).to receive(:complete).and_return(outline_reply)
+      allow(adapter).to receive(:stream).and_return(%w[新正文].each)
+
+      stream(mint(lesson, regenerate: true))
+      reloaded = lesson.reload
+      aggregate_failures do
+        expect(events.last["data"]).to eq({ "code" => "OK" })
+        expect(reloaded.sections.map { |section| section["id"] }).to eq(%w[ch-1]) # the reset outline re-mints ch-1
+        expect(reloaded.sections.first["text"]).to eq("新正文") # the old prose replaced
+        expect(reloaded.generation["outline"].map { |chapter| chapter["title"] }).to eq(%w[新章])
+        expect(reloaded.generation["pausedKind"]).to be_nil
+      end
+    end
+
+    it "rides the payload ONLY when true — the frozen shape stays byte-identical otherwise" do
+      lesson = create_lesson
+      payload_without = mint(lesson).payload
+      payload_false = mint(lesson, regenerate: false).payload
+      payload_true = mint(lesson, regenerate: true).payload
+
+      aggregate_failures do
+        expect(payload_without).to eq({ "lesson_id" => lesson.id, "language" => "zh" })
+        expect(payload_false).to eq({ "lesson_id" => lesson.id, "language" => "zh" })
+        expect(payload_true).to eq({ "lesson_id" => lesson.id, "language" => "zh", "regenerate" => true })
       end
     end
   end

@@ -1122,6 +1122,14 @@ input CreateStreamTicketInput {
   question: String
 
   """
+  lesson only: the in-place regenerate flag (epic-36 T2 — clear the lesson's
+  outline + sections on the SAME row, then the op re-derives the outline from
+  the CURRENT grounding and re-fills every section; each call re-counts against
+  the daily cap).
+  """
+  regenerate: Boolean
+
+  """
   companion only: the text selection the question grounds on (FR-13, epic-13 T1
   — the reader's selection bar). Bounded like the question; blank input never
   rides the ticket.
