@@ -567,7 +567,12 @@ function PlanCompanionSurface({ planId, materials, mistakeEntries, teachPrefill 
   // The AI 讲解 handoff (epic-34 T2): identity is the nonce — a 讲解 click
   // marks the session's node (replace semantics: another node's 讲解 or the
   // generic entry flips the prop away) and pre-fills the composer. The user
-  // presses send; nothing is spent on the click.
+  // presses send; nothing is spent on the click. The trigger is the derived
+  // plain nonce (epic-34 review round): null ⇄ number covers both flips the
+  // old two-expression dep array caught — the null side collapses the absent
+  // nonce, the number side is every 讲解 click. chat/t ride outside the dep
+  // contract deliberately (per-render identities, never a trigger).
+  const teachNonce = teachPrefill?.nonce ?? null;
   useEffect(() => {
     if (teachPrefill) {
       chat.beginTeaching({ id: teachPrefill.nodeId, title: teachPrefill.nodeTitle });
@@ -576,7 +581,7 @@ function PlanCompanionSurface({ planId, materials, mistakeEntries, teachPrefill 
       chat.clearTeaching();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teachPrefill?.nonce, teachPrefill === null]);
+  }, [teachNonce]);
 
   // Auto-scroll to the newest row / latest streamed token (scaffold pattern).
   const threadRef = useRef<HTMLDivElement>(null);

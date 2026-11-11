@@ -122,17 +122,22 @@ export default function PlanHomePage() {
     mappingRows: mappingsQuery.data,
   });
 
-  const openCompanion = () => {
-    setTeachRequest(null);
+  // The shared drawer tail (review round): open + smooth-scroll the drawer
+  // into view — both the generic entry and a node's 讲解 handoff land here.
+  const openDrawer = () => {
     setCompanionOpen(true);
     requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const openCompanion = () => {
+    setTeachRequest(null);
+    openDrawer();
   };
 
   const openTeaching = (nodeId: string, nodeTitle: string) => {
     teachNonceRef.current += 1;
     setTeachRequest({ nodeId, nodeTitle, nonce: teachNonceRef.current });
-    setCompanionOpen(true);
-    requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    openDrawer();
   };
 
   const openPicker = (materialId: string | null = null) => {
