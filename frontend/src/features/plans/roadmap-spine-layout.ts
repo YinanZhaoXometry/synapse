@@ -58,9 +58,10 @@ export interface SpinePrereqInput {
  *  one step (T03 owner round: bigger nodes, airier rows; FAN_GAP narrows so
  *  the frame stays ≈1190 and the nodes' on-screen share grows). */
 export const SPINE_NODE_W = 310;
-export const SPINE_NODE_H = 62;
-/** Leaf stack pitch — the gap between rows opens 6.5 → 16px. */
-export const SPINE_ROW_PITCH = 78;
+/** T04: one more step of vertical padding inside the boxes. */
+export const SPINE_NODE_H = 68;
+/** Leaf stack pitch — the gap between rows stays at 16px. */
+export const SPINE_ROW_PITCH = 84;
 /** The horizontal gap between a hub's edge and a fan's inner edge. */
 export const SPINE_FAN_GAP = 100;
 /** The vertical gap between consecutive stage blocks. */

@@ -179,23 +179,18 @@ export default function RoadmapGraph({
   const hoverIntentRef = useRef<number | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const nodeRefs = useRef(new Map<string, SVGElement>());
-  // The chip strip's rendered half-width, measured for the horizontal clamp
-  // (T03: the strip centers on the node but never overflows the canvas). The
-  // default covers the widest common content until the first measurement.
-  const chipsRef = useRef<HTMLDivElement>(null);
-  const [chipsHalf, setChipsHalf] = useState(150);
-  useEffect(() => {
-    const w = chipsRef.current?.offsetWidth ?? 0;
-    if (w > 0) setChipsHalf(w / 2);
-  }, [hoveredId, chipsVisible]);
 
-  // The hover chip strip (epic-28 T4): ~150ms hover-intent so brushing the
-  // canvas never flickers chips; leaving schedules a ~120ms GRACE hide that
-  // entering the strip (or another node) cancels — the strip mounts flush
-  // above the node, so a top-row strip overlaps the pointer and a bare
-  // leave-hide would unmount the strip the instant it opens (the e2e
-  // flicker lesson). TOUCH never opens them (tap = the sheet, unchanged).
-  // Keyboard never opens them either — Enter opens the sheet, which carries
+  // The hover chip strip (epic-28 T4, hide contract reworked in T04): ~150ms
+  // hover-intent so brushing the canvas never flickers chips; leaving a NODE
+  // now schedules the ~120ms GRACE hide directly — the epic-28 posture
+  // (container-only hiding, because a strip flush on the node sat under a
+  // stationary pointer) died with T03's gap: the strip floats above the
+  // node's top edge, so the pointer always rests ON the node and a per-node
+  // leave is honest. Entering the strip or another node cancels the grace;
+  // the strip's own leave re-schedules; the CONTAINER's leave stays as the
+  // final fallback. TOUCH never opens the strip (tap = the sheet, unchanged)
+  // — a touch pointerleave scheduling a hide of nothing is a no-op.
+  // Keyboard never opens it either — Enter opens the sheet, which carries
   // the same actions.
   const clearHoverIntent = () => {
     if (hoverIntentRef.current !== null) {
@@ -224,12 +219,6 @@ export default function RoadmapGraph({
     clearHoverIntent();
     hoverIntentRef.current = window.setTimeout(() => setChipsVisible(true), 150);
   };
-  // NOTE: no per-node pointerleave — a strip mounted flush above a top-row
-  // node sits under a STATIONARY pointer, and Chromium never synthesizes the
-  // enter/leave pair for an element that appears (or vanishes) beneath an
-  // unmoved pointer. Hiding is therefore the CONTAINER's job: the pointer
-  // leaving the whole canvas area schedules the hide; nodes and the strip
-  // are inside it, so reaching either never hides anything.
   useEffect(
     () => () => {
       clearHoverIntent();
@@ -537,6 +526,7 @@ export default function RoadmapGraph({
                 tabIndex={focused ? 0 : -1}
                 aria-label={ariaLabel}
                 onPointerEnter={(event) => onNodePointerEnter(id, event)}
+                onPointerLeave={scheduleHide}
                 onClick={() => {
                   setSelectedId(id);
                   setFocusedId(id);
@@ -626,37 +616,34 @@ export default function RoadmapGraph({
           })}
         </svg>
 
-        {/* The hover chip strip (epic-28 T4, repositioned in T03): row 1 =
-            the Study Mark toggles, row 2 = the node's actions (NodeActions
-            verbatim — one implementation everywhere). The zero-width ANCHOR
-            sits on the node's top edge (top = nodeTop·scale, left = the
-            node's top-center X clamped inside the canvas) and the strip
-            hangs off it with bottom-2 + -translate-x-1/2: structurally
-            ALWAYS above the node and centered on it — no top clamp exists
-            anywhere, so the canvas-top row can never make the strip land on
-            its own node (the old Math.max(0, top−76) bug). The glass
-            background is the --popover-glass token (skin guard: no raw
-            rgba/hex in this file). Pointer events ON the strip (the chips
-            are clickable), OFF the anchor; hidden while unhovered, during
+        {/* The hover chip strip (epic-28 T4, reworked T03/T04): row 1 = the
+            Study Mark toggles, row 2 = the node's actions (NodeActions
+            verbatim). The zero-width ANCHOR sits at the node's top-edge
+            CENTER (top = nodeTop·scale, left = centerX — exact, NO clamp:
+            the lg+ layout's rail leaves 300px+ of page to the right of the
+            canvas, so a centered strip on a right-column leaf paints over
+            the rail and never past the viewport; touch never opens it) and
+            the strip hangs off it with bottom-1 + -translate-x-1/2:
+            structurally ALWAYS above the node, centers on the node's
+            vertical axis. Glass face = the --popover-glass token (skin
+            guard: no raw rgba/hex here). Pointer events ON the strip (the
+            chips are clickable; entering it cancels the grace hide, leaving
+            it re-schedules), OFF the anchor; hidden while unhovered, during
             the intent delay, and for touch (tap = the sheet). */}
         {hovered && hoveredBox && chipsVisible && (
           <div
             data-testid="roadmap-chips-anchor"
             className="pointer-events-none absolute z-10 w-0"
             style={{
-              left: (() => {
-                const centerX = hoveredBox.x * scale + (SPINE_NODE_W * scale) / 2;
-                const canvasW = containerRef.current?.clientWidth ?? 0;
-                if (canvasW <= 0) return centerX;
-                return Math.min(Math.max(centerX, chipsHalf + 8), canvasW - chipsHalf - 8);
-              })(),
+              left: hoveredBox.x * scale + (SPINE_NODE_W * scale) / 2,
               top: hoveredBox.y * scale,
             }}
           >
             <div
               data-testid="roadmap-chips"
-              ref={chipsRef}
-              className="pointer-events-auto absolute bottom-2 left-0 flex w-max -translate-x-1/2 flex-col items-start gap-1 rounded-xl border border-border-soft bg-[var(--popover-glass)] px-2 py-1.5 shadow-raised backdrop-blur-[6px]"
+              onPointerEnter={cancelHide}
+              onPointerLeave={scheduleHide}
+              className="pointer-events-auto absolute bottom-1 left-0 flex w-max -translate-x-1/2 flex-col items-start gap-1 rounded-xl border border-border-soft bg-[var(--popover-glass)] px-2 py-1.5 shadow-raised backdrop-blur-[6px]"
             >
               <div className="flex items-center gap-2">
                 <span className="max-w-[260px] truncate text-xs font-semibold text-foreground">{hovered.node.title}</span>
