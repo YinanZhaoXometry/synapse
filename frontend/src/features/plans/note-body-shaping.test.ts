@@ -3,6 +3,7 @@ import type { NoteView } from "@/api/views";
 import {
   downloadNoteMarkdown,
   markerKindKey,
+  noteExcerpt,
   noteExportFilename,
   noteExportMarkdown,
   noteTargetingRows,
@@ -109,6 +110,44 @@ describe("the export (FR-40 — markers preserved verbatim)", () => {
       URL.createObjectURL = originalCreate;
       URL.revokeObjectURL = originalRevoke;
     }
+  });
+});
+
+describe("noteExcerpt (epic-35 T02 — the rail's scanning excerpt)", () => {
+  it("strips markers and markdown syntax, flattens whitespace", () => {
+    const body = [
+      "# Raft in one note",
+      "",
+      "Raft elects a leader and replicates the log.",
+      "",
+      "## Failure detection",
+      "",
+      "- heartbeat > timeout",
+      "",
+      "[[enrich|diagram|Raft leader election]]",
+    ].join("\n");
+    expect(noteExcerpt(body)).toBe(
+      "Raft in one note Raft elects a leader and replicates the log. Failure detection - heartbeat timeout",
+    );
+  });
+
+  it("drops fenced code blocks and link syntax keeps the label", () => {
+    expect(noteExcerpt("See [the paper](https://example.com) first.\n\n```\nSELECT 1;\n```")).toBe(
+      "See the paper first.",
+    );
+  });
+
+  it("caps at max chars with an ellipsis — never a full body dump in the rail", () => {
+    const long = "word ".repeat(80).trim();
+    const excerpt = noteExcerpt(long, 40);
+    expect(excerpt.length).toBe(41);
+    expect(excerpt.endsWith("…")).toBe(true);
+    expect(excerpt.slice(0, 40)).toBe(long.slice(0, 40));
+  });
+
+  it("reads empty for a marker-only or empty body (the row just shows no excerpt)", () => {
+    expect(noteExcerpt("[[enrich|diagram|only a marker]]")).toBe("");
+    expect(noteExcerpt("")).toBe("");
   });
 });
 

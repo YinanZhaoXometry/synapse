@@ -58,6 +58,27 @@ export function markerKindKey(markerKind: string): NoteMarkerKind | null {
   return (NOTE_MARKER_KINDS as readonly string[]).includes(markerKind) ? (markerKind as NoteMarkerKind) : null;
 }
 
+/**
+ * A short scanning excerpt for the notes list (epic-35 T02): marker lines and
+ * markdown syntax stripped, whitespace flattened, hard-capped with an
+ * ellipsis. A best-effort scan aid — the body itself only renders through
+ * NoteBodyView (the rail's list never renders the full markdown).
+ */
+export function noteExcerpt(body: string, max = 140): string {
+  const text = splitNoteBody(body)
+    .filter((token) => token.kind === "text")
+    .map((token) => (token as NoteTextToken).text)
+    .join(" ");
+  const stripped = text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[#>*`~_|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.length > max ? `${stripped.slice(0, max)}…` : stripped;
+}
+
 /** The export payload: the body VERBATIM — enrichment markers preserved (FR-40). */
 export function noteExportMarkdown(note: NoteView): string {
   return note.body;

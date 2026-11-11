@@ -625,40 +625,27 @@ function MaterialRow({
   // material with content has sections to map — the action never shows for
   // pending/failed rows (there is nothing honest to map yet).
   const hasSections = material.parseState === "parsed" && material.sections.length > 0;
+  // Two-line card (epic-35 T01): the rail gives this row ~288px and the chips
+  // are nowrap, so a single flex line squeezes the title to nothing (the
+  // TaskHomePage row's flex-wrap is the precedent). Line 1 = identity + the
+  // reader link; line 2 wraps the status/meta/coverage/scope chips honestly.
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
-      <span className="text-sm truncate flex-1">{material.title}</span>
-      {/* Open in the Immersive Reader (FR-8; T2) — every state lands honestly
-          there: parsing shows the skeleton, failed the reason card, and a
-          byteless parsed material the re-upload affordance. */}
-      <Link
-        to={`/read/${material.id}`}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
-        title={t(openLabelKey)}
-      >
-        <BookOpen className="w-3 h-3" aria-hidden="true" /> {t(openLabelKey)}
-      </Link>
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground flex-none">{kind}</span>
-      <span className="text-[10px] text-muted-foreground tabular-nums flex-none">
-        {t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}
-      </span>
-      {hasSections && (
-        <button
-          type="button"
-          onClick={onToggleCoverage}
-          aria-expanded={coverageOpen}
-          className={cn(
-            "pill cursor-pointer flex-none",
-            coverageOpen ? "pill-mastered" : "pill-muted",
-          )}
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
+        <span className="text-sm truncate flex-1 min-w-0">{material.title}</span>
+        {/* Open in the Immersive Reader (FR-8; T2) — every state lands honestly
+            there: parsing shows the skeleton, failed the reason card, and a
+            byteless parsed material the re-upload affordance. */}
+        <Link
+          to={`/read/${material.id}`}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
+          title={t(openLabelKey)}
         >
-          {t("mapping.title")}
-        </button>
-      )}
-      {/* Attachment scope (FR-44, epic P2-10 T2): the chip + pin/widen affordance.
-          Task materials render nothing (the triangle has no node pinning). */}
-      <MaterialScopeControls material={material} nodes={nodes} />
+          <BookOpen className="w-3 h-3" aria-hidden="true" /> {t(openLabelKey)}
+        </Link>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-1.5">
       {needsReupload ? (
         <span className="flex items-center gap-2 flex-none">
           <span className="pill pill-muted cursor-help" title={t("plans.materialsSessionNote")}>
@@ -699,6 +686,30 @@ function MaterialRow({
           {t("plans.parsePending")}
         </span>
       )}
+        {/* kind + size as one muted meta token — two chips were two overflow
+            candidates in a 288px rail (epic-35 T01). */}
+        <span className="text-[10px] text-muted-foreground flex-none">
+          <span className="uppercase tracking-wide">{kind}</span>
+          {" · "}
+          <span className="tabular-nums">{t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}</span>
+        </span>
+        {hasSections && (
+          <button
+            type="button"
+            onClick={onToggleCoverage}
+            aria-expanded={coverageOpen}
+            className={cn(
+              "pill cursor-pointer flex-none",
+              coverageOpen ? "pill-mastered" : "pill-muted",
+            )}
+          >
+            {t("mapping.title")}
+          </button>
+        )}
+        {/* Attachment scope (FR-44, epic P2-10 T2): the chip + pin/widen affordance.
+            Task materials render nothing (the triangle has no node pinning). */}
+        <MaterialScopeControls material={material} nodes={nodes} />
+      </div>
     </div>
   );
 }

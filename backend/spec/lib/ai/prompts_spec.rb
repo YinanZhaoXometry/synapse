@@ -117,6 +117,13 @@ RSpec.describe Ai::Prompts do
       described_class::NOTE_MARKER_KINDS.each { |kind| expect(plain).to include("\"#{kind}\"") }
       expect(plain).to include("Reply ONLY with the Markdown note itself")
       expect(plain).not_to include("Weak-spot coverage plan")
+      # The teaching directives (epic-35 T03): intuition-first, a worked
+      # example with a sanity check, and the renderer-honesty representation
+      # line (no LaTeX / diagram-syntax — the client renders neither).
+      expect(plain).to include("Teach, don't summarize")
+      expect(plain).to include("sanity check of the result")
+      expect(plain).to include("LaTeX source and diagram-syntax blocks are never rendered")
+      expect(plain).to include("State plainly when the material is ambiguous")
     end
 
     aimed = described_class.note(language: "zh", context: context, quota_plan: "- Node Y: heavy")[1][:content]
