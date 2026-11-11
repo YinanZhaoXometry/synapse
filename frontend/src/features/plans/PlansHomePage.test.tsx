@@ -67,6 +67,8 @@ const nodeFixture = (overrides: Record<string, unknown> = {}) => ({
 
 const materialFixture = (overrides: Record<string, unknown> = {}) => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: "m-1",
   title: "复习讲义.md",
   kind: "markdown",

@@ -68,6 +68,8 @@ const MATERIAL: MaterialView = {
   ],
   createdAt: "2026-11-05T00:00:00Z",
   downloadUrl: null,
+  origin: "uploaded",
+  generation: null,
 };
 
 const NODES: KnowledgeNodeView[] = [

@@ -36,4 +36,10 @@ class Material < ApplicationRecord
   enum :parse_failure_reason, { corrupt: "corrupt", encrypted: "encrypted", empty: "empty", unknown: "unknown" },
        scopes: false
   enum :attachment_scope, { plan: "plan", node: "node" }, default: :plan, scopes: false
+  # The origin axis (epic-36 T1, spec decision 1): "uploaded" (the user's own
+  # document — the default, no backfill) vs "generated" (an AI 讲义, a lesson
+  # the engine created server-side — no blob is legal for it). Generated
+  # materials are excluded from every generation source pool and from
+  # Auto-mapping (spec decision 8; GLOSSARY §Generated study content).
+  enum :origin, { uploaded: "uploaded", generated: "generated" }, default: :uploaded, scopes: false
 end

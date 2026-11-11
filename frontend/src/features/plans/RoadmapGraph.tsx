@@ -40,6 +40,7 @@ import type { MaterialNodeMappingView, MaterialView, PlanEdgeView, StudyMark } f
 import { cn } from "@/lib/utils";
 import type { NodeRowView } from "./display-shaping";
 import NodeActions from "./node-actions";
+import { nodeLessonMaterial } from "./lesson-entry";
 import { NodeStateBadge } from "./node-state-badge";
 import StudyMarkToggleRow from "./study-mark-toggle";
 import EvidenceMarks from "./evidence-marks";
@@ -111,6 +112,8 @@ export default function RoadmapGraph({
   mappings,
   mappingsFailed = false,
   onTeachNode,
+  onLessonNode,
+  lessonHint = null,
 }: {
   planId: string;
   /** The plan's node rows, already shaped by nodeRowViews (score/state server fields, AD-14). */
@@ -125,6 +128,10 @@ export default function RoadmapGraph({
   /** The AI 讲解 entry (epic-34 T2): the plan page shell opens its Companion
    * drawer pre-filled for that node. */
   onTeachNode: (nodeId: string, nodeTitle: string) => void;
+  /** epic-36 T2 (生成讲义): the shell creates/opens the node's lesson. */
+  onLessonNode?: (nodeId: string, nodeTitle: string) => void;
+  /** The composed entry hint (estimate × remaining); null while either read is in flight. */
+  lessonHint?: string | null;
 }) {
   const { t } = useLanguage();
   const { reduceMotion } = useTheme();
@@ -334,6 +341,10 @@ export default function RoadmapGraph({
           materials,
         )
       : null;
+  // epic-36 T2: the per-node existing lesson id (「打开讲义」 deformation) —
+  // the same materials read the jump targets resolve against.
+  const lessonMaterialFor = (nodeId: string | null | undefined): string | null =>
+    onLessonNode && nodeId ? (nodeLessonMaterial(materials, nodeId)?.id ?? null) : null;
 
   if (views.length === 0) {
     return <p className="text-xs text-muted-foreground px-1">{t("plans.graphEmpty")}</p>;
@@ -664,6 +675,9 @@ export default function RoadmapGraph({
                 nodeId={hovered.node.id}
                 nodeTitle={hovered.node.title}
                 onTeach={onTeachNode}
+                lessonMaterialId={lessonMaterialFor(hovered.node.id)}
+                lessonHint={lessonHint}
+                onLesson={onLessonNode}
               />
             </div>
           </div>
@@ -738,6 +752,12 @@ export default function RoadmapGraph({
                   onTeach={(nodeId, nodeTitle) => {
                     setSelectedId(null);
                     onTeachNode(nodeId, nodeTitle);
+                  }}
+                  lessonMaterialId={lessonMaterialFor(selected.node.id)}
+                  lessonHint={lessonHint}
+                  onLesson={(nodeId, nodeTitle) => {
+                    setSelectedId(null);
+                    onLessonNode?.(nodeId, nodeTitle);
                   }}
                 />
               </div>

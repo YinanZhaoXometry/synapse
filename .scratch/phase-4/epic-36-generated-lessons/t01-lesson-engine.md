@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] 迁移：materials.origin enum（default uploaded）+ materials.generation jsonb + stream_tickets.op 检查约束加 `lesson`；Material GraphQL 类型加只读 origin/generation；MaterialSection 加只读 anchors；codegen 重生成 + committed schema 更新（CI freshness gate 绿）
-- [ ] ProposeLessonOutlineCommand：parsed∧有 sections 的材料才可用；返回 [{title, sourceSectionIds}]（≤8，模板常量）；stateless；cap 照常消耗；Failure 形状走既有 roster（VALIDATION_FAILED/NOT_FOUND/CAP_REACHED）
-- [ ] CreateLessonCommand：②输入 plan+node+clientUuid（outline 内部生成；unmapped 节点 → VALIDATION_FAILED 带诚实理由 context；每节点至多一份——已存在则幂等返回既有）+ 材料挂 plan/attachment_scope=node；①输入 material+echoed outline+clientUuid（校验 ≤8/标题去重；每源材料至多一份）；产物 origin=generated、kind=markdown、parse_state=parsed、无 blob、sections 空起步 + generation.outline 占位
-- [ ] stream op `lesson`：所有权校验（异 user → NOT_FOUND）；事件序列 outline_ready→(section_start→tokens→section_ready)×N→terminal；每小节完成即持久（断线不留半句——落盘以小节为原子）；重开票据跳过 ready 小节；CAP_REACHED/provider 失败 → pausedKind 落库 + terminal；冻结契约注释更新（事件词表）
-- [ ] 接地与排他：②=node_grounding（confirmed 映射章节）；①=材料 sections 预算切片；两路源池皆过滤 origin=generated；Prompts.lesson_outline/lesson_section 落地（语言纪律单点；诚实条款——只讲所给源材料）
-- [ ] 估算函数：从模板常量导出预计调用数（②/①两形状），GraphQL 面可查（供入口与确认页共用，不手写成本表）
-- [ ] Tests：命令 spec（幂等 replay、unmapped 拒绝、echoed-outline 校验、origin=generated 行形状含 anchors、源池排他）；`/api/stream?op=lesson` 请求级 spec（首连含 outline_ready / 重连跳过 ready / 小节原子落盘 / cap 中途→paused+terminal / provider 失败→pausedKind）；prompt spec（接地排他 + 语言 parity）
-- [ ] Gates：rubocop + rspec 全绿（SimpleCov ≥96 地板）；mastery golden vectors 不动；既有三 SSE op 契约零变化
+- [x] 迁移：materials.origin enum（default uploaded）+ materials.generation jsonb + stream_tickets.op 检查约束加 `lesson`；Material GraphQL 类型加只读 origin/generation；MaterialSection 加只读 anchors；codegen 重生成 + committed schema 更新（CI freshness gate 绿）
+- [x] ProposeLessonOutlineCommand：parsed∧有 sections 的材料才可用；返回 [{title, sourceSectionIds}]（≤8，模板常量）；stateless；cap 照常消耗；Failure 形状走既有 roster（VALIDATION_FAILED/NOT_FOUND/CAP_REACHED）
+- [x] CreateLessonCommand：②输入 plan+node+clientUuid（outline 内部生成；unmapped 节点 → VALIDATION_FAILED 带诚实理由 context；每节点至多一份——已存在则幂等返回既有）+ 材料挂 plan/attachment_scope=node；①输入 material+echoed outline+clientUuid（校验 ≤8/标题去重；每源材料至多一份）；产物 origin=generated、kind=markdown、parse_state=parsed、无 blob、sections 空起步 + generation.outline 占位
+- [x] stream op `lesson`：所有权校验（异 user → NOT_FOUND）；事件序列 outline_ready→(section_start→tokens→section_ready)×N→terminal；每小节完成即持久（断线不留半句——落盘以小节为原子）；重开票据跳过 ready 小节；CAP_REACHED/provider 失败 → pausedKind 落库 + terminal；冻结契约注释更新（事件词表）
+- [x] 接地与排他：②=node_grounding（confirmed 映射章节）；①=材料 sections 预算切片；两路源池皆过滤 origin=generated；Prompts.lesson_outline/lesson_section 落地（语言纪律单点；诚实条款——只讲所给源材料）
+- [x] 估算函数：从模板常量导出预计调用数（②/①两形状），GraphQL 面可查（供入口与确认页共用，不手写成本表）
+- [x] Tests：命令 spec（幂等 replay、unmapped 拒绝、echoed-outline 校验、origin=generated 行形状含 anchors、源池排他）；`/api/stream?op=lesson` 请求级 spec（首连含 outline_ready / 重连跳过 ready / 小节原子落盘 / cap 中途→paused+terminal / provider 失败→pausedKind）；prompt spec（接地排他 + 语言 parity）
+- [x] Gates：rubocop + rspec 全绿（SimpleCov ≥96 地板）；mastery golden vectors 不动；既有三 SSE op 契约零变化

@@ -36,13 +36,14 @@ require "rails_helper"
 # frozen); epic-25 T3 with the one me query (the minimal MeType — email
 # only, the chrome's identity read beside the frozen UserType); epic-28 T1
 # with the one study-mark setter (FR-47 — orthogonal to mastery, never
-# evidence)
+# evidence); epic-36 T1 with the two generated-lesson mutations (the
+# proposeLessonOutline gate + the unified createLesson)
 # (byte-level idempotence against the committed schema.graphql
 # stays pinned by spec/graphql/schema_dump_spec.rb; this spec pins the
 # surface shape itself).
 RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
   it "exposes exactly the auth mutations plus the epic-03 domain mutations plus the epic P2-6 presign, the epic P2-5 AI mutations, the epic P2-8 import, the epic P2-10 mapping + scope mutations, the epic P2-12 note mutation, the epic P2-09 weekly-goal setter, the epic P2-09 T3 manual-task ops, the epic P2-09 T4 hub retake, the epic P2-11 T1 visibility flip, the epic P2-11 T3 Square adopt fork, the epic-13 T3 annotation ops,
-    the epic-13 T4 study-focus generation, the epic-14 T1 password change, the epic-14 T2 promotion, the epic-18 T1 mistake-lifecycle toggle, the epic-18 T2 generation-backed Today suggestion, the epic-28-ux-hardening T4 task deletion, and the epic-28-roadmap-parity T1 study-mark setter" do
+    the epic-13 T4 study-focus generation, the epic-14 T1 password change, the epic-14 T2 promotion, the epic-18 T1 mistake-lifecycle toggle, the epic-18 T2 generation-backed Today suggestion, the epic-28-ux-hardening T4 task deletion, the epic-28-roadmap-parity T1 study-mark setter, and the epic-36 generated-lesson mutations" do
     expect(Types::MutationType.fields.keys).to contain_exactly(
       "register", "login", "changePassword",
       "createPlan", "confirmProposal", "updatePlan", "deletePlan", "setPlanVisibility", "forkSquarePlan",
@@ -60,7 +61,8 @@ RSpec.describe "GraphQL auth surface (epic P2-2 ticket 02)" do
       "addManualTask", "setManualTaskDone", "deleteManualTask",
       "setMistakeEntryResolved",
       "generateTodaySuggestion",
-      "nodeStudyMarkSet"
+      "nodeStudyMarkSet",
+      "proposeLessonOutline", "createLesson"
     )
   end
 

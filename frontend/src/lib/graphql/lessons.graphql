@@ -1,0 +1,40 @@
+# The AI 讲义 operations (epic-36): the template-derived cost estimate the
+# entry entries render (FR-16 — the numbers come from the server's ONE source,
+# never a UI table), and the unified create behind both entry shapes (② by
+# plan+node with the internal outline call; ① by material+echoed outline — T3).
+# The lesson returns as a FULL Material row (the same shape attachMaterial
+# lands): it IS a material everywhere (readable, annotatable, quiz-sourceable).
+
+query LessonEstimate($variant: String!, $sectionCount: Int) {
+  lessonEstimate(variant: $variant, sectionCount: $sectionCount) {
+    outlineCalls
+    sectionsMin
+    sectionsMax
+    totalMin
+    totalMax
+  }
+}
+
+mutation CreateLesson($input: CreateLessonInput!) {
+  createLesson(input: $input) {
+    material {
+      ...MaterialParts
+    }
+  }
+}
+
+# The ① propose gate (epic-36 T3, spec decision 5): stateless outline proposal
+# for the materials-hub entry — one cap-counted call, nothing persisted; the
+# client confirms by echoing the reply verbatim into createLesson (the reply's
+# chapters carry title + sourceSectionIds only — id/anchors/status are null
+# here, the server re-mints them at create).
+mutation ProposeLessonOutline($input: ProposeLessonOutlineInput!) {
+  proposeLessonOutline(input: $input) {
+    outline {
+      id
+      title
+      sourceSectionIds
+    }
+    estimatedCalls
+  }
+}

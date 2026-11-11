@@ -30,6 +30,8 @@ const wirePlan = (overrides: Record<string, unknown> = {}) => ({
 
 const wireMaterial = (overrides: Record<string, unknown> = {}) => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: "mat-1",
   title: "共识协议讲义",
   kind: "markdown",

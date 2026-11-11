@@ -34,6 +34,8 @@ const MATERIALS: MaterialView[] = [
     sections: [{ id: "sec-1", title: "Raft", text: "leader election" }],
     createdAt: "2026-11-05T00:00:00Z",
     downloadUrl: null,
+    origin: "uploaded",
+    generation: null,
   },
 ];
 
@@ -49,13 +51,20 @@ const mappingRow = (overrides: Partial<MaterialNodeMappingView> = {}): MaterialN
 });
 
 const onTeach = vi.fn();
+const onLesson = vi.fn();
 
 function mount({
-  targets,
+  targets = null,
   failed = false,
+  lessonMaterialId = null,
+  lessonHint = null,
 }: {
-  targets: NodeJumpTarget[] | null;
+  targets?: NodeJumpTarget[] | null;
   failed?: boolean;
+  /** epic-36 T2: the node's existing lesson id, null = none. */
+  lessonMaterialId?: string | null;
+  /** epic-36 T2: the composed cost hint (estimate × remaining), null while either read is in flight. */
+  lessonHint?: string | null;
 }) {
   return render(
     <MemoryRouter>
@@ -67,6 +76,9 @@ function mount({
           nodeId="n-1"
           nodeTitle="Consensus"
           onTeach={onTeach}
+          lessonMaterialId={lessonMaterialId}
+          lessonHint={lessonHint}
+          onLesson={onLesson}
         />
       </LanguageProvider>
     </MemoryRouter>,
@@ -75,6 +87,7 @@ function mount({
 
 beforeEach(() => {
   onTeach.mockClear();
+  onLesson.mockClear();
 });
 
 describe("NodeActions — the AI 讲解 entry (epic-34 T2)", () => {
@@ -133,5 +146,67 @@ describe("NodeActions — the AI 讲解 entry (epic-34 T2)", () => {
     });
 
     expect(screen.queryByTestId("node-ask-ai")).not.toBeInTheDocument();
+  });
+});
+
+// ── epic-36 T2: the 「生成讲义」 entry (beside AI 讲解, independent) ──────────
+
+describe("NodeActions — the 生成讲义 entry (epic-36 T2)", () => {
+  const target = { mappingId: "row-1", materialId: "m-md", sectionId: "sec-1", title: "Raft", href: "/read/m-md?hl=1#sec-1" };
+
+  it("renders the independent lesson action beside AI 讲解 on a MAPPED node — clickable with the cost hint visible", async () => {
+    mount({ targets: [target], lessonHint: "预计 5–7 次 AI 调用 · 今日剩余 43 次" });
+
+    const lesson = screen.getByTestId("node-lesson");
+    expect(lesson).toBeInTheDocument();
+    expect(lesson).toHaveTextContent(zhDict["plans.nodeLessonAction"]);
+    expect(lesson.getAttribute("aria-label")).toBe(zhDict["plans.nodeLessonAria"].replace("{node}", "Consensus"));
+    expect(screen.getByTestId("node-lesson-hint")).toHaveTextContent("预计 5–7 次 AI 调用 · 今日剩余 43 次");
+
+    await userEvent.click(lesson);
+    expect(onLesson).toHaveBeenCalledExactlyOnceWith("n-1", "Consensus");
+  });
+
+  it("DISABLES the action on an UNMAPPED node with the honest reason always visible — the mapping dependency shown", () => {
+    mount({ targets: [] });
+
+    const lesson = screen.getByTestId("node-lesson");
+    expect(lesson).toBeDisabled();
+    expect(screen.getByTestId("node-lesson-hint")).toHaveTextContent(zhDict["plans.nodeLessonUnmapped"]);
+    expect(onLesson).not.toHaveBeenCalled();
+  });
+
+  it("DISABLES while the mapping read is in flight or failed (no honest mapped/unmapped verdict yet)", () => {
+    const inFlight = mount({ targets: null });
+    expect(screen.getByTestId("node-lesson")).toBeDisabled();
+    expect(screen.queryByTestId("node-lesson-hint")).not.toBeInTheDocument();
+    inFlight.unmount();
+
+    mount({ targets: null, failed: true });
+    expect(screen.getByTestId("node-lesson")).toBeDisabled();
+  });
+
+  it("a disabled action never dispatches — nothing is generated from thin air", async () => {
+    mount({ targets: [] });
+    await userEvent.click(screen.getByTestId("node-lesson"));
+    expect(onLesson).not.toHaveBeenCalled();
+  });
+
+  it("the node's EXISTING lesson deforms the action into 「打开讲义」 — enabled regardless of the mapping read", async () => {
+    mount({ lessonMaterialId: "lesson-1" });
+
+    const lesson = screen.getByTestId("node-lesson");
+    expect(lesson).toHaveTextContent(zhDict["plans.nodeLessonOpen"]);
+    expect(lesson).toBeEnabled();
+    expect(screen.queryByTestId("node-lesson-hint")).not.toBeInTheDocument(); // an open action costs nothing new
+
+    await userEvent.click(lesson);
+    expect(onLesson).toHaveBeenCalledExactlyOnceWith("n-1", "Consensus");
+  });
+
+  it("the hint stays honest-empty while the estimate/cap reads load — never guessed numbers", () => {
+    mount({ targets: [target], lessonHint: null });
+    expect(screen.getByTestId("node-lesson")).toBeEnabled();
+    expect(screen.queryByTestId("node-lesson-hint")).not.toBeInTheDocument();
   });
 });

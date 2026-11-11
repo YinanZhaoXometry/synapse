@@ -94,6 +94,53 @@ export interface StudyTaskView extends StudyTask {
 export interface MaterialView extends Material {
   /** Short-lived presigned URL, minted per request; null until the blob is attached. */
   downloadUrl: string | null;
+  /**
+   * epic-36 (AI 讲义): the origin axis — "uploaded" (the user's own document)
+   * or "generated" (a lesson Synapse produced FROM the user's materials).
+   * Server truth, rendered verbatim; the generated row keeps kind=markdown.
+   */
+  origin: MaterialOrigin;
+  /**
+   * epic-36: the lesson's live generation state — present ONLY on
+   * origin=generated rows, null on uploads. The reader's pending/streaming/
+   * paused rendering reads it verbatim (never re-derived from sections).
+   */
+  generation: LessonGenerationView | null;
+}
+
+/** The closed origin vocabulary (epic-36, spec decision 1). */
+export type MaterialOrigin = "uploaded" | "generated";
+
+/** One source anchor on a lesson outline chapter (the server's SourceAnchor verbatim). */
+export interface LessonSourceAnchorView {
+  materialId: string;
+  sectionId: string;
+}
+
+/**
+ * One persisted outline chapter — the reader's placeholder-card row. Strict:
+ * on a PERSISTED outline the id (ch-N), anchors, and status are all present
+ * (server-minted; the nullable propose-reply halves never ride a row).
+ */
+export interface LessonOutlineChapterView {
+  id: string;
+  title: string;
+  anchors: LessonSourceAnchorView[];
+  status: "pending" | "generating" | "ready" | "failed";
+}
+
+/**
+ * The generation jsonb over the wire (epic-36, spec decision 2): the reader's
+ * lesson state is THIS — outline placeholders with their per-chapter status,
+ * the pause kind (cap | provider | null), and the source pool. parsedState is
+ * never reused (that is the client-file axis; lessons are born parsed).
+ */
+export interface LessonGenerationView {
+  variant: "node" | "material";
+  sourceMaterialIds: string[];
+  outline: LessonOutlineChapterView[];
+  pausedKind: "cap" | "provider" | null;
+  generatedAt: string;
 }
 
 /** Session with its questions hydrated in generation order (the driver's grading input). */

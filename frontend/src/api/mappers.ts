@@ -35,7 +35,7 @@ import type {
   ReadingPositionPartsFragment,
   SectionMarkingPartsFragment,
 } from "@/types/graphql";
-import type { KnowledgeNodeView, MaterialNodeMappingView, MaterialView, NoteView, QuizSessionView, SectionMarkingView, StudyFocusSetView, StudyPlanView, StudyMark, StudyTaskView } from "./views";
+import type { KnowledgeNodeView, LessonGenerationView, LessonOutlineChapterView, MaterialNodeMappingView, MaterialOrigin, MaterialView, NoteView, QuizSessionView, SectionMarkingView, StudyFocusSetView, StudyPlanView, StudyMark, StudyTaskView } from "./views";
 
 function nodeState(state: string): KnowledgeNodeView["state"] {
   if (state === "uncovered" || state === "partial" || state === "mastered") return state;
@@ -107,6 +107,47 @@ function attachmentScope(scope: string): Material["attachmentScope"] {
   throw new Error(`unknown attachment scope from the api: ${scope}`);
 }
 
+// epic-36 (AI 讲义): the origin axis + the generation jsonb — the same law.
+function materialOrigin(origin: string): MaterialOrigin {
+  if (origin === "uploaded" || origin === "generated") return origin;
+  throw new Error(`unknown material origin from the api: ${origin}`);
+}
+
+function lessonOutlineStatus(status: string | null): LessonOutlineChapterView["status"] {
+  if (status === "pending" || status === "generating" || status === "ready" || status === "failed") return status;
+  throw new Error(`unknown lesson outline status from the api: ${status}`);
+}
+
+function lessonPausedKind(kind: string | null): LessonGenerationView["pausedKind"] {
+  if (kind === null) return null;
+  if (kind === "cap" || kind === "provider") return kind;
+  throw new Error(`unknown lesson pausedKind from the api: ${kind}`);
+}
+
+function lessonVariant(variant: string): LessonGenerationView["variant"] {
+  if (variant === "node" || variant === "material") return variant;
+  throw new Error(`unknown lesson variant from the api: ${variant}`);
+}
+
+/** The generation jsonb's GraphQL shape → the strict view. Null rides through
+ * (uploads carry no generation); every union rebuilds with the honest-mapper
+ * law, outline chapters keep the server's order verbatim. */
+export function mapLessonGeneration(generation: MaterialSummaryPartsFragment["generation"]): LessonGenerationView | null {
+  if (!generation) return null;
+  return {
+    variant: lessonVariant(generation.variant),
+    sourceMaterialIds: [...generation.sourceMaterialIds],
+    outline: generation.outline.map((chapter) => ({
+      id: chapter.id,
+      title: chapter.title,
+      anchors: (chapter.anchors ?? []).map((anchor) => ({ materialId: anchor.materialId, sectionId: anchor.sectionId })),
+      status: lessonOutlineStatus(chapter.status),
+    })),
+    pausedKind: lessonPausedKind(generation.pausedKind),
+    generatedAt: generation.generatedAt,
+  };
+}
+
 export function mapMaterialSummary(material: MaterialSummaryPartsFragment): MaterialView {
   return {
     id: material.id,
@@ -122,6 +163,8 @@ export function mapMaterialSummary(material: MaterialSummaryPartsFragment): Mate
     sections: [], // summaries carry no sections — detail views use mapMaterial
     createdAt: material.createdAt,
     downloadUrl: material.downloadUrl,
+    origin: materialOrigin(material.origin),
+    generation: mapLessonGeneration(material.generation),
   };
 }
 
@@ -141,6 +184,8 @@ export function mapMaterial(material: MaterialPartsFragment): MaterialView {
     sections,
     createdAt: material.createdAt,
     downloadUrl: material.downloadUrl,
+    origin: materialOrigin(material.origin),
+    generation: mapLessonGeneration(material.generation),
   };
 }
 

@@ -69,6 +69,8 @@ const MATERIALS: MaterialView[] = [
     sections: [{ id: "sec-1", title: "Raft", text: "leader election" }],
     createdAt: "2026-11-05T00:00:00Z",
     downloadUrl: null,
+    origin: "uploaded",
+    generation: null,
   },
 ];
 

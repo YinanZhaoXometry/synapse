@@ -119,6 +119,8 @@ function makeWorld(): World {
       const input = variables.input as EchoFixture;
       const material = {
         __typename: "Material",
+        origin: "uploaded",
+        generation: null,
         id: "m-echo-1",
         title: input.title,
         kind: input.kind,

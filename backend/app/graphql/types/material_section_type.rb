@@ -20,6 +20,14 @@ module Types
           null: false,
           description: "The extracted text, bounded per-section (kickoff delta 6: ≤ 100,000 characters)."
 
+    # The source anchors (epic-36 T1, spec decision 3): present ONLY on
+    # server-written lesson rows (the stream op writes them) — client-attached
+    # sections never carry the key, and the AttachMaterialInput validation
+    # shape is unchanged (the client cannot supply anchors).
+    field :anchors, [ Types::SourceAnchorType ],
+          null: true,
+          description: "The source sections this lesson section was generated from (epic-36, server-owned) — null on client-attached sections."
+
     def id
       object["id"]
     end
@@ -30,6 +38,10 @@ module Types
 
     def text
       object["text"]
+    end
+
+    def anchors
+      object["anchors"]
     end
   end
 end
