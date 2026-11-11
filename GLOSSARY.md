@@ -38,6 +38,20 @@ _Avoid_: done, complete, green (green is the rendering, not the state)
 The user's self-declared per-node status — `learning | finished | skipped`, nullable, revocable (FR-47). "Where the user says they are." ORTHOGONAL to the mastery states above by contract (ADR-0002): it renders (roadmap chip, sheet row) and nothing else — no score, readiness, targeting, or hub computation reads it.
 _Avoid_: done (the word itself — the UI copy is 已完成), mark-as-mastered (it is NEVER evidence), progress (the progress bar stays mastery-only)
 
+### Node teaching & mapping
+
+**AI 讲解 (node teaching)**:
+The node-scoped teaching action on a Knowledge Node — opens the plan Companion drawer with the turn grounded on that node (node scope + its confirmed section mappings; answers honestly that no material is attached when the node is unmapped). Always rendered, never mapping-gated; replaced the old mapping-gated 问 AI 导师 node action. Prefill is short and never auto-sent.
+_Avoid_: 问 AI 导师 (the node-level sense is retired), lesson (a generated artifact — a different, unbuilt thing)
+
+**Unmapped node (未映射节点)**:
+A Knowledge Node with zero confirmed section mappings — the material-mapping axis. NEVER confused with **uncovered** (the evidence axis): an unmapped node can be mastered, an uncovered node can be fully mapped.
+_Avoid_: 未覆盖节点 / uncovered (taken by the mastery axis)
+
+**Auto-mapping (自动映射)**:
+The plan-page effect that fires the section-mapping proposal once per mounted session for each parsed material with zero mapping rows. Consumes the user's daily AI cap like any AI call; the manual mapping button remains the explicit retry.
+_Avoid_: background mapping (it is not a job), ingestion (parsing is a different, client-side thing)
+
 ### Local data
 
 **synapse-db**:
