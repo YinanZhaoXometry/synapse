@@ -9,7 +9,7 @@
 
 **Blocked by:** None. Code-disjoint from epics 29-32 (touches PlansHomePage tab block, SidebarPlanTree, spine layout/graph constants + chip strip, CommandPalette keydown).
 
-**Status:** in-progress — claimed 2026-11-11 (epic-33 follow-up run, worktree `project-new-epic33-ux-polish`, branch `p4-33/t03-tab-roadmap-polish`)
+**Status:** done — shipped in PR #30 @ `1c61b01` (2026-11-11). All four batches landed; rail widths adapted 300/352 → 320/368 (4da79d3 had moved materials+notes into the rail — recorded as the ticket's one assumption). Owner manual checklist pending: ⌘K in the real browser (browser-level bindings stay unblockable).
 
 - [ ] Tab buttons render in the row vocabulary; pill classes gone from the two buttons; grid/card rendering untouched
 - [ ] Tree rows 14px, chip = bare accent number, heading = small regular label; AppLayout fixed links untouched
