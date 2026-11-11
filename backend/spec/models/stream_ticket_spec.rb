@@ -27,6 +27,18 @@ RSpec.describe StreamTicket do
       expect(described_class.redeem(expired.token, "companion")).to be_nil
     end
 
+    # epic-36 T1 (spec decision 4): the lesson op joins the frozen vocabulary
+    # — constant + DB check constraint land together.
+    it "admits the lesson op and keeps the database floor closed" do
+      lesson_ticket = create(:stream_ticket, user: user, op: "lesson", payload: { "lesson_id" => "m-1", "language" => "zh" })
+      expect(lesson_ticket.reload.op).to eq("lesson")
+      expect(described_class.redeem(lesson_ticket.token, "lesson")).to be_present
+
+      expect {
+        lesson_ticket.update_columns(op: "lessonx")
+      }.to raise_error(ActiveRecord::StatementInvalid)
+    end
+
     it "is race-safe: concurrent redemptions admit exactly one caller",
        use_transactional_fixtures: false do
       ticket = create(:stream_ticket, user: user, op: "companion")
