@@ -219,8 +219,13 @@ module Ai
       # sections while they fit, the honest hard cut (marker reserved) when
       # nothing fits, the estimate never exceeds the budget, `truncated`
       # honest.
-      def node_grounding(plan, node, budget: default_budget)
-        rows = node_teaching_mappings(plan, node)
+      # `mappings` is the ENGINE's opt-in (epic-36 review F2, spec decision 8):
+      # the ② lesson paths pass the origin-filtered rows (Ai::Lessons.
+      # node_engine_rows) so a generated lesson never grounds a lesson. The
+      # default stays the unfiltered node_teaching_mappings read — the
+      # TEACHING turn (epic-34's AI 讲解) is byte-identical.
+      def node_grounding(plan, node, budget: default_budget, mappings: nil)
+        rows = mappings || node_teaching_mappings(plan, node)
         parts = +""
         truncated = false
         consumed = 0

@@ -340,11 +340,13 @@ module Api
     end
 
     # The chapter's grounding: ONLY its assigned anchor sections, resolved
-    # against the owner's materials (deleted sources drop honestly — the
-    # prompt's honesty clause keeps the model from inventing over a gap).
+    # against the owner's UPLOADED materials (deleted sources drop honestly;
+    # a generated lesson never grounds a lesson — the engine's origin filter,
+    # spec decision 8 — and the prompt's honesty clause keeps the model from
+    # inventing over a gap).
     def lesson_section_context(user, chapter)
       pairs = Array(chapter["anchors"]).filter_map do |anchor|
-        material = user.materials.find_by(id: anchor["materialId"])
+        material = user.materials.where(origin: "uploaded").find_by(id: anchor["materialId"])
         section = material && Ai::ContextAssembler.section_by_id(material, anchor["sectionId"])
         next unless material && section
 
@@ -367,7 +369,13 @@ module Api
           node = user.knowledge_nodes.find_by(id: lesson.node_id)
           return [ :fail, "NOT_FOUND" ] unless node
 
-          grounding = Ai::ContextAssembler.node_grounding(node.plan, node)
+          # The ENGINE grounding (spec decision 8's 后端半边): the node's
+          # confirmed rows MINUS generated lessons — a lesson never feeds a
+          # lesson. The teaching path (epic-34's AI 讲解) keeps the unfiltered
+          # node_teaching_mappings; the engine filters at its own read.
+          grounding = Ai::ContextAssembler.node_grounding(
+            node.plan, node, mappings: Ai::Lessons.node_engine_rows(node)
+          )
           return [ :fail, "NOT_FOUND" ] if grounding.unmapped
 
           Ai::Prompts.lesson_outline(language: language, context: grounding, material_title: lesson.title,
@@ -389,7 +397,14 @@ module Api
           Ai::Lessons.normalize_node_outline(result.value!, node)
         else
           source = user.materials.find_by(id: Array(generation["sourceMaterialIds"]).first)
-          Ai::Lessons.normalize_material_outline(result.value!, source)
+          # The material variant's chapters carry only sourceSectionIds (the
+          # shared normalizer's reply shape) — the anchors are minted HERE,
+          # server-side, mirroring the node branch: without them the section
+          # fills ground on nothing and the persisted sections carry
+          # anchors: [] (the reader's source lines would vanish).
+          Ai::Lessons.normalize_material_outline(result.value!, source).map do |chapter|
+            chapter.merge("anchors" => Array(chapter["sourceSectionIds"]).map { |id| { "materialId" => source.id, "sectionId" => id } })
+          end
         end
       if chapters.empty?
         code = pause_and_code(lesson, ApplicationErrors::Failure.new(
@@ -399,7 +414,12 @@ module Api
       end
 
       outline = Ai::Lessons.outline_placeholder(chapters.map { |chapter| { title: chapter[:title] || chapter["title"], anchors: chapter[:anchors] || chapter["anchors"] } })
-      lesson.update!(generation: generation.merge("outline" => outline))
+      # pausedKind clears HERE too: the captured generation hash may still
+      # carry the pause a PREVIOUS failed in-stream outline attempt landed —
+      # merging over it would keep a false pause banner on a lesson whose
+      # outline just succeeded (the existing-outline resume clears at stream
+      # start; the empty-outline success write is its own way back).
+      lesson.update!(generation: generation.merge("outline" => outline, "pausedKind" => nil))
       [ :ok, outline ]
     end
 

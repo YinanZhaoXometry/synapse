@@ -95,7 +95,13 @@ module Ai
       existing = current_user.materials.find_by(origin: "generated", node_id: node.value!.id)
       return Success(material: existing) if existing
 
-      grounding = Ai::ContextAssembler.node_grounding(plan.value!, node.value!)
+      # The ENGINE grounding (spec decision 8's 后端半边): the node's
+      # confirmed rows MINUS generated lessons — a lesson never feeds a
+      # lesson, and a lesson-only-mapped node refuses as the honest unmapped
+      # BEFORE the call. The teaching path keeps the unfiltered read.
+      grounding = Ai::ContextAssembler.node_grounding(
+        plan.value!, node.value!, mappings: Ai::Lessons.node_engine_rows(node.value!)
+      )
       unless grounding.unmapped == false
         return Failure(:VALIDATION_FAILED,
                        { message: "the node has no confirmed material mapping — link a material's sections to it " \

@@ -39,8 +39,10 @@ module Ai
   # Command-layer doctrine (AD-12/AD-16): the AI commands (app/commands/ai/)
   # are deliberately NOT idempotent, unlike the delta-3 creates — every call
   # is a NEW generation, and the per-user daily cap bounds retries (FR-34).
-  # The one exception is generateQuiz's client_uuid: the session uuid keeps
-  # the delta-3 replay semantics (a same-user replay returns the existing
-  # session WITHOUT a provider call — a network-timeout retry never spends
-  # twice).
+  # The exceptions are the replay-before-spend commands, where a network-time
+  # retry could otherwise double-spend a row: generateQuiz's client_uuid (the
+  # session uuid — a same-user replay returns the existing session WITHOUT a
+  # provider call) and createLesson's client_uuid (epic-36 — the row id IS
+  # the uuid; a same-user replay returns the existing lesson untouched, ②'s
+  # outline call included).
 end

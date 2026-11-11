@@ -135,13 +135,26 @@ module Ai
         end.first(cap)
       end
 
-      # THIS node's confirmed section→material pairs (the node_teaching_mappings
-      # query — the grounding's own source of truth); a pair survives only
-      # when its section still resolves on the material.
+      # THIS node's confirmed section→material pairs for the ENGINE (spec
+      # decision 8's 后端半边): the confirmed section→material pairs the
+      # outline normalization accepts, built over node_engine_rows — a pair
+      # survives only when its section still resolves on an UPLOADED material
+      # (a generated lesson never grounds a lesson).
       def node_confirmed_pairs(node)
+        node_engine_rows(node)
+          .filter_map { |row| [ row.section_id, row.material ] if row.material && Ai::ContextAssembler.section_by_id(row.material, row.section_id) }
+          .to_h
+      end
+
+      # The engine's confirmed mapping rows (the 源池排他 half the mapping
+      # path needs): node_teaching_mappings MINUS generated lessons. The
+      # TEACHING path (epic-34's AI 讲解) reads the unfiltered query —
+      # teaching ≠ engine; the engine filters at its own read, so a lesson
+      # manually mapped onto a node can never feed another lesson (the
+      # server-side mapping refusal stays deferred defense-in-depth).
+      def node_engine_rows(node)
         Ai::ContextAssembler.node_teaching_mappings(node.plan, node)
-                            .filter_map { |row| [ row.section_id, row.material ] if row.material && Ai::ContextAssembler.section_by_id(row.material, row.section_id) }
-                            .to_h
+                            .reject { |row| row.material&.origin == "generated" }
       end
     end
   end
