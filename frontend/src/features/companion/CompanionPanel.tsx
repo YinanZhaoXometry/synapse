@@ -81,6 +81,20 @@ export interface ReadingCompanionPanelProps {
   askPrefill?: AskPrefill | null;
 }
 
+/**
+ * The AI 讲解 handoff (epic-34 T2): the plan page hands the panel a node
+ * teaching request — the drawer session marks the node (every turn rides its
+ * nodeId until the generic entry clears or another 讲解 replaces it) and the
+ * composer pre-fills with the short teaching ask, NEVER auto-sent. `nonce`
+ * makes the identity: re-invoking 讲解 for the same node re-fills the
+ * composer, the way the reading mode's AskPrefill re-asks.
+ */
+export interface TeachPrefill {
+  nodeId: string;
+  nodeTitle: string;
+  nonce: number;
+}
+
 export interface PlanCompanionPanelProps {
   /** "plan" — the plan-grounded chat surface (FR-46). */
   mode: "plan";
@@ -89,6 +103,8 @@ export interface PlanCompanionPanelProps {
   materials: Material[];
   /** The plan's mistake entries — the "analyze my mistakes" picker's rows. */
   mistakeEntries: PlanMistakeEntryView[];
+  /** The AI 讲解 request (epic-34 T2) — null is the generic session. */
+  teachPrefill?: TeachPrefill | null;
 }
 
 export type CompanionPanelProps = ReadingCompanionPanelProps | PlanCompanionPanelProps;
@@ -542,11 +558,25 @@ function ReadingCompanionSurface({
 const PLAN_INTENT_KEYS = [ "tutor.suggestExplain", "tutor.suggestQuiz", "tutor.suggestSummary" ] as const;
 const PLAN_MISTAKE_INTENT_KEY = "tutor.suggestMistake";
 
-function PlanCompanionSurface({ planId, materials, mistakeEntries }: PlanCompanionPanelProps) {
+function PlanCompanionSurface({ planId, materials, mistakeEntries, teachPrefill }: PlanCompanionPanelProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const chat = usePlanCompanionChat(planId);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // The AI 讲解 handoff (epic-34 T2): identity is the nonce — a 讲解 click
+  // marks the session's node (replace semantics: another node's 讲解 or the
+  // generic entry flips the prop away) and pre-fills the composer. The user
+  // presses send; nothing is spent on the click.
+  useEffect(() => {
+    if (teachPrefill) {
+      chat.beginTeaching({ id: teachPrefill.nodeId, title: teachPrefill.nodeTitle });
+      chat.setInput(t("plans.nodeTeachPrefill"));
+    } else {
+      chat.clearTeaching();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teachPrefill?.nonce, teachPrefill === null]);
 
   // Auto-scroll to the newest row / latest streamed token (scaffold pattern).
   const threadRef = useRef<HTMLDivElement>(null);
@@ -615,7 +645,9 @@ function PlanCompanionSurface({ planId, materials, mistakeEntries }: PlanCompani
         <span className="ml-auto flex-none inline-flex items-center rounded-full bg-[var(--accent-tint)] text-accent-ink px-2 py-0.5 text-[11px] font-semibold">
           {streamTarget
             ? t("companion.groundedBadge", { target: streamTarget })
-            : t("companion.planBadge")}
+            : chat.teachNode
+              ? t("companion.teachBadge", { node: chat.teachNode.title })
+              : t("companion.planBadge")}
         </span>
       </div>
 

@@ -293,3 +293,131 @@ describe("usePlanCompanionChat — the plan thread's persistence walk (epic-25 T
     expect(result.current.busy).toBe(false);
   });
 });
+
+// epic-34 T2 — the AI 讲解 drawer-session memory: while a node teaching
+// session is marked, EVERY turn rides its nodeId on the planChat request
+// (the ticket's grounding input); the generic entry (clearTeaching) drops
+// it, another node's 讲解 replaces it, and a plan switch clears it with
+// the rest of the reset. Pure frontend state — asserted at the seam the
+// stub records (the request), never at internals.
+describe("usePlanCompanionChat — the AI 讲解 session memory (epic-34 T2)", () => {
+  function hydratedHook(mocks: AnyMock[]) {
+    const rendered = renderHook(() => usePlanCompanionChat("plan-1"), {
+      wrapper: makeWrapper([planThreadMock("plan-1", restoredThread()), ...mocks]),
+    });
+    return rendered;
+  }
+
+  it("beginTeaching marks the session: EVERY send rides the node's nodeId", async () => {
+    // Two identical sends ride the same two exact-variables append mocks
+    // (each consumed once, in order).
+    const { mocks: firstTurn } = makeAppendSink();
+    const { mocks: secondTurn } = makeAppendSink();
+    const { result } = hydratedHook([ ...firstTurn, ...secondTurn ]);
+    await waitFor(() => {
+      expect(result.current.hydrated).toBe(true);
+    });
+
+    act(() => {
+      result.current.beginTeaching({ id: "node-9", title: "Raft 选举" });
+    });
+    expect(result.current.teachNode).toEqual({ id: "node-9", title: "Raft 选举" });
+
+    act(() => {
+      result.current.send(QUESTION);
+    });
+    await waitFor(() => {
+      expect(result.current.completionSignal).toBe(1);
+    });
+    act(() => {
+      result.current.send(QUESTION);
+    });
+    await waitFor(() => {
+      expect(result.current.completionSignal).toBe(2);
+    });
+
+    expect(planChatRequests.map((request) => request.nodeId)).toEqual(["node-9", "node-9"]);
+  });
+
+  it("clearTeaching drops the mark — later turns ride no nodeId", async () => {
+    const { mocks: firstTurn } = makeAppendSink();
+    const { mocks: secondTurn } = makeAppendSink();
+    const { result } = hydratedHook([ ...firstTurn, ...secondTurn ]);
+    await waitFor(() => {
+      expect(result.current.hydrated).toBe(true);
+    });
+
+    act(() => {
+      result.current.beginTeaching({ id: "node-9", title: "Raft 选举" });
+    });
+    act(() => {
+      result.current.send(QUESTION);
+    });
+    await waitFor(() => {
+      expect(result.current.completionSignal).toBe(1);
+    });
+    act(() => {
+      result.current.clearTeaching();
+    });
+    expect(result.current.teachNode).toBeNull();
+    act(() => {
+      result.current.send(QUESTION);
+    });
+    await waitFor(() => {
+      expect(result.current.completionSignal).toBe(2);
+    });
+
+    expect(planChatRequests.map((request) => request.nodeId)).toEqual(["node-9", undefined]);
+  });
+
+  it("teaching another node replaces the mark (the last 讲解 wins)", async () => {
+    const { mocks: firstTurn } = makeAppendSink();
+    const { mocks: secondTurn } = makeAppendSink();
+    const { result } = hydratedHook([ ...firstTurn, ...secondTurn ]);
+    await waitFor(() => {
+      expect(result.current.hydrated).toBe(true);
+    });
+
+    act(() => {
+      result.current.beginTeaching({ id: "node-9", title: "Raft 选举" });
+    });
+    act(() => {
+      result.current.send(QUESTION);
+    });
+    await waitFor(() => {
+      expect(result.current.completionSignal).toBe(1);
+    });
+    act(() => {
+      result.current.beginTeaching({ id: "node-10", title: "日志复制" });
+    });
+    act(() => {
+      result.current.send(QUESTION);
+    });
+    await waitFor(() => {
+      expect(result.current.completionSignal).toBe(2);
+    });
+
+    expect(planChatRequests.map((request) => request.nodeId)).toEqual(["node-9", "node-10"]);
+    expect(result.current.teachNode).toEqual({ id: "node-10", title: "日志复制" });
+  });
+
+  it("a plan switch clears the teaching mark with the rest of the session reset", async () => {
+    const { result, rerender } = renderHook(({ planId }: { planId: string }) => usePlanCompanionChat(planId), {
+      initialProps: { planId: "plan-1" },
+      wrapper: makeWrapper([
+        planThreadMock("plan-1", restoredThread()),
+        planThreadMock("plan-2", threadWire("plan-2", [])),
+      ]),
+    });
+    await waitFor(() => {
+      expect(result.current.hydrated).toBe(true);
+    });
+    act(() => {
+      result.current.beginTeaching({ id: "node-9", title: "Raft 选举" });
+    });
+
+    rerender({ planId: "plan-2" });
+
+    expect(result.current.teachNode).toBeNull();
+  });
+});

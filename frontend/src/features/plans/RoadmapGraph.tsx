@@ -110,6 +110,7 @@ export default function RoadmapGraph({
   edges,
   mappings,
   mappingsFailed = false,
+  onTeachNode,
 }: {
   planId: string;
   /** The plan's node rows, already shaped by nodeRowViews (score/state server fields, AD-14). */
@@ -121,6 +122,9 @@ export default function RoadmapGraph({
   /** The plan-scope batch mapping rows; undefined while the read is in flight. */
   mappings?: MaterialNodeMappingView[];
   mappingsFailed?: boolean;
+  /** The AI 讲解 entry (epic-34 T2): the plan page shell opens its Companion
+   * drawer pre-filled for that node. */
+  onTeachNode: (nodeId: string, nodeTitle: string) => void;
 }) {
   const { t } = useLanguage();
   const { reduceMotion } = useTheme();
@@ -659,6 +663,7 @@ export default function RoadmapGraph({
                 planId={planId}
                 nodeId={hovered.node.id}
                 nodeTitle={hovered.node.title}
+                onTeach={onTeachNode}
               />
             </div>
           </div>
@@ -722,12 +727,18 @@ export default function RoadmapGraph({
                 {selected.node.description ?? t("plans.graphNodeDescFallback")}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-3">
+                {/* The 讲解 click closes the sheet — the Companion drawer it
+                    opens lives on the plan page shell underneath. */}
                 <NodeActions
                   targets={selectedTargets}
                   failed={mappingsFailed}
                   planId={planId}
                   nodeId={selected.node.id}
                   nodeTitle={selected.node.title}
+                  onTeach={(nodeId, nodeTitle) => {
+                    setSelectedId(null);
+                    onTeachNode(nodeId, nodeTitle);
+                  }}
                 />
               </div>
               {mappings === undefined && !mappingsFailed && (

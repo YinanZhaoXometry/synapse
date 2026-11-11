@@ -27,6 +27,14 @@
  * section, and the stream's citation event carries the entry's own source
  * locator — the panel resolves the picker row against its mistakeEntries
  * for the streaming chip's label/jump target.
+ *
+ * The AI 讲解 session memory (epic-34 T2, frontend state only — zero server
+ * thread state): beginTeaching(nodeId) marks the drawer session as a node
+ * teaching session; EVERY turn sent while the mark holds rides `nodeId` on
+ * the ticket (follow-ups keep the node grounding — decision 9), and
+ * clearTeaching() drops it (the generic plan Companion entry). Teaching a
+ * different node replaces the mark. A plan switch clears it with the rest
+ * of the transcript reset.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -41,6 +49,14 @@ import { entriesFromThread } from "./message-shaping";
 export interface PlanTurnRequest {
   question: string;
   mistakeEntryId?: string;
+  /** The AI 讲解 session's node — rides every turn of a teaching session. */
+  nodeId?: string;
+}
+
+/** The drawer session's teaching mark: which node this session teaches. */
+export interface TeachNode {
+  id: string;
+  title: string;
 }
 
 export interface PlanCompanionEntry {
@@ -63,6 +79,9 @@ export function usePlanCompanionChat(planId: string) {
   const [streamMistakeEntryId, setStreamMistakeEntryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
+  // The AI 讲解 drawer-session mark (epic-34 T2): while set, EVERY turn rides
+  // its nodeId; cleared by the generic entry, replaced by another node's 讲解.
+  const [teachNode, setTeachNode] = useState<TeachNode | null>(null);
   // Bumped once per completed reply — the panel's single aria-live status
   // announces completion once (never per token, the same a11y floor as the
   // reading-mode hook).
@@ -97,6 +116,7 @@ export function usePlanCompanionChat(planId: string) {
     setStreamText(null);
     setStreamMistakeEntryId(null);
     setBusy(false);
+    setTeachNode(null);
   }, [planId]);
 
   // Restore (epic-25 T2): the persisted plan thread shapes into the transcript
@@ -149,6 +169,7 @@ export function usePlanCompanionChat(planId: string) {
             question: request.question,
             language,
             mistakeEntryId: request.mistakeEntryId,
+            nodeId: request.nodeId,
             // The cap-counted restart notice (AD-16, never silent): a drop →
             // fresh-ticket restart counted against the daily AI cap, surfaced
             // as the single toast pattern; the stream itself continues.
@@ -219,15 +240,31 @@ export function usePlanCompanionChat(planId: string) {
     [appendMessage, busy, language, t],
   );
 
-  /** A new plan-grounded turn; mistakeEntryId grounds "analyze my mistakes". */
+  /** A new plan-grounded turn; mistakeEntryId grounds "analyze my mistakes".
+   * A teaching session's mark (epic-34 T2) rides its nodeId on every turn. */
   const send = useCallback(
     (rawQuestion: string, mistakeEntryId?: string) => {
       const question = rawQuestion.trim();
       if (!question || busy) return;
-      runTurn({ question, mistakeEntryId }, question);
+      runTurn({ question, mistakeEntryId, nodeId: teachNode?.id }, question);
     },
-    [busy, runTurn],
+    [busy, runTurn, teachNode],
   );
+
+  /**
+   * The AI 讲解 entry (epic-34 T2): mark the drawer session as teaching THIS
+   * node — every later turn in the session carries the node grounding until
+   * the generic entry clears it or another node's 讲解 replaces it. Pure
+   * frontend state; the prefill itself is the panel's composer concern.
+   */
+  const beginTeaching = useCallback((node: TeachNode) => {
+    setTeachNode(node);
+  }, []);
+
+  /** The generic plan Companion entry: drop the teaching mark. */
+  const clearTeaching = useCallback(() => {
+    setTeachNode(null);
+  }, []);
 
   /** One-click retry of a failed turn — same question, same grounding input. */
   const retry = useCallback(
@@ -247,6 +284,8 @@ export function usePlanCompanionChat(planId: string) {
     streamText,
     /** The in-flight turn's mistake grounding id, if the turn carried one. */
     streamMistakeEntryId,
+    /** The drawer session's AI 讲解 mark, null outside a teaching session. */
+    teachNode,
     busy,
     /** True once this plan's server thread has shaped into the transcript —
      * the send gate that keeps a pre-hydration turn from being clobbered by
@@ -256,6 +295,9 @@ export function usePlanCompanionChat(planId: string) {
     setInput,
     send,
     retry,
+    /** epic-34 T2: the AI 讲解 session memory (begin/clear; per-turn nodeId). */
+    beginTeaching,
+    clearTeaching,
     completionSignal,
   };
 }

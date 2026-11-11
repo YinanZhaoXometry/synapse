@@ -18,6 +18,7 @@
  * material. Expected copy reads the dictionary directly, never recomputed.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -27,7 +28,7 @@ import type { CompanionService } from "@/ai/companion-service";
 import type { CompanionReply, PlanChatRequest } from "@/ai/types";
 import type { Material } from "@/domain/entities";
 import type { PlanMistakeEntryView } from "@/api";
-import { CompanionPanel } from "./CompanionPanel";
+import { CompanionPanel, type TeachPrefill } from "./CompanionPanel";
 
 // the persistence walk is out of scope here — the plan thread hydrates from a
 // fixture (or stays empty) and appends no-op
@@ -94,7 +95,7 @@ const stubService = (): CompanionService => ({
   gradeOpenAnswer: vi.fn(),
 });
 
-function renderPanel(overrides: { mistakeEntries?: PlanMistakeEntryView[] } = {}) {
+function renderPanel(overrides: { mistakeEntries?: PlanMistakeEntryView[]; teachPrefill?: TeachPrefill | null } = {}) {
   return render(
     <MemoryRouter>
       <LanguageProvider>
@@ -244,5 +245,130 @@ describe("CompanionPanel — plan-grounding mode (FR-46)", () => {
     // plan-1's turns never render under plan-2; the composer is alive again.
     expect(screen.queryByText(fixtureReply.text)).toBeNull();
     expect(screen.getByText(zh("tutor.suggestExplain"))).toBeTruthy();
+  });
+});
+
+// epic-34 T2 — the AI 讲解 handoff at the panel: the request pre-fills the
+// composer and NEVER auto-sends (nothing is spent on the click), the header
+// badge names the node while the session teaches it, every sent turn rides
+// the nodeId (the hook's session mark), the generic entry (teachPrefill
+// null) drops it, and another node's 讲解 replaces it. userEvent-first.
+describe("CompanionPanel — the AI 讲解 handoff (epic-34 T2)", () => {
+  beforeEach(() => {
+    planChatInputs.length = 0;
+    planThreadState.fixture = undefined;
+    fixtureReply = {
+      intent: "explain",
+      rung: "hint",
+      text: "先看节点层的顺序，材料里有对应章节。",
+      citations: [],
+      canEscalate: false,
+      language: "zh",
+    };
+    setCompanionService(stubService());
+  });
+
+  afterEach(() => {
+    setCompanionService(null);
+  });
+
+  it("the 讲解 request pre-fills the composer (never auto-sent) and the badge names the node", async () => {
+    const { rerender } = renderPanel({
+      teachPrefill: { nodeId: "n-1", nodeTitle: "Raft 选举", nonce: 1 },
+    });
+
+    const composer = screen.getByLabelText(zh("companion.planPlaceholder")) as HTMLTextAreaElement;
+    expect(composer.value).toBe(zh("plans.nodeTeachPrefill"));
+    // NOTHING spent on the click — no planChat request until the user sends.
+    expect(planChatInputs).toHaveLength(0);
+    // The header badge carries the node (the session's honesty surface),
+    // not the generic plan badge.
+    expect(screen.getByText(zh("companion.teachBadge").replace("{node}", "Raft 选举"))).toBeTruthy();
+
+    // Re-invoking 讲解 for the same node re-fills the composer (the nonce rule).
+    rerender(
+      <MemoryRouter>
+        <LanguageProvider>
+          <div className="h-[480px]">
+            <CompanionPanel
+              mode="plan"
+              planId="plan-1"
+              materials={[material]}
+              mistakeEntries={[mistakeEntry]}
+              teachPrefill={{ nodeId: "n-1", nodeTitle: "Raft 选举", nonce: 2 }}
+            />
+          </div>
+        </LanguageProvider>
+      </MemoryRouter>,
+    );
+    expect((screen.getByLabelText(zh("companion.planPlaceholder")) as HTMLTextAreaElement).value).toBe(
+      zh("plans.nodeTeachPrefill"),
+    );
+    expect(planChatInputs).toHaveLength(0);
+  });
+
+  it("every turn of the teaching session rides the nodeId; the generic entry clears it", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderPanel({
+      teachPrefill: { nodeId: "n-1", nodeTitle: "Raft 选举", nonce: 1 },
+    });
+
+    await user.click(screen.getByLabelText(zh("companion.send")));
+    await screen.findAllByText(fixtureReply.text);
+    expect(planChatInputs).toHaveLength(1);
+    expect(planChatInputs[0].nodeId).toBe("n-1");
+
+    // The generic plan Companion entry: teachPrefill drops to null — the
+    // session mark clears, the next turn is a plain plan-grounded turn.
+    rerender(
+      <MemoryRouter>
+        <LanguageProvider>
+          <div className="h-[480px]">
+            <CompanionPanel mode="plan" planId="plan-1" materials={[material]} mistakeEntries={[mistakeEntry]} />
+          </div>
+        </LanguageProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(zh("companion.planBadge"))).toBeTruthy();
+    // the composer is empty after the sent turn — type the follow-up first
+    await user.type(screen.getByLabelText(zh("companion.planPlaceholder")), "计划的重点？");
+    await user.click(screen.getByLabelText(zh("companion.send")));
+    await screen.findAllByText(fixtureReply.text);
+    expect(planChatInputs).toHaveLength(2);
+    expect(planChatInputs[1].nodeId).toBeUndefined();
+  });
+
+  it("invoking 讲解 for a DIFFERENT node replaces the session's node", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderPanel({
+      teachPrefill: { nodeId: "n-1", nodeTitle: "Raft 选举", nonce: 1 },
+    });
+
+    await user.click(screen.getByLabelText(zh("companion.send")));
+    await screen.findAllByText(fixtureReply.text);
+    expect(planChatInputs[0].nodeId).toBe("n-1");
+
+    rerender(
+      <MemoryRouter>
+        <LanguageProvider>
+          <div className="h-[480px]">
+            <CompanionPanel
+              mode="plan"
+              planId="plan-1"
+              materials={[material]}
+              mistakeEntries={[mistakeEntry]}
+              teachPrefill={{ nodeId: "n-2", nodeTitle: "日志复制", nonce: 2 }}
+            />
+          </div>
+        </LanguageProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(zh("companion.teachBadge").replace("{node}", "日志复制"))).toBeTruthy();
+
+    await user.type(screen.getByLabelText(zh("companion.planPlaceholder")), "第二点展开讲讲");
+    await user.click(screen.getByLabelText(zh("companion.send")));
+    await screen.findAllByText(fixtureReply.text);
+    expect(planChatInputs).toHaveLength(2);
+    expect(planChatInputs[1].nodeId).toBe("n-2");
   });
 });

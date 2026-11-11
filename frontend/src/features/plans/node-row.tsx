@@ -36,6 +36,7 @@ export default function NodeRow({
   materials,
   mappings,
   mappingsFailed = false,
+  onTeach,
 }: {
   view: NodeRowView;
   planId: string;
@@ -43,6 +44,8 @@ export default function NodeRow({
   /** The plan-scope batch rows (T4); undefined while the batch read is in flight. */
   mappings?: MaterialNodeMappingView[];
   mappingsFailed?: boolean;
+  /** The AI 讲解 entry (epic-34 T2): the plan page shell opens its drawer. */
+  onTeach: (nodeId: string, nodeTitle: string) => void;
 }) {
   const { t } = useLanguage();
   // The node's rows off the batch, resolved into REAL jump targets (the
@@ -61,6 +64,7 @@ export default function NodeRow({
         planId={planId}
         nodeId={view.node.id}
         nodeTitle={view.node.title}
+        onTeach={onTeach}
       />
       <Popover>
         <PopoverTrigger asChild>

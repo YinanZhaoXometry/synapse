@@ -265,6 +265,12 @@ export type CreateStreamTicketInput = {
   message?: string | null | undefined;
   /** plan_companion only: the optional mistake entry's uuid — the "analyze my mistakes" grounding input (ownership-checked). */
   mistakeEntryId?: string | null | undefined;
+  /**
+   * plan_companion only: the optional knowledge node's uuid — the AI 讲解
+   * node-teaching grounding input (epic-34 T2; ownership-checked against the
+   * ticket's plan — a node of another plan, a task node, or a foreign node is NOT_FOUND).
+   */
+  nodeId?: string | null | undefined;
   /** The streamed op: "companion" | "proposal" | "plan_companion". */
   op: string;
   /** plan_companion only: the plan's uuid (ownership-checked — FR-46, epic P2-12 T3). */

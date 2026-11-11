@@ -25,7 +25,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { QuizLauncher, quizableMaterials } from "@/features/quiz";
 import { FlashcardLauncher } from "@/features/flashcards";
-import { CompanionPanel } from "@/features/companion";
+import { CompanionPanel, type TeachPrefill } from "@/features/companion";
 import MaterialCoveragePanel from "./MaterialCoveragePanel";
 import MaterialScopeControls from "./MaterialScopeControls";
 import NotesSection from "./NotesSection";
@@ -104,6 +104,24 @@ export default function PlanHomePage() {
   const mistakesQuery = usePlanMistakeEntriesQuery(id ?? "");
   const [companionOpen, setCompanionOpen] = useState(false);
   const companionSectionRef = useRef<HTMLElement>(null);
+  // Epic-34 T2 (AI 讲解): a node's teach action hands the drawer its session
+  // request — the panel marks the node (every turn rides the nodeId) and
+  // pre-fills the composer. The generic quick action hands null (clears).
+  const [teachRequest, setTeachRequest] = useState<TeachPrefill | null>(null);
+  const teachNonceRef = useRef(0);
+
+  const openCompanion = () => {
+    setTeachRequest(null);
+    setCompanionOpen(true);
+    requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const openTeaching = (nodeId: string, nodeTitle: string) => {
+    teachNonceRef.current += 1;
+    setTeachRequest({ nodeId, nodeTitle, nonce: teachNonceRef.current });
+    setCompanionOpen(true);
+    requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   const openPicker = (materialId: string | null = null) => {
     pickerTargetRef.current = materialId;
@@ -223,11 +241,10 @@ export default function PlanHomePage() {
       desc: t("plans.quickCompanionDesc"),
       off: false,
       // Epic P2-12 T3 (FR-46): opens the plan-grounded chat drawer (the
-      // retired slice-4 placeholder toast is gone).
-      run: () => {
-        setCompanionOpen(true);
-        requestAnimationFrame(() => companionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-      },
+      // retired slice-4 placeholder toast is gone). The GENERIC entry —
+      // epic-34 T2: it also clears any AI 讲解 node session the drawer
+      // was carrying (context follows intent, not stale memory).
+      run: openCompanion,
     },
   ] as const;
 
@@ -308,6 +325,7 @@ export default function PlanHomePage() {
                 edges={plan.edges}
                 mappings={mappingsQuery.data}
                 mappingsFailed={!!mappingsQuery.error}
+                onTeachNode={openTeaching}
               />
             </section>
           ) : (
@@ -323,6 +341,7 @@ export default function PlanHomePage() {
                       materials={materials}
                       mappings={mappingsQuery.data}
                       mappingsFailed={!!mappingsQuery.error}
+                      onTeach={openTeaching}
                     />
                   ))}
                 </div>
@@ -488,6 +507,7 @@ export default function PlanHomePage() {
             planId={plan.id}
             materials={materials}
             mistakeEntries={mistakesQuery.data ?? []}
+            teachPrefill={teachRequest}
           />
         </div>
       </section>
