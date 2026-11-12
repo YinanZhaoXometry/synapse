@@ -24,7 +24,10 @@ export default function RegisterPage() {
   useSessionExitNotice();
   const from = useAuthReturnDestination();
 
-  if (getToken()) return <Navigate to="/plans" replace />;
+  // Same return-aware authed-redirect as LoginPage: Router 7's startTransition
+  // navigations race the token-write render here too — /plans hard-coded would
+  // swallow a deep-link ?next= (see LoginPage for the full race note).
+  if (getToken()) return <Navigate to={from} replace />;
 
   const submit = (email: string, password: string) => {
     setError(null);

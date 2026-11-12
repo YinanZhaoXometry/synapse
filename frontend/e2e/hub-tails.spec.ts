@@ -127,6 +127,12 @@ test.describe("the hub tails (epic-18)", () => {
     // The hub carries the entry (the deliberate wrong answer).
     await page.getByRole("link", { name: "错题本" }).click();
     await expect(page).toHaveURL(/\/mistakes/);
+    // Router 7 commits route swaps inside a startTransition: the URL flips
+    // synchronously while the previous screen (the quiz results, which renders
+    // the SAME question text) can stay mounted until the lazy route chunk
+    // resolves. The hub's own heading is the committed-screen signal — the
+    // strict card locator below must never resolve against the old tree.
+    await expect(page.getByRole("heading", { name: "错因比答案更有用。" })).toBeVisible();
     const card = page.locator("article").filter({ hasText: "Stub question 2: which option is the study answer?" });
     await expect(card).toBeVisible();
     await expect(card.getByText("你的答案")).toBeVisible();

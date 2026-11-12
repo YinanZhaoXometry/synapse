@@ -28,8 +28,14 @@ export default function LoginPage() {
   useSessionExitNotice();
   const from = useAuthReturnDestination();
 
-  // Already authed → the wall has nothing to say.
-  if (getToken()) return <Navigate to="/plans" replace />;
+  // Already authed → the wall has nothing to say. The redirect carries the
+  // same return destination as the imperative post-login navigate: Router 7
+  // wraps imperative navigates in startTransition (non-urgent) while the
+  // token write + a sibling state update can flush this render FIRST — a
+  // hard-coded /plans here would win the race and swallow ?next= (the
+  // destinations e2e pinned exactly that). Same target both ways = the race
+  // is unobservable.
+  if (getToken()) return <Navigate to={from} replace />;
 
   const submit = (email: string, password: string) => {
     setError(null);

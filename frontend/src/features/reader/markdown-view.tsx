@@ -24,7 +24,7 @@
  * heading's right edge and the claimed section's green start (tint overlay +
  * mastered edge bar, the flash overlay's positioning precedent).
  */
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
