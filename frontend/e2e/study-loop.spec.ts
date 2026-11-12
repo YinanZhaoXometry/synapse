@@ -154,6 +154,11 @@ test.describe("the critical study loop", () => {
     await registerOrLogin(page);
     await page.getByRole("link", { name: "错题本" }).click();
     await expect(page).toHaveURL(/\/mistakes/);
+    // Router 7 commits route swaps inside a startTransition — the URL flips
+    // synchronously while the previous screen can stay mounted until the lazy
+    // route chunk resolves. The hub's own heading is the committed-screen
+    // signal the question-text assertions below need.
+    await expect(page.getByRole("heading", { name: "错因比答案更有用。" })).toBeVisible();
 
     await expect(page.getByText("Stub question 2: which option is the study answer?")).toBeVisible();
     await expect(page.getByText("你的答案").first()).toBeVisible();
