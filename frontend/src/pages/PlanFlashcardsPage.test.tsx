@@ -66,6 +66,8 @@ const planDetail = () => ({
   materials: [
     {
       __typename: "Material",
+      origin: "uploaded",
+      generation: null,
       id: "m-1",
       title: "复习讲义.md",
       kind: "markdown",
@@ -84,6 +86,8 @@ const planDetail = () => ({
 
 const materialFull = (id: string, title: string, sections: Array<Record<string, unknown>>) => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id,
   title,
   kind: "markdown",

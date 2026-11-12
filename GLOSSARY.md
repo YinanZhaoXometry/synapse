@@ -42,7 +42,7 @@ _Avoid_: done (the word itself — the UI copy is 已完成), mark-as-mastered (
 
 **AI 讲解 (node teaching)**:
 The node-scoped teaching action on a Knowledge Node — opens the plan Companion drawer with the turn grounded on that node (node scope + its confirmed section mappings; answers honestly that no material is attached when the node is unmapped). Always rendered, never mapping-gated; replaced the old mapping-gated 问 AI 导师 node action. Prefill is short and never auto-sent.
-_Avoid_: 问 AI 导师 (the node-level sense is retired), lesson (a generated artifact — a different, unbuilt thing)
+_Avoid_: 问 AI 导师 (the node-level sense is retired), lesson (a generated artifact — see AI 讲义, a different thing)
 
 **Unmapped node (未映射节点)**:
 A Knowledge Node with zero confirmed section mappings — the material-mapping axis. NEVER confused with **uncovered** (the evidence axis): an unmapped node can be mastered, an uncovered node can be fully mapped.
@@ -51,6 +51,12 @@ _Avoid_: 未覆盖节点 / uncovered (taken by the mastery axis)
 **Auto-mapping (自动映射)**:
 The plan-page effect that fires the section-mapping proposal once per mounted session for each parsed material with zero mapping rows. Consumes the user's daily AI cap like any AI call; the manual mapping button remains the explicit retry.
 _Avoid_: background mapping (it is not a job), ingestion (parsing is a different, client-side thing)
+
+### Generated study content
+
+**AI 讲义 (Generated lesson)**:
+A Material Synapse generates FROM the user's own materials — a grounded re-presentation, never parametric writing. Markdown kind, `origin: generated`; every section carries source anchors back to the mapped sections (node entry) or the source material (material entry) it was generated from. One per node / one per source material; regeneration replaces in place. A full Material everywhere (readable, annotatable, quiz-sourceable) with two exclusions: never a generation source for other lessons, never proposed by Auto-mapping.
+_Avoid_: 书 / book (the parametric living-book pipeline stays rejected), 讲解 (the dialogue action — ephemeral, not persisted), AI 内容 (say which: a lesson is a Material)
 
 ### Local data
 

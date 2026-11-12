@@ -147,6 +147,8 @@ const serverNode = (masteryScore: string, state: string, overrides: Record<strin
 
 const serverMaterial = (overrides: Record<string, unknown> = {}) => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: MATERIAL_ID,
   title: "lecture-04",
   kind: "markdown",

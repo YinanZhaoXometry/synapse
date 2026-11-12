@@ -15,6 +15,10 @@
  *     assembled context ([material id=…], [section id=…], [node id=…]) — the
  *     server's normalization would drop questions citing ids the context does
  *     not carry, so fabrication here would fail loudly, not silently.
+ *   - lesson outline (epic-36) → {"chapters":[{title, sourceSectionIds}]} —
+ *     the real section ids split deterministically into two chapters.
+ *   - lesson section fill (epic-36) → the chapter Markdown (## heading +
+ *     recap), title regexed out of the prompt.
  *   - anything else  → a plain-text reply; an unexpected AI surface fails its
  *     downstream JSON parse (INTERNAL) instead of being silently faked.
  *
@@ -168,6 +172,51 @@ function mappingReply(text) {
   });
 }
 
+/**
+ * The lesson outline reply (epic-36 T3 — the ① propose gate AND ②'s internal
+ * outline call share the `Prompts.lesson_outline` shape): {"chapters":[…]}
+ * — the real `[section id=…]` values regexed out of the assembled context,
+ * split deterministically into TWO chapters (a head chapter and a tail
+ * chapter; a single-section context collapses honestly to one chapter with
+ * that section). The server's outline normalizer drops chapters citing ids
+ * the context does not carry, so fabrication would fail loudly, not silently.
+ */
+function lessonOutlineReply(text) {
+  const sectionIds = [...text.matchAll(/\[section id=(.+?)[\]\s]/g)].map((match) => match[1]);
+  if (sectionIds.length === 0) {
+    return "Stub could not find section ids in the lesson outline context.";
+  }
+  const unique = [...new Set(sectionIds)];
+  const split = Math.ceil(unique.length / 2);
+  const chapters = [{ title: "基础梳理", sourceSectionIds: unique.slice(0, split) }];
+  if (unique.length > split) {
+    chapters.push({ title: "要点深化", sourceSectionIds: unique.slice(split) });
+  }
+  return JSON.stringify({ chapters });
+}
+
+/**
+ * The lesson section fill reply (epic-36 T3 — the stream op's per-chapter
+ * `Prompts.lesson_section` shape): the chapter Markdown itself, opening with
+ * the level-2 heading the prompt asks for and closing with the recap line —
+ * the chapter title is regexed out of the prompt (the server echoes it into
+ * the outline status flip, so a missed match would still land a usable
+ * body, just generically titled).
+ */
+function lessonSectionReply(text) {
+  const chapterTitle = (text.match(/writing the chapter "(.+?)" of/) ?? [])[1] ?? "本章";
+  return [
+    `## ${chapterTitle}`,
+    "",
+    "本小节是对来源材料对应小节的重新组织：stub 确定性内容，用于验证讲义生成链路的端到端行为。",
+    "",
+    "- 要点一：讲义严格来自学习者上传的材料，不做无依据的展开。",
+    "- 要点二：每小节完成后立即落盘，断线重开只补缺失部分。",
+    "",
+    "小结：本小节覆盖了来源小节的核心内容，可通过来源行跳回原文核对。",
+  ].join("\n");
+}
+
 function replyFor(messages) {
   const lastUser = [...messages].reverse().find((message) => message.role === "user");
   const text = lastUser?.content ?? "";
@@ -181,6 +230,14 @@ function replyFor(messages) {
   // server normalizes (unknown sections dropped, hallucinated node ids would
   // land Unmapped), so fabrication would fail loudly, not silently.
   if (text.includes("Map EVERY [section id=")) return mappingReply(text);
+  // Lesson outline (epic-36): the stable instruction line of
+  // Prompts.lesson_outline — JSON chapters citing real section ids.
+  if (text.includes("Propose a chapter outline for an AI-generated study lesson")) {
+    return lessonOutlineReply(text);
+  }
+  // Lesson section fill (epic-36): the per-chapter Markdown request —
+  // matched on the lesson-writing sentence no other prompt carries.
+  if (text.includes("of the generated study lesson")) return lessonSectionReply(text);
   return "Stub reply.";
 }
 

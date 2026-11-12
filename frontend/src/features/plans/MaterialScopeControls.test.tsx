@@ -36,6 +36,8 @@ const NODES: KnowledgeNodeView[] = [
 
 const wireMaterial = (scope: string, nodeId: string | null) => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: "m-1",
   title: "Distributed systems notes",
   kind: "markdown",
@@ -65,6 +67,8 @@ const MATERIAL: MaterialView = {
   sections: [],
   createdAt: "2026-11-05T00:00:00Z",
   downloadUrl: null,
+  origin: "uploaded",
+  generation: null,
 };
 
 /** A real mini-parent: the row's material rides the Materials read like PlanHome's rows do. */

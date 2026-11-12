@@ -167,21 +167,30 @@ module Ai
         ]
       end
 
-      # Note generation (FR-40, epic P2-12 T1; delta decisions 1+5): a
-      # standalone, exportable Markdown study note assembled from ONLY the
-      # context the command gathered (NFR-1). The reply is the Markdown note
-      # itself — NOT JSON (the system prompt's JSON contract is overridden by
-      # this task's own reply contract, the same way the proposal's tag
-      # contract overrides it). Visual enrichment rides as PLACEMENT markers
-      # (delta decision 1's markers-only v1): the model decides WHERE a visual
-      # aids understanding and emits [[enrich|kind|suggestion]] on its own
-      # line; content stays text and no assets are stored in v1.
+      # Note generation (FR-40, epic P2-12 T1; delta decisions 1+5; epic-35
+      # T03 adds the teaching directives): a standalone, exportable Markdown
+      # study note assembled from ONLY the context the command gathered
+      # (NFR-1). The reply is the Markdown note itself — NOT JSON (the system
+      # prompt's JSON contract is overridden by this task's own reply
+      # contract, the same way the proposal's tag contract overrides it).
+      # The teaching lines (epic-35 T03, from the obsidian-notes craft):
+      # intuition before formal statements, one fully worked example with a
+      # sanity check, tables for comparisons, ASCII diagrams in code fences,
+      # plain-text math — the client renderer has no LaTeX or diagram-syntax
+      # rendering, so a real figure rides ONLY an enrichment marker — and an
+      # honesty line (flag ambiguity, never paper over). The word band and
+      # every v1 contract line (heading start, marker form, language
+      # directive, reply-only contract) are unchanged.
+      # Visual enrichment rides as PLACEMENT markers (delta decision 1's
+      # markers-only v1): the model decides WHERE a visual aids understanding
+      # and emits [[enrich|kind|suggestion]] on its own line; content stays
+      # text and no assets are stored in v1.
       # `quota_plan` is T2's weak-spot coverage bias (FR-22, epic P2-12): the
       # server-computed per-node coverage weights — a selection/weighting
       # layer ONLY (FR-21's targeting layer), never a new source; content
       # still comes only from the assembled context. nil keeps the prompt
-      # byte-for-byte identical to the T1 shape (pinned full-string-eq in the
-      # note command spec).
+      # byte-for-byte identical to the no-quota shape (pinned full-string-eq
+      # in the note command spec).
       def note(language:, context:, quota_plan: nil)
         [ system,
           user(<<~PROMPT)
@@ -193,13 +202,17 @@ module Ai
 
             Write a standalone, exportable Markdown study note from ONLY the material above — a learner must be able to read it without the original material at hand.
             Begin the note with a single level-1 heading ("# …") that names the note; structure it with headings and short paragraphs.
-            Aim for #{NOTE_MIN_WORDS}–#{NOTE_MAX_WORDS} words (target: #{NOTE_TARGET}).
+            Teach, don't summarize: lead each concept with why it matters and the intuition BEFORE the formal statement, and make prerequisites and assumptions explicit.
+            Where the material allows, work at least one example completely — show the reasoning step by step and end with a quick sanity check of the result.
+            Prefer a Markdown table when comparing alternatives; draw structure or flow as a small ASCII diagram inside a code fence; write math inline in plain text (Unicode symbols) — LaTeX source and diagram-syntax blocks are never rendered, so a real figure rides only an enrichment marker.
+            State plainly when the material is ambiguous or assumes prior knowledge — flag it, never paper over it and never invent what the material does not ground.
+            Aim for #{NOTE_MIN_WORDS}–#{NOTE_MAX_WORDS} words (target: #{NOTE_TARGET}); depth over decoration — no filler.
             Where a visual would genuinely aid understanding, insert an enrichment marker on its own line, in EXACTLY this form:
             [[enrich|kind|what the visual should show]]
             kind is one of: #{NOTE_MARKER_KINDS.map { |kind| "\"#{kind}\"" }.join(", ")}. Placement is your call — only where a picture truly helps; never place a marker for something the material does not ground.
             #{language_directive(language)}
 
-            Reply ONLY with the Markdown note itself — no code fences, no commentary before or after.
+            Reply ONLY with the Markdown note itself — do not wrap the reply in a code fence; no commentary before or after.
           PROMPT
         ]
       end
@@ -416,7 +429,64 @@ module Ai
         ]
       end
 
-      private
+      # Lesson outline gate (epic-36 T1, spec decisions 5+7+8 — ① 材料讲义):
+      # a parsed material's budget-sliced sections become a chapter proposal —
+      # stateless (nothing persists; a re-roll is simply another call). The
+      # reply contract is the JSON the command normalizes: chapters with
+      # titles + the [section id=…] ids they teach. `outline_target` rides
+      # from the template constants (Ai::Lessons — the ① cap 8; the ② internal
+      # outline passes the node variant's tighter cap), never hand-written.
+      def lesson_outline(language:, context:, material_title:, outline_target: Ai::Lessons::MATERIAL_MAX_SECTIONS)
+        [ system,
+          user(<<~PROMPT)
+            Study material context (the ONLY allowed source):
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            Propose a chapter outline for an AI-generated study lesson (AI 讲义) built from the material "#{material_title}" above.
+            At most #{outline_target} chapters. Every chapter MUST carry:
+            - "title": a short chapter name grounded in the material's sections.
+            - "sourceSectionIds": the [section id=…] values from the context that the chapter teaches — at least one, and only ids that appear above.
+            Together the chapters should cover the material; a section that fits no chapter may be left out honestly — never invent content or ids.
+            #{language_directive(language, "every chapter title")}
+
+            Reply ONLY with JSON: {"chapters":[{"title":"…","sourceSectionIds":["…"]}]}
+          PROMPT
+        ]
+      end
+
+      # Lesson section fill (epic-36 T1, spec decision 7 — both variants):
+      # ONE chapter's body written in ONE streamed pass (single-pass, the
+      # budget-first amendment over the research document's two-pass
+      # proposal). The context is ONLY the chapter's assigned source
+      # sections — the grounding discipline the stream op enforces when
+      # assembling. The honesty clause is the GLOSSARY law (AI 讲义 = a
+      # grounded re-presentation of the learner's own materials, never
+      # parametric writing): the lesson teaches nothing the assigned sources
+      # do not ground. The reply is the chapter Markdown itself (the system
+      # prompt's JSON contract overridden, the note builder's posture).
+      def lesson_section(language:, context:, lesson_title:, chapter_title:)
+        [ system,
+          user(<<~PROMPT)
+            Study material context (the ONLY allowed source) — the source sections assigned to ONE chapter:
+            ---
+            #{context.text}
+            ---
+            #{context_note(context)}
+
+            You are writing the chapter "#{chapter_title}" of the generated study lesson "#{lesson_title}" (AI 讲义).
+            Write that ONE chapter as Markdown: begin with a single level-2 heading ("## …") naming the chapter, then short paragraphs; end with a one-line recap.
+            Teach ONLY from the assigned source sections above — the lesson is a grounded re-presentation of the learner's own material, never parametric writing: never state a fact the context does not ground.
+            #{language_directive(language, "the entire chapter")}
+
+            Reply ONLY with the chapter Markdown itself — no code fences, no commentary before or after.
+          PROMPT
+        ]
+      end
+
+    private
 
       def proposal_material_block(materials)
         list = (materials || []).filter_map do |material|

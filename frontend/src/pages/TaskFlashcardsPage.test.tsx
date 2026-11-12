@@ -53,6 +53,8 @@ const serverTask = {
 
 const serverMaterial = {
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: MATERIAL_ID,
   title: "复习讲义.md",
   kind: "markdown",

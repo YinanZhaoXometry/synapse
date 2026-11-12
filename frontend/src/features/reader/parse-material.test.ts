@@ -32,6 +32,8 @@ const material = (overrides: Partial<MaterialView> = {}): MaterialView => ({
   sections: [],
   createdAt: "2026-11-04T00:00:00Z",
   downloadUrl: null,
+  origin: "uploaded",
+  generation: null,
   ...overrides,
 });
 

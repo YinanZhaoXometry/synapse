@@ -219,8 +219,13 @@ module Ai
       # sections while they fit, the honest hard cut (marker reserved) when
       # nothing fits, the estimate never exceeds the budget, `truncated`
       # honest.
-      def node_grounding(plan, node, budget: default_budget)
-        rows = node_teaching_mappings(plan, node)
+      # `mappings` is the ENGINE's opt-in (epic-36 review F2, spec decision 8):
+      # the ② lesson paths pass the origin-filtered rows (Ai::Lessons.
+      # node_engine_rows) so a generated lesson never grounds a lesson. The
+      # default stays the unfiltered node_teaching_mappings read — the
+      # TEACHING turn (epic-34's AI 讲解) is byte-identical.
+      def node_grounding(plan, node, budget: default_budget, mappings: nil)
+        rows = mappings || node_teaching_mappings(plan, node)
         parts = +""
         truncated = false
         consumed = 0
@@ -254,6 +259,39 @@ module Ai
         end
 
         NodeGrounding.new(text: parts.strip, truncated: truncated, unmapped: !mapped_usable)
+      end
+
+      # The lesson section-fill grounding (epic-36 T1, spec decision 7 — the
+      # stream op's per-chapter context): ONE chapter's assigned source
+      # sections, resolved by the caller into (material, section) pairs in
+      # anchor order — nothing else rides (the chapter teaches its own
+      # sources, never the whole corpus). Budget discipline is
+      # node_grounding's: whole sections while they fit, the honest hard cut
+      # when nothing fits, the estimate never exceeds the budget, `truncated`
+      # honest.
+      def lesson_section_grounding(pairs, budget: default_budget)
+        parts = +""
+        truncated = false
+        consumed = 0
+
+        reserve = estimate_tokens(TRUNCATION_MARKER) + 1
+        pairs.each do |material, section|
+          remaining = budget - consumed
+          break if remaining <= reserve
+
+          block = "[material id=#{material.id} title=\"#{material.title}\"]\n#{render_section(section)}"
+          tokens = estimate_tokens(block)
+          if tokens <= remaining
+            parts << block
+            consumed += tokens
+          else
+            consumed, = append_bounded(parts, section_header(section), section_text(section), consumed, budget)
+            truncated = true
+            break
+          end
+        end
+
+        Assembled.new(text: parts.strip, truncated: truncated)
       end
 
       # The teaching turn's confirmed mapping rows (epic-34 T2): THIS node's

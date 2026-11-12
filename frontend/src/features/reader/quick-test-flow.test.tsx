@@ -57,6 +57,8 @@ const materialFixture = {
   sections,
   createdAt: "2026-11-01T00:00:00Z",
   downloadUrl: null,
+  origin: "uploaded" as const,
+  generation: null,
 };
 
 const planNodesFixture = [

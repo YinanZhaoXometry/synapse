@@ -44,6 +44,8 @@ const MAT_ORPHAN = "m-orphan";
 
 const material = (over: Record<string, unknown>): EchoFixture => ({
   __typename: "Material",
+  origin: "uploaded",
+  generation: null,
   id: "m-x",
   title: "材料",
   kind: "markdown",

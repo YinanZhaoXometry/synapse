@@ -17,7 +17,7 @@
  * the presigned GET). Quick actions never promise dead clicks: generation
  * tiles explain their slice, upload opens the real file picker.
  */
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, ChevronUp, FileText, GitFork, Info, Layers, ListChecks, MessageCircle, RotateCw, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -32,8 +32,14 @@ import NotesSection from "./NotesSection";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlanVisibilityControls from "./PlanVisibilityControls";
 import {
+  apiErrorCode,
+  apiErrorKeys,
+  newClientUuid,
   sessionBlobs,
+  useAiUsageTodayQuery,
   useAllEvidenceQuery,
+  useCreateLessonMutation,
+  useLessonEstimateQuery,
   useMaterialUpload,
   useFlashcardsByPlanQuery,
   usePlanMaterialsQuery,
@@ -49,6 +55,7 @@ import type { KnowledgeNodeView, MaterialView } from "@/api/views";
 import { PARSE_REASON_MESSAGE_KEY, useParseMaterialMutation } from "@/features/reader";
 import { nodeRowViews, planCardMetrics, planRecentActivity, stageGroups } from "./display-shaping";
 import { unmappedNodeCount } from "./auto-mapping";
+import { lessonEntryHint, nodeLessonMaterial } from "./lesson-entry";
 import { useAutoMapping } from "./use-auto-mapping";
 import NodeRow from "./node-row";
 import RoadmapGraph from "./RoadmapGraph";
@@ -57,6 +64,13 @@ import { isPptxUpload, validateUpload } from "./upload-validation";
 import { useSessionBlob } from "./use-session-blob";
 import { ContractNote, MasteryRing, StreakChip } from "./atoms";
 import PageLoader from "@/components/shared/PageLoader";
+import type { ErrorLike } from "@apollo/client";
+
+// The lesson create's toast keys ride the shared ai.generate. closed enum
+// (the server adapter's map — capReached included); anything unmapped falls
+// to the honest generic failure key.
+const LESSON_ERROR_KEYS: Record<string, string> = apiErrorKeys("ai.generate.");
+const LESSON_CREATE_FAILED_KEY = "ai.generate.failed";
 
 export default function PlanHomePage() {
   const { t, language } = useLanguage();
@@ -121,6 +135,40 @@ export default function PlanHomePage() {
     materials: materialsQuery.data,
     mappingRows: mappingsQuery.data,
   });
+  // Epic-36 T2 (生成讲义): the node sheet's lesson entry — the shell owns the
+  // create → navigate flow. An existing lesson (the server's per-node
+  // singleton, mirrored by nodeLessonMaterial off the materials read) OPENS
+  // instead of creating. The create carries ONE server-side outline call; a
+  // NEW lesson navigates with ?generate=1 — the one-shot "stream now" command
+  // the reader consumes once on mount (the explicit commitment: no auto-resume
+  // ever re-streams a returned-to lesson — spec decision 9).
+  const lessonEstimateQuery = useLessonEstimateQuery("node");
+  const aiUsageQuery = useAiUsageTodayQuery();
+  const lessonHint = lessonEntryHint(lessonEstimateQuery.data, aiUsageQuery.data, t);
+  const [createLessonMutation, createLessonResult] = useCreateLessonMutation();
+  const handleNodeLesson = useCallback(
+    (nodeId: string, _nodeTitle: string) => {
+      const existing = nodeLessonMaterial(materialsQuery.data, nodeId);
+      if (existing) {
+        navigate(`/read/${existing.id}`);
+        return;
+      }
+      if (createLessonResult.loading) return; // one commit per click
+      void createLessonMutation({
+        variables: { input: { clientUuid: newClientUuid(), language, planId: id, nodeId } },
+        onCompleted: (data) => {
+          const lesson = data?.createLesson?.material;
+          if (lesson) navigate(`/read/${lesson.id}?generate=1`);
+          else toast.error(t("ai.generate.failed"));
+        },
+        onError: (error) => {
+          const code = apiErrorCode(error as ErrorLike);
+          toast.error(t(code ? (LESSON_ERROR_KEYS[code] ?? LESSON_CREATE_FAILED_KEY) : LESSON_CREATE_FAILED_KEY));
+        },
+      });
+    },
+    [materialsQuery.data, createLessonMutation, createLessonResult.loading, language, id, navigate, t],
+  );
 
   // The shared drawer tail (review round): open + smooth-scroll the drawer
   // into view — both the generic entry and a node's 讲解 handoff land here.
@@ -347,6 +395,8 @@ export default function PlanHomePage() {
                 mappings={mappingsQuery.data}
                 mappingsFailed={!!mappingsQuery.error}
                 onTeachNode={openTeaching}
+                onLessonNode={handleNodeLesson}
+                lessonHint={lessonHint}
               />
             </section>
           ) : (
@@ -363,6 +413,8 @@ export default function PlanHomePage() {
                       mappings={mappingsQuery.data}
                       mappingsFailed={!!mappingsQuery.error}
                       onTeach={openTeaching}
+                      onLesson={handleNodeLesson}
+                      lessonHint={lessonHint}
                     />
                   ))}
                 </div>
@@ -625,40 +677,27 @@ function MaterialRow({
   // material with content has sections to map — the action never shows for
   // pending/failed rows (there is nothing honest to map yet).
   const hasSections = material.parseState === "parsed" && material.sections.length > 0;
+  // Two-line card (epic-35 T01): the rail gives this row ~288px and the chips
+  // are nowrap, so a single flex line squeezes the title to nothing (the
+  // TaskHomePage row's flex-wrap is the precedent). Line 1 = identity + the
+  // reader link; line 2 wraps the status/meta/coverage/scope chips honestly.
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
-      <span className="text-sm truncate flex-1">{material.title}</span>
-      {/* Open in the Immersive Reader (FR-8; T2) — every state lands honestly
-          there: parsing shows the skeleton, failed the reason card, and a
-          byteless parsed material the re-upload affordance. */}
-      <Link
-        to={`/read/${material.id}`}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
-        title={t(openLabelKey)}
-      >
-        <BookOpen className="w-3 h-3" aria-hidden="true" /> {t(openLabelKey)}
-      </Link>
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground flex-none">{kind}</span>
-      <span className="text-[10px] text-muted-foreground tabular-nums flex-none">
-        {t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}
-      </span>
-      {hasSections && (
-        <button
-          type="button"
-          onClick={onToggleCoverage}
-          aria-expanded={coverageOpen}
-          className={cn(
-            "pill cursor-pointer flex-none",
-            coverageOpen ? "pill-mastered" : "pill-muted",
-          )}
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <FileText className="w-4 h-4 text-muted-foreground flex-none" aria-hidden="true" />
+        <span className="text-sm truncate flex-1 min-w-0">{material.title}</span>
+        {/* Open in the Immersive Reader (FR-8; T2) — every state lands honestly
+            there: parsing shows the skeleton, failed the reason card, and a
+            byteless parsed material the re-upload affordance. */}
+        <Link
+          to={`/read/${material.id}`}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink cursor-pointer hover:underline flex-none"
+          title={t(openLabelKey)}
         >
-          {t("mapping.title")}
-        </button>
-      )}
-      {/* Attachment scope (FR-44, epic P2-10 T2): the chip + pin/widen affordance.
-          Task materials render nothing (the triangle has no node pinning). */}
-      <MaterialScopeControls material={material} nodes={nodes} />
+          <BookOpen className="w-3 h-3" aria-hidden="true" /> {t(openLabelKey)}
+        </Link>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-1.5">
       {needsReupload ? (
         <span className="flex items-center gap-2 flex-none">
           <span className="pill pill-muted cursor-help" title={t("plans.materialsSessionNote")}>
@@ -699,6 +738,30 @@ function MaterialRow({
           {t("plans.parsePending")}
         </span>
       )}
+        {/* kind + size as one muted meta token — two chips were two overflow
+            candidates in a 288px rail (epic-35 T01). */}
+        <span className="text-[10px] text-muted-foreground flex-none">
+          <span className="uppercase tracking-wide">{kind}</span>
+          {" · "}
+          <span className="tabular-nums">{t("plans.sizeMb", { n: (material.sizeBytes / 1e6).toFixed(1) })}</span>
+        </span>
+        {hasSections && (
+          <button
+            type="button"
+            onClick={onToggleCoverage}
+            aria-expanded={coverageOpen}
+            className={cn(
+              "pill cursor-pointer flex-none",
+              coverageOpen ? "pill-mastered" : "pill-muted",
+            )}
+          >
+            {t("mapping.title")}
+          </button>
+        )}
+        {/* Attachment scope (FR-44, epic P2-10 T2): the chip + pin/widen affordance.
+            Task materials render nothing (the triangle has no node pinning). */}
+        <MaterialScopeControls material={material} nodes={nodes} />
+      </div>
     </div>
   );
 }

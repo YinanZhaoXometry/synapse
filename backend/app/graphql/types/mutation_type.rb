@@ -143,5 +143,12 @@ module Types
     # bonus keeps riding any entry (the ruling annotated at
     # Ai::TargetingCandidates).
     field :set_mistake_entry_resolved, mutation: Mutations::Mistakes::SetMistakeEntryResolved
+
+    # The generated-lesson surface (epic-36 T1, spec decisions 1+5): the
+    # outline gate (①'s stateless propose) + the unified create (② node /
+    # ① material). The sections fill live through /api/stream?op=lesson —
+    # createStreamTicket mints that op's tickets.
+    field :propose_lesson_outline, mutation: Mutations::Ai::ProposeLessonOutline
+    field :create_lesson, mutation: Mutations::Ai::CreateLesson
   end
 end

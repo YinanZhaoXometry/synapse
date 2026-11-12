@@ -24,6 +24,9 @@ const PlanHomePage = lazy(() => import("@/features/plans/PlanHomePage"));
 const SquarePlanPage = lazy(() => import("@/features/plans/SquarePlanPage"));
 const PlanQuizPage = lazy(() => import("@/pages/PlanQuizPage"));
 const PlanFlashcardsPage = lazy(() => import("@/pages/PlanFlashcardsPage"));
+// The standalone note reading page (epic-35 T02) is lazy too — it pulls the
+// reader's markdown chunk through NoteBodyView, same AD-8 rule as the reader.
+const NotePage = lazy(() => import("@/features/plans/NotePage"));
 const TaskQuizPage = lazy(() => import("@/pages/TaskQuizPage"));
 const TaskFlashcardsPage = lazy(() => import("@/pages/TaskFlashcardsPage"));
 const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
@@ -144,6 +147,17 @@ const App = () => (
                   element={
                     <Suspense fallback={null}>
                       <PlanFlashcardsPage />
+                    </Suspense>
+                  }
+                />
+                {/* The standalone note reading page (epic-35 T02): long notes
+                    leave the plan-home rail — the ReaderPage full-page shell
+                    over the shared NoteBodyView; the rail's rows link here. */}
+                <Route
+                  path="/plan/:id/notes/:noteId"
+                  element={
+                    <Suspense fallback={null}>
+                      <NotePage />
                     </Suspense>
                   }
                 />

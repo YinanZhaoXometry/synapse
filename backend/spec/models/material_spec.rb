@@ -59,4 +59,41 @@ RSpec.describe Material, type: :model do
       saved.update_columns(attachment_scope: "banana")
     }.to raise_error(ActiveRecord::StatementInvalid)
   end
+
+  # Generated lessons (epic-36 T1, spec decision 1): every material starts
+  # uploaded (backward compatible — no backfill), and a server-side lesson
+  # flips origin explicitly. kind stays {pdf, markdown} — a lesson is always
+  # markdown.
+  it "defaults origin to uploaded (backward compatible — no backfill)" do
+    expect(described_class.new.origin).to eq("uploaded")
+
+    material = described_class.create!(model_attributes)
+    expect(material.reload.origin).to eq("uploaded")
+  end
+
+  it "carries the generated origin with its generation jsonb (the lesson row shape)" do
+    generation = {
+      "variant" => "node",
+      "sourceMaterialIds" => [ "m-1" ],
+      "outline" => [ { "id" => "ch-1", "title" => "Raft", "anchors" => [ { "materialId" => "m-1", "sectionId" => "sec-1" } ], "status" => "pending" } ],
+      "pausedKind" => nil,
+      "generatedAt" => Time.current.iso8601
+    }
+    material = described_class.create!(model_attributes.merge(
+      origin: "generated", kind: "markdown", parse_state: "parsed",
+      size_bytes: 0, generation: generation
+    ))
+
+    expect(material.reload.origin).to eq("generated")
+    expect(material.generation).to eq(generation.stringify_keys)
+  end
+
+  it "pins origin to the closed two values (uploaded | generated) at the database floor" do
+    expect { described_class.new(origin: "book") }.to raise_error(ArgumentError)
+
+    saved = described_class.create!(model_attributes)
+    expect {
+      saved.update_columns(origin: "banana")
+    }.to raise_error(ActiveRecord::StatementInvalid)
+  end
 end

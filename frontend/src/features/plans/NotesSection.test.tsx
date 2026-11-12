@@ -2,6 +2,7 @@ import { MockedProvider } from "@apollo/client/testing/react";
 import type { MockedResponse } from "@apollo/client/testing";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { translations } from "@/contexts/i18n-dictionary";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,15 +13,16 @@ import { splitNoteBody } from "./note-body-shaping";
 
 /**
  * NotesSection (epic P2-12 T1; FR-40; delta decision 3 — component render
- * seam, MaterialCoveragePanel.test.tsx precedent): the plan's notes render
- * from fixture views (title, scope chip, the scope's resolved target), the
- * generate flow rides the mutation with the EXACT scope input the picker
- * built (plan | node | material + the optional enrichAt annotation), marker
- * cards render per kind (diagram/chart/image/user), export downloads valid
- * markdown containing the markers verbatim (the payload captured through a
- * stubbed Blob; the anchor click jsdom-pinned), and the notes namespace
- * exists in BOTH dictionary languages (independent source, never
- * recomputed).
+ * seam, MaterialCoveragePanel.test.tsx precedent; epic-35 T02 reshaped the
+ * rows): the plan's notes render from fixture views (title, scope chip, the
+ * scope's resolved target, a scanning excerpt) as LINKS into the standalone
+ * reading page — the body itself never renders in the rail (NotePage.test
+ * owns the body assertions) — the generate flow rides the mutation with the
+ * EXACT scope input the picker built (plan | node | material + the optional
+ * enrichAt annotation), export downloads valid markdown containing the
+ * markers verbatim (the payload captured through a stubbed Blob; the anchor
+ * click jsdom-pinned), and the notes namespace exists in BOTH dictionary
+ * languages (independent source, never recomputed).
  */
 
 const zhDict = (translations as Record<string, Record<string, string>>).zh;
@@ -45,6 +47,8 @@ const MATERIAL: MaterialView = {
   sections: [{ id: "sec-1", title: "Raft", text: "" }],
   createdAt: "2026-11-05T00:00:00Z",
   downloadUrl: null,
+  origin: "uploaded",
+  generation: null,
 };
 
 const MATERIALS = [ MATERIAL ];
@@ -95,7 +99,9 @@ function mount(mocks: MockedResponse[] = [ notesMock ]) {
   return render(
     <MockedProvider mocks={mocks}>
       <LanguageProvider>
-        <NotesSection planId="plan-1" nodes={NODES} materials={MATERIALS} />
+        <MemoryRouter>
+          <NotesSection planId="plan-1" nodes={NODES} materials={MATERIALS} />
+        </MemoryRouter>
         <Toaster />
       </LanguageProvider>
     </MockedProvider>,
@@ -106,7 +112,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("NotesSection (delta decision 3 — plan-scoped, no new route)", () => {
+describe("NotesSection (delta decision 3 — plan-scoped; epic-35 T02: rows link to the reading page)", () => {
   it("renders the plan's notes — title, scope chip, and the scope's resolved target", async () => {
     mount();
     await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(3));
@@ -117,18 +123,20 @@ describe("NotesSection (delta decision 3 — plan-scoped, no new route)", () => 
     expect(screen.getByText("Distributed systems notes")).toBeTruthy();
   });
 
-  it("expands a note into the body with marker cards per kind — diagram, chart, and the user-requested one", async () => {
+  it("links every row to the standalone reading page — the body never renders in the rail", async () => {
     mount();
     await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(3));
-    fireEvent.click(screen.getAllByRole("button", { name: /Raft in one note/i })[0]);
 
-    const cards = await screen.findAllByTestId("note-marker-card");
-    expect(cards).toHaveLength(3);
-    expect(cards[0].getAttribute("data-marker-kind")).toBe("diagram");
-    expect(cards[1].getAttribute("data-marker-kind")).toBe("chart");
-    expect(cards[2].getAttribute("data-marker-kind")).toBe("user");
-    expect(cards[2].textContent).toContain(zh("notes.kind.user"));
-    expect(cards[2].textContent).toContain("a timeline of the consensus rounds");
+    const links = screen.getAllByTestId("note-row-link");
+    expect(links).toHaveLength(3);
+    expect(links[0].getAttribute("href")).toBe("/plan/plan-1/notes/note-1");
+    expect(links[1].getAttribute("href")).toBe("/plan/plan-1/notes/note-2");
+    expect(links[2].getAttribute("href")).toBe("/plan/plan-1/notes/note-3");
+
+    // the body itself stays off the rail (the reading page owns it)
+    expect(screen.queryByTestId("note-body")).toBeNull();
+    // …but a scanning excerpt rides the row (markers stripped)
+    expect(screen.getAllByText(/Raft elects a leader and replicates the log/).length).toBe(3);
   });
 
   it("generates with the scope picker's exact input — whole plan", async () => {
@@ -283,39 +291,6 @@ describe("NotesSection weak-spot targeting (FR-22, epic P2-12 T2)", () => {
     expect(captured[1]?.targeting).toEqual({ mode: "weakSpot" });
   });
 
-  it("renders the 针对薄弱点 provenance strip above the body from the server's targeting rows", async () => {
-    const targeted = note({
-      id: "note-9",
-      targeting: [
-        { nodeId: "n-1", title: "Consensus", score: "0", mistakes: 1, share: 2 },
-        { nodeId: "n-2", title: "Replication", score: "40", mistakes: 0, share: 1 },
-      ],
-    });
-    mount([
-      { request: { query: PlanNotesDocument, variables: { planId: "plan-1" } }, result: { data: { notes: [wire(targeted)] } } },
-    ]);
-    await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(1));
-    fireEvent.click(screen.getAllByRole("button", { name: /Raft in one note/i })[0]);
-
-    const strip = await screen.findByTestId("note-targeting-strip");
-    expect(strip.textContent).toContain(zh("notes.targetingLabel"));
-    expect(strip.textContent).toContain("Consensus");
-    expect(strip.textContent).toContain("Replication");
-    const chips = strip.querySelectorAll("[data-testid='note-targeting-chip']");
-    expect(chips).toHaveLength(2);
-    // share chips carry the coverage weight (the first node's share is 2)
-    expect(chips[0].getAttribute("title")).toBe(zh("notes.targetingShare").replace("{share}", "2"));
-    expect(chips[1].getAttribute("title")).toBe(zh("notes.targetingShare").replace("{share}", "1"));
-  });
-
-  it("keeps untargeted notes stripless — targeting [] or garbage never renders a strip", async () => {
-    mount();
-    await waitFor(() => expect(screen.getAllByTestId("note-row")).toHaveLength(3));
-    fireEvent.click(screen.getAllByRole("button", { name: /Raft in one note/i })[0]);
-
-    const bodies = screen.getAllByTestId("note-body");
-    for (const body of bodies) {
-      expect(body.querySelector("[data-testid='note-targeting-strip']")).toBeNull();
-    }
-  });
+  // The targeting strip renders on the READING PAGE now (epic-35 T02) —
+  // NotePage.test.tsx owns the strip + marker-card body assertions.
 });
